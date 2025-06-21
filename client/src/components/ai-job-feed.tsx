@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, MapPin, Building, DollarSign, Clock, ThumbsUp, ThumbsDown, Eye } from "lucide-react";
+import { Sparkles, MapPin, Building, DollarSign, Clock, ThumbsUp, ThumbsDown, Eye, ExternalLink, MessageCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +25,7 @@ interface AIJobMatch {
     aiCurated: boolean;
     confidenceScore: number;
     externalSource?: string;
+    externalUrl?: string;
   };
   matchScore: string;
   confidenceLevel: number;
@@ -70,10 +71,7 @@ export default function AIJobFeed() {
 
   const feedbackMutation = useMutation({
     mutationFn: async ({ matchId, feedback }: { matchId: number; feedback: 'positive' | 'negative' }) => {
-      return apiRequest(`/api/matches/${matchId}/feedback`, {
-        method: 'POST',
-        body: JSON.stringify({ feedback }),
-      });
+      return apiRequest('POST', `/api/matches/${matchId}/feedback`, { feedback });
     },
     onSuccess: () => {
       toast({
@@ -86,9 +84,7 @@ export default function AIJobFeed() {
 
   const viewJobMutation = useMutation({
     mutationFn: async (matchId: number) => {
-      return apiRequest(`/api/matches/${matchId}/view`, {
-        method: 'POST',
-      });
+      return apiRequest('POST', `/api/matches/${matchId}/view`, {});
     },
   });
 
@@ -98,7 +94,19 @@ export default function AIJobFeed() {
   };
 
   const handleQuickApply = (match: AIJobMatch) => {
+    // External job - redirect to external application
+    if (match.job.externalSource) {
+      window.open(match.job.externalUrl || '#', '_blank');
+      return;
+    }
+    
+    // Internal job - apply through our system
     applyMutation.mutate(match.job.id);
+  };
+
+  const handleChatNow = (match: AIJobMatch) => {
+    // Create chat room for internal job and redirect to chat
+    window.location.href = `/chat?jobId=${match.job.id}&matchId=${match.id}`;
   };
 
   const handleFeedback = (matchId: number, feedback: 'positive' | 'negative') => {
@@ -228,14 +236,25 @@ export default function AIJobFeed() {
                     <span className="hidden sm:inline">View Details</span>
                     <span className="sm:hidden">View</span>
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => handleQuickApply(match)}
-                    disabled={applyMutation.isPending}
-                    className="bg-gradient-to-r from-primary to-primary/80 w-full sm:w-auto"
-                  >
-                    {applyMutation.isPending ? 'Applying...' : 'Quick Apply'}
-                  </Button>
+                  {match.job.externalSource ? (
+                    <Button
+                      size="sm"
+                      onClick={() => handleQuickApply(match)}
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 w-full sm:w-auto"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Apply Now
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => handleChatNow(match)}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 w-full sm:w-auto"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Chat Now
+                    </Button>
+                  )}
                 </div>
 
                 {/* Feedback Buttons */}
