@@ -180,33 +180,7 @@ export default function Landing() {
               </div>
             </div>
 
-            {/* Platform Statistics */}
-            <div className="grid grid-cols-3 gap-6 sm:gap-8 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                  {platformStats?.totalUsers || 8}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">
-                  Active Users
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                  {platformStats?.totalJobs || 5}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">
-                  Live Jobs
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                  {platformStats?.totalMatches || 8}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">
-                  AI Matches
-                </div>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>
