@@ -127,6 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Resume upload with parsing
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
