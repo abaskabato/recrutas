@@ -24,7 +24,7 @@ export class JobAggregator {
       const params = new URLSearchParams({
         Keyword: 'software developer engineer programmer analyst',
         LocationName: 'United States',
-        ResultsPerPage: '25',
+        ResultsPerPage: '100',
         WhoMayApply: 'All',
         SortField: 'PublicationStartDate',
         SortDirection: 'Descending'
@@ -493,17 +493,46 @@ export class JobAggregator {
     const allJobs: ExternalJob[] = [];
     
     try {
-      // Use JSONPlaceholder for realistic job data structure
-      console.log('Fetching job data from external sources...');
-      const jsonJobs = await this.fetchFromJSONPlaceholder();
-      allJobs.push(...jsonJobs);
+      console.log('Fetching job data from multiple external sources...');
+      
+      // Fetch from multiple sources in parallel for better performance
+      const [
+        usaJobs,
+        museJobs,
+        adzunaJobs,
+        githubJobs,
+        remoteOKJobs,
+        jsonJobs
+      ] = await Promise.allSettled([
+        this.fetchFromUSAJobs(),
+        this.fetchFromTheMuse(),
+        this.fetchFromAdzunaDemo(),
+        this.fetchGitHubJobs(),
+        this.fetchRemoteOKJobs(),
+        this.fetchFromJSONPlaceholder()
+      ]);
+
+      // Add jobs from successful fetches
+      if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
+      if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
+      if (adzunaJobs.status === 'fulfilled') allJobs.push(...adzunaJobs.value);
+      if (githubJobs.status === 'fulfilled') allJobs.push(...githubJobs.value);
+      if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
+      if (jsonJobs.status === 'fulfilled') allJobs.push(...jsonJobs.value);
       
       console.log(`Successfully aggregated ${allJobs.length} jobs from external sources`);
+      
+      // Remove duplicates based on title and company
+      const uniqueJobs = allJobs.filter((job, index, arr) => 
+        arr.findIndex(j => j.title === job.title && j.company === job.company) === index
+      );
+      
+      console.log(`After deduplication: ${uniqueJobs.length} unique jobs`);
+      return uniqueJobs;
     } catch (error) {
       console.error('Error aggregating jobs:', error);
+      return [];
     }
-    
-    return allJobs;
   }
 
   // GitHub Jobs API - completely free, no authentication required
@@ -606,7 +635,7 @@ export class JobAggregator {
       for (const query of queries) {
         try {
           // Using demo credentials that are publicly available
-          const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=demo&app_key=demo&results_per_page=10&what=${encodeURIComponent(query)}&content-type=application/json`;
+          const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=demo&app_key=demo&results_per_page=50&what=${encodeURIComponent(query)}&content-type=application/json`;
           
           const response = await fetch(url);
           
@@ -651,7 +680,7 @@ export class JobAggregator {
   // JSONPlaceholder-based job generation using external API structure
   async fetchFromJSONPlaceholder(): Promise<ExternalJob[]> {
     try {
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=20');
+      const response = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=50');
       
       if (response.ok) {
         const posts = await response.json();
