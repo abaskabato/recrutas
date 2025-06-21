@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, Loader2 } from "lucide-react";
+import { Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, Loader2, Send, Building } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 
@@ -24,6 +25,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const [appliedJobs, setAppliedJobs] = useState<number[]>([]);
   const [likedJobs, setLikedJobs] = useState<number[]>([]);
   const [activeChat, setActiveChat] = useState<number | null>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<Record<number, Array<{sender: string, message: string}>>>({});
+  const [newMessage, setNewMessage] = useState("");
 
   // Fetch external jobs based on skills
   const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
@@ -58,7 +62,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   };
 
   const handleQuickApply = (jobId: number) => {
-    setAppliedJobs(prev => [...prev, jobId]);
+    // Redirect to signup for premium feature
+    onStartMatching();
+    onClose();
   };
 
   const handleLikeJob = (jobId: number) => {
@@ -70,7 +76,39 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   };
 
   const handleStartChat = (jobId: number) => {
-    setActiveChat(jobId);
+    // Redirect to signup for premium feature
+    onStartMatching();
+    onClose();
+  };
+
+  const handleViewDetails = (job: any) => {
+    setSelectedJob(job);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedJob(null);
+  };
+
+  const handleSendMessage = (jobId: number, message: string) => {
+    setChatMessages(prev => ({
+      ...prev,
+      [jobId]: [
+        ...(prev[jobId] || []),
+        { sender: 'candidate', message },
+      ]
+    }));
+    setNewMessage("");
+    
+    // Simulate recruiter response after 2 seconds
+    setTimeout(() => {
+      setChatMessages(prev => ({
+        ...prev,
+        [jobId]: [
+          ...(prev[jobId] || []),
+          { sender: 'recruiter', message: 'Thanks for your message! Our team will review your profile and get back to you within 24 hours.' }
+        ]
+      }));
+    }, 2000);
   };
 
   const handleViewFeatures = () => {
@@ -305,24 +343,19 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             <Button 
                               size="sm" 
                               onClick={() => handleQuickApply(job.id)}
-                              disabled={appliedJobs.includes(job.id)}
-                              className={`flex-1 ${
-                                appliedJobs.includes(job.id) 
-                                  ? 'bg-green-600 hover:bg-green-700' 
-                                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                              } text-white border-0`}
+                              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
                             >
-                              {appliedJobs.includes(job.id) ? (
-                                <>
-                                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                                  Applied
-                                </>
-                              ) : (
-                                <>
-                                  <Zap className="w-4 h-4 mr-2" />
-                                  One-Tap Apply
-                                </>
-                              )}
+                              <Zap className="w-4 h-4 mr-2" />
+                              Sign Up to Apply
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleStartChat(job.id)}
+                              className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                            >
+                              <MessageCircle className="w-4 h-4 mr-2" />
+                              Chat
                             </Button>
                             <Button 
                               size="sm" 
@@ -332,7 +365,11 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             >
                               <Heart className={`w-4 h-4 ${likedJobs.includes(job.id) ? 'fill-current' : ''}`} />
                             </Button>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleViewDetails(job)}
+                            >
                               View Details
                             </Button>
                           </div>
@@ -518,6 +555,136 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
           </AnimatePresence>
         </div>
       </DialogContent>
+
+      {/* Job Details Modal */}
+      {selectedJob && (
+        <Dialog open={!!selectedJob} onOpenChange={handleCloseDetails}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-3">
+                <Building className="w-6 h-6 text-blue-600" />
+                <div>
+                  <h3 className="text-xl font-bold">{selectedJob.title}</h3>
+                  <p className="text-gray-600 font-medium">{selectedJob.company}</p>
+                </div>
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm">{selectedJob.location}</span>
+                </div>
+                {selectedJob.salaryMin && (
+                  <div className="flex items-center space-x-2">
+                    <DollarSign className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">${selectedJob.salaryMin?.toLocaleString()} - ${selectedJob.salaryMax?.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm">{selectedJob.workType}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Job Description</h4>
+                <p className="text-gray-700 leading-relaxed">{selectedJob.description}</p>
+              </div>
+
+              {selectedJob.skills && selectedJob.skills.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2">Required Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedJob.skills.map((skill: string, index: number) => (
+                      <Badge key={index} variant="secondary">{skill}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-3 pt-4">
+                <Button 
+                  onClick={() => handleQuickApply(selectedJob.id)}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Sign Up to Apply
+                </Button>
+                <Button 
+                  onClick={() => handleStartChat(selectedJob.id)}
+                  variant="outline"
+                  className="flex-1 bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Sign Up to Chat
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Chat Interface */}
+      {activeChat && (
+        <Dialog open={!!activeChat} onOpenChange={() => setActiveChat(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <MessageCircle className="w-5 h-5 text-blue-600" />
+                <span>Chat with Recruiter</span>
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="h-64 bg-gray-50 dark:bg-gray-900 rounded-lg p-4 overflow-y-auto">
+                {chatMessages[activeChat]?.map((msg, index) => (
+                  <div key={index} className={`mb-3 ${msg.sender === 'candidate' ? 'text-right' : 'text-left'}`}>
+                    <div className={`inline-block p-2 rounded-lg max-w-[80%] ${
+                      msg.sender === 'candidate' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                    }`}>
+                      <p className="text-sm">{msg.message}</p>
+                    </div>
+                  </div>
+                )) || (
+                  <div className="text-center text-gray-500 mt-8">
+                    <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>Start a conversation with the recruiter</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex space-x-2">
+                <Textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 min-h-[60px]"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (newMessage.trim()) {
+                        handleSendMessage(activeChat, newMessage.trim());
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  onClick={() => newMessage.trim() && handleSendMessage(activeChat, newMessage.trim())}
+                  disabled={!newMessage.trim()}
+                  size="sm"
+                  className="self-end"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
