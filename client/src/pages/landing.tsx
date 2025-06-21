@@ -184,12 +184,17 @@ export default function Landing() {
                 </div>
                 <span className="text-sm font-medium ml-2">Users trust us</span>
               </div>
-              <div className="flex items-center gap-1">
+              <a 
+                href="https://www.producthunt.com/posts/recrutas" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+              >
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                 ))}
-                <span className="text-sm font-medium ml-1">4.9/5 rating</span>
-              </div>
+                <span className="text-sm font-medium ml-1">4.9/5 on Product Hunt</span>
+              </a>
             </div>
           </div>
         </div>
