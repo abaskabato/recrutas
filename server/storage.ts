@@ -26,6 +26,7 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserRole(userId: string, role: 'candidate' | 'recruiter'): Promise<User>;
   
   // Candidate operations
   getCandidateProfile(userId: string): Promise<CandidateProfile | undefined>;
@@ -82,10 +83,22 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...userData,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
         },
       })
+      .returning();
+    return user;
+  }
+
+  async updateUserRole(userId: string, role: 'candidate' | 'recruiter'): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
       .returning();
     return user;
   }
