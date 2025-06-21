@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { jobAggregator } from "./job-aggregator";
 import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
@@ -276,43 +277,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // No existing matches, generate new ones
-      const allJobs = await storage.getJobPostings('');
+      const internalJobs = await storage.getJobPostings('');
+      const externalJobs = await jobAggregator.getAllJobs();
+      
+      // Combine internal and external jobs
+      const allJobs = [
+        ...internalJobs.slice(0, 3), // First 3 internal jobs
+        ...externalJobs.slice(0, 7)  // First 7 external jobs from hiring.cafe
+      ];
+      
       const matches = [];
 
-      for (const job of allJobs.slice(0, 5)) { // Limit to 5 jobs for demo
+      for (const job of allJobs) {
         try {
+          // Normalize job data for AI matching
+          const normalizedJob = {
+            title: job.title,
+            company: job.company,
+            location: job.location || '',
+            description: job.description || '',
+            requirements: job.requirements || [],
+            skills: job.skills || [],
+            workType: job.workType || 'onsite',
+            salaryMin: job.salaryMin || 0,
+            salaryMax: job.salaryMax || 0,
+          };
+
           // Generate AI match using the service
-          const aiMatch = await generateJobMatch(candidateProfile, job);
+          const aiMatch = await generateJobMatch(candidateProfile, normalizedJob);
           
           if (aiMatch.score >= 30) {
-            // Create match in database
-            const newMatch = await storage.createJobMatch({
-              jobId: job.id,
-              candidateId: userId,
-              matchScore: `${aiMatch.score}%`,
-              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-              skillMatches: aiMatch.skillMatches,
-              aiExplanation: aiMatch.aiExplanation,
-              status: 'pending',
-            });
+            // For external jobs, we don't store them in job_matches table yet
+            // Instead, we return them directly in the response
+            const isExternal = typeof job.id === 'string' && job.id.startsWith('hc_');
+            
+            if (isExternal) {
+              // External job - return directly without storing in database
+              matches.push({
+                id: `match_${job.id}`,
+                job: {
+                  id: job.id,
+                  title: job.title,
+                  company: job.company,
+                  location: job.location,
+                  workType: job.workType,
+                  salaryMin: job.salaryMin,
+                  salaryMax: job.salaryMax,
+                  description: job.description,
+                  requirements: job.requirements,
+                  skills: job.skills,
+                  aiCurated: true,
+                  confidenceScore: aiMatch.score,
+                  externalSource: job.source,
+                  externalUrl: (job as any).externalUrl,
+                  status: 'active',
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+                matchScore: `${aiMatch.score}%`,
+                confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                               aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+                skillMatches: aiMatch.skillMatches,
+                aiExplanation: aiMatch.aiExplanation,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+              });
+            } else {
+              // Internal job - store in database
+              const newMatch = await storage.createJobMatch({
+                jobId: job.id,
+                candidateId: userId,
+                matchScore: `${aiMatch.score}%`,
+                confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                               aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+                skillMatches: aiMatch.skillMatches,
+                aiExplanation: aiMatch.aiExplanation,
+                status: 'pending',
+              });
 
-            matches.push({
-              id: newMatch.id,
-              job: {
-                ...job,
-                aiCurated: true,
-                confidenceScore: aiMatch.score,
-                externalSource: job.source,
-              },
-              matchScore: `${aiMatch.score}%`,
-              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-              skillMatches: aiMatch.skillMatches,
-              aiExplanation: aiMatch.aiExplanation,
-              status: 'pending',
-              createdAt: new Date().toISOString(),
-            });
+              matches.push({
+                id: newMatch.id,
+                job: {
+                  ...job,
+                  aiCurated: true,
+                  confidenceScore: aiMatch.score,
+                  externalSource: job.source,
+                },
+                matchScore: `${aiMatch.score}%`,
+                confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                               aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+                skillMatches: aiMatch.skillMatches,
+                aiExplanation: aiMatch.aiExplanation,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+              });
+            }
           }
         } catch (matchError) {
           console.error('Error generating match for job:', job.id, matchError);
