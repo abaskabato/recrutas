@@ -114,14 +114,14 @@ export default function CandidateDashboard() {
   const hasSkills = (profile as any)?.skills && (profile as any).skills.length > 0;
   const hasBasicInfo = (profile as any)?.linkedinUrl || (profile as any)?.githubUrl || (profile as any)?.location;
   
-  // Determine current onboarding step
+  // Determine current onboarding step - only resume is required
   const getOnboardingStep = () => {
     if (!hasResume) return 'resume';
-    if (!hasSkills || !hasBasicInfo) return 'profile';
-    return 'complete';
+    return 'complete'; // Once resume is uploaded, user can access everything
   };
   
   const currentStep = getOnboardingStep();
+  const canOptimizeProfile = hasResume && (!hasSkills || !hasBasicInfo);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
@@ -167,12 +167,10 @@ export default function CandidateDashboard() {
               <div className="flex-1">
                 <h2 className="text-xl sm:text-2xl font-bold mb-2">
                   {currentStep === 'resume' ? 'Welcome! Let\'s get started' : 
-                   currentStep === 'profile' ? 'Almost there!' : 
                    `Welcome back, ${user?.firstName || 'there'}!`}
                 </h2>
                 <p className="text-muted-foreground mb-4 text-sm sm:text-base">
                   {currentStep === 'resume' ? 'Upload your resume to get personalized job matches powered by AI.' :
-                   currentStep === 'profile' ? 'Complete your profile to unlock the full power of our AI job matching.' :
                    'Your AI concierge has been working behind the scenes to find perfect job matches for you.'}
                 </p>
                 {currentStep === 'complete' && (
@@ -191,23 +189,18 @@ export default function CandidateDashboard() {
                     </div>
                   </div>
                 )}
-                {currentStep !== 'complete' && (
+                {currentStep === 'resume' && (
                   <div className="flex items-center gap-2 text-sm">
-                    <div className="flex items-center gap-1">
-                      {currentStep === 'resume' ? (
-                        <>
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          <span className="font-medium">Step 1: Upload Resume</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4 text-green-600" />
-                          <span className="text-green-600">Resume uploaded</span>
-                          <div className="w-2 h-2 bg-primary rounded-full ml-2"></div>
-                          <span className="font-medium">Step 2: Complete Profile</span>
-                        </>
-                      )}
-                    </div>
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <span className="font-medium">Upload your resume to get started</span>
+                  </div>
+                )}
+                {currentStep === 'complete' && canOptimizeProfile && (
+                  <div className="flex items-center gap-2 text-sm bg-blue-50 dark:bg-blue-950/20 p-2 rounded-lg mt-2">
+                    <Lightbulb className="h-4 w-4 text-blue-600" />
+                    <span className="text-blue-800 dark:text-blue-200 text-sm">
+                      Add skills and LinkedIn to improve your job matches
+                    </span>
                   </div>
                 )}
               </div>
@@ -259,60 +252,7 @@ export default function CandidateDashboard() {
               </div>
             </CardContent>
           </Card>
-        ) : currentStep === 'profile' ? (
-          <Card className="max-w-4xl mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl flex items-center justify-center gap-2">
-                <User className="h-6 w-6" />
-                Step 2: Complete Your Profile
-              </CardTitle>
-              <p className="text-muted-foreground">
-                Great! Your resume is uploaded. Now add your skills, preferences, and social links for better job matching.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Profile Setup</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ProfileUpload />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Next Steps</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full ${hasResume ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                      <span className={hasResume ? 'text-green-700 dark:text-green-300' : 'text-gray-500'}>
-                        Resume uploaded ✓
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full ${hasSkills ? 'bg-green-500' : 'bg-primary'}`}></div>
-                      <span className={hasSkills ? 'text-green-700 dark:text-green-300' : 'text-primary font-medium'}>
-                        Add your skills
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full ${hasBasicInfo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                      <span className={hasBasicInfo ? 'text-green-700 dark:text-green-300' : 'text-gray-500'}>
-                        Add LinkedIn/location
-                      </span>
-                    </div>
-                    <div className="pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">
-                        Once complete, you'll unlock personalized AI job recommendations!
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
+
         ) : (
           <Tabs defaultValue="feed" className="space-y-4 sm:space-y-6">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-4">
@@ -340,6 +280,26 @@ export default function CandidateDashboard() {
             {/* AI Job Feed Tab */}
             <TabsContent value="feed" className="space-y-6">
               <RealTimeNotifications />
+              {canOptimizeProfile && (
+                <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+                  <CardContent className="pt-4">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          Boost Your Job Matches
+                        </h4>
+                        <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                          Add skills and LinkedIn profile to your account for more personalized recommendations.
+                        </p>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                          Optimize Profile
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3">
                   <AIJobFeed />
