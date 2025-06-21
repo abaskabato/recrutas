@@ -174,15 +174,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue with upload even if parsing fails
       }
       
+      // Get existing profile to merge data
+      const existingProfile = await storage.getCandidateProfile(userId);
+      
       // Prepare profile data with parsed information
       const profileData: any = {
         userId,
         resumeUrl,
+        // Preserve existing data
+        ...(existingProfile || {}),
       };
 
       // Add parsed data if available
       if (parsedData) {
-        if (parsedData.skills.length > 0) {
+        if (parsedData.skills && parsedData.skills.length > 0) {
           profileData.skills = parsedData.skills;
         }
         
@@ -190,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           profileData.experience = parsedData.experience;
         }
         
-        if (parsedData.contactInfo.location) {
+        if (parsedData.contactInfo && parsedData.contactInfo.location) {
           profileData.location = parsedData.contactInfo.location;
         }
         
@@ -199,14 +204,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Store parsed text for future reference
-        profileData.resumeText = parsedData.text;
+        if (parsedData.text) {
+          profileData.resumeText = parsedData.text;
+        }
       }
       
       // Update candidate profile with resume URL and parsed data
       const profile = await storage.upsertCandidateProfile(profileData);
 
       // Create activity log
-      const activityMessage = parsedData 
+      const activityMessage = parsedData && parsedData.skills && parsedData.workHistory
         ? `Resume uploaded and parsed successfully. Found ${parsedData.skills.length} skills and ${parsedData.workHistory.length} work entries.`
         : "Resume uploaded successfully";
       
@@ -544,7 +551,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`Final job count before formatting: ${filteredJobs.length}`);
-      }
       
       // Format for instant match modal
       const formattedJobs = filteredJobs.slice(0, parseInt(limit as string)).map((job, index) => ({

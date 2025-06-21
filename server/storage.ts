@@ -121,15 +121,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile> {
-    const [result] = await db
-      .insert(candidateProfiles)
-      .values(profile as any)
-      .onConflictDoUpdate({
-        target: candidateProfiles.userId,
-        set: profile as any,
-      })
-      .returning();
-    return result;
+    // Check if profile exists first
+    const existing = await this.getCandidateProfile(profile.userId);
+    
+    if (existing) {
+      // Update existing profile
+      const [result] = await db
+        .update(candidateProfiles)
+        .set({
+          ...profile,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(candidateProfiles.userId, profile.userId))
+        .returning();
+      return result;
+    } else {
+      // Create new profile
+      const [result] = await db
+        .insert(candidateProfiles)
+        .values(profile as any)
+        .returning();
+      return result;
+    }
   }
 
   async getAllCandidateProfiles(): Promise<CandidateProfile[]> {

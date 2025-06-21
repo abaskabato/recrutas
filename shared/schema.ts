@@ -40,7 +40,7 @@ export const users = pgTable("users", {
 // Candidate profiles
 export const candidateProfiles = pgTable("candidate_profiles", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().unique().references(() => users.id),
   resumeUrl: text("resume_url"),
   linkedinUrl: text("linkedin_url"),
   githubUrl: text("github_url"),
