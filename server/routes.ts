@@ -278,13 +278,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // No existing matches, generate new ones
       const internalJobs = await storage.getJobPostings('');
+      console.log(`Found ${internalJobs.length} internal jobs`);
+      
       const externalJobs = await jobAggregator.getAllJobs();
+      console.log(`Found ${externalJobs.length} external jobs from hiring.cafe`);
       
       // Combine internal and external jobs
       const allJobs = [
         ...internalJobs.slice(0, 3), // First 3 internal jobs
         ...externalJobs.slice(0, 7)  // First 7 external jobs from hiring.cafe
       ];
+      
+      console.log(`Total jobs to process: ${allJobs.length} (${internalJobs.slice(0, 3).length} internal + ${externalJobs.slice(0, 7).length} external)`);
       
       const matches = [];
 
