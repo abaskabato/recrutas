@@ -213,81 +213,45 @@ export default function Landing() {
               Zero Recruiters • Direct Access
             </Badge>
             
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extralight text-white mb-4 sm:mb-6 leading-tight tracking-tight">
-              Skip The Middleman
-              <br />
-              <span className="font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Connect Direct</span>
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
+              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">DoorDash for Jobs</span>
             </h1>
             
-            <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed">
-              Upload resume, get matched with companies instantly. No recruiters, no gatekeepers - just you and your next opportunity.
+            <p className="text-xl sm:text-2xl text-slate-300 mb-8 font-light">
+              Upload resume → Get matched → Apply direct
             </p>
 
             {/* Skills Input Section */}
-            <div className="max-w-2xl mx-auto mb-8">
+            <div className="max-w-xl mx-auto mb-8">
               <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-600/50 p-6 shadow-lg">
-                <div className="text-center mb-4">
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    Instant Company Matching
-                  </h3>
-                  <p className="text-sm text-slate-400">
-                    Skip recruiters - connect directly with hiring companies
-                  </p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="e.g., React, Python, Project Management, Data Analysis..."
-                      className="w-full px-4 py-3 text-base rounded-xl border-slate-600/50 bg-slate-700/70 text-white placeholder-slate-400 focus:bg-slate-700"
-                      value={quickSkills}
-                      onChange={(e) => setQuickSkills(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
-                    />
-                  </div>
+                <div className="flex gap-3">
+                  <Input
+                    placeholder="Your skills..."
+                    className="flex-1 px-4 py-3 text-base rounded-xl border-slate-600/50 bg-slate-700/70 text-white placeholder-slate-400 focus:bg-slate-700"
+                    value={quickSkills}
+                    onChange={(e) => setQuickSkills(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
+                  />
                   <Button 
                     size="lg"
-                    className="px-6 py-3 text-base font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg transition-all duration-300 rounded-xl"
+                    className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl"
                     onClick={handleQuickMatch}
                     disabled={!quickSkills.trim()}
                   >
-                    <Brain className="mr-2 w-4 h-4" />
-                    Find Matches
+                    Match
                   </Button>
-                </div>
-                
-                <div className="flex items-center justify-center gap-4 mt-4 text-xs text-slate-400">
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-400" />
-                    <span>Zero recruiters</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-400" />
-                    <span>Direct applications</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-400" />
-                    <span>Instant matching</span>
-                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-6 sm:mb-8">
+            <div className="text-center mb-8">
               <Button 
                 size="lg"
-                variant="outline"
-                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium bg-slate-800/50 backdrop-blur-sm border-slate-600/50 text-slate-300 hover:bg-slate-700/50 transition-all duration-300 rounded-xl"
+                className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 rounded-xl"
                 onClick={handleTryInstantMatching}
               >
-                <Zap className="mr-2 w-4 sm:w-5 h-4 sm:h-5" />
-                Start Direct Matching
-                <ArrowRight className="ml-2 w-4 sm:w-5 h-4 sm:h-5" />
+                Get Started Free
               </Button>
-              <div className="flex items-center gap-2 text-slate-400 text-sm sm:text-base">
-                <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>No fees, no middlemen</span>
-              </div>
             </div>
 
 
