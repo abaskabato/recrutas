@@ -38,7 +38,7 @@ const upload = multer({
     } else {
       cb(new Error('Only PDF and Word documents are allowed'));
     }
-  },
+  }
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -501,12 +501,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               matchScore: `${aiMatch.score}%`,
               confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
                              aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-                skillMatches: aiMatch.skillMatches,
-                aiExplanation: aiMatch.aiExplanation,
-                status: 'pending',
-                createdAt: new Date().toISOString(),
-              });
-            }
+              skillMatches: aiMatch.skillMatches,
+              aiExplanation: aiMatch.aiExplanation,
+              status: 'pending',
+              createdAt: new Date().toISOString(),
+            });
           }
         } catch (matchError) {
           console.error('Error generating match for job:', job.id, matchError);
