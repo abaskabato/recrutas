@@ -205,9 +205,12 @@ export default function CandidateDashboard() {
                     </div>
                     <Button 
                       className="bg-primary hover:bg-primary/90"
-                      onClick={() => {
-                        console.log('Button clicked, opening modal');
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Button clicked, current modal state:', showJobMatchesModal);
                         setShowJobMatchesModal(true);
+                        console.log('Modal state after setting to true:', true);
                       }}
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
