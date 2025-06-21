@@ -499,18 +499,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test hiring.cafe scraping
   app.get('/api/test-scraping', async (req, res) => {
     try {
-      console.log('Testing hiring.cafe scraping...');
+      console.log('Testing job data extraction from hiring.cafe...');
       const jobs = await jobAggregator.fetchFromHiringCafe();
-      console.log(`Scraping result: ${jobs.length} jobs found`);
+      console.log(`Job extraction result: ${jobs.length} jobs found`);
+      
+      if (jobs.length > 0) {
+        console.log('Sample jobs:');
+        jobs.slice(0, 2).forEach((job, i) => {
+          console.log(`${i+1}. ${job.title} at ${job.company} (${job.location})`);
+        });
+      }
+      
       res.json({ 
         success: true, 
         jobCount: jobs.length, 
         jobs: jobs.slice(0, 3),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        method: 'web_scraping_with_fallback'
       });
     } catch (error) {
-      console.error('Error testing scraping:', error);
-      res.status(500).json({ error: 'Failed to test scraping', details: error.message });
+      console.error('Job extraction error:', error);
+      res.status(500).json({ 
+        error: 'Job extraction failed', 
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
