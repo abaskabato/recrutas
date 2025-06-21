@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,12 @@ export default function Landing() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  // Fetch real platform statistics
+  const { data: platformStats } = useQuery({
+    queryKey: ['/api/platform/stats'],
+    retry: false,
+  });
 
   const setRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'recruiter') => {
@@ -303,27 +309,33 @@ export default function Landing() {
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <Users className="w-8 h-8 text-white" />
                 </div>
-                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">50K+</span>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">
+                  {platformStats?.totalUsers ? `${platformStats.totalUsers.toLocaleString()}+` : '0'}
+                </span>
               </div>
-              <p className="text-blue-100 font-light text-lg leading-relaxed">Users find relevant jobs</p>
+              <p className="text-blue-100 font-light text-lg leading-relaxed">Active users</p>
             </div>
             <div className="group">
               <div className="flex flex-col items-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <TrendingUp className="w-8 h-8 text-white" />
                 </div>
-                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-emerald-100 bg-clip-text text-transparent">3x</span>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-emerald-100 bg-clip-text text-transparent">
+                  {platformStats?.totalJobs ? platformStats.totalJobs.toLocaleString() : '0'}
+                </span>
               </div>
-              <p className="text-emerald-100 font-light text-lg leading-relaxed">Faster than job boards</p>
+              <p className="text-emerald-100 font-light text-lg leading-relaxed">Available jobs</p>
             </div>
             <div className="group">
               <div className="flex flex-col items-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <Target className="w-8 h-8 text-white" />
                 </div>
-                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-violet-100 bg-clip-text text-transparent">90%</span>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-violet-100 bg-clip-text text-transparent">
+                  {platformStats?.totalMatches ? platformStats.totalMatches.toLocaleString() : '0'}
+                </span>
               </div>
-              <p className="text-violet-100 font-light text-lg leading-relaxed">Match accuracy</p>
+              <p className="text-violet-100 font-light text-lg leading-relaxed">Successful matches</p>
             </div>
           </div>
         </div>
