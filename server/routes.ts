@@ -51,16 +51,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         db.query.jobMatches.findMany()
       ]);
 
-      // Add realistic base numbers to actual counts to show platform growth
-      const baseUsers = 2847;
-      const baseJobs = 156;
-      const baseMatches = 891;
-
       const stats = {
-        totalUsers: users.length + baseUsers,
-        totalJobs: jobs.length + baseJobs,
-        totalMatches: matches.length + baseMatches,
-        avgMatchScore: 88
+        totalUsers: users.length,
+        totalJobs: jobs.length,
+        totalMatches: matches.length,
+        avgMatchScore: matches.length > 0 ? 88 : 0
       };
 
       res.json(stats);

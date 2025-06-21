@@ -5,13 +5,13 @@ export async function seedDatabase() {
   try {
     console.log("Seeding database with sample data...");
 
-    // Create sample recruiters
+    // Create sample talent owners (recruiters)
     const recruiter1 = await db.insert(users).values({
       id: "recruiter_1",
       email: "recruiter@techcorp.com",
       firstName: "Sarah",
       lastName: "Johnson",
-      role: "recruiter",
+      role: "talent_owner",
       profileImageUrl: "https://images.unsplash.com/photo-1494790108755-2616b612b5c5?w=150",
     }).returning();
 
@@ -20,7 +20,7 @@ export async function seedDatabase() {
       email: "hr@startup.io",
       firstName: "Mike",
       lastName: "Chen",
-      role: "recruiter",
+      role: "talent_owner",
       profileImageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
     }).returning();
 
