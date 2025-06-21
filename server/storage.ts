@@ -31,6 +31,7 @@ export interface IStorage {
   // Candidate operations
   getCandidateProfile(userId: string): Promise<CandidateProfile | undefined>;
   upsertCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile>;
+  getAllCandidateProfiles(): Promise<CandidateProfile[]>;
   
   // Job operations
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
@@ -122,6 +123,12 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  async getAllCandidateProfiles(): Promise<CandidateProfile[]> {
+    return await db
+      .select()
+      .from(candidateProfiles);
   }
 
   // Job operations

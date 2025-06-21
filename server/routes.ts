@@ -10,6 +10,8 @@ import {
   insertChatMessageSchema,
 } from "@shared/schema";
 import { calculateJobMatch } from "../client/src/lib/matching";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -160,6 +162,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Candidate stats
+  app.get('/api/candidate/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getCandidateStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching candidate stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   // Job posting routes
   app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
@@ -223,6 +237,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching recruiter stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Activity logs
+  app.get('/api/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const activities = await storage.getActivityLogs(userId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // Recruiter endpoints
+  app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getRecruiterStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching recruiter stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get('/api/recruiter/jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobs = await storage.getJobPostings(userId);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      res.status(500).json({ message: "Failed to fetch jobs" });
     }
   });
 
@@ -339,16 +388,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 // Helper function to find matching candidates for a job
 async function findMatchingCandidates(job: any): Promise<any[]> {
-  // This is a simplified matching algorithm
-  // In a real application, this would be more sophisticated
-  const candidates: any[] = []; // Would fetch from database
-  
-  return candidates.map((candidate: any) => {
-    const match = calculateJobMatch(candidate, job);
-    return {
-      userId: candidate.userId,
-      matchScore: match.score,
-      matchReasons: match.reasons,
-    };
-  });
+  try {
+    // Get all candidate profiles
+    const profiles = await storage.getAllCandidateProfiles();
+
+    // Calculate matches for each candidate
+    const matches = profiles.map((candidate: any) => {
+      const jobPosting = {
+        title: job.title,
+        skills: job.skills || [],
+        requirements: job.requirements || [],
+        industry: job.industry,
+        workType: job.workType,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        location: job.location,
+        description: job.description,
+      };
+
+      const candidateProfile = {
+        skills: candidate.skills || [],
+        experience: candidate.experience || '',
+        industry: candidate.industry,
+        workType: candidate.workType,
+        salaryMin: candidate.salaryMin,
+        salaryMax: candidate.salaryMax,
+        location: candidate.location,
+      };
+
+      const match = calculateJobMatch(candidateProfile, jobPosting);
+      
+      return {
+        candidateId: candidate.userId,
+        matchScore: match.score.toString(),
+        matchReasons: match.reasons,
+      };
+    });
+
+    // Filter candidates with match score >= 0.6 (60%)
+    return matches.filter((match: any) => parseFloat(match.matchScore) >= 0.6);
+  } catch (error) {
+    console.error('Error finding matching candidates:', error);
+    return [];
+  }
 }
