@@ -146,20 +146,17 @@ export default function Landing() {
           <div className="text-center max-w-5xl mx-auto">
             <Badge variant="secondary" className="mb-8 px-6 py-3 text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50 shadow-sm">
               <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-              Autonomous Hiring Excellence
+              Job Matching Platform
             </Badge>
             
             <h1 className="text-7xl lg:text-8xl font-extralight text-gray-900 dark:text-white mb-8 leading-[0.9] tracking-tight">
-              Your Personal
+              Find Jobs
               <br />
-              <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">AI Concierge</span>
-              <br />
-              <span className="text-5xl lg:text-6xl text-gray-600 dark:text-gray-300 font-light">for Career Excellence</span>
+              <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">That Fit</span>
             </h1>
             
             <p className="text-2xl text-gray-600 dark:text-gray-300 mb-16 max-w-4xl mx-auto leading-relaxed font-light">
-              Experience autonomous hiring powered by advanced AI. Curated opportunities, 
-              intelligent matching, and seamless applications—all without traditional gatekeepers.
+              AI matches you with relevant jobs based on your skills. Apply directly to hiring managers.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
@@ -168,12 +165,12 @@ export default function Landing() {
                 className="px-12 py-6 text-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-2xl hover:shadow-blue-500/25 transition-all duration-500 rounded-2xl border-0"
                 onClick={handleLogin}
               >
-                Begin Your Journey
+                Get Started
                 <ArrowRight className="ml-3 w-6 h-6" />
               </Button>
               <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
                 <CheckCircle className="w-5 h-5 text-green-500" />
-                <span className="text-lg font-light">Always free • No middlemen</span>
+                <span className="text-lg font-light">Free to use</span>
               </div>
             </div>
 
@@ -185,7 +182,7 @@ export default function Landing() {
                     <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 border-2 border-white dark:border-gray-900"></div>
                   ))}
                 </div>
-                <span className="text-sm font-medium ml-2">50,000+ professionals</span>
+                <span className="text-sm font-medium ml-2">Users trust us</span>
               </div>
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
@@ -303,25 +300,25 @@ export default function Landing() {
                 </div>
                 <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">50K+</span>
               </div>
-              <p className="text-blue-100 font-light text-lg leading-relaxed">Professionals accelerating their careers with AI-powered matching</p>
+              <p className="text-blue-100 font-light text-lg leading-relaxed">Users find relevant jobs</p>
             </div>
             <div className="group">
               <div className="flex flex-col items-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <TrendingUp className="w-8 h-8 text-white" />
                 </div>
-                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-emerald-100 bg-clip-text text-transparent">5x</span>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-emerald-100 bg-clip-text text-transparent">3x</span>
               </div>
-              <p className="text-emerald-100 font-light text-lg leading-relaxed">Faster career progression compared to traditional recruitment</p>
+              <p className="text-emerald-100 font-light text-lg leading-relaxed">Faster than job boards</p>
             </div>
             <div className="group">
               <div className="flex flex-col items-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <Target className="w-8 h-8 text-white" />
                 </div>
-                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-violet-100 bg-clip-text text-transparent">96%</span>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-violet-100 bg-clip-text text-transparent">90%</span>
               </div>
-              <p className="text-violet-100 font-light text-lg leading-relaxed">Match satisfaction rate with explainable AI recommendations</p>
+              <p className="text-violet-100 font-light text-lg leading-relaxed">Match accuracy</p>
             </div>
           </div>
         </div>
@@ -331,10 +328,10 @@ export default function Landing() {
       <div className="container mx-auto px-6 py-32">
         <div className="text-center mb-24">
           <h2 className="text-5xl font-light text-gray-900 dark:text-white mb-6 tracking-tight">
-            Seamless by <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Nature</span>
+            How It <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Works</span>
           </h2>
           <p className="text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto font-light leading-relaxed">
-            Three effortless steps to unlock opportunities you never knew existed
+            Three simple steps to find your next job
           </p>
         </div>
 
@@ -346,9 +343,9 @@ export default function Landing() {
               </div>
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full opacity-60 animate-ping"></div>
             </div>
-            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Intelligent Onboarding</h3>
+            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Create Profile</h3>
             <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
-              Share your aspirations through our conversational interface. Our AI builds a comprehensive understanding of your career trajectory and potential.
+              Add your skills, experience, and job preferences. The AI learns what you're looking for.
             </p>
           </div>
           <div className="group text-center">
@@ -358,9 +355,9 @@ export default function Landing() {
               </div>
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-400 rounded-full opacity-60 animate-ping" style={{ animationDelay: '0.5s' }}></div>
             </div>
-            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Curated Discovery</h3>
+            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Get Matches</h3>
             <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
-              Experience personalized opportunity curation with transparent AI reasoning. Every recommendation comes with detailed explanations and growth projections.
+              Receive job recommendations based on your profile. Each match shows why it's relevant.
             </p>
           </div>
           <div className="group text-center">
@@ -370,9 +367,9 @@ export default function Landing() {
               </div>
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-violet-400 rounded-full opacity-60 animate-ping" style={{ animationDelay: '1s' }}></div>
             </div>
-            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Effortless Engagement</h3>
+            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Apply Directly</h3>
             <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
-              Transform interest into opportunity with intelligent application automation. Real-time progress tracking keeps you informed at every milestone.
+              Apply to jobs with one click. Connect directly with hiring managers and track your applications.
             </p>
           </div>
         </div>
@@ -387,36 +384,35 @@ export default function Landing() {
           
           <div className="relative">
             <h2 className="text-6xl font-extralight mb-8 leading-tight">
-              Begin Your
+              Ready to 
               <br />
-              <span className="font-bold bg-gradient-to-r from-white via-blue-100 to-indigo-100 bg-clip-text text-transparent">Career Renaissance</span>
+              <span className="font-bold bg-gradient-to-r from-white via-blue-100 to-indigo-100 bg-clip-text text-transparent">Get Started?</span>
             </h2>
             <p className="text-2xl mb-12 text-slate-200 max-w-4xl mx-auto font-light leading-relaxed">
-              Join the elite community of professionals who've transcended traditional hiring limitations. 
-              Your intelligent career partner awaits.
+              Create your profile and start getting matched with relevant jobs today.
             </p>
             <Button 
               size="lg"
               className="px-16 py-6 text-xl font-medium bg-white text-slate-900 hover:bg-slate-50 shadow-2xl hover:shadow-white/25 transition-all duration-500 rounded-2xl border-0 group"
               onClick={handleLogin}
             >
-              <span className="mr-4">Elevate Your Career</span>
+              <span className="mr-4">Start Matching</span>
               <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" />
             </Button>
             <div className="mt-8 flex items-center justify-center gap-6 text-slate-300 font-light">
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-emerald-400" />
-                <span>Eternally complimentary</span>
+                <span>Free to use</span>
               </div>
               <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-emerald-400" />
-                <span>Direct connections only</span>
+                <span>No recruiters</span>
               </div>
               <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-emerald-400" />
-                <span>Immediate results</span>
+                <span>Direct applications</span>
               </div>
             </div>
           </div>
