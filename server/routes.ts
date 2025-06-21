@@ -432,59 +432,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         industry: candidateProfile.industry || ''
       };
 
-      // Get existing matches for this candidate
-      const existingMatches = await storage.getMatchesForCandidate(userId);
-      
-      if (existingMatches.length > 0) {
-        // Return existing matches with AI enhancements
-        const enhancedMatches = existingMatches.map(match => ({
-          id: match.id,
-          job: {
-            ...match.job,
-            aiCurated: true,
-            confidenceScore: match.confidenceLevel ? 
-              (match.confidenceLevel === 'high' ? 85 : match.confidenceLevel === 'medium' ? 65 : 45) : 70,
-            externalSource: match.job.source,
-          },
-          matchScore: match.matchScore,
-          confidenceLevel: match.confidenceLevel || 'medium',
-          skillMatches: match.skillMatches || [],
-          aiExplanation: match.aiExplanation || 'This job matches your profile based on skills and experience.',
-          status: match.status || 'pending',
-          createdAt: match.createdAt?.toISOString() || new Date().toISOString(),
-        }));
-        
-        return res.json(enhancedMatches);
-      }
+      // Always generate fresh dynamic matches for each request
+      console.log(`Generating fresh AI matches for user ${userId} with profile:`, {
+        skills: safeProfile.skills,
+        experience: safeProfile.experience,
+        location: safeProfile.location,
+        workType: safeProfile.workType
+      });
 
-      // No existing matches, generate new ones using synced authentic jobs
-      const allJobs = await storage.getJobPostings('');
-      console.log(`Found ${allJobs.length} jobs in database (includes synced external jobs)`);
+      // Get fresh job data from external sources and database
+      const { jobAggregator } = await import('./job-aggregator');
+      const candidateSkills = safeProfile.skills;
+      
+      // Fetch fresh external jobs based on candidate's skills
+      const externalJobs = await jobAggregator.getAllJobs(candidateSkills, 20);
+      console.log(`Fetched ${externalJobs.length} fresh external jobs for matching`);
+      
+      // Get internal database jobs
+      const internalJobs = await storage.getJobPostings('');
+      console.log(`Found ${internalJobs.length} internal jobs in database`);
+      
+      // Combine and shuffle for variety
+      const allJobs = [...externalJobs, ...internalJobs];
+      const shuffledJobs = allJobs.sort(() => Math.random() - 0.5);
       
       const matches = [];
 
-      for (const job of allJobs.slice(0, 10)) {
+      for (const job of shuffledJobs.slice(0, 15)) {
         try {
-          // Normalize job data for AI matching
+          // Determine if this is an external job
+          const isExternal = typeof job.id === 'string' || job.source;
+          
+          // Normalize job data for AI matching (handle both external and internal jobs)
           const normalizedJob = {
-            title: job.title,
-            company: job.company,
-            location: job.location || '',
+            title: job.title || 'Unknown Title',
+            company: job.company || 'Unknown Company',
+            location: job.location || 'Remote',
             description: job.description || '',
-            requirements: job.requirements || [],
-            skills: job.skills || [],
-            workType: job.workType || 'onsite',
+            requirements: Array.isArray(job.requirements) ? job.requirements : [],
+            skills: Array.isArray(job.skills) ? job.skills : [],
+            workType: job.workType || 'remote',
             salaryMin: job.salaryMin || 0,
             salaryMax: job.salaryMax || 0,
           };
 
-          // Generate AI match using the service
+          // Generate personalized AI match for this specific candidate
           const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
           
-          if (aiMatch.score >= 30) {
-            // Handle external jobs like instant modal - don't store in database
-            const isExternal = typeof job.id === 'string';
-            let matchId = Date.now(); // Generate temporary ID for external jobs
+          // Dynamic scoring threshold based on candidate profile
+          const candidateExperienceLevel = safeProfile.experience.toLowerCase().includes('senior') ? 'senior' : 
+                                         safeProfile.experience.toLowerCase().includes('junior') ? 'junior' : 'mid';
+          const dynamicThreshold = candidateExperienceLevel === 'senior' ? 40 : 
+                                 candidateExperienceLevel === 'junior' ? 25 : 35;
+          
+          if (aiMatch.score >= dynamicThreshold) {
+            let matchId = Date.now() + Math.random(); // Unique ID for each candidate match
             
             if (!isExternal && typeof job.id === 'number') {
               // Only store internal jobs in database

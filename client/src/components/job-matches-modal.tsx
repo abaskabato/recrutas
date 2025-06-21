@@ -42,14 +42,14 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
   const [appliedJobs, setAppliedJobs] = useState<number[]>([]);
   const [likedJobs, setLikedJobs] = useState<number[]>([]);
 
-  // Fetch AI job matches for the current user
+  // Fetch fresh AI job matches for the current user
   const { data: matches, isLoading } = useQuery<AIJobMatch[]>({
     queryKey: ['/api/ai-matches'],
     enabled: isOpen,
     retry: 2,
   });
 
-  const matchesArray = matches || [];
+  const matchesArray = (matches as AIJobMatch[]) || [];
 
   const handleQuickApply = (match: AIJobMatch) => {
     setAppliedJobs(prev => [...prev, match.id]);

@@ -41,9 +41,9 @@ export default function AIJobFeed() {
   const [selectedJob, setSelectedJob] = useState<AIJobMatch | null>(null);
   const { toast } = useToast();
 
-  const { data: aiMatches, isLoading } = useQuery<AIJobMatch[]>({
+  const { data: aiMatches, isLoading, refetch } = useQuery<AIJobMatch[]>({
     queryKey: ['/api/ai-matches'],
-    refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
+    refetchInterval: 60000, // Refresh every minute for dynamic updates
   });
 
   const applyMutation = useMutation({
