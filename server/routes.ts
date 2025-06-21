@@ -219,15 +219,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.createActivityLog(userId, "resume_upload", activityMessage);
 
+      // Trigger automatic job matching after resume upload
+      try {
+        // Generate new AI matches based on updated profile
+        const internalJobs = await storage.getJobPostings('');
+        const externalJobs = await jobAggregator.getAllJobs();
+        
+        // Combine and limit jobs for matching
+        const allJobs = [
+          ...internalJobs.slice(0, 2),
+          ...externalJobs.slice(0, 5)
+        ];
+        
+        const safeProfile = {
+          skills: profile.skills || [],
+          experience: profile.experience || '',
+          location: profile.location || '',
+          workType: profile.workType || 'remote',
+          salaryMin: profile.salaryMin || 0,
+          salaryMax: profile.salaryMax || 0,
+          industry: profile.industry || ''
+        };
+        
+        // Generate matches for top jobs
+        for (const job of allJobs.slice(0, 3)) {
+          const normalizedJob = {
+            title: job.title,
+            company: job.company,
+            location: job.location || '',
+            description: job.description || '',
+            requirements: job.requirements || [],
+            skills: job.skills || [],
+            workType: job.workType || 'onsite',
+            salaryMin: job.salaryMin || 0,
+            salaryMax: job.salaryMax || 0,
+          };
+          
+          const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
+          
+          if (aiMatch.score >= 50) {
+            const isExternal = typeof job.id === 'string' && job.id.startsWith('hc_');
+            
+            if (!isExternal) {
+              // Store internal job matches in database
+              await storage.createJobMatch({
+                jobId: job.id as number,
+                candidateId: userId,
+                matchScore: `${Math.round(aiMatch.score)}%`,
+                confidenceLevel: aiMatch.confidenceLevel >= 80 ? 'high' : 
+                                aiMatch.confidenceLevel >= 60 ? 'medium' : 'low',
+                skillMatches: aiMatch.skillMatches,
+                aiExplanation: aiMatch.aiExplanation,
+                status: 'pending'
+              });
+            }
+          }
+        }
+        
+        console.log(`Generated AI matches for user ${userId} after resume upload`);
+      } catch (matchError) {
+        console.error('Error generating automatic matches after resume upload:', matchError);
+        // Don't fail the resume upload if matching fails
+      }
+
       res.json({ 
         resumeUrl,
         parsed: !!parsedData,
         extractedInfo: parsedData ? {
-          skillsCount: parsedData.skills.length,
-          experience: parsedData.experience,
-          workHistoryCount: parsedData.workHistory.length,
-          hasContactInfo: Object.keys(parsedData.contactInfo).length > 0
-        } : null
+          skillsCount: parsedData.skills?.length || 0,
+          experience: parsedData.experience || '',
+          workHistoryCount: parsedData.workHistory?.length || 0,
+          hasContactInfo: parsedData.contactInfo ? Object.keys(parsedData.contactInfo).length > 0 : false
+        } : null,
+        autoMatchingTriggered: true
       });
     } catch (error) {
       console.error("Error uploading resume:", error);
@@ -350,6 +414,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Please complete your profile first" });
       }
 
+      // Ensure candidate profile has required fields for AI matching
+      const safeProfile = {
+        skills: candidateProfile.skills || [],
+        experience: candidateProfile.experience || '',
+        location: candidateProfile.location || '',
+        workType: candidateProfile.workType || 'remote',
+        salaryMin: candidateProfile.salaryMin || 0,
+        salaryMax: candidateProfile.salaryMax || 0,
+        industry: candidateProfile.industry || ''
+      };
+
       // Get existing matches for this candidate
       const existingMatches = await storage.getMatchesForCandidate(userId);
       
@@ -408,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Generate AI match using the service
-          const aiMatch = await generateJobMatch(candidateProfile, normalizedJob);
+          const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
           
           if (aiMatch.score >= 30) {
             // For external jobs, we don't store them in job_matches table yet
