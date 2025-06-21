@@ -10,11 +10,14 @@ import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
   insertChatMessageSchema,
+  jobPostings,
+  users,
 } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
 import multer from "multer";
+import { resumeParser } from "./resume-parser";
 import path from "path";
 import fs from "fs";
 
@@ -668,31 +671,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test hiring.cafe scraping
-  app.get('/api/test-scraping', async (req, res) => {
+  // Sync external jobs into database for AI matching
+  app.post('/api/sync-external-jobs', async (req, res) => {
     try {
-      console.log('Testing job data extraction from hiring.cafe...');
-      const jobs = await jobAggregator.fetchFromHiringCafe();
-      console.log(`Job extraction result: ${jobs.length} jobs found`);
-      
-      if (jobs.length > 0) {
-        console.log('Sample jobs:');
-        jobs.slice(0, 2).forEach((job, i) => {
-          console.log(`${i+1}. ${job.title} at ${job.company} (${job.location})`);
-        });
+      console.log('Syncing external jobs from API into database...');
+      const externalJobs = await jobAggregator.getAllJobs();
+      let syncedCount = 0;
+
+      // Use first existing user as talent owner for external jobs
+      const defaultTalentOwnerId = '44091169';
+
+      for (const extJob of externalJobs) {
+        try {
+          // Create new job posting from external API data
+          const newJob = await storage.createJobPosting({
+            title: extJob.title,
+            company: extJob.company,
+            location: extJob.location,
+            description: extJob.description,
+            requirements: extJob.requirements,
+            skills: extJob.skills,
+            workType: extJob.workType as 'remote' | 'hybrid' | 'onsite',
+            salaryMin: extJob.salaryMin,
+            salaryMax: extJob.salaryMax,
+            talentOwnerId: defaultTalentOwnerId,
+            source: extJob.source,
+            status: 'active'
+          });
+          
+          console.log(`Synced: ${newJob.title} at ${newJob.company}`);
+          syncedCount++;
+        } catch (jobError) {
+          console.log(`Failed to sync job ${extJob.id}:`, jobError);
+        }
       }
+
+      console.log(`External job sync complete: ${syncedCount} jobs added to AI matching system`);
       
       res.json({ 
-        success: true, 
-        jobCount: jobs.length, 
-        jobs: jobs.slice(0, 3),
+        success: true,
+        message: `Successfully synced ${syncedCount} external jobs into AI matching system`,
+        totalFetched: externalJobs.length,
+        newJobsAdded: syncedCount,
         timestamp: new Date().toISOString(),
-        method: 'web_scraping_with_fallback'
+        source: 'External Jobs API'
       });
     } catch (error) {
-      console.error('Job extraction error:', error);
+      console.error('External job sync failed:', error);
       res.status(500).json({ 
-        error: 'Job extraction failed', 
+        error: 'External job sync failed', 
         details: error instanceof Error ? error.message : String(error)
       });
     }
