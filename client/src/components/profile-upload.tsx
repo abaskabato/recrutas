@@ -1,15 +1,75 @@
-import { useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText } from "lucide-react";
+import { Upload, FileText, Globe, Github, Linkedin, User, Camera, BarChart3, Edit3 } from "lucide-react";
 
 export default function ProfileUpload() {
   const [uploading, setUploading] = useState(false);
+  const [profileLinks, setProfileLinks] = useState({
+    linkedinUrl: '',
+    githubUrl: '',
+    portfolioUrl: '',
+    personalWebsite: '',
+    behanceUrl: '',
+    dribbbleUrl: '',
+    stackOverflowUrl: '',
+    mediumUrl: ''
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch existing profile data
+  const { data: profile } = useQuery({
+    queryKey: ['/api/candidate/profile'],
+    retry: false,
+  });
+
+  // Update local state when profile data loads
+  useEffect(() => {
+    if (profile) {
+      setProfileLinks({
+        linkedinUrl: profile.linkedinUrl || '',
+        githubUrl: profile.githubUrl || '',
+        portfolioUrl: profile.portfolioUrl || '',
+        personalWebsite: profile.personalWebsite || '',
+        behanceUrl: profile.behanceUrl || '',
+        dribbbleUrl: profile.dribbbleUrl || '',
+        stackOverflowUrl: profile.stackOverflowUrl || '',
+        mediumUrl: profile.mediumUrl || ''
+      });
+    }
+  }, [profile]);
+
+  // Update profile links mutation
+  const updateLinksMutation = useMutation({
+    mutationFn: async (links: typeof profileLinks) => {
+      return await apiRequest('/api/candidate/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(links),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+      toast({
+        title: "Profile Updated",
+        description: "Your professional links have been saved successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update profile links. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -78,33 +138,120 @@ export default function ProfileUpload() {
     fileInputRef.current?.click();
   };
 
+  const handleLinkChange = (key: keyof typeof profileLinks, value: string) => {
+    setProfileLinks(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleSaveLinks = () => {
+    updateLinksMutation.mutate(profileLinks);
+  };
+
+  const professionalLinks = [
+    { key: 'linkedinUrl' as const, label: 'LinkedIn Profile', icon: Linkedin, placeholder: 'https://linkedin.com/in/yourprofile' },
+    { key: 'githubUrl' as const, label: 'GitHub Profile', icon: Github, placeholder: 'https://github.com/yourusername' },
+    { key: 'portfolioUrl' as const, label: 'Portfolio', icon: User, placeholder: 'https://yourportfolio.com' },
+    { key: 'personalWebsite' as const, label: 'Personal Website', icon: Globe, placeholder: 'https://yourwebsite.com' },
+    { key: 'behanceUrl' as const, label: 'Behance', icon: Camera, placeholder: 'https://behance.net/yourprofile' },
+    { key: 'dribbbleUrl' as const, label: 'Dribbble', icon: Camera, placeholder: 'https://dribbble.com/yourprofile' },
+    { key: 'stackOverflowUrl' as const, label: 'Stack Overflow', icon: BarChart3, placeholder: 'https://stackoverflow.com/users/yourprofile' },
+    { key: 'mediumUrl' as const, label: 'Medium', icon: Edit3, placeholder: 'https://medium.com/@yourusername' },
+  ];
+
   return (
-    <>
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        accept=".pdf,.doc,.docx"
-        className="hidden"
-      />
-      <Button 
-        variant="outline" 
-        className="flex items-center space-x-3 p-4 h-auto justify-start w-full"
-        onClick={handleClick}
-        disabled={uploadMutation.isPending}
-      >
-        {uploadMutation.isPending ? (
-          <>
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-            <span>Uploading...</span>
-          </>
-        ) : (
-          <>
-            <Upload className="h-5 w-5 text-primary" />
-            <span>Update Resume</span>
-          </>
-        )}
-      </Button>
-    </>
+    <div className="space-y-6">
+      {/* Resume Upload Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Resume Upload
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept=".pdf,.doc,.docx"
+            className="hidden"
+          />
+          <Button 
+            variant="outline" 
+            className="flex items-center space-x-3 p-4 h-auto justify-start w-full"
+            onClick={handleClick}
+            disabled={uploadMutation.isPending}
+          >
+            {uploadMutation.isPending ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="h-5 w-5 text-primary" />
+                <span>Update Resume</span>
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Professional Links Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Professional Showcase
+          </CardTitle>
+          <p className="text-sm text-gray-600">
+            Add your professional profiles and portfolios to showcase your work
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {professionalLinks.map(({ key, label, icon: Icon, placeholder }) => (
+              <div key={key} className="space-y-2">
+                <Label htmlFor={key} className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </Label>
+                <Input
+                  id={key}
+                  type="url"
+                  placeholder={placeholder}
+                  value={profileLinks[key]}
+                  onChange={(e) => handleLinkChange(key, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          
+          <Separator />
+          
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSaveLinks}
+              disabled={updateLinksMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {updateLinksMutation.isPending ? (
+                <>
+                  <Upload className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <User className="mr-2 h-4 w-4" />
+                  Save Profile Links
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

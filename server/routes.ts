@@ -110,6 +110,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = {
+        ...req.body,
+        userId,
+      };
+      
+      const profile = await storage.upsertCandidateProfile(profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating candidate profile links:", error);
+      res.status(500).json({ message: "Failed to update profile links" });
+    }
+  });
+
   // Resume upload
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
