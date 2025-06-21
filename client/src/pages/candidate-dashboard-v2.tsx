@@ -224,7 +224,7 @@ export default function CandidateDashboard() {
                       }}
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      View AI Job Matches
+                      View Direct Matches
                     </Button>
                   </div>
                 )}

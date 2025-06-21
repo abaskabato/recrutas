@@ -76,7 +76,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Sparkles className="h-6 w-6 text-primary" />
-            Your AI Job Matches
+            Direct Company Matches
           </DialogTitle>
         </DialogHeader>
 
@@ -183,7 +183,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
                               onClick={() => handleQuickApply(match)}
                               className="bg-primary hover:bg-primary/90"
                             >
-                              Quick Apply
+                              Apply Direct
                             </Button>
                           )}
                           
@@ -197,7 +197,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
                               <Heart className={`h-4 w-4 ${likedJobs.includes(match.id) ? "fill-current" : ""}`} />
                             </Button>
                             
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" title="Message hiring manager directly">
                               <MessageCircle className="h-4 w-4" />
                             </Button>
                             
