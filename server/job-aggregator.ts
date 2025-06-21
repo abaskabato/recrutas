@@ -16,43 +16,46 @@ interface ExternalJob {
 
 export class JobAggregator {
   
-  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
+  async fetchFromUSAJobs(): Promise<ExternalJob[]> {
     try {
-      // Try multiple potential endpoints
-      const endpoints = [
-        'https://hiring.cafe/api/jobs',
-        'https://hiring.cafe/jobs.json',
-        'https://api.hiring.cafe/jobs'
-      ];
-      
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying hiring.cafe endpoint: ${endpoint}`);
-          const response = await fetch(endpoint, {
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': 'Recrutas-AI-Platform/1.0'
-            }
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`Successfully fetched from ${endpoint}:`, data);
-            return this.transformHiringCafeJobs(data.jobs || data || []);
-          }
-        } catch (endpointError) {
-          console.log(`Failed to fetch from ${endpoint}:`, endpointError.message);
-          continue;
+      console.log('Fetching from USAJobs.gov API...');
+      const response = await fetch('https://data.usajobs.gov/api/search?Keyword=software%20developer&ResultsPerPage=20', {
+        headers: {
+          'Host': 'data.usajobs.gov',
+          'User-Agent': 'Recrutas-AI-Platform/1.0 (contact@recrutas.ai)'
         }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return this.transformUSAJobs(data.SearchResult?.SearchResultItems || []);
       }
-      
-      // If all endpoints fail, return sample jobs to demonstrate the feature
-      console.log('All hiring.cafe endpoints failed, using sample jobs for demo');
-      return this.getSampleJobs();
     } catch (error) {
-      console.error('Error fetching from hiring.cafe:', error);
-      return this.getSampleJobs();
+      console.error('Error fetching from USAJobs:', error);
     }
+    
+    return [];
+  }
+
+  async fetchFromJSearch(): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching from JSearch API...');
+      const response = await fetch('https://jsearch.p.rapidapi.com/search?query=software%20developer&page=1&num_pages=1', {
+        headers: {
+          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
+          'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return this.transformJSearchJobs(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching from JSearch:', error);
+    }
+    
+    return [];
   }
 
   private getSampleJobs(): ExternalJob[] {
@@ -175,18 +178,94 @@ export class JobAggregator {
     }
   }
 
+  private transformGitHubJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map(job => ({
+      id: `github_${job.id}`,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      description: job.description,
+      requirements: this.extractRequirements(job.description),
+      skills: this.extractSkills(job.title + ' ' + job.description),
+      workType: this.normalizeWorkType(job.type),
+      salaryMin: undefined,
+      salaryMax: undefined,
+      source: 'GitHub Jobs',
+      externalUrl: job.url,
+      postedDate: job.created_at,
+    }));
+  }
+
+  private transformRemoteOKJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map(job => ({
+      id: `remoteok_${job.id}`,
+      title: job.position,
+      company: job.company,
+      location: job.location || 'Remote',
+      description: job.description || '',
+      requirements: this.extractRequirements(job.description || ''),
+      skills: this.extractSkills(job.tags ? job.tags.join(' ') : ''),
+      workType: 'remote',
+      salaryMin: job.salary_min,
+      salaryMax: job.salary_max,
+      source: 'RemoteOK',
+      externalUrl: job.url,
+      postedDate: new Date(job.date).toISOString(),
+    }));
+  }
+
+  private transformUSAJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map((item: any) => {
+      const job = item.MatchedObjectDescriptor;
+      return {
+        id: `usa_${job.PositionID}`,
+        title: job.PositionTitle,
+        company: job.OrganizationName,
+        location: job.PositionLocationDisplay,
+        description: job.QualificationSummary || job.PositionSummary || '',
+        requirements: this.extractRequirements(job.QualificationSummary || ''),
+        skills: this.extractSkills(job.PositionTitle + ' ' + (job.QualificationSummary || '')),
+        workType: 'onsite',
+        salaryMin: job.PositionRemuneration?.[0]?.MinimumRange,
+        salaryMax: job.PositionRemuneration?.[0]?.MaximumRange,
+        source: 'USAJobs',
+        externalUrl: job.PositionURI,
+        postedDate: job.PublicationStartDate,
+      };
+    });
+  }
+
+  private transformJSearchJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map((job: any) => ({
+      id: `jsearch_${job.job_id}`,
+      title: job.job_title,
+      company: job.employer_name,
+      location: job.job_city + ', ' + job.job_state,
+      description: job.job_description || '',
+      requirements: this.extractRequirements(job.job_description || ''),
+      skills: this.extractSkills(job.job_title + ' ' + (job.job_description || '')),
+      workType: job.job_is_remote ? 'remote' : 'onsite',
+      salaryMin: job.job_min_salary,
+      salaryMax: job.job_max_salary,
+      source: 'JSearch',
+      externalUrl: job.job_apply_link,
+      postedDate: job.job_posted_at_datetime_utc,
+    }));
+  }
+
   async getAllJobs(): Promise<ExternalJob[]> {
-    const hiringCafeJobs = await this.fetchFromHiringCafe();
+    const allJobs: ExternalJob[] = [];
     
-    // Can add more sources here in the future
-    // const indeedJobs = await this.fetchFromIndeed();
-    // const linkedInJobs = await this.fetchFromLinkedIn();
+    try {
+      const usaJobs = await this.fetchFromUSAJobs();
+      allJobs.push(...usaJobs);
+      
+      console.log(`Successfully aggregated ${allJobs.length} real jobs from external sources`);
+    } catch (error) {
+      console.error('Error aggregating jobs:', error);
+    }
     
-    return [
-      ...hiringCafeJobs,
-      // ...indeedJobs,
-      // ...linkedInJobs,
-    ];
+    return allJobs;
   }
 }
 
