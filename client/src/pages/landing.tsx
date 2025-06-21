@@ -7,11 +7,23 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import InstantMatchModal from "@/components/instant-match-modal";
 
 export default function Landing() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
+  const [showInstantMatch, setShowInstantMatch] = useState(false);
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  // Auto-open instant match modal after 3 seconds for non-authenticated users
+  useEffect(() => {
+    if (!isAuthenticated && !isLoading) {
+      const timer = setTimeout(() => {
+        setShowInstantMatch(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Fetch real platform statistics
   const { data: platformStats } = useQuery({
@@ -47,6 +59,14 @@ export default function Landing() {
 
   const handleLogin = () => {
     window.location.href = "/api/login";
+  };
+
+  const handleTryInstantMatching = () => {
+    setShowInstantMatch(true);
+  };
+
+  const handleStartMatching = () => {
+    handleLogin();
   };
 
   const handleLogout = () => {
@@ -169,9 +189,10 @@ export default function Landing() {
               <Button 
                 size="lg"
                 className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-blue-500/25 transition-all duration-300 rounded-xl"
-                onClick={handleLogin}
+                onClick={handleTryInstantMatching}
               >
-                Get Started Free
+                <Brain className="mr-2 w-4 sm:w-5 h-4 sm:h-5" />
+                Try Instant Matching
                 <ArrowRight className="ml-2 w-4 sm:w-5 h-4 sm:h-5" />
               </Button>
               <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
@@ -361,6 +382,13 @@ export default function Landing() {
           </div>
         </div>
       </div>
+
+      {/* Instant Match Modal */}
+      <InstantMatchModal
+        isOpen={showInstantMatch}
+        onClose={() => setShowInstantMatch(false)}
+        onStartMatching={handleStartMatching}
+      />
     </div>
   );
 }
