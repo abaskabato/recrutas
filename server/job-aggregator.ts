@@ -16,13 +16,19 @@ interface ExternalJob {
 
 export class JobAggregator {
   
-  async fetchFromUSAJobs(): Promise<ExternalJob[]> {
+  async fetchFromUSAJobs(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from USAJobs.gov API...');
       
-      // Build query parameters for tech jobs
+      // Build dynamic keyword based on user skills
+      let keywords = 'software developer engineer programmer analyst';
+      if (userSkills && userSkills.length > 0) {
+        keywords = userSkills.join(' ') + ' developer engineer';
+      }
+      
+      // Build query parameters for targeted jobs
       const params = new URLSearchParams({
-        Keyword: 'software developer engineer programmer analyst',
+        Keyword: keywords,
         LocationName: 'United States',
         ResultsPerPage: '100',
         WhoMayApply: 'All',
@@ -489,13 +495,13 @@ export class JobAggregator {
     return jobs.slice(0, 20);
   }
 
-  async getAllJobs(): Promise<ExternalJob[]> {
+  async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
     
     try {
-      console.log('Fetching job data from multiple external sources...');
+      console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
       
-      // Fetch from multiple sources in parallel for better performance
+      // Fetch from multiple sources in parallel with user skills
       const [
         usaJobs,
         museJobs,
@@ -504,9 +510,9 @@ export class JobAggregator {
         remoteOKJobs,
         jsonJobs
       ] = await Promise.allSettled([
-        this.fetchFromUSAJobs(),
+        this.fetchFromUSAJobs(userSkills),
         this.fetchFromTheMuse(),
-        this.fetchFromAdzunaDemo(),
+        this.fetchFromAdzunaDemo(userSkills),
         this.fetchGitHubJobs(),
         this.fetchRemoteOKJobs(),
         this.fetchFromJSONPlaceholder()
@@ -627,9 +633,16 @@ export class JobAggregator {
   }
 
   // Adzuna API with demo credentials
-  async fetchFromAdzunaDemo(): Promise<ExternalJob[]> {
+  async fetchFromAdzunaDemo(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
-      const queries = ['software developer', 'frontend engineer', 'backend developer'];
+      let queries = ['software developer', 'frontend engineer', 'backend developer'];
+      
+      // Use user skills to create targeted queries
+      if (userSkills && userSkills.length > 0) {
+        queries = userSkills.map(skill => `${skill} developer`);
+        queries.push(...userSkills.map(skill => `${skill} engineer`));
+      }
+      
       const allJobs: ExternalJob[] = [];
       
       for (const query of queries) {

@@ -539,8 +539,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { skills, limit = 10 } = req.query;
       console.log(`Fetching external jobs for instant matching. Skills: ${skills}, Limit: ${limit}`);
       
-      const externalJobs = await jobAggregator.getAllJobs();
-      console.log(`Retrieved ${externalJobs.length} external jobs from aggregator`);
+      const skillsArray = skills && typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : undefined;
+      const externalJobs = await jobAggregator.getAllJobs(skillsArray, parseInt(limit as string));
+      console.log(`Retrieved ${externalJobs.length} external jobs from aggregator for skills: ${skillsArray?.join(', ') || 'general'}`);
       
       if (externalJobs.length > 0) {
         console.log('Sample jobs available:', externalJobs.slice(0, 2).map(j => ({
@@ -626,8 +627,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync external jobs into database for AI matching
   app.post('/api/sync-external-jobs', async (req, res) => {
     try {
-      console.log('Syncing external jobs from API into database...');
-      const externalJobs = await jobAggregator.getAllJobs();
+      const { skills } = req.body;
+      console.log(`Syncing external jobs from API into database for skills: ${skills?.join(', ') || 'general'}`);
+      const externalJobs = await jobAggregator.getAllJobs(skills);
       let syncedCount = 0;
 
       // Use first existing user as talent owner for external jobs
