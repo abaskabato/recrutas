@@ -129,7 +129,10 @@ export default function CandidateDashboard() {
     hasResume, 
     currentStep, 
     profileData: profile,
-    resumeUrl: (profile as any)?.resumeUrl 
+    resumeUrl: (profile as any)?.resumeUrl,
+    profileLoading: profileQuery.isLoading,
+    profileError: profileQuery.error,
+    profileDataString: JSON.stringify(profile)
   });
 
   return (

@@ -92,6 +92,7 @@ export default function ProfileUpload() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/candidate/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/candidates/profile"] });
       
       if (data.parsed && data.extractedInfo) {
         const { skillsCount, experience, workHistoryCount } = data.extractedInfo;
