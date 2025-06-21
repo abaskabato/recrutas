@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Building } from "lucide-react";
+import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -108,40 +108,67 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-blue-900">
+    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50/30 dark:from-gray-950 dark:via-slate-950 dark:to-blue-950">
+      {/* Floating particles animation */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-2 h-2 bg-blue-400/20 rounded-full animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-1 h-1 bg-indigo-400/30 rounded-full animate-ping"></div>
+        <div className="absolute bottom-20 left-20 w-3 h-3 bg-purple-400/20 rounded-full animate-bounce"></div>
+      </div>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        <div className="container mx-auto px-4 py-24 relative">
-          <div className="text-center max-w-4xl mx-auto">
-            <Badge variant="secondary" className="mb-6 px-4 py-2 text-sm font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Recrutas V2 - Autonomous Hiring Platform
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-transparent to-indigo-600/5"></div>
+        <div className="container mx-auto px-6 py-32 relative">
+          <div className="text-center max-w-5xl mx-auto">
+            <Badge variant="secondary" className="mb-8 px-6 py-3 text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50 shadow-sm">
+              <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+              Recrutas V2 • Autonomous Hiring Excellence
             </Badge>
             
-            <h1 className="text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+            <h1 className="text-7xl lg:text-8xl font-extralight text-gray-900 dark:text-white mb-8 leading-[0.9] tracking-tight">
               Your Personal
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"> AI Hiring</span>
               <br />
-              Concierge
+              <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">AI Concierge</span>
+              <br />
+              <span className="text-5xl lg:text-6xl text-gray-600 dark:text-gray-300 font-light">for Career Excellence</span>
             </h1>
             
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Experience the future of hiring with AI-curated job matches, instant applications, 
-              and real-time career guidance. No recruiters. No gatekeepers. Just you and your perfect opportunity.
+            <p className="text-2xl text-gray-600 dark:text-gray-300 mb-16 max-w-4xl mx-auto leading-relaxed font-light">
+              Experience autonomous hiring powered by advanced AI. Curated opportunities, 
+              intelligent matching, and seamless applications—all without traditional gatekeepers.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
               <Button 
                 size="lg"
-                className="px-8 py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                className="px-12 py-6 text-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-2xl hover:shadow-blue-500/25 transition-all duration-500 rounded-2xl border-0"
                 onClick={handleLogin}
               >
-                Start Your Journey
-                <ArrowRight className="ml-2 w-5 h-5" />
+                Begin Your Journey
+                <ArrowRight className="ml-3 w-6 h-6" />
               </Button>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Free forever • No recruiters needed
+              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                <span className="text-lg font-light">Always free • No middlemen</span>
+              </div>
+            </div>
+
+            {/* Social proof */}
+            <div className="flex items-center justify-center gap-8 text-gray-400 dark:text-gray-500">
+              <div className="flex items-center gap-2">
+                <div className="flex -space-x-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 border-2 border-white dark:border-gray-900"></div>
+                  ))}
+                </div>
+                <span className="text-sm font-medium ml-2">50,000+ professionals</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                ))}
+                <span className="text-sm font-medium ml-1">4.9/5 rating</span>
               </div>
             </div>
           </div>
@@ -149,90 +176,93 @@ export default function Landing() {
       </div>
 
       {/* AI Features Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Powered by Advanced AI
+      <div className="container mx-auto px-6 py-32">
+        <div className="text-center mb-24">
+          <h2 className="text-5xl font-light text-gray-900 dark:text-white mb-6 tracking-tight">
+            Intelligent by <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Design</span>
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Our intelligent system works 24/7 to find, analyze, and present the perfect opportunities for your career
+          <p className="text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto font-light leading-relaxed">
+            Advanced AI orchestrates every aspect of your career journey with precision and elegance
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8 mb-20">
-          <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-                <Brain className="w-8 h-8 text-white" />
+        <div className="grid lg:grid-cols-3 gap-12 mb-32">
+          <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-white to-blue-50/50 dark:from-gray-900 dark:to-blue-950/50 backdrop-blur-xl shadow-lg hover:shadow-2xl transition-all duration-700 rounded-3xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <CardContent className="p-12 text-center relative">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-blue-500/25">
+                <Brain className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">AI Job Curation</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Smart algorithms analyze thousands of jobs to find matches with 85%+ compatibility scores and detailed explanations
+              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Intelligent Curation</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-8 font-light leading-relaxed">
+                Our neural networks analyze market patterns, skill demands, and career trajectories to surface opportunities that align perfectly with your ambitions.
               </p>
-              <div className="space-y-2 text-sm text-left">
-                <div className="flex items-center text-green-600 dark:text-green-400">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                  Skill-based matching with confidence levels
+              <div className="space-y-4 text-left">
+                <div className="flex items-center text-blue-600 dark:text-blue-400">
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">90%+ match accuracy with explainable AI</span>
                 </div>
-                <div className="flex items-center text-green-600 dark:text-green-400">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                  Real-time market insights and salary data
+                <div className="flex items-center text-blue-600 dark:text-blue-400">
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Real-time salary and market intelligence</span>
                 </div>
-                <div className="flex items-center text-green-600 dark:text-green-400">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                  Personalized career recommendations
+                <div className="flex items-center text-blue-600 dark:text-blue-400">
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Personalized career progression insights</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-                <Zap className="w-8 h-8 text-white" />
+          <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-white to-emerald-50/50 dark:from-gray-900 dark:to-emerald-950/50 backdrop-blur-xl shadow-lg hover:shadow-2xl transition-all duration-700 rounded-3xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <CardContent className="p-12 text-center relative">
+              <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-emerald-500/25">
+                <Zap className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">One-Tap Applications</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Apply to perfect matches instantly with smart profile optimization and automatic cover letter generation
+              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Effortless Applications</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-8 font-light leading-relaxed">
+                Transform your application process with intelligent automation that adapts your profile for each opportunity while maintaining authenticity.
               </p>
-              <div className="space-y-2 text-sm text-left">
+              <div className="space-y-4 text-left">
                 <div className="flex items-center text-emerald-600 dark:text-emerald-400">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
-                  Instant application submission
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">One-click applications with smart optimization</span>
                 </div>
                 <div className="flex items-center text-emerald-600 dark:text-emerald-400">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
-                  Real-time application tracking
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Live application status tracking</span>
                 </div>
                 <div className="flex items-center text-emerald-600 dark:text-emerald-400">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
-                  Direct connection to hiring managers
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Direct hiring manager connections</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="group hover:shadow-2xl transition-all duration-300 border-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-                <Target className="w-8 h-8 text-white" />
+          <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-white to-violet-50/50 dark:from-gray-900 dark:to-violet-950/50 backdrop-blur-xl shadow-lg hover:shadow-2xl transition-all duration-700 rounded-3xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <CardContent className="p-12 text-center relative">
+              <div className="w-20 h-20 bg-gradient-to-br from-violet-500 via-violet-600 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-violet-500/25">
+                <Target className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Smart Career Insights</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Get personalized career guidance, skill recommendations, and market trends to accelerate your growth
+              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Strategic Guidance</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-8 font-light leading-relaxed">
+                Receive data-driven career counsel that evolves with market trends, helping you make informed decisions at every career milestone.
               </p>
-              <div className="space-y-2 text-sm text-left">
+              <div className="space-y-4 text-left">
                 <div className="flex items-center text-violet-600 dark:text-violet-400">
-                  <div className="w-2 h-2 bg-violet-500 rounded-full mr-3"></div>
-                  Skill gap analysis and learning paths
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Skill gap analysis and learning roadmaps</span>
                 </div>
                 <div className="flex items-center text-violet-600 dark:text-violet-400">
-                  <div className="w-2 h-2 bg-violet-500 rounded-full mr-3"></div>
-                  Industry trend predictions
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Industry trend forecasting</span>
                 </div>
                 <div className="flex items-center text-violet-600 dark:text-violet-400">
-                  <div className="w-2 h-2 bg-violet-500 rounded-full mr-3"></div>
-                  Salary negotiation insights
+                  <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
+                  <span className="font-light">Negotiation strategy optimization</span>
                 </div>
               </div>
             </CardContent>
@@ -240,95 +270,132 @@ export default function Landing() {
         </div>
 
         {/* Stats Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-12 text-white">
-          <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="flex items-center justify-center mb-4">
-                <Users className="w-8 h-8 mr-3" />
-                <span className="text-4xl font-bold">50K+</span>
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 rounded-[2.5rem] p-16 text-white shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-[2.5rem]"></div>
+          <div className="relative grid md:grid-cols-3 gap-12 text-center">
+            <div className="group">
+              <div className="flex flex-col items-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">50K+</span>
               </div>
-              <p className="text-blue-100">Active candidates finding their dream jobs</p>
+              <p className="text-blue-100 font-light text-lg leading-relaxed">Professionals accelerating their careers with AI-powered matching</p>
             </div>
-            <div>
-              <div className="flex items-center justify-center mb-4">
-                <TrendingUp className="w-8 h-8 mr-3" />
-                <span className="text-4xl font-bold">3x</span>
+            <div className="group">
+              <div className="flex flex-col items-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <TrendingUp className="w-8 h-8 text-white" />
+                </div>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-emerald-100 bg-clip-text text-transparent">5x</span>
               </div>
-              <p className="text-blue-100">Faster hiring process vs traditional methods</p>
+              <p className="text-emerald-100 font-light text-lg leading-relaxed">Faster career progression compared to traditional recruitment</p>
             </div>
-            <div>
-              <div className="flex items-center justify-center mb-4">
-                <Target className="w-8 h-8 mr-3" />
-                <span className="text-4xl font-bold">94%</span>
+            <div className="group">
+              <div className="flex flex-col items-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <Target className="w-8 h-8 text-white" />
+                </div>
+                <span className="text-6xl font-extralight mb-2 bg-gradient-to-br from-white to-violet-100 bg-clip-text text-transparent">96%</span>
               </div>
-              <p className="text-blue-100">Match accuracy rate with our AI system</p>
+              <p className="text-violet-100 font-light text-lg leading-relaxed">Match satisfaction rate with explainable AI recommendations</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* How It Works */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Three Steps to Your Dream Job
+      <div className="container mx-auto px-6 py-32">
+        <div className="text-center mb-24">
+          <h2 className="text-5xl font-light text-gray-900 dark:text-white mb-6 tracking-tight">
+            Seamless by <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Nature</span>
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300">
-            Our autonomous system does the heavy lifting for you
+          <p className="text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto font-light leading-relaxed">
+            Three effortless steps to unlock opportunities you never knew existed
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-white">
-              1
+        <div className="grid md:grid-cols-3 gap-16">
+          <div className="group text-center">
+            <div className="relative mb-8">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-[1.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-blue-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                <span className="text-3xl font-extralight text-white">1</span>
+              </div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full opacity-60 animate-ping"></div>
             </div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Complete Your Profile</h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Tell us about your skills, experience, and career goals. Our AI learns your preferences and creates a personalized profile.
+            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Intelligent Onboarding</h3>
+            <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
+              Share your aspirations through our conversational interface. Our AI builds a comprehensive understanding of your career trajectory and potential.
             </p>
           </div>
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-white">
-              2
+          <div className="group text-center">
+            <div className="relative mb-8">
+              <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-[1.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                <span className="text-3xl font-extralight text-white">2</span>
+              </div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-400 rounded-full opacity-60 animate-ping" style={{ animationDelay: '0.5s' }}></div>
             </div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Receive AI-Curated Matches</h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Get personalized job recommendations with detailed explanations of why each role is perfect for you, updated in real-time.
+            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Curated Discovery</h3>
+            <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
+              Experience personalized opportunity curation with transparent AI reasoning. Every recommendation comes with detailed explanations and growth projections.
             </p>
           </div>
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-white">
-              3
+          <div className="group text-center">
+            <div className="relative mb-8">
+              <div className="w-24 h-24 bg-gradient-to-br from-violet-500 via-violet-600 to-purple-600 rounded-[1.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-violet-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                <span className="text-3xl font-extralight text-white">3</span>
+              </div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-violet-400 rounded-full opacity-60 animate-ping" style={{ animationDelay: '1s' }}></div>
             </div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Apply & Connect Instantly</h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              One-tap applications connect you directly with hiring managers. Track progress in real-time and get interview scheduling assistance.
+            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Effortless Engagement</h3>
+            <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
+              Transform interest into opportunity with intelligent application automation. Real-time progress tracking keeps you informed at every milestone.
             </p>
           </div>
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="bg-gradient-to-r from-slate-900 to-blue-900 rounded-3xl p-12 text-center text-white">
-          <h2 className="text-4xl font-bold mb-6">
-            Ready to Transform Your Career?
-          </h2>
-          <p className="text-xl mb-8 text-slate-200 max-w-2xl mx-auto">
-            Join thousands of professionals who've found their perfect job through our AI-powered platform. 
-            Your personal hiring concierge is waiting.
-          </p>
-          <Button 
-            size="lg"
-            className="px-12 py-4 text-lg font-semibold bg-white text-slate-900 hover:bg-slate-100 shadow-lg hover:shadow-xl transition-all duration-300"
-            onClick={handleLogin}
-          >
-            Start Your AI-Powered Job Search
-            <ArrowRight className="ml-3 w-5 h-5" />
-          </Button>
-          <div className="mt-6 text-sm text-slate-300">
-            No signup fees • No recruiter middlemen • Just results
+      {/* Final CTA Section */}
+      <div className="container mx-auto px-6 py-32">
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 rounded-[3rem] p-20 text-center text-white shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-[3rem]"></div>
+          <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
+          
+          <div className="relative">
+            <h2 className="text-6xl font-extralight mb-8 leading-tight">
+              Begin Your
+              <br />
+              <span className="font-bold bg-gradient-to-r from-white via-blue-100 to-indigo-100 bg-clip-text text-transparent">Career Renaissance</span>
+            </h2>
+            <p className="text-2xl mb-12 text-slate-200 max-w-4xl mx-auto font-light leading-relaxed">
+              Join the elite community of professionals who've transcended traditional hiring limitations. 
+              Your intelligent career partner awaits.
+            </p>
+            <Button 
+              size="lg"
+              className="px-16 py-6 text-xl font-medium bg-white text-slate-900 hover:bg-slate-50 shadow-2xl hover:shadow-white/25 transition-all duration-500 rounded-2xl border-0 group"
+              onClick={handleLogin}
+            >
+              <span className="mr-4">Elevate Your Career</span>
+              <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" />
+            </Button>
+            <div className="mt-8 flex items-center justify-center gap-6 text-slate-300 font-light">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                <span>Eternally complimentary</span>
+              </div>
+              <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                <span>Direct connections only</span>
+              </div>
+              <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                <span>Immediate results</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
