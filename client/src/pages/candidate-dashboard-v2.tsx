@@ -79,10 +79,11 @@ export default function CandidateDashboard() {
   });
 
   // Fetch profile completion status
-  const { data: profile } = useQuery({
-    queryKey: ['/api/candidates/profile'],
+  const profileQuery = useQuery({
+    queryKey: ['/api/candidate/profile'],
     retry: false,
   });
+  const profile = profileQuery.data;
 
   // Fetch recent activity
   const { data: activities } = useQuery({
@@ -131,8 +132,7 @@ export default function CandidateDashboard() {
     profileData: profile,
     resumeUrl: (profile as any)?.resumeUrl,
     profileLoading: profileQuery.isLoading,
-    profileError: profileQuery.error,
-    profileDataString: JSON.stringify(profile)
+    profileError: profileQuery.error
   });
 
   return (
