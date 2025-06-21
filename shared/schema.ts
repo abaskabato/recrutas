@@ -95,7 +95,7 @@ export const jobMatches = pgTable("job_matches", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   candidateId: varchar("candidate_id").notNull().references(() => users.id),
-  matchScore: numeric("match_score").notNull(),
+  matchScore: varchar("match_score").notNull(),
   confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
   matchReasons: jsonb("match_reasons").$type<string[]>().default([]),
   skillMatches: jsonb("skill_matches").$type<{skill: string, matched: boolean}[]>().default([]),

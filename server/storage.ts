@@ -158,6 +158,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobPostings(talentOwnerId: string): Promise<JobPosting[]> {
+    if (!talentOwnerId) {
+      // Return all job postings if no specific owner requested
+      return await db
+        .select()
+        .from(jobPostings)
+        .orderBy(desc(jobPostings.createdAt))
+        .limit(10);
+    }
+    
     return await db
       .select()
       .from(jobPostings)
@@ -186,31 +195,55 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]> {
-    return await db
-      .select({
-        id: jobMatches.id,
-        jobId: jobMatches.jobId,
-        candidateId: jobMatches.candidateId,
-        matchScore: jobMatches.matchScore,
-        matchReasons: jobMatches.matchReasons,
-        status: jobMatches.status,
-        createdAt: jobMatches.createdAt,
-        updatedAt: jobMatches.updatedAt,
-        confidenceLevel: jobMatches.confidenceLevel,
-        skillMatches: jobMatches.skillMatches,
-        aiExplanation: jobMatches.aiExplanation,
-        userFeedback: jobMatches.userFeedback,
-        viewedAt: jobMatches.viewedAt,
-        interestedAt: jobMatches.interestedAt,
-        appliedAt: jobMatches.appliedAt,
-        job: jobPostings,
-        talentOwner: users,
-      })
-      .from(jobMatches)
-      .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .innerJoin(users, eq(jobPostings.talentOwnerId, users.id))
-      .where(eq(jobMatches.candidateId, candidateId))
-      .orderBy(desc(jobMatches.createdAt));
+    try {
+      const matches = await db
+        .select()
+        .from(jobMatches)
+        .where(eq(jobMatches.candidateId, candidateId))
+        .orderBy(desc(jobMatches.createdAt));
+      
+      if (!matches || matches.length === 0) {
+        return [];
+      }
+      
+      const enrichedMatches = [];
+      
+      for (const match of matches) {
+        if (!match || !match.jobId) continue;
+        
+        try {
+          const job = await db
+            .select()
+            .from(jobPostings)
+            .where(eq(jobPostings.id, match.jobId))
+            .limit(1);
+            
+          if (!job || job.length === 0) continue;
+          
+          const talentOwner = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, job[0].talentOwnerId))
+            .limit(1);
+            
+          if (job[0] && talentOwner[0]) {
+            enrichedMatches.push({
+              ...match,
+              job: job[0],
+              talentOwner: talentOwner[0],
+            });
+          }
+        } catch (error) {
+          console.error(`Error enriching match ${match.id}:`, error);
+          continue;
+        }
+      }
+      
+      return enrichedMatches as any;
+    } catch (error) {
+      console.error("Error in getMatchesForCandidate:", error);
+      return [];
+    }
   }
 
   async getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]> {
