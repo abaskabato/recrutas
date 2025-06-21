@@ -57,6 +57,8 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   salaryMax: integer("salary_max"),
   workType: varchar("work_type", { enum: ["remote", "hybrid", "onsite"] }),
   industry: varchar("industry"),
+  bio: text("bio"), // Summary/objective from resume
+  resumeText: text("resume_text"), // Raw parsed text for search
   profileStrength: integer("profile_strength").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

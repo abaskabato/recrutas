@@ -89,13 +89,22 @@ export default function ProfileUpload() {
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/candidate/profile"] });
-      toast({
-        title: "Resume Uploaded",
-        description: "Your resume has been uploaded successfully!",
-      });
+      
+      if (data.parsed && data.extractedInfo) {
+        const { skillsCount, experience, workHistoryCount } = data.extractedInfo;
+        toast({
+          title: "Resume Scanned Successfully!",
+          description: `Found ${skillsCount} skills, ${experience} experience, and ${workHistoryCount} work entries. Your profile has been automatically updated.`,
+        });
+      } else {
+        toast({
+          title: "Resume Uploaded",
+          description: "Your resume has been uploaded successfully!",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -187,15 +196,40 @@ export default function ProfileUpload() {
             {uploadMutation.isPending ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-                <span>Uploading...</span>
+                <span>Scanning Resume...</span>
               </>
             ) : (
               <>
                 <Upload className="h-5 w-5 text-primary" />
-                <span>Update Resume</span>
+                <span>Upload & Scan Resume</span>
               </>
             )}
           </Button>
+          
+          {/* Show current resume info if available */}
+          {profile?.resumeUrl && (
+            <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-start gap-2">
+                <FileText className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Resume Active
+                  </p>
+                  {profile.skills && profile.skills.length > 0 && (
+                    <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                      Auto-detected {profile.skills.length} skills: {profile.skills.slice(0, 3).join(', ')}
+                      {profile.skills.length > 3 && ` +${profile.skills.length - 3} more`}
+                    </p>
+                  )}
+                  {profile.experience && (
+                    <p className="text-xs text-green-700 dark:text-green-300">
+                      Experience: {profile.experience}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Resume upload
+  // Resume upload with parsing
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
       if (!req.file) {
@@ -136,17 +136,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userId = req.user.claims.sub;
       const resumeUrl = `/uploads/${req.file.filename}`;
+      const filePath = req.file.path;
       
-      // Update candidate profile with resume URL
-      await storage.upsertCandidateProfile({
+      // Parse the resume to extract information
+      let parsedData = null;
+      try {
+        const { resumeParser } = await import('./resume-parser');
+        parsedData = await resumeParser.parseFile(filePath);
+        console.log('Resume parsed successfully:', {
+          skillsFound: parsedData.skills.length,
+          experience: parsedData.experience,
+          workHistoryEntries: parsedData.workHistory.length
+        });
+      } catch (parseError) {
+        console.error('Resume parsing failed:', parseError);
+        // Continue with upload even if parsing fails
+      }
+      
+      // Prepare profile data with parsed information
+      const profileData: any = {
         userId,
         resumeUrl,
-      });
+      };
+
+      // Add parsed data if available
+      if (parsedData) {
+        if (parsedData.skills.length > 0) {
+          profileData.skills = parsedData.skills;
+        }
+        
+        if (parsedData.experience && parsedData.experience !== 'Not specified') {
+          profileData.experience = parsedData.experience;
+        }
+        
+        if (parsedData.contactInfo.location) {
+          profileData.location = parsedData.contactInfo.location;
+        }
+        
+        if (parsedData.summary) {
+          profileData.bio = parsedData.summary;
+        }
+
+        // Store parsed text for future reference
+        profileData.resumeText = parsedData.text;
+      }
+      
+      // Update candidate profile with resume URL and parsed data
+      const profile = await storage.upsertCandidateProfile(profileData);
 
       // Create activity log
-      await storage.createActivityLog(userId, "resume_upload", "Resume uploaded successfully");
+      const activityMessage = parsedData 
+        ? `Resume uploaded and parsed successfully. Found ${parsedData.skills.length} skills and ${parsedData.workHistory.length} work entries.`
+        : "Resume uploaded successfully";
+      
+      await storage.createActivityLog(userId, "resume_upload", activityMessage);
 
-      res.json({ resumeUrl });
+      res.json({ 
+        resumeUrl,
+        parsed: !!parsedData,
+        extractedInfo: parsedData ? {
+          skillsCount: parsedData.skills.length,
+          experience: parsedData.experience,
+          workHistoryCount: parsedData.workHistory.length,
+          hasContactInfo: Object.keys(parsedData.contactInfo).length > 0
+        } : null
+      });
     } catch (error) {
       console.error("Error uploading resume:", error);
       res.status(500).json({ message: "Failed to upload resume" });
