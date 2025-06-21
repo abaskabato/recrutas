@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -35,10 +35,12 @@ import AIJobFeed from "@/components/ai-job-feed";
 import ProfileUpload from "@/components/profile-upload";
 import ApplicationTracker from "@/components/application-tracker";
 import RealTimeNotifications from "@/components/real-time-notifications";
+import JobMatchesModal from "@/components/job-matches-modal";
 
 export default function CandidateDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+  const [showJobMatchesModal, setShowJobMatchesModal] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -203,15 +205,7 @@ export default function CandidateDashboard() {
                     </div>
                     <Button 
                       className="bg-primary hover:bg-primary/90"
-                      onClick={() => {
-                        const element = document.querySelector('[data-tab="feed"]');
-                        if (element) {
-                          (element as HTMLElement).click();
-                          setTimeout(() => {
-                            window.scrollTo({ top: 400, behavior: 'smooth' });
-                          }, 100);
-                        }
-                      }}
+                      onClick={() => setShowJobMatchesModal(true)}
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
                       View AI Job Matches
@@ -541,6 +535,11 @@ export default function CandidateDashboard() {
           </Tabs>
         )}
       </div>
+      
+      <JobMatchesModal 
+        isOpen={showJobMatchesModal} 
+        onClose={() => setShowJobMatchesModal(false)} 
+      />
     </div>
   );
 }
