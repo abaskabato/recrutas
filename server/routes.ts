@@ -505,11 +505,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const externalJobs = await jobAggregator.getAllJobs();
       console.log(`Retrieved ${externalJobs.length} external jobs from aggregator`);
       
+      if (externalJobs.length > 0) {
+        console.log('Sample jobs available:', externalJobs.slice(0, 2).map(j => ({
+          title: j.title,
+          company: j.company,
+          skills: j.skills
+        })));
+      }
+      
       // Filter and format jobs for instant matching
       let filteredJobs = externalJobs;
       
       if (skills && typeof skills === 'string') {
         const skillsArray = skills.toLowerCase().split(',').map(s => s.trim());
+        
+        // First try exact matching
         filteredJobs = externalJobs.filter(job => {
           const jobSkills = job.skills.map(s => s.toLowerCase());
           const jobTitle = job.title.toLowerCase();
@@ -521,6 +531,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             jobDescription.includes(skill)
           );
         });
+        
+        // If no matches found, use broader matching or return all jobs
+        if (filteredJobs.length === 0) {
+          console.log(`No exact skill matches found for "${skills}", returning all available jobs`);
+          filteredJobs = externalJobs;
+        }
+        
+        console.log(`After filtering: ${filteredJobs.length} jobs matched for "${skills}"`);
+      } else {
+        console.log('No skills provided, returning all available jobs');
+      }
+      
+      console.log(`Final job count before formatting: ${filteredJobs.length}`);
       }
       
       // Format for instant match modal
