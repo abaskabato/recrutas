@@ -32,7 +32,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { enum: ["candidate", "recruiter"] }),
+  role: varchar("role", { enum: ["candidate", "talent_owner"] }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -54,10 +54,10 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Job postings
+// Job postings - Enhanced for AI-curated feeds
 export const jobPostings = pgTable("job_postings", {
   id: serial("id").primaryKey(),
-  recruiterId: varchar("recruiter_id").notNull().references(() => users.id),
+  talentOwnerId: varchar("talent_owner_id").notNull().references(() => users.id),
   title: varchar("title").notNull(),
   company: varchar("company").notNull(),
   description: text("description").notNull(),
@@ -69,18 +69,32 @@ export const jobPostings = pgTable("job_postings", {
   workType: varchar("work_type", { enum: ["remote", "hybrid", "onsite"] }),
   industry: varchar("industry"),
   status: varchar("status", { enum: ["active", "paused", "closed"] }).default("active"),
+  source: varchar("source").default("platform"), // "platform", "external_api", "scraped"
+  externalId: varchar("external_id"), // For AI-curated jobs from external sources
+  companyLogoUrl: varchar("company_logo_url"),
+  applicationUrl: varchar("application_url"), // Direct apply link
+  urgency: varchar("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
+  viewCount: integer("view_count").default(0),
+  applicationCount: integer("application_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Job matches
+// Job matches - Enhanced with AI confidence and feedback
 export const jobMatches = pgTable("job_matches", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   candidateId: varchar("candidate_id").notNull().references(() => users.id),
   matchScore: numeric("match_score").notNull(),
+  confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
   matchReasons: jsonb("match_reasons").$type<string[]>().default([]),
-  status: varchar("status", { enum: ["pending", "viewed", "interested", "rejected"] }).default("pending"),
+  skillMatches: jsonb("skill_matches").$type<{skill: string, matched: boolean}[]>().default([]),
+  aiExplanation: text("ai_explanation"), // Why this match was suggested
+  status: varchar("status", { enum: ["pending", "viewed", "interested", "applied", "rejected"] }).default("pending"),
+  userFeedback: integer("user_feedback"), // 1-5 rating for learning
+  feedbackReason: text("feedback_reason"), // Why they rated it this way
+  viewedAt: timestamp("viewed_at"),
+  appliedAt: timestamp("applied_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -100,6 +114,51 @@ export const chatMessages = pgTable("chat_messages", {
   chatRoomId: integer("chat_room_id").notNull().references(() => chatRooms.id),
   senderId: varchar("sender_id").notNull().references(() => users.id),
   message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Job applications - Track application status and updates
+export const jobApplications = pgTable("job_applications", {
+  id: serial("id").primaryKey(),
+  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id),
+  matchId: integer("match_id").references(() => jobMatches.id),
+  status: varchar("status", { 
+    enum: ["submitted", "viewed", "screening", "interview_scheduled", "interview_completed", "offer", "rejected", "withdrawn"] 
+  }).default("submitted"),
+  appliedAt: timestamp("applied_at").defaultNow(),
+  viewedByEmployerAt: timestamp("viewed_by_employer_at"),
+  lastStatusUpdate: timestamp("last_status_update").defaultNow(),
+  interviewLink: varchar("interview_link"),
+  notes: text("notes"),
+  autoFilled: boolean("auto_filled").default(false), // Was application auto-filled by AI
+  resumeUrl: varchar("resume_url"),
+  coverLetter: text("cover_letter"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Application status updates - Real-time tracking
+export const applicationUpdates = pgTable("application_updates", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => jobApplications.id),
+  previousStatus: varchar("previous_status"),
+  newStatus: varchar("new_status").notNull(),
+  message: text("message"), // Update message for candidate
+  updatedBy: varchar("updated_by"), // System or talent owner ID
+  metadata: jsonb("metadata"), // Additional context
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User feedback for match learning
+export const matchFeedback = pgTable("match_feedback", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  matchId: integer("match_id").notNull().references(() => jobMatches.id),
+  rating: integer("rating").notNull(), // 1-5 stars
+  feedbackType: varchar("feedback_type", { enum: ["match_quality", "job_relevance", "timing", "requirements"] }),
+  comment: text("comment"),
+  improvementSuggestions: jsonb("improvement_suggestions").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -133,11 +192,12 @@ export const candidateProfilesRelations = relations(candidateProfiles, ({ one })
 }));
 
 export const jobPostingsRelations = relations(jobPostings, ({ one, many }) => ({
-  recruiter: one(users, {
-    fields: [jobPostings.recruiterId],
+  talentOwner: one(users, {
+    fields: [jobPostings.talentOwnerId],
     references: [users.id],
   }),
   matches: many(jobMatches),
+  applications: many(jobApplications),
 }));
 
 export const jobMatchesRelations = relations(jobMatches, ({ one, many }) => ({
@@ -213,3 +273,6 @@ export type ChatRoom = typeof chatRooms.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+export type JobApplication = typeof jobApplications.$inferSelect;
+export type ApplicationUpdate = typeof applicationUpdates.$inferSelect;
+export type MatchFeedback = typeof matchFeedback.$inferSelect;

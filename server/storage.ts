@@ -26,7 +26,7 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserRole(userId: string, role: 'candidate' | 'recruiter'): Promise<User>;
+  updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User>;
   
   // Candidate operations
   getCandidateProfile(userId: string): Promise<CandidateProfile | undefined>;
@@ -41,7 +41,7 @@ export interface IStorage {
   
   // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
-  getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; recruiter: User })[]>;
+  getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]>;
   getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
   
@@ -95,7 +95,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserRole(userId: string, role: 'candidate' | 'recruiter'): Promise<User> {
+  async updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User> {
     const [user] = await db
       .update(users)
       .set({ role, updatedAt: new Date() })
@@ -137,11 +137,11 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getJobPostings(recruiterId: string): Promise<JobPosting[]> {
+  async getJobPostings(talentOwnerId: string): Promise<JobPosting[]> {
     return await db
       .select()
       .from(jobPostings)
-      .where(eq(jobPostings.recruiterId, recruiterId))
+      .where(eq(jobPostings.talentOwnerId, talentOwnerId))
       .orderBy(desc(jobPostings.createdAt));
   }
 
@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; recruiter: User })[]> {
+  async getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]> {
     return await db
       .select({
         id: jobMatches.id,
@@ -176,12 +176,19 @@ export class DatabaseStorage implements IStorage {
         status: jobMatches.status,
         createdAt: jobMatches.createdAt,
         updatedAt: jobMatches.updatedAt,
+        confidenceLevel: jobMatches.confidenceLevel,
+        skillMatches: jobMatches.skillMatches,
+        aiExplanation: jobMatches.aiExplanation,
+        userFeedback: jobMatches.userFeedback,
+        viewedAt: jobMatches.viewedAt,
+        interestedAt: jobMatches.interestedAt,
+        appliedAt: jobMatches.appliedAt,
         job: jobPostings,
-        recruiter: users,
+        talentOwner: users,
       })
       .from(jobMatches)
       .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .innerJoin(users, eq(jobPostings.recruiterId, users.id))
+      .innerJoin(users, eq(jobPostings.talentOwnerId, users.id))
       .where(eq(jobMatches.candidateId, candidateId))
       .orderBy(desc(jobMatches.createdAt));
   }

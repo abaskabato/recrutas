@@ -1,0 +1,429 @@
+import { useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Bell, 
+  User, 
+  Upload, 
+  Search, 
+  Eye, 
+  Clock, 
+  Lightbulb, 
+  MessageCircle, 
+  Check, 
+  Sparkles, 
+  Target, 
+  Zap, 
+  TrendingUp,
+  Briefcase,
+  MapPin,
+  Building,
+  DollarSign,
+  ThumbsUp,
+  ChevronRight,
+  Activity
+} from "lucide-react";
+import AIJobFeed from "@/components/ai-job-feed";
+import ProfileUpload from "@/components/profile-upload";
+
+export default function CandidateDashboard() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { toast } = useToast();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  // Fetch candidate stats
+  const { data: stats } = useQuery({
+    queryKey: ['/api/candidates/stats'],
+    retry: false,
+    meta: {
+      onError: (error: Error) => {
+        if (isUnauthorizedError(error)) {
+          toast({
+            title: "Unauthorized",
+            description: "You are logged out. Logging in again...",
+            variant: "destructive",
+          });
+          setTimeout(() => {
+            window.location.href = "/api/login";
+          }, 500);
+          return;
+        }
+      },
+    },
+  });
+
+  // Fetch profile completion status
+  const { data: profile } = useQuery({
+    queryKey: ['/api/candidates/profile'],
+    retry: false,
+  });
+
+  // Fetch recent activity
+  const { data: activities } = useQuery({
+    queryKey: ['/api/candidates/activity'],
+    retry: false,
+  });
+
+  // Fetch application status
+  const { data: applications } = useQuery({
+    queryKey: ['/api/candidates/applications'],
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const profileCompletion = profile?.profileStrength || 0;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
+      {/* Header */}
+      <div className="bg-white dark:bg-slate-800 border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-primary to-primary/80 rounded-lg flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Recrutas V2</h1>
+                <p className="text-sm text-muted-foreground">Your AI Hiring Concierge</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" className="relative">
+                <Bell className="h-4 w-4" />
+                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">3</Badge>
+              </Button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-sm font-medium">{user?.firstName || 'Candidate'}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = "/api/logout"}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-primary/10 to-blue-500/10 rounded-2xl p-6 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">
+                  Welcome back, {user?.firstName || 'there'}! 👋
+                </h2>
+                <p className="text-muted-foreground mb-4">
+                  Your AI concierge has been working behind the scenes to find perfect job matches for you.
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Target className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">{stats?.newMatches || 0} new matches</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Eye className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium">{stats?.profileViews || 0} profile views</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <MessageCircle className="h-4 w-4 text-purple-600" />
+                    <span className="font-medium">{stats?.activeChats || 0} active conversations</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="w-24 h-24 relative">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      d="m18,2.0845 a 15.9155,15.9155 0 0,1 0,31.831 a 15.9155,15.9155 0 0,1 0,-31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeDasharray={`${profileCompletion}, 100`}
+                      className="text-primary"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg font-bold">{profileCompletion}%</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Profile Complete</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <Tabs defaultValue="feed" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
+            <TabsTrigger value="feed" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              AI Feed
+            </TabsTrigger>
+            <TabsTrigger value="applications" className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />
+              Applications
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Insights
+            </TabsTrigger>
+          </TabsList>
+
+          {/* AI Job Feed Tab */}
+          <TabsContent value="feed" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3">
+                <AIJobFeed />
+              </div>
+              <div className="space-y-4">
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Zap className="h-4 w-4" />
+                      Quick Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Update Resume
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Search className="h-4 w-4 mr-2" />
+                      Job Preferences
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Bell className="h-4 w-4 mr-2" />
+                      Notifications
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* AI Insights */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Lightbulb className="h-4 w-4" />
+                      AI Insights
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
+                      <p className="text-xs text-blue-800 dark:text-blue-200">
+                        Your profile views increased 40% this week. Consider adding more JavaScript skills to boost visibility.
+                      </p>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
+                      <p className="text-xs text-green-800 dark:text-green-200">
+                        3 new companies in your area are hiring for your skillset.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Applications Tab */}
+          <TabsContent value="applications" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {applications?.length > 0 ? applications.map((app: any) => (
+                <Card key={app.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base">{app.job?.title}</CardTitle>
+                        <p className="text-sm text-muted-foreground">{app.job?.company}</p>
+                      </div>
+                      <Badge variant={app.status === 'pending' ? 'secondary' : 'default'}>
+                        {app.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Applied {new Date(app.appliedAt).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {app.job?.location}
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" className="w-full mt-3">
+                      View Details
+                      <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )) : (
+                <div className="col-span-full text-center py-12">
+                  <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Start applying to jobs from your AI-curated feed to see them here.
+                  </p>
+                  <Button>Browse Jobs</Button>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Profile Tab */}
+          <TabsContent value="profile" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Completion</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Overall Progress</span>
+                        <span>{profileCompletion}%</span>
+                      </div>
+                      <Progress value={profileCompletion} className="h-2" />
+                    </div>
+                    <ProfileUpload />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">{stats?.profileViews || 0}</div>
+                      <p className="text-xs text-muted-foreground">Profile Views</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{stats?.newMatches || 0}</div>
+                      <p className="text-xs text-muted-foreground">AI Matches</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Insights Tab */}
+          <TabsContent value="insights" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-4 w-4" />
+                    Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {activities?.length > 0 ? activities.slice(0, 5).map((activity: any) => (
+                      <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg bg-muted/50">
+                        <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                        <div className="flex-1">
+                          <p className="text-sm">{activity.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(activity.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-sm text-muted-foreground">No recent activity</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>AI Recommendations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <ThumbsUp className="h-4 w-4 text-blue-600 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Skill Enhancement
+                          </p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            Adding React certification could increase your match rate by 25%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <Target className="h-4 w-4 text-green-600 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                            Market Opportunity
+                          </p>
+                          <p className="text-xs text-green-700 dark:text-green-300">
+                            Remote opportunities in your field have increased 60% this month
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

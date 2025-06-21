@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bell, User, Upload, Search, Eye, Clock, Lightbulb, MessageCircle, Check } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bell, User, Upload, Search, Eye, Clock, Lightbulb, MessageCircle, Check, Sparkles, Target, Zap, TrendingUp } from "lucide-react";
 import MatchCard from "@/components/match-card";
 import ProfileUpload from "@/components/profile-upload";
+import AIJobFeed from "@/components/ai-job-feed";
 
 export default function CandidateDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();

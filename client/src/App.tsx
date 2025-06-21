@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
-import CandidateDashboard from "@/pages/candidate-dashboard";
+import CandidateDashboard from "@/pages/candidate-dashboard-v2";
 import RecruiterDashboard from "@/pages/recruiter-dashboard";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
@@ -29,8 +29,10 @@ function Router() {
         <>
           {user.role === 'candidate' ? (
             <Route path="/" component={CandidateDashboard} />
-          ) : (
+          ) : user.role === 'talent_owner' ? (
             <Route path="/" component={RecruiterDashboard} />
+          ) : (
+            <Route path="/" component={Landing} />
           )}
           <Route path="/chat/:roomId?" component={Chat} />
         </>

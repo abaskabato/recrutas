@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
-  const [selectedRole, setSelectedRole] = useState<'candidate' | 'recruiter' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
 
@@ -33,7 +33,7 @@ export default function Landing() {
     },
   });
 
-  const handleRoleSelection = (role: 'candidate' | 'recruiter') => {
+  const handleRoleSelection = (role: 'candidate' | 'talent_owner') => {
     setSelectedRole(role);
     setRoleMutation.mutate(role);
   };
@@ -79,18 +79,18 @@ export default function Landing() {
             </Card>
 
             <Card className="p-6 border-2 border-transparent hover:border-primary transition-all cursor-pointer group"
-                  onClick={() => handleRoleSelection('recruiter')}>
+                  onClick={() => handleRoleSelection('talent_owner')}>
               <CardContent className="p-0 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Building className="text-primary h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-semibold text-neutral-800 mb-2">I'm Hiring</h3>
-                <p className="text-neutral-600 mb-4">Find the perfect candidates</p>
+                <p className="text-neutral-600 mb-4">Access matched candidates and manage hiring</p>
                 <Button 
                   className="w-full" 
-                  disabled={setRoleMutation.isPending && selectedRole === 'recruiter'}
+                  disabled={setRoleMutation.isPending && selectedRole === 'talent_owner'}
                 >
-                  {setRoleMutation.isPending && selectedRole === 'recruiter' ? 'Setting up...' : 'Continue as Recruiter'}
+                  {setRoleMutation.isPending && selectedRole === 'talent_owner' ? 'Setting up...' : 'Continue as Talent Owner'}
                 </Button>
               </CardContent>
             </Card>

@@ -9,7 +9,7 @@ import {
   insertJobPostingSchema,
   insertChatMessageSchema,
 } from "@shared/schema";
-import { calculateJobMatch } from "../client/src/lib/matching";
+import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
@@ -240,6 +240,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI-powered job matching for candidates
+  app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const candidateProfile = await storage.getCandidateProfile(userId);
+      
+      if (!candidateProfile) {
+        return res.status(404).json({ message: "Please complete your profile first" });
+      }
+
+      // Get existing matches for this candidate
+      const existingMatches = await storage.getMatchesForCandidate(userId);
+      
+      if (existingMatches.length > 0) {
+        // Return existing matches with AI enhancements
+        const enhancedMatches = existingMatches.map(match => ({
+          id: match.id,
+          job: {
+            ...match.job,
+            aiCurated: true,
+            confidenceScore: match.confidenceLevel ? 
+              (match.confidenceLevel === 'high' ? 85 : match.confidenceLevel === 'medium' ? 65 : 45) : 70,
+            externalSource: match.job.source,
+          },
+          matchScore: match.matchScore,
+          confidenceLevel: match.confidenceLevel || 'medium',
+          skillMatches: match.skillMatches || [],
+          aiExplanation: match.aiExplanation || 'This job matches your profile based on skills and experience.',
+          status: match.status || 'pending',
+          createdAt: match.createdAt?.toISOString() || new Date().toISOString(),
+        }));
+        
+        return res.json(enhancedMatches);
+      }
+
+      // No existing matches, generate new ones
+      const allJobs = await storage.getJobPostings('');
+      const matches = [];
+
+      for (const job of allJobs.slice(0, 5)) { // Limit to 5 jobs for demo
+        try {
+          // Generate AI match using the service
+          const aiMatch = await generateJobMatch(candidateProfile, job);
+          
+          if (aiMatch.score >= 30) {
+            // Create match in database
+            const newMatch = await storage.createJobMatch({
+              jobId: job.id,
+              candidateId: userId,
+              matchScore: `${aiMatch.score}%`,
+              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+              skillMatches: aiMatch.skillMatches,
+              aiExplanation: aiMatch.aiExplanation,
+              status: 'pending',
+            });
+
+            matches.push({
+              id: newMatch.id,
+              job: {
+                ...job,
+                aiCurated: true,
+                confidenceScore: aiMatch.score,
+                externalSource: job.source,
+              },
+              matchScore: `${aiMatch.score}%`,
+              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+              skillMatches: aiMatch.skillMatches,
+              aiExplanation: aiMatch.aiExplanation,
+              status: 'pending',
+              createdAt: new Date().toISOString(),
+            });
+          }
+        } catch (matchError) {
+          console.error('Error generating match for job:', job.id, matchError);
+        }
+      }
+
+      // Sort by match score
+      matches.sort((a, b) => parseInt(b.matchScore) - parseInt(a.matchScore));
+      res.json(matches);
+    } catch (error) {
+      console.error('Error generating AI matches:', error);
+      res.status(500).json({ message: "Failed to generate matches" });
+    }
+  });
+
   // Activity logs
   app.get('/api/activity', isAuthenticated, async (req: any, res) => {
     try {
@@ -272,6 +360,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching jobs:", error);
       res.status(500).json({ message: "Failed to fetch jobs" });
+    }
+  });
+
+  // Enhanced job application endpoint for V2
+  app.post('/api/jobs/:id/apply', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobId = parseInt(req.params.id);
+      
+      // Check if user has already applied
+      const existingMatch = await storage.getMatchesForCandidate(userId);
+      const alreadyApplied = existingMatch.find(m => m.jobId === jobId && m.status === 'applied');
+      
+      if (alreadyApplied) {
+        return res.status(400).json({ message: "Already applied to this job" });
+      }
+      
+      // Find existing match or create new one
+      let match = existingMatch.find(m => m.jobId === jobId);
+      
+      if (match) {
+        // Update existing match status
+        match = await storage.updateMatchStatus(match.id, 'applied');
+      } else {
+        // Create new match with applied status
+        const job = await storage.getJobPosting(jobId);
+        if (!job) {
+          return res.status(404).json({ message: "Job not found" });
+        }
+        
+        const candidateProfile = await storage.getCandidateProfile(userId);
+        if (!candidateProfile) {
+          return res.status(400).json({ message: "Please complete your profile first" });
+        }
+        
+        const aiMatch = await generateJobMatch(candidateProfile, job);
+        
+        match = await storage.createJobMatch({
+          jobId,
+          candidateId: userId,
+          matchScore: `${aiMatch.score}%`,
+          confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                         aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+          skillMatches: aiMatch.skillMatches,
+          aiExplanation: aiMatch.aiExplanation,
+          status: 'applied',
+        });
+      }
+      
+      // Create activity log
+      await storage.createActivityLog(userId, "job_applied", `Applied to job: ${match.jobId}`);
+      
+      res.json({ message: "Application submitted successfully", match });
+    } catch (error) {
+      console.error("Error applying to job:", error);
+      res.status(500).json({ message: "Failed to submit application" });
+    }
+  });
+
+  // Job match feedback endpoint for AI learning
+  app.post('/api/matches/:id/feedback', isAuthenticated, async (req: any, res) => {
+    try {
+      const matchId = parseInt(req.params.id);
+      const { feedback, reason } = req.body;
+      
+      // Update match with user feedback
+      const match = await storage.updateMatchStatus(matchId, feedback);
+      
+      // Log feedback for AI improvement
+      const userId = req.user.claims.sub;
+      await storage.createActivityLog(userId, "match_feedback", `Feedback: ${feedback}`, { reason });
+      
+      res.json({ message: "Feedback recorded", match });
+    } catch (error) {
+      console.error("Error recording feedback:", error);
+      res.status(500).json({ message: "Failed to record feedback" });
     }
   });
 
