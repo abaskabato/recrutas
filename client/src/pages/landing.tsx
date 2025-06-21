@@ -146,17 +146,17 @@ export default function Landing() {
           <div className="text-center max-w-5xl mx-auto">
             <Badge variant="secondary" className="mb-6 sm:mb-8 px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50 shadow-sm">
               <Sparkles className="w-3 sm:w-4 h-3 sm:h-4 mr-2 animate-pulse" />
-              Job Matching Platform
+              Find Jobs That Match You
             </Badge>
             
             <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-extralight text-gray-900 dark:text-white mb-6 sm:mb-8 leading-[0.9] tracking-tight">
-              Find Jobs
+              Find Your
               <br />
-              <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">That Fit</span>
+              <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">Dream Job</span>
             </h1>
             
             <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-300 mb-10 sm:mb-16 max-w-4xl mx-auto leading-relaxed font-light px-4">
-              AI matches you with relevant jobs based on your skills. Apply directly to hiring managers.
+              We show you jobs that match your skills. Apply with one click and get updates on your applications.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center mb-8 sm:mb-12 px-4">
@@ -204,10 +204,10 @@ export default function Landing() {
       <div className="container mx-auto px-6 py-32">
         <div className="text-center mb-24">
           <h2 className="text-5xl font-light text-gray-900 dark:text-white mb-6 tracking-tight">
-            Intelligent by <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Design</span>
+            How It <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Works</span>
           </h2>
           <p className="text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto font-light leading-relaxed">
-            Advanced AI orchestrates every aspect of your career journey with precision and elegance
+            Three simple steps to find your next job faster
           </p>
         </div>
 
@@ -218,22 +218,22 @@ export default function Landing() {
               <div className="w-20 h-20 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-blue-500/25">
                 <Brain className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Intelligent Curation</h3>
+              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Smart Job Matching</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-8 font-light leading-relaxed">
-                Our neural networks analyze market patterns, skill demands, and career trajectories to surface opportunities that align perfectly with your ambitions.
+                We find jobs that match your skills and experience. No more scrolling through hundreds of irrelevant listings.
               </p>
               <div className="space-y-4 text-left">
                 <div className="flex items-center text-blue-600 dark:text-blue-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">90%+ match accuracy with explainable AI</span>
+                  <span className="font-light">Only see jobs that fit your profile</span>
                 </div>
                 <div className="flex items-center text-blue-600 dark:text-blue-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Real-time salary and market intelligence</span>
+                  <span className="font-light">Get salary info upfront</span>
                 </div>
                 <div className="flex items-center text-blue-600 dark:text-blue-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Personalized career progression insights</span>
+                  <span className="font-light">See why each job matches you</span>
                 </div>
               </div>
             </CardContent>
@@ -245,22 +245,22 @@ export default function Landing() {
               <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-emerald-500/25">
                 <Zap className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Effortless Applications</h3>
+              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Easy Applications</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-8 font-light leading-relaxed">
-                Transform your application process with intelligent automation that adapts your profile for each opportunity while maintaining authenticity.
+                Apply to jobs with just one click. We handle the paperwork so you can focus on finding the right job.
               </p>
               <div className="space-y-4 text-left">
                 <div className="flex items-center text-emerald-600 dark:text-emerald-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">One-click applications with smart optimization</span>
+                  <span className="font-light">Apply to jobs with one click</span>
                 </div>
                 <div className="flex items-center text-emerald-600 dark:text-emerald-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Live application status tracking</span>
+                  <span className="font-light">Track your application progress</span>
                 </div>
                 <div className="flex items-center text-emerald-600 dark:text-emerald-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Direct hiring manager connections</span>
+                  <span className="font-light">Connect directly with employers</span>
                 </div>
               </div>
             </CardContent>
@@ -272,22 +272,22 @@ export default function Landing() {
               <div className="w-20 h-20 bg-gradient-to-br from-violet-500 via-violet-600 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-violet-500/25">
                 <Target className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Strategic Guidance</h3>
+              <h3 className="text-2xl font-light mb-6 text-gray-900 dark:text-white">Get Real-Time Updates</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-8 font-light leading-relaxed">
-                Receive data-driven career counsel that evolves with market trends, helping you make informed decisions at every career milestone.
+                Know exactly where you stand with every application. Get instant notifications when employers view your profile or want to interview you.
               </p>
               <div className="space-y-4 text-left">
                 <div className="flex items-center text-violet-600 dark:text-violet-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Skill gap analysis and learning roadmaps</span>
+                  <span className="font-light">See when employers view your profile</span>
                 </div>
                 <div className="flex items-center text-violet-600 dark:text-violet-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Industry trend forecasting</span>
+                  <span className="font-light">Get instant interview invitations</span>
                 </div>
                 <div className="flex items-center text-violet-600 dark:text-violet-400">
                   <CheckCircle className="w-5 h-5 mr-4 flex-shrink-0" />
-                  <span className="font-light">Negotiation strategy optimization</span>
+                  <span className="font-light">Know your application status instantly</span>
                 </div>
               </div>
             </CardContent>
