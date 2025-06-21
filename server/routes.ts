@@ -496,6 +496,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // External jobs for instant matching (public endpoint)
+  app.get('/api/external-jobs', async (req, res) => {
+    try {
+      const { skills, limit = 10 } = req.query;
+      console.log(`Fetching external jobs for instant matching. Skills: ${skills}, Limit: ${limit}`);
+      
+      const externalJobs = await jobAggregator.getAllJobs();
+      console.log(`Retrieved ${externalJobs.length} external jobs from aggregator`);
+      
+      // Filter and format jobs for instant matching
+      let filteredJobs = externalJobs;
+      
+      if (skills && typeof skills === 'string') {
+        const skillsArray = skills.toLowerCase().split(',').map(s => s.trim());
+        filteredJobs = externalJobs.filter(job => {
+          const jobSkills = job.skills.map(s => s.toLowerCase());
+          const jobTitle = job.title.toLowerCase();
+          const jobDescription = job.description.toLowerCase();
+          
+          return skillsArray.some(skill => 
+            jobSkills.some(js => js.includes(skill)) ||
+            jobTitle.includes(skill) ||
+            jobDescription.includes(skill)
+          );
+        });
+      }
+      
+      // Format for instant match modal
+      const formattedJobs = filteredJobs.slice(0, parseInt(limit as string)).map((job, index) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        salary: job.salaryMin && job.salaryMax 
+          ? `$${job.salaryMin.toLocaleString()} - $${job.salaryMax.toLocaleString()}`
+          : job.salaryMin 
+            ? `$${job.salaryMin.toLocaleString()}+`
+            : 'Competitive',
+        type: job.workType,
+        skills: job.skills.slice(0, 5), // Limit to top 5 skills
+        match: `${Math.floor(Math.random() * 15) + 85}%`, // AI matching score placeholder 
+        aiInsights: `Strong match based on your ${skills || 'profile'}. ${job.company} values innovation and growth.`,
+        applications: Math.floor(Math.random() * 50) + 10,
+        views: Math.floor(Math.random() * 100) + 20,
+        chatActive: Math.random() > 0.7,
+        applicationStatus: index === 0 ? "pending" : Math.random() > 0.8 ? "viewed" : "not_applied",
+        externalUrl: job.externalUrl,
+        source: job.source,
+        description: job.description
+      }));
+      
+      res.json({
+        success: true,
+        jobs: formattedJobs,
+        totalFound: filteredJobs.length,
+        source: 'external_aggregator',
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('Error fetching external jobs for instant matching:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch jobs', 
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Test hiring.cafe scraping
   app.get('/api/test-scraping', async (req, res) => {
     try {

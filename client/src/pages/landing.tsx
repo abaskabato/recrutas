@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,6 +13,7 @@ import InstantMatchModal from "@/components/instant-match-modal";
 export default function Landing() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
   const [showInstantMatch, setShowInstantMatch] = useState(false);
+  const [quickSkills, setQuickSkills] = useState('');
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
 
@@ -32,8 +34,9 @@ export default function Landing() {
   });
 
   const setRoleMutation = useMutation({
-    mutationFn: async (role: 'candidate' | 'recruiter') => {
-      await apiRequest('POST', '/api/auth/role', { role });
+    mutationFn: async (role: 'candidate' | 'talent_owner') => {
+      const apiRole = role === 'talent_owner' ? 'recruiter' : role;
+      await apiRequest('POST', '/api/auth/role', { role: apiRole });
     },
     onSuccess: () => {
       toast({
@@ -65,6 +68,12 @@ export default function Landing() {
     setShowInstantMatch(true);
   };
 
+  const handleQuickMatch = () => {
+    if (quickSkills.trim()) {
+      setShowInstantMatch(true);
+    }
+  };
+
   const handleStartMatching = () => {
     handleLogin();
   };
@@ -82,9 +91,38 @@ export default function Landing() {
             <h1 className="text-3xl font-bold text-neutral-800 mb-4">
               Welcome to Recrutas, {user.firstName || 'User'}!
             </h1>
-            <p className="text-xl text-neutral-600">
+            <p className="text-xl text-neutral-600 mb-6">
               Please select your role to get started
             </p>
+            
+            {/* Skills Input for logged-in users */}
+            <div className="max-w-lg mx-auto mb-6">
+              <div className="bg-white/80 rounded-xl border border-gray-200/50 p-4 shadow-sm">
+                <div className="text-left mb-3">
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">Quick Skills Preview</h4>
+                  <p className="text-xs text-gray-600">See job matches while you set up your account</p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g., React, Python, Marketing..."
+                    className="flex-1 text-sm"
+                    value={quickSkills}
+                    onChange={(e) => setQuickSkills(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
+                  />
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    onClick={handleQuickMatch}
+                    disabled={!quickSkills.trim()}
+                    className="px-3"
+                  >
+                    <Brain className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -185,14 +223,65 @@ export default function Landing() {
               AI-powered job matching that connects you with roles tailored to your skills. One-click applications, real-time updates, instant results.
             </p>
 
+            {/* Skills Input Section */}
+            <div className="max-w-2xl mx-auto mb-8">
+              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg">
+                <div className="text-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Quick Skills Match
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Enter your key skills to see instant job matches
+                  </p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="e.g., React, Python, Project Management, Data Analysis..."
+                      className="w-full px-4 py-3 text-base rounded-xl border-gray-200/50 dark:border-gray-700/50 bg-white/70 dark:bg-gray-800/70 focus:bg-white dark:focus:bg-gray-800"
+                      value={quickSkills}
+                      onChange={(e) => setQuickSkills(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
+                    />
+                  </div>
+                  <Button 
+                    size="lg"
+                    className="px-6 py-3 text-base font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg transition-all duration-300 rounded-xl"
+                    onClick={handleQuickMatch}
+                    disabled={!quickSkills.trim()}
+                  >
+                    <Brain className="mr-2 w-4 h-4" />
+                    Find Matches
+                  </Button>
+                </div>
+                
+                <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 text-green-500" />
+                    <span>Instant results</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 text-green-500" />
+                    <span>No signup required</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 text-green-500" />
+                    <span>AI-powered</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-6 sm:mb-8">
               <Button 
                 size="lg"
-                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-blue-500/25 transition-all duration-300 rounded-xl"
+                variant="outline"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-gray-200/50 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-300 rounded-xl"
                 onClick={handleTryInstantMatching}
               >
-                <Brain className="mr-2 w-4 sm:w-5 h-4 sm:h-5" />
-                Try Instant Matching
+                <Zap className="mr-2 w-4 sm:w-5 h-4 sm:h-5" />
+                Try Full Demo
                 <ArrowRight className="ml-2 w-4 sm:w-5 h-4 sm:h-5" />
               </Button>
               <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
@@ -388,6 +477,7 @@ export default function Landing() {
         isOpen={showInstantMatch}
         onClose={() => setShowInstantMatch(false)}
         onStartMatching={handleStartMatching}
+        initialSkills={quickSkills}
       />
     </div>
   );

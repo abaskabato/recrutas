@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2 } from "lucide-react";
+import { Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 
 interface InstantMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStartMatching: () => void;
+  initialSkills?: string;
 }
 
 const SAMPLE_JOBS = [
@@ -61,13 +63,22 @@ const SAMPLE_JOBS = [
   }
 ];
 
-export default function InstantMatchModal({ isOpen, onClose, onStartMatching }: InstantMatchModalProps) {
+export default function InstantMatchModal({ isOpen, onClose, onStartMatching, initialSkills = "" }: InstantMatchModalProps) {
   const [step, setStep] = useState<'intro' | 'skills' | 'results' | 'features'>('intro');
-  const [skills, setSkills] = useState('');
+  const [skills, setSkills] = useState(initialSkills);
   const [showTyping, setShowTyping] = useState(false);
   const [appliedJobs, setAppliedJobs] = useState<number[]>([]);
   const [likedJobs, setLikedJobs] = useState<number[]>([]);
   const [activeChat, setActiveChat] = useState<number | null>(null);
+
+  // Fetch external jobs based on skills
+  const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
+    queryKey: ['/api/external-jobs', skills],
+    enabled: step === 'results' && !!skills.trim(),
+    retry: 2,
+  });
+
+  const jobsToShow = externalJobsData?.jobs || SAMPLE_JOBS;
 
   useEffect(() => {
     if (step === 'results') {
@@ -232,22 +243,29 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching }: 
                     Perfect Matches Found!
                   </h3>
                   <p className="text-gray-600 dark:text-gray-300">
-                    {SAMPLE_JOBS.length} AI-curated roles matching "{skills}"
+                    {jobsLoading ? "Searching" : jobsToShow.length} AI-curated roles matching "{skills}"
                   </p>
-                  {showTyping && (
+                  {(showTyping || jobsLoading) && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 mt-2"
                     >
                       <Brain className="w-4 h-4 animate-pulse" />
-                      <span className="text-sm">AI analyzing compatibility...</span>
+                      <span className="text-sm">
+                        {jobsLoading ? "Fetching live job opportunities..." : "AI analyzing compatibility..."}
+                      </span>
                     </motion.div>
                   )}
                 </div>
 
                 <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {SAMPLE_JOBS.map((job, index) => (
+                  {jobsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    </div>
+                  ) : (
+                    jobsToShow.map((job, index) => (
                     <motion.div
                       key={job.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -368,7 +386,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching }: 
                         </CardContent>
                       </Card>
                     </motion.div>
-                  ))}
+                  ))
+                  )}
                 </div>
 
                 <div className="flex space-x-3 mt-6">
