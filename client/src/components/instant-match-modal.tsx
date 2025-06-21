@@ -15,53 +15,7 @@ interface InstantMatchModalProps {
   initialSkills?: string;
 }
 
-const SAMPLE_JOBS = [
-  {
-    id: 1,
-    title: "Senior Frontend Developer",
-    company: "TechCorp",
-    location: "Remote",
-    salary: "$120k - $150k",
-    type: "Full-time",
-    skills: ["React", "TypeScript", "Next.js"],
-    match: "94%",
-    aiInsights: "Perfect match for your React expertise. Company culture focuses on innovation.",
-    applications: 23,
-    views: 45,
-    chatActive: true,
-    applicationStatus: "pending"
-  },
-  {
-    id: 2,
-    title: "Product Designer",
-    company: "DesignLab",
-    location: "San Francisco, CA",
-    salary: "$100k - $130k",
-    type: "Full-time",
-    skills: ["Figma", "UI/UX", "Prototyping"],
-    match: "89%",
-    aiInsights: "Strong design portfolio alignment. Remote-first company with flexible hours.",
-    applications: 18,
-    views: 32,
-    chatActive: false,
-    applicationStatus: "not_applied"
-  },
-  {
-    id: 3,
-    title: "Data Scientist",
-    company: "DataFlow",
-    location: "New York, NY",
-    salary: "$130k - $160k",
-    type: "Full-time",
-    skills: ["Python", "Machine Learning", "SQL"],
-    match: "87%",
-    aiInsights: "Your ML background fits perfectly. Fast-growing startup with equity options.",
-    applications: 31,
-    views: 67,
-    chatActive: true,
-    applicationStatus: "viewed"
-  }
-];
+// Removed sample data - using only authentic external job sources
 
 export default function InstantMatchModal({ isOpen, onClose, onStartMatching, initialSkills = "" }: InstantMatchModalProps) {
   const [step, setStep] = useState<'intro' | 'skills' | 'results' | 'features'>('intro');
@@ -74,11 +28,20 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   // Fetch external jobs based on skills
   const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['/api/external-jobs', skills],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        skills: skills.trim(),
+        limit: '8'
+      });
+      const response = await fetch(`/api/external-jobs?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch jobs');
+      return response.json();
+    },
     enabled: step === 'results' && !!skills.trim(),
     retry: 2,
   });
 
-  const jobsToShow = externalJobsData?.jobs || SAMPLE_JOBS;
+  const jobsToShow = externalJobsData?.jobs || [];
 
   useEffect(() => {
     if (step === 'results') {
@@ -264,8 +227,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                     </div>
+                  ) : jobsToShow.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600 dark:text-gray-300">
+                        No jobs found matching "{skills}". Try different skills.
+                      </p>
+                    </div>
                   ) : (
-                    jobsToShow.map((job, index) => (
+                    jobsToShow.map((job: any, index: number) => (
                     <motion.div
                       key={job.id}
                       initial={{ opacity: 0, y: 20 }}
