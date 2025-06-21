@@ -172,7 +172,7 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-blue-50/30 dark:from-gray-950 dark:via-slate-950 dark:to-blue-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Floating particles animation */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-2 h-2 bg-blue-400/20 rounded-full animate-pulse"></div>
@@ -181,20 +181,20 @@ export default function Landing() {
       </div>
 
       {/* Navigation Header */}
-      <nav className="relative z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-800/50">
+      <nav className="relative z-50 bg-slate-900/90 backdrop-blur-lg border-b border-slate-700/50">
         <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 Recrutas
               </h1>
-              <Badge variant="secondary" className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/50 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800/50">
-                V2
+              <Badge variant="secondary" className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                No Recruiters
               </Badge>
             </div>
             <Button 
               variant="outline" 
-              className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-gray-200/50 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-slate-800/50 backdrop-blur-sm border-slate-600/50 text-slate-300 hover:bg-slate-700/50"
               onClick={handleLogin}
             >
               Sign In
@@ -208,30 +208,30 @@ export default function Landing() {
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-transparent to-indigo-600/5"></div>
         <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 relative">
           <div className="text-center max-w-4xl mx-auto">
-            <Badge variant="secondary" className="mb-4 sm:mb-6 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50">
-              <Sparkles className="w-3 h-3 mr-1.5 animate-pulse" />
-              AI-Powered Job Matching
+            <Badge variant="secondary" className="mb-4 sm:mb-6 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-medium bg-gradient-to-r from-red-500/20 to-orange-500/20 text-red-300 border border-red-500/30">
+              <Zap className="w-3 h-3 mr-1.5 animate-pulse" />
+              Zero Recruiters • Direct Access
             </Badge>
             
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extralight text-gray-900 dark:text-white mb-4 sm:mb-6 leading-tight tracking-tight">
-              Find Your Perfect
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extralight text-white mb-4 sm:mb-6 leading-tight tracking-tight">
+              Skip The Middleman
               <br />
-              <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">Career Match</span>
+              <span className="font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Connect Direct</span>
             </h1>
             
-            <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed">
-              AI-powered job matching that connects you with roles tailored to your skills. One-click applications, real-time updates, instant results.
+            <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed">
+              Upload resume, get matched with companies instantly. No recruiters, no gatekeepers - just you and your next opportunity.
             </p>
 
             {/* Skills Input Section */}
             <div className="max-w-2xl mx-auto mb-8">
-              <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg">
+              <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-600/50 p-6 shadow-lg">
                 <div className="text-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    Quick Skills Match
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    Instant Company Matching
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Enter your key skills to see instant job matches
+                  <p className="text-sm text-slate-400">
+                    Skip recruiters - connect directly with hiring companies
                   </p>
                 </div>
                 
@@ -239,7 +239,7 @@ export default function Landing() {
                   <div className="flex-1">
                     <Input
                       placeholder="e.g., React, Python, Project Management, Data Analysis..."
-                      className="w-full px-4 py-3 text-base rounded-xl border-gray-200/50 dark:border-gray-700/50 bg-white/70 dark:bg-gray-800/70 focus:bg-white dark:focus:bg-gray-800"
+                      className="w-full px-4 py-3 text-base rounded-xl border-slate-600/50 bg-slate-700/70 text-white placeholder-slate-400 focus:bg-slate-700"
                       value={quickSkills}
                       onChange={(e) => setQuickSkills(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
@@ -247,7 +247,7 @@ export default function Landing() {
                   </div>
                   <Button 
                     size="lg"
-                    className="px-6 py-3 text-base font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg transition-all duration-300 rounded-xl"
+                    className="px-6 py-3 text-base font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg transition-all duration-300 rounded-xl"
                     onClick={handleQuickMatch}
                     disabled={!quickSkills.trim()}
                   >
@@ -256,18 +256,18 @@ export default function Landing() {
                   </Button>
                 </div>
                 
-                <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center justify-center gap-4 mt-4 text-xs text-slate-400">
                   <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    <span>Instant results</span>
+                    <CheckCircle className="w-3 h-3 text-green-400" />
+                    <span>Zero recruiters</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    <span>No signup required</span>
+                    <CheckCircle className="w-3 h-3 text-green-400" />
+                    <span>Direct applications</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-green-500" />
-                    <span>AI-powered</span>
+                    <CheckCircle className="w-3 h-3 text-green-400" />
+                    <span>Instant matching</span>
                   </div>
                 </div>
               </div>
@@ -277,16 +277,16 @@ export default function Landing() {
               <Button 
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-gray-200/50 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all duration-300 rounded-xl"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium bg-slate-800/50 backdrop-blur-sm border-slate-600/50 text-slate-300 hover:bg-slate-700/50 transition-all duration-300 rounded-xl"
                 onClick={handleTryInstantMatching}
               >
                 <Zap className="mr-2 w-4 sm:w-5 h-4 sm:h-5" />
-                Try Full Demo
+                Start Direct Matching
                 <ArrowRight className="ml-2 w-4 sm:w-5 h-4 sm:h-5" />
               </Button>
-              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>No fees, instant setup</span>
+              <div className="flex items-center gap-2 text-slate-400 text-sm sm:text-base">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <span>No fees, no middlemen</span>
               </div>
             </div>
 
