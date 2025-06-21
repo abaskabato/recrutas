@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { jobAggregator } from "./job-aggregator";
+import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
 import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
@@ -535,6 +536,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating match status:", error);
       res.status(500).json({ message: "Failed to update match status" });
+    }
+  });
+
+  // Application tracking routes
+  app.get('/api/applications/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const applications = await storage.getApplicationsWithStatus(userId);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching application status:", error);
+      res.status(500).json({ message: "Failed to fetch application status" });
+    }
+  });
+
+  app.post('/api/applications/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const { status, interviewDate, notes } = req.body;
+      const userId = req.user.claims.sub;
+      
+      const application = await storage.updateApplicationStatus(applicationId, status, { interviewDate, notes });
+      
+      // Send real-time notification
+      sendApplicationStatusUpdate(userId, application);
+      
+      // Log activity
+      await storage.createActivityLog(userId, "application_status_updated", `Application status updated to ${status}`);
+      
+      res.json(application);
+    } catch (error) {
+      console.error("Error updating application status:", error);
+      res.status(500).json({ message: "Failed to update application status" });
+    }
+  });
+
+  // Quick apply endpoint with real-time notifications
+  app.post('/api/jobs/:id/quick-apply', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Check if already applied
+      const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
+      if (existingApplication) {
+        return res.status(400).json({ message: "Already applied to this job" });
+      }
+      
+      // Create application
+      const application = await storage.createJobApplication({
+        candidateId: userId,
+        jobId: jobId,
+        status: 'submitted',
+        appliedAt: new Date()
+      });
+      
+      // Send notification to candidate
+      const job = await storage.getJobPosting(jobId);
+      sendNotification(userId, {
+        type: 'application_submitted',
+        title: 'Application Submitted',
+        message: `Your application for ${job?.title} at ${job?.company} has been submitted`,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Log activity
+      await storage.createActivityLog(userId, "quick_apply", `Applied to ${job?.title} at ${job?.company}`);
+      
+      res.json({ message: "Application submitted successfully", application });
+    } catch (error) {
+      console.error("Error submitting quick application:", error);
+      res.status(500).json({ message: "Failed to submit application" });
     }
   });
 

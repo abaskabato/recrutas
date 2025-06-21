@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import AIJobFeed from "@/components/ai-job-feed";
 import ProfileUpload from "@/components/profile-upload";
+import ApplicationTracker from "@/components/application-tracker";
+import RealTimeNotifications from "@/components/real-time-notifications";
 
 export default function CandidateDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -222,6 +224,7 @@ export default function CandidateDashboard() {
 
           {/* AI Job Feed Tab */}
           <TabsContent value="feed" className="space-y-6">
+            <RealTimeNotifications />
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3">
                 <AIJobFeed />

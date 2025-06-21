@@ -38,9 +38,44 @@ export function sendNotification(userId: string, notification: any) {
   
   wss.clients.forEach((client: ExtendedWebSocket) => {
     if (client.readyState === WebSocket.OPEN && client.userId === userId) {
-      client.send(JSON.stringify(notification));
+      client.send(JSON.stringify({
+        type: 'notification',
+        ...notification
+      }));
     }
   });
+}
+
+export function sendJobMatchNotification(userId: string, jobMatch: any) {
+  const notification = {
+    type: 'job_match',
+    title: 'New Job Match Found!',
+    message: `${jobMatch.confidenceLevel}% match: ${jobMatch.job.title} at ${jobMatch.job.company}`,
+    data: jobMatch,
+    timestamp: new Date().toISOString()
+  };
+  
+  sendNotification(userId, notification);
+}
+
+export function sendApplicationStatusUpdate(userId: string, application: any) {
+  const statusMessages = {
+    viewed: 'Your application has been viewed',
+    interested: 'Employer is interested in your profile',
+    interview: 'Interview scheduled',
+    offer: 'Congratulations! You received an offer',
+    rejected: 'Application was not selected'
+  };
+
+  const notification = {
+    type: 'application_update',
+    title: 'Application Update',
+    message: `${statusMessages[application.status]} - ${application.job.title} at ${application.job.company}`,
+    data: application,
+    timestamp: new Date().toISOString()
+  };
+  
+  sendNotification(userId, notification);
 }
 
 export function sendRoomMessage(roomId: number, message: any) {

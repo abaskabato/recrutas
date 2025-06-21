@@ -3,6 +3,7 @@ import {
   candidateProfiles,
   jobPostings,
   jobMatches,
+  jobApplications,
   chatRooms,
   chatMessages,
   activityLogs,
@@ -55,6 +56,12 @@ export interface IStorage {
   // Activity operations
   createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog>;
   getActivityLogs(userId: string, limit?: number): Promise<ActivityLog[]>;
+  
+  // Application tracking operations
+  getApplicationsWithStatus(candidateId: string): Promise<any[]>;
+  updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any>;
+  getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any>;
+  createJobApplication(application: any): Promise<any>;
   
   // Statistics
   getCandidateStats(candidateId: string): Promise<{
@@ -337,6 +344,84 @@ export class DatabaseStorage implements IStorage {
       activeChats: chatsCount.count,
       hires: hiresCount.count,
     };
+  }
+
+  // Application tracking methods
+  async getApplicationsWithStatus(candidateId: string): Promise<any[]> {
+    const applications = await db
+      .select({
+        id: jobApplications.id,
+        status: jobApplications.status,
+        appliedAt: jobApplications.appliedAt,
+        viewedByEmployerAt: jobApplications.viewedByEmployerAt,
+        lastStatusUpdate: jobApplications.lastStatusUpdate,
+        interviewLink: jobApplications.interviewLink,
+        interviewDate: jobApplications.interviewDate,
+        job: {
+          id: jobPostings.id,
+          title: jobPostings.title,
+          company: jobPostings.company,
+          location: jobPostings.location,
+          salaryMin: jobPostings.salaryMin,
+          salaryMax: jobPostings.salaryMax,
+          workType: jobPostings.workType,
+        },
+        match: {
+          matchScore: jobMatches.matchScore,
+          confidenceLevel: jobMatches.confidenceLevel,
+        }
+      })
+      .from(jobApplications)
+      .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+      .leftJoin(jobMatches, eq(jobApplications.matchId, jobMatches.id))
+      .where(eq(jobApplications.candidateId, candidateId))
+      .orderBy(desc(jobApplications.appliedAt));
+
+    return applications;
+  }
+
+  async updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any> {
+    const updateData: any = {
+      status,
+      lastStatusUpdate: new Date(),
+    };
+
+    if (data?.interviewDate) {
+      updateData.interviewDate = new Date(data.interviewDate);
+    }
+
+    if (status === 'viewed' && !data?.viewedByEmployerAt) {
+      updateData.viewedByEmployerAt = new Date();
+    }
+
+    const [application] = await db
+      .update(jobApplications)
+      .set(updateData)
+      .where(eq(jobApplications.id, applicationId))
+      .returning();
+
+    return application;
+  }
+
+  async getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any> {
+    const [application] = await db
+      .select()
+      .from(jobApplications)
+      .where(and(
+        eq(jobApplications.jobId, jobId),
+        eq(jobApplications.candidateId, candidateId)
+      ));
+
+    return application;
+  }
+
+  async createJobApplication(application: any): Promise<any> {
+    const [newApplication] = await db
+      .insert(jobApplications)
+      .values(application)
+      .returning();
+
+    return newApplication;
   }
 }
 
