@@ -109,7 +109,19 @@ export default function CandidateDashboard() {
     return null;
   }
 
-  const profileCompletion = profile?.profileStrength || 0;
+  const profileCompletion = (profile as any)?.profileStrength || 0;
+  const hasResume = (profile as any)?.resumeUrl || false;
+  const hasSkills = (profile as any)?.skills && (profile as any).skills.length > 0;
+  const hasBasicInfo = (profile as any)?.linkedinUrl || (profile as any)?.githubUrl || (profile as any)?.location;
+  
+  // Determine current onboarding step
+  const getOnboardingStep = () => {
+    if (!hasResume) return 'resume';
+    if (!hasSkills || !hasBasicInfo) return 'profile';
+    return 'complete';
+  };
+  
+  const currentStep = getOnboardingStep();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
@@ -154,25 +166,50 @@ export default function CandidateDashboard() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex-1">
                 <h2 className="text-xl sm:text-2xl font-bold mb-2">
-                  Welcome back, {user?.firstName || 'there'}! 👋
+                  {currentStep === 'resume' ? 'Welcome! Let\'s get started' : 
+                   currentStep === 'profile' ? 'Almost there!' : 
+                   `Welcome back, ${user?.firstName || 'there'}!`}
                 </h2>
                 <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                  Your AI concierge has been working behind the scenes to find perfect job matches for you.
+                  {currentStep === 'resume' ? 'Upload your resume to get personalized job matches powered by AI.' :
+                   currentStep === 'profile' ? 'Complete your profile to unlock the full power of our AI job matching.' :
+                   'Your AI concierge has been working behind the scenes to find perfect job matches for you.'}
                 </p>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Target className="h-4 w-4 text-green-600" />
-                    <span className="font-medium">{stats?.newMatches || 0} new matches</span>
+                {currentStep === 'complete' && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Target className="h-4 w-4 text-green-600" />
+                      <span className="font-medium">{(stats as any)?.newMatches || 0} new matches</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Eye className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium">{(stats as any)?.profileViews || 0} profile views</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <MessageCircle className="h-4 w-4 text-purple-600" />
+                      <span className="font-medium">{(stats as any)?.activeChats || 0} active conversations</span>
+                    </div>
                   </div>
+                )}
+                {currentStep !== 'complete' && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Eye className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium">{stats?.profileViews || 0} profile views</span>
+                    <div className="flex items-center gap-1">
+                      {currentStep === 'resume' ? (
+                        <>
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          <span className="font-medium">Step 1: Upload Resume</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="text-green-600">Resume uploaded</span>
+                          <div className="w-2 h-2 bg-primary rounded-full ml-2"></div>
+                          <span className="font-medium">Step 2: Complete Profile</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <MessageCircle className="h-4 w-4 text-purple-600" />
-                    <span className="font-medium">{stats?.activeChats || 0} active conversations</span>
-                  </div>
-                </div>
+                )}
               </div>
               <div className="flex justify-center lg:justify-end">
                 <div className="text-center">
@@ -198,241 +235,320 @@ export default function CandidateDashboard() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="feed" className="space-y-4 sm:space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-4">
-            <TabsTrigger value="feed" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Sparkles className="h-3 sm:h-4 w-3 sm:w-4" />
-              <span className="hidden sm:inline">AI Feed</span>
-              <span className="sm:hidden">Feed</span>
-            </TabsTrigger>
-            <TabsTrigger value="applications" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Briefcase className="h-3 sm:h-4 w-3 sm:w-4" />
-              <span className="hidden sm:inline">Applications</span>
-              <span className="sm:hidden">Apps</span>
-            </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <User className="h-3 sm:h-4 w-3 sm:w-4" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="insights" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <TrendingUp className="h-3 sm:h-4 w-3 sm:w-4" />
-              <span className="hidden sm:inline">Insights</span>
-              <span className="sm:hidden">Stats</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* AI Job Feed Tab */}
-          <TabsContent value="feed" className="space-y-6">
-            <RealTimeNotifications />
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-3">
-                <AIJobFeed />
+        {/* Onboarding Steps or Main Content */}
+        {currentStep === 'resume' ? (
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Upload className="h-6 w-6" />
+                Step 1: Upload Your Resume
+              </CardTitle>
+              <p className="text-muted-foreground">
+                Start by uploading your resume. Our AI will analyze it to extract your skills, experience, and preferences.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ProfileUpload />
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">What happens next?</h4>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                  <li>• AI extracts your skills and experience</li>
+                  <li>• Automatic job matching begins</li>
+                  <li>• You can then refine your profile for better matches</li>
+                </ul>
               </div>
-              <div className="space-y-4">
-                {/* Quick Actions */}
+            </CardContent>
+          </Card>
+        ) : currentStep === 'profile' ? (
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <User className="h-6 w-6" />
+                Step 2: Complete Your Profile
+              </CardTitle>
+              <p className="text-muted-foreground">
+                Great! Your resume is uploaded. Now add your skills, preferences, and social links for better job matching.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Zap className="h-4 w-4" />
-                      Quick Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Update Resume
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Search className="h-4 w-4 mr-2" />
-                      Job Preferences
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Bell className="h-4 w-4 mr-2" />
-                      Notifications
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* AI Insights */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Lightbulb className="h-4 w-4" />
-                      AI Insights
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
-                      <p className="text-xs text-blue-800 dark:text-blue-200">
-                        Your profile views increased 40% this week. Consider adding more JavaScript skills to boost visibility.
-                      </p>
-                    </div>
-                    <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
-                      <p className="text-xs text-green-800 dark:text-green-200">
-                        3 new companies in your area are hiring for your skillset.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Applications Tab */}
-          <TabsContent value="applications" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {applications?.length > 0 ? applications.map((app: any) => (
-                <Card key={app.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">{app.job?.title}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{app.job?.company}</p>
-                      </div>
-                      <Badge variant={app.status === 'pending' ? 'secondary' : 'default'}>
-                        {app.status}
-                      </Badge>
-                    </div>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Profile Setup</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        Applied {new Date(app.appliedAt).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {app.job?.location}
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full mt-3">
-                      View Details
-                      <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
+                    <ProfileUpload />
                   </CardContent>
                 </Card>
-              )) : (
-                <div className="col-span-full text-center py-12">
-                  <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Start applying to jobs from your AI-curated feed to see them here.
-                  </p>
-                  <Button>Browse Jobs</Button>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Next Steps</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-4 h-4 rounded-full ${hasResume ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={hasResume ? 'text-green-700 dark:text-green-300' : 'text-gray-500'}>
+                        Resume uploaded ✓
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-4 h-4 rounded-full ${hasSkills ? 'bg-green-500' : 'bg-primary'}`}></div>
+                      <span className={hasSkills ? 'text-green-700 dark:text-green-300' : 'text-primary font-medium'}>
+                        Add your skills
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-4 h-4 rounded-full ${hasBasicInfo ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={hasBasicInfo ? 'text-green-700 dark:text-green-300' : 'text-gray-500'}>
+                        Add LinkedIn/location
+                      </span>
+                    </div>
+                    <div className="pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Once complete, you'll unlock personalized AI job recommendations!
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Tabs defaultValue="feed" className="space-y-4 sm:space-y-6">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-4">
+              <TabsTrigger value="feed" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Sparkles className="h-3 sm:h-4 w-3 sm:w-4" />
+                <span className="hidden sm:inline">AI Feed</span>
+                <span className="sm:hidden">Feed</span>
+              </TabsTrigger>
+              <TabsTrigger value="applications" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Briefcase className="h-3 sm:h-4 w-3 sm:w-4" />
+                <span className="hidden sm:inline">Applications</span>
+                <span className="sm:hidden">Apps</span>
+              </TabsTrigger>
+              <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <User className="h-3 sm:h-4 w-3 sm:w-4" />
+                Profile
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                <TrendingUp className="h-3 sm:h-4 w-3 sm:w-4" />
+                <span className="hidden sm:inline">Insights</span>
+                <span className="sm:hidden">Stats</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* AI Job Feed Tab */}
+            <TabsContent value="feed" className="space-y-6">
+              <RealTimeNotifications />
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3">
+                  <AIJobFeed />
                 </div>
-              )}
-            </div>
-          </TabsContent>
+                <div className="space-y-4">
+                  {/* Quick Actions */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Zap className="h-4 w-4" />
+                        Quick Actions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Update Resume
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <Search className="h-4 w-4 mr-2" />
+                        Job Preferences
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <Bell className="h-4 w-4 mr-2" />
+                        Notifications
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Completion</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Overall Progress</span>
-                        <span>{profileCompletion}%</span>
+                  {/* AI Insights */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4" />
+                        AI Insights
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
+                        <p className="text-xs text-blue-800 dark:text-blue-200">
+                          Your profile views increased 40% this week. Consider adding more JavaScript skills to boost visibility.
+                        </p>
                       </div>
-                      <Progress value={profileCompletion} className="h-2" />
-                    </div>
-                    <ProfileUpload />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Stats</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">{stats?.profileViews || 0}</div>
-                      <p className="text-xs text-muted-foreground">Profile Views</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{stats?.newMatches || 0}</div>
-                      <p className="text-xs text-muted-foreground">AI Matches</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Insights Tab */}
-          <TabsContent value="insights" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    Recent Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {activities?.length > 0 ? activities.slice(0, 5).map((activity: any) => (
-                      <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg bg-muted/50">
-                        <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                        <div className="flex-1">
-                          <p className="text-sm">{activity.description}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(activity.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
+                      <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
+                        <p className="text-xs text-green-800 dark:text-green-200">
+                          3 new companies in your area are hiring for your skillset.
+                        </p>
                       </div>
-                    )) : (
-                      <p className="text-sm text-muted-foreground">No recent activity</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>AI Recommendations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <ThumbsUp className="h-4 w-4 text-blue-600 mt-0.5" />
+            {/* Applications Tab */}
+            <TabsContent value="applications" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(applications as any)?.length > 0 ? (applications as any).map((app: any) => (
+                  <Card key={app.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                            Skill Enhancement
-                          </p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">
-                            Adding React certification could increase your match rate by 25%
-                          </p>
+                          <CardTitle className="text-base">{app.job?.title}</CardTitle>
+                          <p className="text-sm text-muted-foreground">{app.job?.company}</p>
+                        </div>
+                        <Badge variant={app.status === 'pending' ? 'secondary' : 'default'}>
+                          {app.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          Applied {new Date(app.appliedAt).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          {app.job?.location}
                         </div>
                       </div>
-                    </div>
-                    <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <Target className="h-4 w-4 text-green-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                            Market Opportunity
-                          </p>
-                          <p className="text-xs text-green-700 dark:text-green-300">
-                            Remote opportunities in your field have increased 60% this month
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                      <Button variant="outline" size="sm" className="w-full mt-3">
+                        View Details
+                        <ChevronRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )) : (
+                  <div className="col-span-full text-center py-12">
+                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start applying to jobs from your AI-curated feed to see them here.
+                    </p>
+                    <Button>Browse Jobs</Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profile Completion</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Overall Progress</span>
+                          <span>{profileCompletion}%</span>
+                        </div>
+                        <Progress value={profileCompletion} className="h-2" />
+                      </div>
+                      <ProfileUpload />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profile Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-primary">{(stats as any)?.profileViews || 0}</div>
+                        <p className="text-xs text-muted-foreground">Profile Views</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{(stats as any)?.newMatches || 0}</div>
+                        <p className="text-xs text-muted-foreground">AI Matches</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* Insights Tab */}
+            <TabsContent value="insights" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Activity className="h-4 w-4" />
+                      Recent Activity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {(activities as any)?.length > 0 ? (activities as any).slice(0, 5).map((activity: any) => (
+                        <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg bg-muted/50">
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                          <div className="flex-1">
+                            <p className="text-sm">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(activity.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      )) : (
+                        <p className="text-sm text-muted-foreground">No recent activity</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI Recommendations</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <ThumbsUp className="h-4 w-4 text-blue-600 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                              Skill Enhancement
+                            </p>
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              Adding React certification could increase your match rate by 25%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <Target className="h-4 w-4 text-green-600 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                              Market Opportunity
+                            </p>
+                            <p className="text-xs text-green-700 dark:text-green-300">
+                              Remote opportunities in your field have increased 60% this month
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );

@@ -261,20 +261,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
           
           if (aiMatch.score >= 50) {
-            const isExternal = typeof job.id === 'string' && job.id.startsWith('hc_');
+            const isExternal = typeof job.id === 'string';
             
-            if (!isExternal) {
-              // Store internal job matches in database
-              await storage.createJobMatch({
-                jobId: job.id as number,
-                candidateId: userId,
-                matchScore: `${Math.round(aiMatch.score)}%`,
-                confidenceLevel: aiMatch.confidenceLevel >= 80 ? 'high' : 
-                                aiMatch.confidenceLevel >= 60 ? 'medium' : 'low',
-                skillMatches: aiMatch.skillMatches,
-                aiExplanation: aiMatch.aiExplanation,
-                status: 'pending'
-              });
+            if (!isExternal && typeof job.id === 'number') {
+              // Only store internal jobs in database
+              try {
+                await storage.createJobMatch({
+                  jobId: job.id,
+                  candidateId: userId,
+                  matchScore: `${Math.round(aiMatch.score)}%`,
+                  confidenceLevel: aiMatch.confidenceLevel >= 80 ? 'high' : 
+                                  aiMatch.confidenceLevel >= 60 ? 'medium' : 'low',
+                  skillMatches: aiMatch.skillMatches,
+                  aiExplanation: aiMatch.aiExplanation,
+                  status: 'pending'
+                });
+              } catch (dbError: any) {
+                console.log(`Skipping database storage for job ${job.id} during resume upload:`, dbError?.message || 'Database error');
+              }
             }
           }
         }
@@ -478,25 +482,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
           
           if (aiMatch.score >= 30) {
-            // All jobs are now stored in database, create matches normally
-            const newMatch = await storage.createJobMatch({
-              jobId: job.id,
-              candidateId: userId,
-              matchScore: `${aiMatch.score}%`,
-              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-              skillMatches: aiMatch.skillMatches,
-              aiExplanation: aiMatch.aiExplanation,
-              status: 'pending',
-            });
+            // Handle external jobs like instant modal - don't store in database
+            const isExternal = typeof job.id === 'string';
+            let matchId = Date.now(); // Generate temporary ID for external jobs
+            
+            if (!isExternal && typeof job.id === 'number') {
+              // Only store internal jobs in database
+              try {
+                const newMatch = await storage.createJobMatch({
+                  jobId: job.id,
+                  candidateId: userId,
+                  matchScore: `${aiMatch.score}%`,
+                  confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                                 aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+                  skillMatches: aiMatch.skillMatches,
+                  aiExplanation: aiMatch.aiExplanation,
+                  status: 'pending',
+                });
+                matchId = newMatch.id;
+              } catch (dbError: any) {
+                console.log(`Skipping database storage for job ${job.id}:`, dbError?.message || 'Database error');
+              }
+            }
 
             matches.push({
-              id: newMatch.id,
+              id: matchId,
               job: {
                 ...job,
                 aiCurated: true,
                 confidenceScore: aiMatch.score,
                 externalSource: job.source,
+                externalUrl: (job as any).externalUrl || '',
               },
               matchScore: `${aiMatch.score}%`,
               confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 

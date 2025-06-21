@@ -28,9 +28,15 @@ function Router() {
       ) : (
         <>
           {user.role === 'candidate' ? (
-            <Route path="/" component={CandidateDashboard} />
+            <>
+              <Route path="/" component={CandidateDashboard} />
+              <Route path="/candidate-dashboard" component={CandidateDashboard} />
+            </>
           ) : user.role === 'talent_owner' ? (
-            <Route path="/" component={RecruiterDashboard} />
+            <>
+              <Route path="/" component={RecruiterDashboard} />
+              <Route path="/recruiter-dashboard" component={RecruiterDashboard} />
+            </>
           ) : (
             <Route path="/" component={Landing} />
           )}
