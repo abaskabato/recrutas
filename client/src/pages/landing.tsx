@@ -116,14 +116,37 @@ export default function Landing() {
         <div className="absolute bottom-20 left-20 w-3 h-3 bg-purple-400/20 rounded-full animate-bounce"></div>
       </div>
 
+      {/* Navigation Header */}
+      <nav className="relative z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-800/50">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Recrutas
+              </h1>
+              <Badge variant="secondary" className="ml-4 px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/50 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800/50">
+                V2
+              </Badge>
+            </div>
+            <Button 
+              variant="outline" 
+              className="px-6 py-2 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-gray-200/50 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              onClick={handleLogin}
+            >
+              Sign In
+            </Button>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-transparent to-indigo-600/5"></div>
-        <div className="container mx-auto px-6 py-32 relative">
+        <div className="container mx-auto px-6 py-24 relative">
           <div className="text-center max-w-5xl mx-auto">
             <Badge variant="secondary" className="mb-8 px-6 py-3 text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50 shadow-sm">
               <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
-              Recrutas V2 • Autonomous Hiring Excellence
+              Autonomous Hiring Excellence
             </Badge>
             
             <h1 className="text-7xl lg:text-8xl font-extralight text-gray-900 dark:text-white mb-8 leading-[0.9] tracking-tight">
