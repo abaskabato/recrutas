@@ -5,10 +5,12 @@ import { Bell, User, UserRoundCheck, Building } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'recruiter' | null>(null);
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const setRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'recruiter') => {
@@ -39,6 +41,70 @@ export default function Landing() {
   const handleLogin = () => {
     window.location.href = "/api/login";
   };
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
+
+  // Show role selection for authenticated users without a role
+  if (isAuthenticated && user && !user.role) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-neutral-800 mb-4">
+              Welcome to Recrutas, {user.firstName || 'User'}!
+            </h1>
+            <p className="text-xl text-neutral-600">
+              Please select your role to get started
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="p-6 border-2 border-transparent hover:border-primary transition-all cursor-pointer group"
+                  onClick={() => handleRoleSelection('candidate')}>
+              <CardContent className="p-0 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <UserRoundCheck className="text-primary h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-semibold text-neutral-800 mb-2">I'm Looking for a Job</h3>
+                <p className="text-neutral-600 mb-4">Find your next career opportunity</p>
+                <Button 
+                  className="w-full" 
+                  disabled={setRoleMutation.isPending && selectedRole === 'candidate'}
+                >
+                  {setRoleMutation.isPending && selectedRole === 'candidate' ? 'Setting up...' : 'Continue as Candidate'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="p-6 border-2 border-transparent hover:border-primary transition-all cursor-pointer group"
+                  onClick={() => handleRoleSelection('recruiter')}>
+              <CardContent className="p-0 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Building className="text-primary h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-semibold text-neutral-800 mb-2">I'm Hiring</h3>
+                <p className="text-neutral-600 mb-4">Find the perfect candidates</p>
+                <Button 
+                  className="w-full" 
+                  disabled={setRoleMutation.isPending && selectedRole === 'recruiter'}
+                >
+                  {setRoleMutation.isPending && selectedRole === 'recruiter' ? 'Setting up...' : 'Continue as Recruiter'}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center mt-6">
+            <Button variant="ghost" onClick={handleLogout}>
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
