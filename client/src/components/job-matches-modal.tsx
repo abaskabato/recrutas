@@ -7,6 +7,32 @@ import { Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageC
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 
+interface AIJobMatch {
+  id: number;
+  job: {
+    id: number;
+    title: string;
+    company: string;
+    location: string;
+    workType: string;
+    salaryMin: number;
+    salaryMax: number;
+    description: string;
+    requirements: string[];
+    skills: string[];
+    aiCurated: boolean;
+    confidenceScore: number;
+    externalSource?: string;
+    externalUrl?: string;
+  };
+  matchScore: string;
+  confidenceLevel: number;
+  skillMatches: string[];
+  aiExplanation: string;
+  status: string;
+  createdAt: string;
+}
+
 interface JobMatchesModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -17,20 +43,20 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
   const [likedJobs, setLikedJobs] = useState<number[]>([]);
 
   // Fetch AI job matches for the current user
-  const { data: matchesData, isLoading } = useQuery({
-    queryKey: ['/api/candidate/ai-matches'],
+  const { data: matches, isLoading } = useQuery<AIJobMatch[]>({
+    queryKey: ['/api/ai-matches'],
     enabled: isOpen,
     retry: 2,
   });
 
-  const matches = matchesData?.matches || [];
+  const matchesArray = matches || [];
 
-  const handleQuickApply = (match: any) => {
+  const handleQuickApply = (match: AIJobMatch) => {
     setAppliedJobs(prev => [...prev, match.id]);
     // Here you would typically send an API request to apply
   };
 
-  const handleLike = (match: any) => {
+  const handleLike = (match: AIJobMatch) => {
     setLikedJobs(prev => [...prev, match.id]);
   };
 
@@ -56,7 +82,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          ) : matches.length === 0 ? (
+          ) : matchesArray.length === 0 ? (
             <div className="text-center py-12">
               <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No matches found</h3>
@@ -66,7 +92,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
             </div>
           ) : (
             <div className="grid gap-4">
-              {matches.map((match: any, index: number) => (
+              {matchesArray.map((match: any, index: number) => (
                 <motion.div
                   key={match.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -192,7 +218,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
 
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-sm text-muted-foreground">
-            {matches.length > 0 && `${matches.length} personalized matches found`}
+            {matchesArray.length > 0 && `${matchesArray.length} personalized matches found`}
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose}>
