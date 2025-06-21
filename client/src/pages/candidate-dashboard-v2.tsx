@@ -213,19 +213,43 @@ export default function CandidateDashboard() {
                       <Check className="h-4 w-4 text-green-600" />
                       <span className="text-green-600 font-medium">Resume uploaded - AI matching complete!</span>
                     </div>
-                    <Button 
-                      className="bg-primary hover:bg-primary/90"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Button clicked, current modal state:', showJobMatchesModal);
-                        setShowJobMatchesModal(true);
-                        console.log('Modal state after setting to true:', true);
-                      }}
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      View Direct Matches
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="bg-primary hover:bg-primary/90"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('Button clicked, current modal state:', showJobMatchesModal);
+                          setShowJobMatchesModal(true);
+                          console.log('Modal state after setting to true:', true);
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        View Direct Matches
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/test-notification', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                userId: user?.id, 
+                                message: 'Test notification - WebSocket working!' 
+                              })
+                            });
+                            console.log('Test notification response:', response.status);
+                          } catch (error) {
+                            console.error('Test notification error:', error);
+                          }
+                        }}
+                      >
+                        <Bell className="h-4 w-4 mr-1" />
+                        Test
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {currentStep === 'complete' && canOptimizeProfile && (

@@ -33,6 +33,7 @@ export default function RealTimeNotifications() {
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
+      console.log('WebSocket connected, joining user:', user.id);
       socket.send(JSON.stringify({
         type: 'join',
         userId: user.id,
@@ -40,9 +41,26 @@ export default function RealTimeNotifications() {
     };
 
     socket.onmessage = (event) => {
+      console.log('WebSocket message received:', event.data);
       const data = JSON.parse(event.data);
       
-      if (data.type === 'new_match') {
+      if (data.type === 'test') {
+        const notification: Notification = {
+          id: Date.now().toString(),
+          type: 'test',
+          message: data.message || 'Test notification',
+          timestamp: new Date(),
+          read: false,
+        };
+        
+        setNotifications(prev => [notification, ...prev]);
+        setUnreadCount(prev => prev + 1);
+        
+        toast({
+          title: "Test Notification",
+          description: notification.message,
+        });
+      } else if (data.type === 'new_match') {
         const notification: Notification = {
           id: Date.now().toString(),
           type: 'match',

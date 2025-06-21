@@ -837,6 +837,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test notification endpoint
+  app.post('/api/test-notification', async (req, res) => {
+    try {
+      const { userId, message } = req.body;
+      const testNotification = {
+        type: 'test',
+        message: message || 'Test notification from server',
+        timestamp: new Date().toISOString()
+      };
+      
+      sendNotification(userId || '44091169', testNotification);
+      console.log('Test notification sent:', testNotification);
+      
+      res.json({ success: true, message: 'Test notification sent' });
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      res.status(500).json({ error: 'Failed to send test notification' });
+    }
+  });
+
   // Match status updates
   app.patch('/api/matches/:id/status', isAuthenticated, async (req: any, res) => {
     try {
