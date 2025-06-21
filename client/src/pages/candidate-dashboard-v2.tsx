@@ -114,29 +114,31 @@ export default function CandidateDashboard() {
       {/* Header */}
       <div className="bg-white dark:bg-slate-800 border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-primary to-primary/80 rounded-lg flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 sm:w-10 h-8 sm:h-10 bg-gradient-to-r from-primary to-primary/80 rounded-lg flex items-center justify-center">
+                <Sparkles className="h-4 sm:h-5 w-4 sm:w-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold">Recrutas V2</h1>
-                <p className="text-sm text-muted-foreground">Your AI Hiring Concierge</p>
+              <div className="hidden sm:block">
+                <h1 className="text-lg sm:text-xl font-bold">Recrutas V2</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">Your AI Hiring Concierge</p>
               </div>
+              <h1 className="sm:hidden text-lg font-bold">Recrutas V2</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button variant="ghost" size="sm" className="relative">
                 <Bell className="h-4 w-4" />
-                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">3</Badge>
+                <Badge className="absolute -top-1 -right-1 h-3 sm:h-4 w-3 sm:w-4 p-0 text-xs">3</Badge>
               </Button>
-              <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2">
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <span className="text-sm font-medium">{user?.firstName || 'Candidate'}</span>
               </div>
               <Button variant="outline" size="sm" onClick={() => window.location.href = "/api/logout"}>
-                Sign Out
+                <span className="hidden sm:inline">Sign Out</span>
+                <span className="sm:hidden">Out</span>
               </Button>
             </div>
           </div>
@@ -145,17 +147,17 @@ export default function CandidateDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <div className="bg-gradient-to-r from-primary/10 to-blue-500/10 rounded-2xl p-6 border border-primary/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-gradient-to-r from-primary/10 to-blue-500/10 rounded-2xl p-4 sm:p-6 border border-primary/20">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">
                   Welcome back, {user?.firstName || 'there'}! 👋
                 </h2>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-4 text-sm sm:text-base">
                   Your AI concierge has been working behind the scenes to find perfect job matches for you.
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-2 text-sm">
                     <Target className="h-4 w-4 text-green-600" />
                     <span className="font-medium">{stats?.newMatches || 0} new matches</span>
@@ -170,46 +172,51 @@ export default function CandidateDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="w-24 h-24 relative">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      d="m18,2.0845 a 15.9155,15.9155 0 0,1 0,31.831 a 15.9155,15.9155 0 0,1 0,-31.831"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeDasharray={`${profileCompletion}, 100`}
-                      className="text-primary"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold">{profileCompletion}%</span>
+              <div className="flex justify-center lg:justify-end">
+                <div className="text-center">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 relative mx-auto">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        d="m18,2.0845 a 15.9155,15.9155 0 0,1 0,31.831 a 15.9155,15.9155 0 0,1 0,-31.831"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeDasharray={`${profileCompletion}, 100`}
+                        className="text-primary"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-base sm:text-lg font-bold">{profileCompletion}%</span>
+                    </div>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-1">Profile Complete</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Profile Complete</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="feed" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
-            <TabsTrigger value="feed" className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              AI Feed
+        <Tabs defaultValue="feed" className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-4">
+            <TabsTrigger value="feed" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Sparkles className="h-3 sm:h-4 w-3 sm:w-4" />
+              <span className="hidden sm:inline">AI Feed</span>
+              <span className="sm:hidden">Feed</span>
             </TabsTrigger>
-            <TabsTrigger value="applications" className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4" />
-              Applications
+            <TabsTrigger value="applications" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Briefcase className="h-3 sm:h-4 w-3 sm:w-4" />
+              <span className="hidden sm:inline">Applications</span>
+              <span className="sm:hidden">Apps</span>
             </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
+            <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <User className="h-3 sm:h-4 w-3 sm:w-4" />
               Profile
             </TabsTrigger>
-            <TabsTrigger value="insights" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Insights
+            <TabsTrigger value="insights" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <TrendingUp className="h-3 sm:h-4 w-3 sm:w-4" />
+              <span className="hidden sm:inline">Insights</span>
+              <span className="sm:hidden">Stats</span>
             </TabsTrigger>
           </TabsList>
 

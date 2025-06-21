@@ -57,11 +57,11 @@ export default function RecruiterDashboard() {
       {/* Navigation */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-14 sm:h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-primary">Recrutas</h1>
+              <h1 className="text-lg sm:text-2xl font-bold text-primary">Recrutas</h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <Button variant="ghost" size="sm">
                 <Bell className="h-4 w-4" />
               </Button>
@@ -86,14 +86,14 @@ export default function RecruiterDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+        <Card className="mb-6 sm:mb-8">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-neutral-800">Recruiter Dashboard</h2>
-                <p className="text-neutral-600">Manage your job postings and candidate matches</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-neutral-800">Recruiter Dashboard</h2>
+                <p className="text-sm sm:text-base text-neutral-600">Manage your job postings and candidate matches</p>
               </div>
-              <Button className="flex items-center space-x-2">
+              <Button className="flex items-center space-x-2 w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
                 <span>Post New Job</span>
               </Button>
@@ -101,19 +101,19 @@ export default function RecruiterDashboard() {
           </CardContent>
         </Card>
 
-        <div className="grid lg:grid-cols-4 gap-8">
+        <div className="grid lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Stats Cards */}
           <div className="lg:col-span-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
               <Card>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center">
                     <div className="p-2 bg-primary/10 rounded-lg">
-                      <Briefcase className="text-primary h-6 w-6" />
+                      <Briefcase className="text-primary h-5 sm:h-6 w-5 sm:w-6" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-neutral-600">Active Jobs</p>
-                      <p className="text-2xl font-bold text-neutral-800">
+                    <div className="ml-3 sm:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-neutral-600">Active Jobs</p>
+                      <p className="text-xl sm:text-2xl font-bold text-neutral-800">
                         {statsLoading ? "..." : stats?.activeJobs || 0}
                       </p>
                     </div>

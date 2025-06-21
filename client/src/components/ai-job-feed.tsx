@@ -124,10 +124,12 @@ export default function AIJobFeed() {
   return (
     <div className="space-y-6">
       {/* AI Feed Header */}
-      <div className="flex items-center gap-2 mb-6">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">AI-Curated Job Feed</h2>
-        <Badge variant="secondary" className="ml-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 sm:h-5 w-4 sm:w-5 text-primary" />
+          <h2 className="text-lg sm:text-xl font-semibold">AI-Curated Job Feed</h2>
+        </div>
+        <Badge variant="secondary" className="w-fit">
           {aiMatches?.length || 0} new matches
         </Badge>
       </div>
@@ -137,18 +139,18 @@ export default function AIJobFeed() {
         {aiMatches?.map((match) => (
           <Card key={match.id} className="relative hover:shadow-lg transition-shadow border-l-4 border-l-primary/20">
             <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CardTitle className="text-lg">{match.job.title}</CardTitle>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                    <CardTitle className="text-base sm:text-lg">{match.job.title}</CardTitle>
                     {match.job.aiCurated && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-xs w-fit">
                         <Sparkles className="h-3 w-3 mr-1" />
                         AI Curated
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Building className="h-4 w-4" />
                       {match.job.company}
@@ -159,12 +161,14 @@ export default function AIJobFeed() {
                     </div>
                     <div className="flex items-center gap-1">
                       <DollarSign className="h-4 w-4" />
-                      ${match.job.salaryMin?.toLocaleString()} - ${match.job.salaryMax?.toLocaleString()}
+                      <span className="text-xs sm:text-sm">
+                        ${match.job.salaryMin?.toLocaleString()} - ${match.job.salaryMax?.toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-primary mb-1">
+                <div className="text-center sm:text-right">
+                  <div className="text-xl sm:text-2xl font-bold text-primary mb-1">
                     {Math.round(match.confidenceLevel * 100)}%
                   </div>
                   <div className="text-xs text-muted-foreground">Match Score</div>
@@ -212,28 +216,30 @@ export default function AIJobFeed() {
               <Separator className="my-4" />
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleJobView(match)}
+                    className="w-full sm:w-auto"
                   >
                     <Eye className="h-4 w-4 mr-1" />
-                    View Details
+                    <span className="hidden sm:inline">View Details</span>
+                    <span className="sm:hidden">View</span>
                   </Button>
                   <Button
                     size="sm"
                     onClick={() => handleQuickApply(match)}
                     disabled={applyMutation.isPending}
-                    className="bg-gradient-to-r from-primary to-primary/80"
+                    className="bg-gradient-to-r from-primary to-primary/80 w-full sm:w-auto"
                   >
                     {applyMutation.isPending ? 'Applying...' : 'Quick Apply'}
                   </Button>
                 </div>
 
                 {/* Feedback Buttons */}
-                <div className="flex gap-1">
+                <div className="flex gap-1 justify-center sm:justify-end">
                   <Button
                     variant="ghost"
                     size="sm"

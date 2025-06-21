@@ -61,21 +61,21 @@ export default function Chat() {
         {/* Navigation */}
         <nav className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center space-x-4">
+            <div className="flex justify-between h-14 sm:h-16">
+              <div className="flex items-center space-x-2 sm:space-x-4">
                 <Button variant="ghost" size="sm" onClick={() => window.history.back()}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <h1 className="text-xl font-semibold">Messages</h1>
+                <h1 className="text-lg sm:text-xl font-semibold">Messages</h1>
               </div>
             </div>
           </div>
         </nav>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <Card>
-            <CardHeader>
-              <h2 className="text-lg font-semibold">Your Conversations</h2>
+            <CardHeader className="p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold">Your Conversations</h2>
             </CardHeader>
             <CardContent>
               {roomsLoading ? (

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle } from "lucide-react";
+import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -66,7 +66,7 @@ export default function Landing() {
                   onClick={() => handleRoleSelection('candidate')}>
               <CardContent className="p-0 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <UserRoundCheck className="text-primary h-8 w-8" />
+                  <UserCheck className="text-primary h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-semibold text-neutral-800 mb-2">I'm Looking for a Job</h3>
                 <p className="text-neutral-600 mb-4">Find your next career opportunity</p>
@@ -83,7 +83,7 @@ export default function Landing() {
                   onClick={() => handleRoleSelection('talent_owner')}>
               <CardContent className="p-0 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Building className="text-primary h-8 w-8" />
+                  <Building2 className="text-primary h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-semibold text-neutral-800 mb-2">I'm Hiring</h3>
                 <p className="text-neutral-600 mb-4">Access matched candidates and manage hiring</p>
@@ -118,19 +118,19 @@ export default function Landing() {
 
       {/* Navigation Header */}
       <nav className="relative z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-800/50">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 Recrutas
               </h1>
-              <Badge variant="secondary" className="ml-4 px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/50 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800/50">
+              <Badge variant="secondary" className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/50 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800/50">
                 V2
               </Badge>
             </div>
             <Button 
               variant="outline" 
-              className="px-6 py-2 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-gray-200/50 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-gray-200/50 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-950/20"
               onClick={handleLogin}
             >
               Sign In
@@ -142,35 +142,35 @@ export default function Landing() {
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-transparent to-indigo-600/5"></div>
-        <div className="container mx-auto px-6 py-24 relative">
+        <div className="container mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24 relative">
           <div className="text-center max-w-5xl mx-auto">
-            <Badge variant="secondary" className="mb-8 px-6 py-3 text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50 shadow-sm">
-              <Sparkles className="w-4 h-4 mr-2 animate-pulse" />
+            <Badge variant="secondary" className="mb-6 sm:mb-8 px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200/50 dark:from-blue-950 dark:to-indigo-950 dark:text-blue-200 dark:border-blue-800/50 shadow-sm">
+              <Sparkles className="w-3 sm:w-4 h-3 sm:h-4 mr-2 animate-pulse" />
               Job Matching Platform
             </Badge>
             
-            <h1 className="text-7xl lg:text-8xl font-extralight text-gray-900 dark:text-white mb-8 leading-[0.9] tracking-tight">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-extralight text-gray-900 dark:text-white mb-6 sm:mb-8 leading-[0.9] tracking-tight">
               Find Jobs
               <br />
               <span className="font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">That Fit</span>
             </h1>
             
-            <p className="text-2xl text-gray-600 dark:text-gray-300 mb-16 max-w-4xl mx-auto leading-relaxed font-light">
+            <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-300 mb-10 sm:mb-16 max-w-4xl mx-auto leading-relaxed font-light px-4">
               AI matches you with relevant jobs based on your skills. Apply directly to hiring managers.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center mb-8 sm:mb-12 px-4">
               <Button 
                 size="lg"
-                className="px-12 py-6 text-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-2xl hover:shadow-blue-500/25 transition-all duration-500 rounded-2xl border-0"
+                className="w-full sm:w-auto px-8 sm:px-12 py-4 sm:py-6 text-lg sm:text-xl font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-2xl hover:shadow-blue-500/25 transition-all duration-500 rounded-2xl border-0"
                 onClick={handleLogin}
               >
                 Get Started
-                <ArrowRight className="ml-3 w-6 h-6" />
+                <ArrowRight className="ml-2 sm:ml-3 w-5 sm:w-6 h-5 sm:h-6" />
               </Button>
-              <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                <span className="text-lg font-light">Free to use</span>
+              <div className="flex items-center gap-2 sm:gap-3 text-gray-500 dark:text-gray-400">
+                <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
+                <span className="text-base sm:text-lg font-light">Free to use</span>
               </div>
             </div>
 
