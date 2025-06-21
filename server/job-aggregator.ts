@@ -253,10 +253,152 @@ export class JobAggregator {
     }));
   }
 
+  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
+    try {
+      console.log('Scraping jobs from hiring.cafe...');
+      const response = await fetch('https://hiring.cafe/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+
+      if (!response.ok) {
+        console.log(`Hiring.cafe returned ${response.status}: ${response.statusText}`);
+        return [];
+      }
+
+      const html = await response.text();
+      return this.parseHiringCafeHTML(html);
+    } catch (error) {
+      console.error('Error scraping hiring.cafe:', error);
+      return [];
+    }
+  }
+
+  private parseHiringCafeHTML(html: string): ExternalJob[] {
+    const jobs: ExternalJob[] = [];
+    
+    // Method 1: Extract JSON-LD structured data
+    const jsonLdMatches = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/gs);
+    if (jsonLdMatches) {
+      for (const match of jsonLdMatches) {
+        try {
+          const jsonContent = match.replace(/<script[^>]*>|<\/script>/g, '');
+          const data = JSON.parse(jsonContent);
+          
+          if (data['@type'] === 'JobPosting' || (Array.isArray(data) && data.some(item => item['@type'] === 'JobPosting'))) {
+            const jobPostings = Array.isArray(data) ? data.filter(item => item['@type'] === 'JobPosting') : [data];
+            
+            for (const job of jobPostings) {
+              jobs.push({
+                id: `hiring_cafe_${job.identifier || Date.now()}_${jobs.length}`,
+                title: job.title || 'Position',
+                company: job.hiringOrganization?.name || 'Company',
+                location: job.jobLocation?.address?.addressLocality || job.jobLocation || 'Remote',
+                description: job.description || job.title || '',
+                requirements: this.extractRequirements(job.responsibilities || job.description || ''),
+                skills: this.extractSkills(job.skills || job.title || ''),
+                workType: this.normalizeWorkType(job.employmentType),
+                salaryMin: job.baseSalary?.value?.minValue,
+                salaryMax: job.baseSalary?.value?.maxValue,
+                source: 'Hiring.cafe',
+                externalUrl: job.url || 'https://hiring.cafe/',
+                postedDate: job.datePosted || new Date().toISOString(),
+              });
+            }
+          }
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      }
+    }
+
+    // Method 2: Extract from Next.js props or data islands
+    const dataMatches = [
+      /"jobs":\s*(\[.*?\])/s,
+      /"positions":\s*(\[.*?\])/s,
+      /"listings":\s*(\[.*?\])/s
+    ];
+
+    for (const pattern of dataMatches) {
+      const match = html.match(pattern);
+      if (match) {
+        try {
+          const jobsData = JSON.parse(match[1]);
+          for (const job of jobsData.slice(0, 15)) {
+            jobs.push({
+              id: `hiring_cafe_data_${job.id || Date.now()}_${jobs.length}`,
+              title: job.title || job.position || job.role,
+              company: job.company || job.companyName || job.employer,
+              location: job.location || job.city || 'Remote',
+              description: job.description || job.summary || '',
+              requirements: this.extractRequirements(job.requirements || job.description || ''),
+              skills: this.extractSkills(job.skills || job.technologies || job.title || ''),
+              workType: this.normalizeWorkType(job.workType || job.remote),
+              salaryMin: job.salaryMin || job.salary?.min,
+              salaryMax: job.salaryMax || job.salary?.max,
+              source: 'Hiring.cafe',
+              externalUrl: job.url || job.link || 'https://hiring.cafe/',
+              postedDate: job.postedDate || job.createdAt || new Date().toISOString(),
+            });
+          }
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      }
+    }
+
+    // Method 3: Parse HTML structure for job cards/listings
+    const htmlPatterns = [
+      /<div[^>]*(?:class|id)="[^"]*(?:job|position|listing)[^"]*"[^>]*>(.*?)<\/div>/gsi,
+      /<article[^>]*>(.*?)<\/article>/gsi,
+    ];
+
+    for (const pattern of htmlPatterns) {
+      const matches = html.match(pattern);
+      if (matches) {
+        for (const match of matches.slice(0, 10)) {
+          const titleMatch = match.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>|(?:title|position)["']?[^>]*>([^<]+)/i);
+          const companyMatch = match.match(/(?:company|employer)["']?[^>]*>([^<]+)/i);
+          const locationMatch = match.match(/(?:location|city)["']?[^>]*>([^<]+)/i);
+          
+          if (titleMatch && companyMatch) {
+            const title = (titleMatch[1] || titleMatch[2] || '').trim();
+            const company = companyMatch[1].trim();
+            
+            if (title && company && title.length > 2 && company.length > 2) {
+              jobs.push({
+                id: `hiring_cafe_html_${Date.now()}_${jobs.length}`,
+                title,
+                company,
+                location: locationMatch ? locationMatch[1].trim() : 'Remote',
+                description: `${title} position at ${company}`,
+                requirements: this.extractRequirements(title),
+                skills: this.extractSkills(title),
+                workType: 'hybrid',
+                source: 'Hiring.cafe',
+                externalUrl: 'https://hiring.cafe/',
+                postedDate: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`Scraped ${jobs.length} jobs from hiring.cafe`);
+    return jobs.slice(0, 20);
+  }
+
   async getAllJobs(): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
     
     try {
+      // Try hiring.cafe first
+      const hiringCafeJobs = await this.fetchFromHiringCafe();
+      allJobs.push(...hiringCafeJobs);
+
+      // Then try USAJobs as backup
       const usaJobs = await this.fetchFromUSAJobs();
       allJobs.push(...usaJobs);
       

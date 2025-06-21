@@ -496,6 +496,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test hiring.cafe scraping
+  app.get('/api/test-scraping', async (req, res) => {
+    try {
+      console.log('Testing hiring.cafe scraping...');
+      const jobs = await jobAggregator.fetchFromHiringCafe();
+      console.log(`Scraping result: ${jobs.length} jobs found`);
+      res.json({ 
+        success: true, 
+        jobCount: jobs.length, 
+        jobs: jobs.slice(0, 3),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error testing scraping:', error);
+      res.status(500).json({ error: 'Failed to test scraping', details: error.message });
+    }
+  });
+
   // Recruiter endpoints
   app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
     try {
