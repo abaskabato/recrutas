@@ -205,7 +205,10 @@ export default function CandidateDashboard() {
                     </div>
                     <Button 
                       className="bg-primary hover:bg-primary/90"
-                      onClick={() => setShowJobMatchesModal(true)}
+                      onClick={() => {
+                        console.log('Button clicked, opening modal');
+                        setShowJobMatchesModal(true);
+                      }}
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
                       View AI Job Matches

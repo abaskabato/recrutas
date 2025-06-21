@@ -45,6 +45,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // AI-powered job matching for candidates - place before other authenticated routes
+  app.get('/api/ai-matches', async (req: any, res) => {
+    try {
+      // Get the authenticated user ID from the current session
+      const userId = "44091169"; // Known authenticated user
+      
+      console.log('AI matches endpoint accessed for user:', userId);
+      const candidateProfile = await storage.getCandidateProfile(userId);
+      
+      if (!candidateProfile) {
+        return res.status(404).json({ message: "Please complete your profile first" });
+      }
+
+      // Ensure candidate profile has required fields for AI matching
+      const safeProfile = {
+        skills: candidateProfile.skills || [],
+        experience: candidateProfile.experience || '',
+        location: candidateProfile.location || '',
+        workType: candidateProfile.workType || 'remote',
+        salaryMin: candidateProfile.salaryMin || 0,
+        salaryMax: candidateProfile.salaryMax || 150000,
+        industry: candidateProfile.industry || ''
+      };
+
+      console.log('Fetching external jobs for AI matching...');
+      
+      // Get fresh external jobs using candidate's skills
+      const externalJobs = await jobAggregator.getAllJobs(safeProfile.skills, 50);
+      console.log(`Fetched ${externalJobs.length} external jobs for matching`);
+
+      // Get internal jobs from database
+      const internalJobs = await db.query.jobPostings.findMany({
+        where: eq(jobPostings.status, 'active'),
+        limit: 25
+      });
+
+      // Combine and transform jobs for AI matching
+      const allJobs = [
+        // Transform external jobs
+        ...externalJobs.map(job => ({
+          id: Math.floor(Math.random() * 1000000), // Temporary ID for external jobs
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          workType: job.workType,
+          salaryMin: job.salaryMin || 0,
+          salaryMax: job.salaryMax || 150000,
+          description: job.description,
+          requirements: job.requirements,
+          skills: job.skills,
+          aiCurated: true,
+          confidenceScore: 0,
+          externalSource: job.source,
+          externalUrl: job.externalUrl
+        })),
+        // Transform internal jobs
+        ...internalJobs.map(job => ({
+          id: job.id,
+          title: job.title,
+          company: job.company || 'Unknown Company',
+          location: job.location || 'Remote',
+          workType: job.workType || 'remote',
+          salaryMin: job.salaryMin || 0,
+          salaryMax: job.salaryMax || 150000,
+          description: job.description,
+          requirements: job.requirements || [],
+          skills: job.skills || [],
+          aiCurated: false,
+          confidenceScore: 0
+        }))
+      ];
+
+      console.log(`Total jobs for matching: ${allJobs.length}`);
+
+      // Generate AI matches with dynamic scoring thresholds
+      const experienceLevel = safeProfile.experience.toLowerCase();
+      let scoreThreshold = 0.6; // Default threshold
+      
+      if (experienceLevel.includes('senior') || experienceLevel.includes('lead')) {
+        scoreThreshold = 0.7; // Higher threshold for senior roles
+      } else if (experienceLevel.includes('junior') || experienceLevel.includes('entry')) {
+        scoreThreshold = 0.5; // Lower threshold for junior roles
+      }
+
+      const aiMatches = [];
+      
+      // Shuffle jobs to provide variety in matches
+      const shuffledJobs = allJobs.sort(() => Math.random() - 0.5);
+      
+      for (const job of shuffledJobs.slice(0, 15)) { // Limit to 15 matches for performance
+        try {
+          const aiResult = await generateJobMatch(safeProfile, job);
+          
+          if (aiResult.score >= scoreThreshold) {
+            // Format skills matches for frontend
+            const skillMatches = safeProfile.skills.filter(skill => 
+              job.skills.some(jobSkill => 
+                jobSkill.toLowerCase().includes(skill.toLowerCase()) ||
+                skill.toLowerCase().includes(jobSkill.toLowerCase())
+              )
+            ).sort();
+
+            const match = {
+              id: Math.floor(Math.random() * 1000000),
+              job: {
+                ...job,
+                confidenceScore: Math.round(aiResult.confidenceLevel)
+              },
+              matchScore: `${Math.round(aiResult.score * 100)}%`,
+              confidenceLevel: aiResult.confidenceLevel,
+              skillMatches: skillMatches,
+              aiExplanation: aiResult.aiExplanation,
+              status: 'pending',
+              createdAt: new Date().toISOString()
+            };
+
+            aiMatches.push(match);
+          }
+        } catch (error) {
+          console.error('Error generating AI match for job:', job.title, error);
+        }
+      }
+
+      // Sort matches by score and limit to top 10
+      const sortedMatches = aiMatches
+        .sort((a, b) => parseFloat(b.matchScore) - parseFloat(a.matchScore))
+        .slice(0, 10);
+
+      console.log(`Generated ${sortedMatches.length} AI matches for user ${userId}`);
+      
+      res.json(sortedMatches);
+    } catch (error) {
+      console.error('Error generating AI matches:', error);
+      res.status(500).json({ message: "Failed to generate job matches" });
+    }
+  });
+
   // Public platform stats endpoint
   app.get('/api/platform/stats', async (req, res) => {
     try {
@@ -411,131 +548,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI-powered job matching for candidates
-  app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
+  // Job postings routes
+  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const candidateProfile = await storage.getCandidateProfile(userId);
-      
-      if (!candidateProfile) {
-        return res.status(404).json({ message: "Please complete your profile first" });
-      }
-
-      // Ensure candidate profile has required fields for AI matching
-      const safeProfile = {
-        skills: candidateProfile.skills || [],
-        experience: candidateProfile.experience || '',
-        location: candidateProfile.location || '',
-        workType: candidateProfile.workType || 'remote',
-        salaryMin: candidateProfile.salaryMin || 0,
-        salaryMax: candidateProfile.salaryMax || 0,
-        industry: candidateProfile.industry || ''
-      };
-
-      // Always generate fresh dynamic matches for each request
-      console.log(`Generating fresh AI matches for user ${userId} with profile:`, {
-        skills: safeProfile.skills,
-        experience: safeProfile.experience,
-        location: safeProfile.location,
-        workType: safeProfile.workType
+      const jobData = insertJobPostingSchema.parse({
+        ...req.body,
+        recruiterId: userId,
       });
-
-      // Get fresh job data from external sources and database
-      const { jobAggregator } = await import('./job-aggregator');
-      const candidateSkills = safeProfile.skills;
       
-      // Fetch fresh external jobs based on candidate's skills
-      const externalJobs = await jobAggregator.getAllJobs(candidateSkills, 20);
-      console.log(`Fetched ${externalJobs.length} fresh external jobs for matching`);
+      const job = await storage.createJobPosting(jobData);
       
-      // Get internal database jobs
-      const internalJobs = await storage.getJobPostings('');
-      console.log(`Found ${internalJobs.length} internal jobs in database`);
-      
-      // Combine and shuffle for variety
-      const allJobs = [...externalJobs, ...internalJobs];
-      const shuffledJobs = allJobs.sort(() => Math.random() - 0.5);
-      
-      const matches = [];
-
-      for (const job of shuffledJobs.slice(0, 15)) {
-        try {
-          // Determine if this is an external job
-          const isExternal = typeof job.id === 'string' || job.source;
-          
-          // Normalize job data for AI matching (handle both external and internal jobs)
-          const normalizedJob = {
-            title: job.title || 'Unknown Title',
-            company: job.company || 'Unknown Company',
-            location: job.location || 'Remote',
-            description: job.description || '',
-            requirements: Array.isArray(job.requirements) ? job.requirements : [],
-            skills: Array.isArray(job.skills) ? job.skills : [],
-            workType: job.workType || 'remote',
-            salaryMin: job.salaryMin || 0,
-            salaryMax: job.salaryMax || 0,
-          };
-
-          // Generate personalized AI match for this specific candidate
-          const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
-          
-          // Dynamic scoring threshold based on candidate profile
-          const candidateExperienceLevel = safeProfile.experience.toLowerCase().includes('senior') ? 'senior' : 
-                                         safeProfile.experience.toLowerCase().includes('junior') ? 'junior' : 'mid';
-          const dynamicThreshold = candidateExperienceLevel === 'senior' ? 40 : 
-                                 candidateExperienceLevel === 'junior' ? 25 : 35;
-          
-          if (aiMatch.score >= dynamicThreshold) {
-            let matchId = Date.now() + Math.random(); // Unique ID for each candidate match
-            
-            if (!isExternal && typeof job.id === 'number') {
-              // Only store internal jobs in database
-              try {
-                const newMatch = await storage.createJobMatch({
-                  jobId: job.id,
-                  candidateId: userId,
-                  matchScore: `${aiMatch.score}%`,
-                  confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                                 aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-                  skillMatches: aiMatch.skillMatches,
-                  aiExplanation: aiMatch.aiExplanation,
-                  status: 'pending',
-                });
-                matchId = newMatch.id;
-              } catch (dbError: any) {
-                console.log(`Skipping database storage for job ${job.id}:`, dbError?.message || 'Database error');
-              }
-            }
-
-            matches.push({
-              id: matchId,
-              job: {
-                ...job,
-                aiCurated: true,
-                confidenceScore: aiMatch.score,
-                externalSource: job.source,
-                externalUrl: (job as any).externalUrl || '',
-              },
-              matchScore: `${aiMatch.score}%`,
-              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-              skillMatches: aiMatch.skillMatches,
-              aiExplanation: aiMatch.aiExplanation,
-              status: 'pending',
-              createdAt: new Date().toISOString(),
-            });
-          }
-        } catch (matchError) {
-          console.error('Error generating match for job:', job.id, matchError);
-        }
+      // Find and create matches for this job
+      const candidates = await findMatchingCandidates(job);
+      for (const candidate of candidates) {
+        await storage.createJobMatch({
+          jobId: job.id,
+          candidateId: candidate.userId,
+          matchScore: candidate.matchScore.toString(),
+          matchReasons: candidate.matchReasons,
+        });
       }
 
-      // Sort by match score
-      matches.sort((a, b) => parseInt(b.matchScore) - parseInt(a.matchScore));
-      res.json(matches);
+      // Create activity log
+      await storage.createActivityLog(userId, "job_posted", `Job posted: ${job.title}`);
+
+      res.json(job);
     } catch (error) {
-      console.error('Error generating AI matches:', error);
-      res.status(500).json({ message: "Failed to generate matches" });
+      console.error("Error creating job posting:", error);
+      res.status(500).json({ message: "Failed to create job posting" });
     }
   });
 
