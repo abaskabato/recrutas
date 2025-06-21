@@ -195,6 +195,29 @@ export default function CandidateDashboard() {
                     <span className="font-medium">Upload your resume to get started</span>
                   </div>
                 )}
+                {currentStep === 'complete' && (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span className="text-green-600 font-medium">Resume uploaded - AI matching complete!</span>
+                    </div>
+                    <Button 
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={() => {
+                        const element = document.querySelector('[data-tab="feed"]');
+                        if (element) {
+                          (element as HTMLElement).click();
+                          setTimeout(() => {
+                            window.scrollTo({ top: 400, behavior: 'smooth' });
+                          }, 100);
+                        }
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      View AI Job Matches
+                    </Button>
+                  </div>
+                )}
                 {currentStep === 'complete' && canOptimizeProfile && (
                   <div className="flex items-center gap-2 text-sm bg-blue-50 dark:bg-blue-950/20 p-2 rounded-lg mt-2">
                     <Lightbulb className="h-4 w-4 text-blue-600" />
@@ -250,13 +273,21 @@ export default function CandidateDashboard() {
                   <li>• You can then refine your profile for better matches</li>
                 </ul>
               </div>
+              <div className="mt-4 text-center">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Once uploaded, refresh the page to see your personalized job matches!
+                </p>
+                <Button onClick={() => window.location.reload()} className="w-full">
+                  View My Job Matches
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
         ) : (
           <Tabs defaultValue="feed" className="space-y-4 sm:space-y-6">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto lg:grid-cols-4">
-              <TabsTrigger value="feed" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <TabsTrigger value="feed" data-tab="feed" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                 <Sparkles className="h-3 sm:h-4 w-3 sm:w-4" />
                 <span className="hidden sm:inline">AI Feed</span>
                 <span className="sm:hidden">Feed</span>
