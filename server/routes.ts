@@ -453,24 +453,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(enhancedMatches);
       }
 
-      // No existing matches, generate new ones
-      const internalJobs = await storage.getJobPostings('');
-      console.log(`Found ${internalJobs.length} internal jobs`);
-      
-      const externalJobs = await jobAggregator.getAllJobs();
-      console.log(`Found ${externalJobs.length} external jobs from hiring.cafe`);
-      
-      // Combine internal and external jobs
-      const allJobs = [
-        ...internalJobs.slice(0, 3), // First 3 internal jobs
-        ...externalJobs.slice(0, 7)  // First 7 external jobs from hiring.cafe
-      ];
-      
-      console.log(`Total jobs to process: ${allJobs.length} (${internalJobs.slice(0, 3).length} internal + ${externalJobs.slice(0, 7).length} external)`);
+      // No existing matches, generate new ones using synced authentic jobs
+      const allJobs = await storage.getJobPostings('');
+      console.log(`Found ${allJobs.length} jobs in database (includes synced external jobs)`);
       
       const matches = [];
 
-      for (const job of allJobs) {
+      for (const job of allJobs.slice(0, 10)) {
         try {
           // Normalize job data for AI matching
           const normalizedJob = {
@@ -489,65 +478,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const aiMatch = await generateJobMatch(safeProfile, normalizedJob);
           
           if (aiMatch.score >= 30) {
-            // For external jobs, we don't store them in job_matches table yet
-            // Instead, we return them directly in the response
-            const isExternal = typeof job.id === 'string' && job.id.startsWith('hc_');
-            
-            if (isExternal) {
-              // External job - return directly without storing in database
-              matches.push({
-                id: `match_${job.id}`,
-                job: {
-                  id: job.id,
-                  title: job.title,
-                  company: job.company,
-                  location: job.location,
-                  workType: job.workType,
-                  salaryMin: job.salaryMin,
-                  salaryMax: job.salaryMax,
-                  description: job.description,
-                  requirements: job.requirements,
-                  skills: job.skills,
-                  aiCurated: true,
-                  confidenceScore: aiMatch.score,
-                  externalSource: job.source,
-                  externalUrl: (job as any).externalUrl,
-                  status: 'active',
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                },
-                matchScore: `${aiMatch.score}%`,
-                confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                               aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-                skillMatches: aiMatch.skillMatches,
-                aiExplanation: aiMatch.aiExplanation,
-                status: 'pending',
-                createdAt: new Date().toISOString(),
-              });
-            } else {
-              // Internal job - store in database
-              const newMatch = await storage.createJobMatch({
-                jobId: job.id,
-                candidateId: userId,
-                matchScore: `${aiMatch.score}%`,
-                confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                               aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-                skillMatches: aiMatch.skillMatches,
-                aiExplanation: aiMatch.aiExplanation,
-                status: 'pending',
-              });
+            // All jobs are now stored in database, create matches normally
+            const newMatch = await storage.createJobMatch({
+              jobId: job.id,
+              candidateId: userId,
+              matchScore: `${aiMatch.score}%`,
+              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+              skillMatches: aiMatch.skillMatches,
+              aiExplanation: aiMatch.aiExplanation,
+              status: 'pending',
+            });
 
-              matches.push({
-                id: newMatch.id,
-                job: {
-                  ...job,
-                  aiCurated: true,
-                  confidenceScore: aiMatch.score,
-                  externalSource: job.source,
-                },
-                matchScore: `${aiMatch.score}%`,
-                confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
-                               aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
+            matches.push({
+              id: newMatch.id,
+              job: {
+                ...job,
+                aiCurated: true,
+                confidenceScore: aiMatch.score,
+                externalSource: job.source,
+              },
+              matchScore: `${aiMatch.score}%`,
+              confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
+                             aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
                 skillMatches: aiMatch.skillMatches,
                 aiExplanation: aiMatch.aiExplanation,
                 status: 'pending',
