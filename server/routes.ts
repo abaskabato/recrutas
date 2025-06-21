@@ -1,0 +1,361 @@
+import type { Express } from "express";
+import express from "express";
+import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
+import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import {
+  insertCandidateProfileSchema,
+  insertJobPostingSchema,
+  insertChatMessageSchema,
+} from "@shared/schema";
+import { calculateJobMatch } from "../client/src/lib/matching";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for file uploads
+const uploadDir = "uploads";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const upload = multer({
+  dest: uploadDir,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.pdf', '.doc', '.docx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and Word documents are allowed'));
+    }
+  },
+});
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Get candidate profile if user is a candidate
+      let candidateProfile = null;
+      if (user.role === 'candidate') {
+        candidateProfile = await storage.getCandidateProfile(userId);
+      }
+      
+      res.json({ ...user, candidateProfile });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Set user role
+  app.post('/api/auth/role', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { role } = req.body;
+      
+      if (!['candidate', 'recruiter'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+
+      await storage.upsertUser({
+        id: userId,
+        email: req.user.claims.email,
+        firstName: req.user.claims.first_name,
+        lastName: req.user.claims.last_name,
+        profileImageUrl: req.user.claims.profile_image_url,
+        role,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error setting user role:", error);
+      res.status(500).json({ message: "Failed to set user role" });
+    }
+  });
+
+  // Candidate profile routes
+  app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getCandidateProfile(userId);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching candidate profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  app.post('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = insertCandidateProfileSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const profile = await storage.upsertCandidateProfile(profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating candidate profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Resume upload
+  app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const userId = req.user.claims.sub;
+      const resumeUrl = `/uploads/${req.file.filename}`;
+      
+      // Update candidate profile with resume URL
+      await storage.upsertCandidateProfile({
+        userId,
+        resumeUrl,
+      });
+
+      // Create activity log
+      await storage.createActivityLog(userId, "resume_upload", "Resume uploaded successfully");
+
+      res.json({ resumeUrl });
+    } catch (error) {
+      console.error("Error uploading resume:", error);
+      res.status(500).json({ message: "Failed to upload resume" });
+    }
+  });
+
+  // Serve uploaded files
+  app.use('/uploads', express.static(uploadDir));
+
+  // Candidate matches
+  app.get('/api/candidate/matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const matches = await storage.getMatchesForCandidate(userId);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching matches:", error);
+      res.status(500).json({ message: "Failed to fetch matches" });
+    }
+  });
+
+  // Candidate stats
+  app.get('/api/candidate/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getCandidateStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching candidate stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Job posting routes
+  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobData = insertJobPostingSchema.parse({
+        ...req.body,
+        recruiterId: userId,
+      });
+      
+      const job = await storage.createJobPosting(jobData);
+      
+      // Find and create matches for this job
+      const candidates = await findMatchingCandidates(job);
+      for (const candidate of candidates) {
+        await storage.createJobMatch({
+          jobId: job.id,
+          candidateId: candidate.userId,
+          matchScore: candidate.matchScore.toString(),
+          matchReasons: candidate.matchReasons,
+        });
+      }
+
+      // Create activity log
+      await storage.createActivityLog(userId, "job_posted", `Job posted: ${job.title}`);
+
+      res.json(job);
+    } catch (error) {
+      console.error("Error creating job posting:", error);
+      res.status(500).json({ message: "Failed to create job posting" });
+    }
+  });
+
+  app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobs = await storage.getJobPostings(userId);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error fetching job postings:", error);
+      res.status(500).json({ message: "Failed to fetch job postings" });
+    }
+  });
+
+  app.get('/api/jobs/:id/matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const matches = await storage.getMatchesForJob(jobId);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching job matches:", error);
+      res.status(500).json({ message: "Failed to fetch job matches" });
+    }
+  });
+
+  // Recruiter stats
+  app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getRecruiterStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching recruiter stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Match status updates
+  app.patch('/api/matches/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const matchId = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      const match = await storage.updateMatchStatus(matchId, status);
+      
+      // Create activity log
+      const userId = req.user.claims.sub;
+      await storage.createActivityLog(userId, "match_status_updated", `Match status updated to ${status}`);
+
+      res.json(match);
+    } catch (error) {
+      console.error("Error updating match status:", error);
+      res.status(500).json({ message: "Failed to update match status" });
+    }
+  });
+
+  // Chat routes
+  app.get('/api/chat/rooms', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const rooms = await storage.getChatRoomsForUser(userId);
+      res.json(rooms);
+    } catch (error) {
+      console.error("Error fetching chat rooms:", error);
+      res.status(500).json({ message: "Failed to fetch chat rooms" });
+    }
+  });
+
+  app.get('/api/chat/:roomId/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      const messages = await storage.getChatMessages(roomId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post('/api/chat/:matchId/room', isAuthenticated, async (req: any, res) => {
+    try {
+      const matchId = parseInt(req.params.matchId);
+      
+      // Check if room already exists
+      let room = await storage.getChatRoom(matchId);
+      if (!room) {
+        room = await storage.createChatRoom(matchId);
+      }
+      
+      res.json(room);
+    } catch (error) {
+      console.error("Error creating chat room:", error);
+      res.status(500).json({ message: "Failed to create chat room" });
+    }
+  });
+
+  // Activity logs
+  app.get('/api/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const logs = await storage.getActivityLogs(userId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
+  const httpServer = createServer(app);
+
+  // WebSocket server for real-time chat
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('New WebSocket connection');
+    
+    ws.on('message', async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        if (message.type === 'chat_message') {
+          const messageData = insertChatMessageSchema.parse(message.data);
+          const savedMessage = await storage.createChatMessage(messageData);
+          
+          // Broadcast to all clients in the chat room
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'new_message',
+                data: savedMessage,
+              }));
+            }
+          });
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket connection closed');
+    });
+  });
+
+  return httpServer;
+}
+
+// Helper function to find matching candidates for a job
+async function findMatchingCandidates(job: any): Promise<any[]> {
+  // This is a simplified matching algorithm
+  // In a real application, this would be more sophisticated
+  const candidates: any[] = []; // Would fetch from database
+  
+  return candidates.map((candidate: any) => {
+    const match = calculateJobMatch(candidate, job);
+    return {
+      userId: candidate.userId,
+      matchScore: match.score,
+      matchReasons: match.reasons,
+    };
+  });
+}
