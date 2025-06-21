@@ -329,56 +329,7 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* How It Works */}
-      <div className="container mx-auto px-6 py-32">
-        <div className="text-center mb-24">
-          <h2 className="text-5xl font-light text-gray-900 dark:text-white mb-6 tracking-tight">
-            How It <span className="font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Works</span>
-          </h2>
-          <p className="text-xl text-gray-500 dark:text-gray-400 max-w-3xl mx-auto font-light leading-relaxed">
-            Three simple steps to find your next job
-          </p>
-        </div>
 
-        <div className="grid md:grid-cols-3 gap-16">
-          <div className="group text-center">
-            <div className="relative mb-8">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-[1.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-blue-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                <span className="text-3xl font-extralight text-white">1</span>
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full opacity-60 animate-ping"></div>
-            </div>
-            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Create Profile</h3>
-            <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
-              Add your skills, experience, and job preferences. The AI learns what you're looking for.
-            </p>
-          </div>
-          <div className="group text-center">
-            <div className="relative mb-8">
-              <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-[1.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                <span className="text-3xl font-extralight text-white">2</span>
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-400 rounded-full opacity-60 animate-ping" style={{ animationDelay: '0.5s' }}></div>
-            </div>
-            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Get Matches</h3>
-            <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
-              Receive job recommendations based on your profile. Each match shows why it's relevant.
-            </p>
-          </div>
-          <div className="group text-center">
-            <div className="relative mb-8">
-              <div className="w-24 h-24 bg-gradient-to-br from-violet-500 via-violet-600 to-purple-600 rounded-[1.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-violet-500/25 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                <span className="text-3xl font-extralight text-white">3</span>
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-violet-400 rounded-full opacity-60 animate-ping" style={{ animationDelay: '1s' }}></div>
-            </div>
-            <h3 className="text-3xl font-light mb-6 text-gray-900 dark:text-white">Apply Directly</h3>
-            <p className="text-gray-600 dark:text-gray-300 font-light leading-relaxed text-lg">
-              Apply to jobs with one click. Connect directly with hiring managers and track your applications.
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* Final CTA Section */}
       <div className="container mx-auto px-6 py-32">
