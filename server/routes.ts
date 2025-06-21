@@ -142,13 +142,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse the resume to extract information
       let parsedData = null;
       try {
-        const { resumeParser } = await import('./resume-parser');
-        parsedData = await resumeParser.parseFile(filePath);
-        console.log('Resume parsed successfully:', {
-          skillsFound: parsedData.skills.length,
-          experience: parsedData.experience,
-          workHistoryEntries: parsedData.workHistory.length
-        });
+        // Temporarily disabled due to pdf-parse library issue
+        // const { resumeParser } = await import('./resume-parser');
+        // parsedData = await resumeParser.parseFile(filePath);
+        console.log('Resume parsing temporarily disabled');
       } catch (parseError) {
         console.error('Resume parsing failed:', parseError);
         // Continue with upload even if parsing fails
@@ -765,7 +762,7 @@ async function findMatchingCandidates(job: any): Promise<any[]> {
     const profiles = await storage.getAllCandidateProfiles();
 
     // Calculate matches for each candidate
-    const matches = profiles.map((candidate: any) => {
+    const matches = await Promise.all(profiles.map(async (candidate: any) => {
       const jobPosting = {
         title: job.title,
         skills: job.skills || [],
@@ -788,14 +785,25 @@ async function findMatchingCandidates(job: any): Promise<any[]> {
         location: candidate.location,
       };
 
-      const match = calculateJobMatch(candidateProfile, jobPosting);
+      const match = await generateJobMatch(candidateProfile, {
+        title: jobPosting.title,
+        company: job.company,
+        skills: jobPosting.skills,
+        requirements: jobPosting.requirements,
+        industry: jobPosting.industry,
+        workType: jobPosting.workType,
+        salaryMin: jobPosting.salaryMin,
+        salaryMax: jobPosting.salaryMax,
+        location: jobPosting.location,
+        description: jobPosting.description
+      });
       
       return {
         candidateId: candidate.userId,
-        matchScore: match.score.toString(),
-        matchReasons: match.reasons,
+        matchScore: (match.score / 100).toString(),
+        matchReasons: match.skillMatches,
       };
-    });
+    }));
 
     // Filter candidates with match score >= 0.6 (60%)
     return matches.filter((match: any) => parseFloat(match.matchScore) >= 0.6);

@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, MapPin, Building, DollarSign, Clock, ThumbsUp, ThumbsDown, Eye, ExternalLink, MessageCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sparkles, MapPin, Building, DollarSign, Clock, ThumbsUp, ThumbsDown, Eye, ExternalLink, MessageCircle, BarChart3 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import MatchBreakdown from "./match-breakdown";
 
 interface AIJobMatch {
   id: number;
@@ -236,6 +238,37 @@ export default function AIJobFeed() {
                     <span className="hidden sm:inline">View Details</span>
                     <span className="sm:hidden">View</span>
                   </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                      >
+                        <BarChart3 className="h-4 w-4 mr-1" />
+                        <span className="hidden sm:inline">Match Analysis</span>
+                        <span className="sm:hidden">Analysis</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Match Analysis - {match.job.title}</DialogTitle>
+                      </DialogHeader>
+                      <MatchBreakdown 
+                        match={match} 
+                        job={{
+                          title: match.job.title,
+                          company: match.job.company,
+                          skills: match.job.skills,
+                          requirements: match.job.requirements,
+                          location: match.job.location,
+                          workType: match.job.workType,
+                          salaryMin: match.job.salaryMin,
+                          salaryMax: match.job.salaryMax
+                        }}
+                      />
+                    </DialogContent>
+                  </Dialog>
                   {match.job.externalSource ? (
                     <Button
                       size="sm"

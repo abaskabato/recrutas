@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
 interface ParsedResume {
