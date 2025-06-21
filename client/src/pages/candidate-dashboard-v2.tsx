@@ -124,6 +124,13 @@ export default function CandidateDashboard() {
   
   const currentStep = getOnboardingStep();
   const canOptimizeProfile = hasResume && (!hasSkills || !hasBasicInfo);
+  
+  console.log('Dashboard debug:', { 
+    hasResume, 
+    currentStep, 
+    profileData: profile,
+    resumeUrl: (profile as any)?.resumeUrl 
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
