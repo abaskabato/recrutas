@@ -170,32 +170,63 @@ export class UniversalJobScraper {
   private extractSimpleHtmlJobs(html: string, sourceUrl: string, companyName?: string): UniversalJob[] {
     const jobs: UniversalJob[] = [];
     
-    // Simple text-based extraction for job titles
+    // Enhanced job title patterns
     const titlePatterns = [
-      /(?:Software Engineer|Developer|Frontend|Backend|Full Stack|Data Scientist|Product Manager|Designer)/gi
+      /(?:Senior|Junior|Lead|Staff|Principal)?\s*(?:Software Engineer|Software Developer|Developer|Frontend Engineer|Backend Engineer|Full Stack Engineer|Full Stack Developer|Data Scientist|Data Engineer|Product Manager|UX Designer|UI Designer|DevOps Engineer|Site Reliability Engineer|Mobile Developer|iOS Developer|Android Developer|QA Engineer|Security Engineer|Machine Learning Engineer|AI Engineer)/gi
+    ];
+
+    // Also look for job listing patterns in HTML structure
+    const jobListingPatterns = [
+      /<div[^>]*(?:class|id)="[^"]*(?:job|position|career|opening)[^"]*"[^>]*>(.*?)<\/div>/gi,
+      /<li[^>]*(?:class|id)="[^"]*(?:job|position|career|opening)[^"]*"[^>]*>(.*?)<\/li>/gi,
+      /<article[^>]*>(.*?)<\/article>/gi,
     ];
 
     const titles = new Set<string>();
+    
+    // Extract from title patterns
     for (const pattern of titlePatterns) {
       const matches = Array.from(html.matchAll(pattern));
       for (const match of matches) {
-        titles.add(match[0]);
+        titles.add(match[0].trim());
+      }
+    }
+
+    // Extract from job listing HTML structures
+    for (const pattern of jobListingPatterns) {
+      const matches = Array.from(html.matchAll(pattern));
+      for (const match of matches) {
+        const content = match[1];
+        const titleMatch = content.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>|<[^>]*(?:class|id)="[^"]*title[^"]*"[^>]*>([^<]+)</i);
+        if (titleMatch) {
+          const title = (titleMatch[1] || titleMatch[2] || '').trim();
+          if (title && title.length > 3 && title.length < 100) {
+            titles.add(title);
+          }
+        }
       }
     }
 
     let index = 0;
-    for (const title of titles) {
-      if (index >= 10) break; // Limit to 10 jobs
+    const titleArray = Array.from(titles);
+    
+    for (const title of titleArray) {
+      if (index >= 15) break; // Increased limit for better coverage
+      
+      // Skip generic or invalid titles
+      if (title.length < 5 || title.includes('Apply') || title.includes('Login') || title.includes('Search')) {
+        continue;
+      }
       
       jobs.push({
         id: `html_${this.generateId(title, companyName)}_${index}`,
         title: title,
-        company: companyName || new URL(sourceUrl).hostname.replace('www.', ''),
-        location: 'Remote',
-        description: `${title} position at ${companyName || new URL(sourceUrl).hostname}`,
+        company: companyName || new URL(sourceUrl).hostname.replace('www.', '').replace('.com', ''),
+        location: this.inferLocationFromHtml(html) || 'Remote',
+        description: `${title} position at ${companyName || new URL(sourceUrl).hostname}. Join our team and make an impact.`,
         requirements: this.extractRequirements(title),
         skills: this.extractSkills(title),
-        workType: 'hybrid',
+        workType: this.inferWorkTypeFromHtml(html, title),
         source: companyName || new URL(sourceUrl).hostname,
         externalUrl: sourceUrl,
         postedDate: new Date().toISOString(),
@@ -204,6 +235,29 @@ export class UniversalJobScraper {
     }
 
     return jobs;
+  }
+
+  private inferLocationFromHtml(html: string): string | null {
+    const locationPatterns = [
+      /(?:San Francisco|New York|Seattle|Austin|Boston|Denver|Chicago|Los Angeles|Remote|Hybrid)/gi
+    ];
+    
+    for (const pattern of locationPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        return match[0];
+      }
+    }
+    
+    return null;
+  }
+
+  private inferWorkTypeFromHtml(html: string, title: string): string {
+    const combined = (html + ' ' + title).toLowerCase();
+    
+    if (combined.includes('remote')) return 'remote';
+    if (combined.includes('onsite') || combined.includes('office')) return 'onsite';
+    return 'hybrid';
   }
 
   private isJobObject(obj: any): boolean {
