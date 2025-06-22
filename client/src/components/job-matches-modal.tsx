@@ -176,14 +176,14 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
                         <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:min-w-[140px]">
                           {appliedJobs.includes(match.id) ? (
                             <Button disabled className="bg-green-600 text-white">
-                              Applied ✓
+                              Marked Applied ✓
                             </Button>
                           ) : (
                             <Button 
                               onClick={() => handleQuickApply(match)}
                               className="bg-primary hover:bg-primary/90"
                             >
-                              Apply Direct
+                              Mark Applied
                             </Button>
                           )}
                           

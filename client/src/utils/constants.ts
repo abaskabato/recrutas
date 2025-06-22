@@ -93,7 +93,7 @@ export const JOB_URGENCY_LEVELS = {
 // =============================================================================
 
 export const APPLICATION_STATUSES = {
-  submitted: 'Submitted',
+  submitted: 'Marked Applied',
   viewed: 'Viewed',
   screening: 'In Screening',
   interview_scheduled: 'Interview Scheduled',

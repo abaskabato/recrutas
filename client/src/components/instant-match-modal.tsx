@@ -615,7 +615,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               <div className="flex items-center space-x-2">
                                 <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                                 <span className="text-sm text-green-800 dark:text-green-300 font-medium">
-                                  Application submitted! Get full access to track status.
+                                  Marked as applied! Get full access to track status.
                                 </span>
                               </div>
                             </motion.div>

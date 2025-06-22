@@ -1010,9 +1010,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create activity log
-      await storage.createActivityLog(userId, "job_applied", `Applied to job: ${match.jobId}`);
+      await storage.createActivityLog(userId, "job_applied", `Marked as applied: ${match.jobId}`);
       
-      res.json({ message: "Application submitted successfully", match });
+      res.json({ message: "Marked as applied successfully", match });
     } catch (error) {
       console.error("Error applying to job:", error);
       res.status(500).json({ message: "Failed to submit application" });
