@@ -207,8 +207,8 @@ export default function CandidateDashboardEnhanced() {
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-                  window.location.href = '/';
+                  // Use the proper logout endpoint
+                  window.location.href = '/api/logout';
                 }}
               >
                 Sign Out
