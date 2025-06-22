@@ -543,6 +543,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Job editing endpoint
+  app.put('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobId = parseInt(req.params.id);
+      
+      const jobData = {
+        ...req.body,
+        updatedAt: new Date(),
+      };
+      
+      const updatedJob = await storage.updateJobPosting(jobId, userId, jobData);
+      res.json(updatedJob);
+    } catch (error) {
+      console.error("Error updating job posting:", error);
+      res.status(500).json({ message: "Failed to update job posting" });
+    }
+  });
+
+  // Job deletion endpoint
+  app.delete('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobId = parseInt(req.params.id);
+      
+      await storage.deleteJobPosting(jobId, userId);
+      res.json({ message: "Job posting deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting job posting:", error);
+      res.status(500).json({ message: "Failed to delete job posting" });
+    }
+  });
+
   // Recruiter stats
   app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
     try {

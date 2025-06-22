@@ -68,7 +68,8 @@ export interface IStorage {
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
-  updateJobPosting(id: number, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
+  updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
+  deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
   
   // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
@@ -214,13 +215,29 @@ export class DatabaseStorage implements IStorage {
     return job;
   }
 
-  async updateJobPosting(id: number, updates: Partial<InsertJobPosting>): Promise<JobPosting> {
+  async updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting> {
     const [result] = await db
       .update(jobPostings)
       .set({ ...updates as any, updatedAt: new Date() })
-      .where(eq(jobPostings.id, id))
+      .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)))
       .returning();
+    
+    if (!result) {
+      throw new Error('Job posting not found or unauthorized');
+    }
+    
     return result;
+  }
+
+  async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
+    const result = await db
+      .delete(jobPostings)
+      .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)))
+      .returning();
+    
+    if (!result.length) {
+      throw new Error('Job posting not found or unauthorized');
+    }
   }
 
   // Matching operations
