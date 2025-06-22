@@ -1110,6 +1110,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Universal job scraping endpoint (hiring.cafe-style)
+  app.post('/api/jobs/scrape', async (req, res) => {
+    try {
+      const { companyUrl, companyName } = req.body;
+      
+      if (!companyUrl) {
+        return res.status(400).json({ error: 'Company URL is required' });
+      }
+      
+      console.log(`Scraping jobs from ${companyUrl} for ${companyName || 'unknown company'}`);
+      
+      const jobs = await universalJobScraper.scrapeCompanyJobs(companyUrl, companyName);
+      
+      console.log(`Successfully scraped ${jobs.length} jobs from ${companyUrl}`);
+      
+      res.json({
+        success: true,
+        company: companyName || new URL(companyUrl).hostname,
+        jobCount: jobs.length,
+        jobs: jobs
+      });
+    } catch (error) {
+      console.error('Error scraping jobs:', error);
+      res.status(500).json({ 
+        error: 'Failed to scrape jobs', 
+        message: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
+  // Scrape multiple companies endpoint
+  app.post('/api/jobs/scrape-multiple', async (req, res) => {
+    try {
+      const { companies } = req.body;
+      
+      if (!Array.isArray(companies) || companies.length === 0) {
+        return res.status(400).json({ error: 'Companies array is required' });
+      }
+      
+      console.log(`Scraping jobs from ${companies.length} companies`);
+      
+      const allJobs = await universalJobScraper.scrapeMultipleCompanies(companies);
+      
+      console.log(`Successfully scraped ${allJobs.length} total jobs from ${companies.length} companies`);
+      
+      res.json({
+        success: true,
+        companiesScraped: companies.length,
+        totalJobs: allJobs.length,
+        jobs: allJobs
+      });
+    } catch (error) {
+      console.error('Error scraping multiple companies:', error);
+      res.status(500).json({ 
+        error: 'Failed to scrape jobs from companies', 
+        message: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+
   // Quick apply endpoint with real-time notifications
   app.post('/api/jobs/:id/quick-apply', isAuthenticated, async (req: any, res) => {
     try {
