@@ -98,13 +98,32 @@ export default function AuthPage() {
 
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left side - Auth forms */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-black">Recrutas</h1>
-            <p className="text-gray-600 mt-2">AI-powered job matching platform</p>
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black">Recrutas</h1>
+            <p className="text-gray-600 mt-2 text-sm sm:text-base">AI-powered job matching platform</p>
+          </div>
+
+          {/* Mobile hero section */}
+          <div className="lg:hidden bg-gray-50 rounded-lg p-4 mb-6">
+            <h2 className="text-lg font-semibold text-black mb-3">Why Choose Recrutas?</h2>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
+                <span className="text-sm text-gray-700">AI-powered job matching</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
+                <span className="text-sm text-gray-700">Direct company connections</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
+                <span className="text-sm text-gray-700">Skip the recruiters</span>
+              </div>
+            </div>
           </div>
 
           <Tabs defaultValue="signin" className="w-full">
@@ -118,13 +137,13 @@ export default function AuthPage() {
             </TabsList>
 
             <TabsContent value="signin">
-              <Card className="border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-black">Welcome back</CardTitle>
-                  <CardDescription>Sign in to your account to continue</CardDescription>
+              <Card className="border border-gray-200 shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-black text-xl">Welcome back</CardTitle>
+                  <CardDescription className="text-gray-600">Sign in to your account to continue</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSignIn} className="space-y-4">
+                  <form onSubmit={handleSignIn} className="space-y-4 sm:space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="signin-email" className="text-black">Email</Label>
                       <Input
@@ -133,7 +152,7 @@ export default function AuthPage() {
                         type="email"
                         placeholder="Enter your email"
                         required
-                        className="border-gray-300 focus:border-black"
+                        className="border-gray-300 focus:border-black h-11"
                       />
                     </div>
                     <div className="space-y-2">
@@ -144,12 +163,12 @@ export default function AuthPage() {
                         type="password"
                         placeholder="Enter your password"
                         required
-                        className="border-gray-300 focus:border-black"
+                        className="border-gray-300 focus:border-black h-11"
                       />
                     </div>
                     <Button 
                       type="submit" 
-                      className="w-full bg-black text-white hover:bg-gray-800"
+                      className="w-full bg-black text-white hover:bg-gray-800 transition-colors duration-200 h-11"
                       disabled={signInMutation.isPending}
                     >
                       {signInMutation.isPending ? (
@@ -167,13 +186,13 @@ export default function AuthPage() {
             </TabsContent>
 
             <TabsContent value="signup">
-              <Card className="border border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-black">Create account</CardTitle>
-                  <CardDescription>Join Recrutas to find your next opportunity</CardDescription>
+              <Card className="border border-gray-200 shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-black text-xl">Create account</CardTitle>
+                  <CardDescription className="text-gray-600">Join Recrutas to find your next opportunity</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSignUp} className="space-y-4">
+                  <form onSubmit={handleSignUp} className="space-y-4 sm:space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="signup-name" className="text-black">Full Name</Label>
                       <Input
@@ -182,7 +201,7 @@ export default function AuthPage() {
                         type="text"
                         placeholder="Enter your full name"
                         required
-                        className="border-gray-300 focus:border-black"
+                        className="border-gray-300 focus:border-black h-11"
                       />
                     </div>
                     <div className="space-y-2">
@@ -193,7 +212,7 @@ export default function AuthPage() {
                         type="email"
                         placeholder="Enter your email"
                         required
-                        className="border-gray-300 focus:border-black"
+                        className="border-gray-300 focus:border-black h-11"
                       />
                     </div>
                     <div className="space-y-2">
@@ -205,12 +224,12 @@ export default function AuthPage() {
                         placeholder="Create a password"
                         required
                         minLength={6}
-                        className="border-gray-300 focus:border-black"
+                        className="border-gray-300 focus:border-black h-11"
                       />
                     </div>
                     <Button 
                       type="submit" 
-                      className="w-full bg-black text-white hover:bg-gray-800"
+                      className="w-full bg-black text-white hover:bg-gray-800 transition-colors duration-200 h-11"
                       disabled={signUpMutation.isPending}
                     >
                       {signUpMutation.isPending ? (
@@ -231,7 +250,7 @@ export default function AuthPage() {
       </div>
 
       {/* Right side - Hero section */}
-      <div className="flex-1 bg-black text-white flex items-center justify-center p-8">
+      <div className="hidden lg:flex flex-1 bg-black text-white items-center justify-center p-8">
         <div className="max-w-md text-center">
           <h2 className="text-4xl font-bold mb-6">Find Your Perfect Match</h2>
           <p className="text-gray-300 text-lg mb-8">
