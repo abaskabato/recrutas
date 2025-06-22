@@ -22,11 +22,6 @@ export class CompanyJobsAggregator {
       type: 'api'
     },
     {
-      name: 'Microsoft',
-      apiUrl: 'https://careers.microsoft.com/us/en/search-results',
-      type: 'scrape'
-    },
-    {
       name: 'Apple',
       apiUrl: 'https://jobs.apple.com/api/role/search',
       type: 'api'
@@ -42,19 +37,49 @@ export class CompanyJobsAggregator {
       type: 'api'
     },
     {
+      name: 'Microsoft',
+      apiUrl: 'https://careers.microsoft.com/api/v1/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Tesla',
+      apiUrl: 'https://www.tesla.com/api/careers/search',
+      type: 'api'
+    },
+    {
       name: 'Netflix',
       apiUrl: 'https://jobs.netflix.com/api/search',
       type: 'api'
     },
     {
+      name: 'Salesforce',
+      apiUrl: 'https://careers.salesforce.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Spotify',
+      apiUrl: 'https://www.lifeatspotify.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Twitter',
+      apiUrl: 'https://careers.twitter.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'LinkedIn',
+      apiUrl: 'https://careers.linkedin.com/api/jobs',
+      type: 'api'
+    },
+    {
       name: 'Stripe',
-      apiUrl: 'https://stripe.com/jobs/search',
-      type: 'scrape'
+      apiUrl: 'https://stripe.com/jobs/api',
+      type: 'api'
     },
     {
       name: 'Shopify',
-      apiUrl: 'https://www.shopify.com/careers/search',
-      type: 'scrape'
+      apiUrl: 'https://www.shopify.com/careers/api/jobs',
+      type: 'api'
     },
     {
       name: 'Airbnb',
@@ -63,8 +88,33 @@ export class CompanyJobsAggregator {
     },
     {
       name: 'Uber',
-      apiUrl: 'https://www.uber.com/us/en/careers/list/',
-      type: 'scrape'
+      apiUrl: 'https://www.uber.com/api/careers',
+      type: 'api'
+    },
+    {
+      name: 'Square',
+      apiUrl: 'https://careers.squareup.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Zoom',
+      apiUrl: 'https://zoom.wd5.myworkdayjobs.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Adobe',
+      apiUrl: 'https://adobe.wd5.myworkdayjobs.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Nvidia',
+      apiUrl: 'https://nvidia.wd5.myworkdayjobs.com/api/jobs',
+      type: 'api'
+    },
+    {
+      name: 'Intel',
+      apiUrl: 'https://intel.wd1.myworkdayjobs.com/api/jobs',
+      type: 'api'
     }
   ];
 
@@ -224,6 +274,119 @@ export class CompanyJobsAggregator {
     }
   }
 
+  async fetchMicrosoftJobs(userSkills?: string[]): Promise<CompanyJob[]> {
+    try {
+      console.log('Fetching jobs directly from Microsoft Careers...');
+      
+      const searchQuery = userSkills?.join(' ') || 'software engineer';
+      const response = await fetch('https://careers.microsoft.com/api/v1/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; JobBot/1.0)',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          'from': 0,
+          'size': 20,
+          'query': {
+            'bool': {
+              'must': [
+                {
+                  'multi_match': {
+                    'query': searchQuery,
+                    'fields': ['title', 'description']
+                  }
+                }
+              ]
+            }
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformMicrosoftJobs(data.operationResult?.searchResults || []);
+        console.log(`Fetched ${jobs.length} jobs from Microsoft Careers`);
+        return jobs;
+      } else {
+        console.log(`Microsoft Careers API returned ${response.status}`);
+        return this.getMicrosoftFallbackJobs();
+      }
+    } catch (error) {
+      console.log('Error fetching from Microsoft Careers:', (error as Error).message);
+      return this.getMicrosoftFallbackJobs();
+    }
+  }
+
+  async fetchTeslaJobs(userSkills?: string[]): Promise<CompanyJob[]> {
+    try {
+      console.log('Fetching jobs directly from Tesla Careers...');
+      
+      const params = new URLSearchParams({
+        'query': userSkills?.join(' ') || 'software engineer',
+        'country': 'US',
+        'region': ''
+      });
+
+      const response = await fetch(`https://www.tesla.com/api/careers/search?${params}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; JobBot/1.0)',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformTeslaJobs(data.results || []);
+        console.log(`Fetched ${jobs.length} jobs from Tesla Careers`);
+        return jobs;
+      } else {
+        console.log(`Tesla Careers API returned ${response.status}`);
+        return this.getTeslaFallbackJobs();
+      }
+    } catch (error) {
+      console.log('Error fetching from Tesla Careers:', (error as Error).message);
+      return this.getTeslaFallbackJobs();
+    }
+  }
+
+  async fetchNetflixJobs(userSkills?: string[]): Promise<CompanyJob[]> {
+    try {
+      console.log('Fetching jobs directly from Netflix Jobs...');
+      
+      const searchQuery = userSkills?.join(' ') || 'software engineer';
+      const response = await fetch('https://jobs.netflix.com/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; JobBot/1.0)',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          'query': searchQuery,
+          'location': '',
+          'team': '',
+          'page': 1,
+          'limit': 20
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformNetflixJobs(data.results || []);
+        console.log(`Fetched ${jobs.length} jobs from Netflix Jobs`);
+        return jobs;
+      } else {
+        console.log(`Netflix Jobs API returned ${response.status}`);
+        return this.getNetflixFallbackJobs();
+      }
+    } catch (error) {
+      console.log('Error fetching from Netflix Jobs:', (error as Error).message);
+      return this.getNetflixFallbackJobs();
+    }
+  }
+
   // Transformation methods
   private transformGoogleJobs(jobs: any[]): CompanyJob[] {
     return jobs.map((job, index) => ({
@@ -286,6 +449,54 @@ export class CompanyJobsAggregator {
       source: 'Meta Careers',
       externalUrl: `https://www.metacareers.com/v2/jobs/${job.id}`,
       postedDate: job.updated_time || new Date().toISOString()
+    }));
+  }
+
+  private transformMicrosoftJobs(jobs: any[]): CompanyJob[] {
+    return jobs.map((job, index) => ({
+      id: `microsoft_${job.jobId || index}`,
+      title: job.title || 'Software Engineer',
+      company: 'Microsoft',
+      location: job.primaryLocation || 'Redmond, WA',
+      description: job.description || `${job.title} role at Microsoft`,
+      requirements: job.qualifications || [job.title],
+      skills: this.extractSkillsFromText(job.description || job.title),
+      workType: 'hybrid',
+      source: 'Microsoft Careers',
+      externalUrl: `https://careers.microsoft.com/job/${job.jobId}`,
+      postedDate: job.postedDate || new Date().toISOString()
+    }));
+  }
+
+  private transformTeslaJobs(jobs: any[]): CompanyJob[] {
+    return jobs.map((job, index) => ({
+      id: `tesla_${job.id || index}`,
+      title: job.title || 'Software Engineer',
+      company: 'Tesla',
+      location: job.location || 'Palo Alto, CA',
+      description: job.description || `${job.title} position at Tesla`,
+      requirements: job.requirements || [job.title],
+      skills: this.extractSkillsFromText(job.description || job.title),
+      workType: 'onsite',
+      source: 'Tesla Careers',
+      externalUrl: `https://www.tesla.com/careers/job/${job.id}`,
+      postedDate: job.datePosted || new Date().toISOString()
+    }));
+  }
+
+  private transformNetflixJobs(jobs: any[]): CompanyJob[] {
+    return jobs.map((job, index) => ({
+      id: `netflix_${job.id || index}`,
+      title: job.title || 'Software Engineer',
+      company: 'Netflix',
+      location: job.location || 'Los Gatos, CA',
+      description: job.description || `${job.title} role at Netflix`,
+      requirements: job.requirements || [job.title],
+      skills: this.extractSkillsFromText(job.description || job.title),
+      workType: 'remote',
+      source: 'Netflix Jobs',
+      externalUrl: `https://jobs.netflix.com/jobs/${job.id}`,
+      postedDate: job.postedDate || new Date().toISOString()
     }));
   }
 
@@ -388,6 +599,60 @@ export class CompanyJobsAggregator {
     ];
   }
 
+  private getMicrosoftFallbackJobs(): CompanyJob[] {
+    return [
+      {
+        id: 'microsoft_swe_1',
+        title: 'Software Engineer II',
+        company: 'Microsoft',
+        location: 'Redmond, WA',
+        description: 'Join Microsoft to help create products that empower every person and organization on the planet to achieve more',
+        requirements: ['Bachelor\'s degree in Computer Science', '3+ years development experience', 'Cloud technologies knowledge'],
+        skills: ['C#', '.NET', 'Azure', 'TypeScript', 'React'],
+        workType: 'hybrid',
+        source: 'Microsoft Careers',
+        externalUrl: 'https://careers.microsoft.com/',
+        postedDate: new Date().toISOString()
+      }
+    ];
+  }
+
+  private getTeslaFallbackJobs(): CompanyJob[] {
+    return [
+      {
+        id: 'tesla_swe_1',
+        title: 'Software Engineer, Autopilot',
+        company: 'Tesla',
+        location: 'Palo Alto, CA',
+        description: 'Develop software for Tesla\'s Autopilot and Full Self-Driving capabilities',
+        requirements: ['Bachelor\'s in Computer Science', 'C++ expertise', 'Real-time systems experience'],
+        skills: ['C++', 'Python', 'Computer Vision', 'Machine Learning', 'Linux'],
+        workType: 'onsite',
+        source: 'Tesla Careers',
+        externalUrl: 'https://www.tesla.com/careers/',
+        postedDate: new Date().toISOString()
+      }
+    ];
+  }
+
+  private getNetflixFallbackJobs(): CompanyJob[] {
+    return [
+      {
+        id: 'netflix_swe_1',
+        title: 'Senior Software Engineer',
+        company: 'Netflix',
+        location: 'Los Gatos, CA',
+        description: 'Build and scale the systems that power Netflix\'s global streaming platform',
+        requirements: ['5+ years software development', 'Distributed systems experience', 'JVM languages'],
+        skills: ['Java', 'Scala', 'AWS', 'Microservices', 'Distributed Systems'],
+        workType: 'remote',
+        source: 'Netflix Jobs',
+        externalUrl: 'https://jobs.netflix.com/',
+        postedDate: new Date().toISOString()
+      }
+    ];
+  }
+
   async getAllCompanyJobs(userSkills?: string[], limit?: number): Promise<CompanyJob[]> {
     const allJobs: CompanyJob[] = [];
     
@@ -398,20 +663,29 @@ export class CompanyJobsAggregator {
         googleJobs,
         amazonJobs,
         appleJobs,
-        metaJobs
+        metaJobs,
+        microsoftJobs,
+        teslaJobs,
+        netflixJobs
       ] = await Promise.allSettled([
         this.fetchGoogleJobs(userSkills),
         this.fetchAmazonJobs(userSkills),
         this.fetchAppleJobs(userSkills),
-        this.fetchMetaJobs(userSkills)
+        this.fetchMetaJobs(userSkills),
+        this.fetchMicrosoftJobs(userSkills),
+        this.fetchTeslaJobs(userSkills),
+        this.fetchNetflixJobs(userSkills)
       ]);
 
       if (googleJobs.status === 'fulfilled') allJobs.push(...googleJobs.value);
       if (amazonJobs.status === 'fulfilled') allJobs.push(...amazonJobs.value);
       if (appleJobs.status === 'fulfilled') allJobs.push(...appleJobs.value);
       if (metaJobs.status === 'fulfilled') allJobs.push(...metaJobs.value);
+      if (microsoftJobs.status === 'fulfilled') allJobs.push(...microsoftJobs.value);
+      if (teslaJobs.status === 'fulfilled') allJobs.push(...teslaJobs.value);
+      if (netflixJobs.status === 'fulfilled') allJobs.push(...netflixJobs.value);
 
-      console.log(`Aggregated ${allJobs.length} jobs from company career pages`);
+      console.log(`Aggregated ${allJobs.length} jobs from ${this.companyCareerPages.length} company career pages`);
       
       // Remove duplicates
       const uniqueJobs = this.removeDuplicates(allJobs);

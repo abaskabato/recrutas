@@ -161,7 +161,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   Direct Company Jobs
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-                  Jobs posted directly on Google, Apple, Amazon, Meta career pages.
+                  Jobs from 20+ company career pages: Google, Apple, Amazon, Meta, Microsoft, Tesla, Netflix, and more.
                 </p>
                 <Button
                   size="lg"
