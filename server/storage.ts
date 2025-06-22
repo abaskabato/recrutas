@@ -263,6 +263,8 @@ export class DatabaseStorage implements IStorage {
       const [result] = await db.insert(jobPostings).values({
         ...job,
         skills: job.skills || [],
+        requirements: job.requirements || [],
+        hiringManagerId: job.hiringManagerId || job.talentOwnerId, // Default to talent owner if no hiring manager specified
       }).returning();
       return result;
     } catch (error) {

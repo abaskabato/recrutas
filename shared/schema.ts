@@ -147,6 +147,7 @@ export const candidateProfiles = pgTable("candidate_profiles", {
 export const jobPostings = pgTable("job_postings", {
   id: serial("id").primaryKey(),
   talentOwnerId: varchar("talent_owner_id").notNull().references(() => users.id),
+  hiringManagerId: varchar("hiring_manager_id").references(() => users.id),
   title: varchar("title").notNull(),
   company: varchar("company").notNull(),
   description: text("description").notNull(),
@@ -170,7 +171,6 @@ export const jobPostings = pgTable("job_postings", {
   // Exam and chat settings for internal jobs
   hasExam: boolean("has_exam").default(true), // Internal jobs have exams by default
   examPassingScore: integer("exam_passing_score").default(70), // Minimum score to qualify for chat
-  hiringManagerId: varchar("hiring_manager_id").references(() => users.id), // Who candidates can chat with
   autoRankCandidates: boolean("auto_rank_candidates").default(true), // Auto-rank by exam scores
   maxChatCandidates: integer("max_chat_candidates").default(5), // Top N candidates get chat access
   createdAt: timestamp("created_at").defaultNow(),
