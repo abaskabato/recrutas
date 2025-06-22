@@ -90,7 +90,6 @@ export default function ProfileUpload() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/candidate/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/candidates/profile"] });
       

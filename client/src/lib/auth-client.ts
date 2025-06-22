@@ -18,6 +18,14 @@ export interface ExtendedUser {
 
 export const authClient = createAuthClient({
   baseURL: window.location.origin, // Use current origin for proper environment support
+  fetchOptions: {
+    onError(e) {
+      // Silently handle auth errors to prevent console spam
+      if (e.error?.status !== 401) {
+        console.log("Auth error:", e);
+      }
+    },
+  },
 })
 
 export const {
@@ -31,21 +39,26 @@ export const {
 export function useSession() {
   const session = useSessionRaw();
   
-  // Better Auth returns session data in a different format
+  // Better Auth returns session data directly
   if (session.data?.user) {
     const user = session.data.user as any;
+    const extendedUser = {
+      ...user,
+      // Ensure all properties are available for backward compatibility
+      firstName: user.firstName || user.name?.split(' ')[0] || '',
+      lastName: user.lastName || user.name?.split(' ')[1] || '',
+      phoneNumber: user.phoneNumber || null,
+      role: user.role || 'candidate',
+      profileComplete: user.profileComplete || false,
+    } as ExtendedUser;
+    
     return {
       data: {
-        user: {
-          ...user,
-          // Ensure all properties are available for backward compatibility
-          firstName: user.firstName || user.name?.split(' ')[0] || '',
-          lastName: user.lastName || user.name?.split(' ')[1] || '',
-          phoneNumber: user.phoneNumber || null,
-          role: user.role || 'candidate',
-          profileComplete: user.profileComplete || false,
-        } as ExtendedUser
+        user: extendedUser
       },
+      user: extendedUser,
+      isLoading: session.isPending,
+      isAuthenticated: true,
       isPending: session.isPending,
       error: session.error
     };
@@ -53,6 +66,9 @@ export function useSession() {
   
   return {
     data: null,
+    user: null,
+    isLoading: session.isPending,
+    isAuthenticated: false,
     isPending: session.isPending,
     error: session.error
   };

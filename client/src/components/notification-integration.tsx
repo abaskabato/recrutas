@@ -12,11 +12,7 @@ export function NotificationIntegration({ userId, children }: NotificationIntegr
   // Initialize WebSocket connection for real-time notifications
   const { isConnected } = useWebSocketNotifications(userId);
 
-  // Get current user data
-  const { data: user } = useQuery({
-    queryKey: ['/api/auth/user'],
-    enabled: !!userId,
-  });
+  // User data is now handled by Better Auth session
 
   return (
     <div className="relative">

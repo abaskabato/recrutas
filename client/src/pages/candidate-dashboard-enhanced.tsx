@@ -161,7 +161,7 @@ export default function CandidateDashboardEnhanced() {
       });
       setShowResumeUpload(false);
       setSelectedFile(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      // Auth data handled by Better Auth session
     },
     onError: () => {
       toast({
@@ -185,8 +185,7 @@ export default function CandidateDashboardEnhanced() {
 
   const handleProfileComplete = () => {
     setShowProfileCompletion(false);
-    // Refresh user data
-    queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    // User data handled by Better Auth session
     toast({
       title: "Profile Completed",
       description: "Welcome to Recrutas! Your profile is now set up.",
