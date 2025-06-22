@@ -506,7 +506,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.title}</h4>
+                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.job?.title || job.title}</h4>
                                 <motion.div
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
@@ -514,7 +514,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 >
                                   <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
                                     <Star className="w-3 h-3 mr-1" />
-                                    {job.match}
+                                    {job.matchScore || job.match || '90%'}
                                   </Badge>
                                 </motion.div>
                                 {job.chatActive && (
@@ -541,7 +541,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               >
                                 <p className="text-gray-700 dark:text-gray-300 font-semibold mb-3 flex items-center">
                                   <Building className="w-4 h-4 mr-2 text-gray-500" />
-                                  {job.company}
+                                  {job.job?.company || job.company}
                                 </p>
                               </motion.div>
                             </div>
@@ -550,15 +550,18 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center">
                               <MapPin className="w-4 h-4 mr-1" />
-                              {job.location}
+                              {job.job?.location || job.location || 'Remote'}
                             </div>
                             <div className="flex items-center">
                               <DollarSign className="w-4 h-4 mr-1" />
-                              {job.salary}
+                              {job.job?.salaryMin && job.job?.salaryMax 
+                                ? `$${job.job.salaryMin/1000}k-$${job.job.salaryMax/1000}k`
+                                : job.salary || '$80k-120k'
+                              }
                             </div>
                             <div className="flex items-center">
                               <Briefcase className="w-4 h-4 mr-1" />
-                              {job.type}
+                              {job.job?.workType || job.type || 'Full-time'}
                             </div>
                           </div>
 
@@ -566,7 +569,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                           <div className="mb-4">
                             <div className="flex flex-wrap gap-1">
-                              {(job.skills || []).map((skill: string) => (
+                              {(job.job?.skills || job.skills || []).map((skill: string) => (
                                 <Badge key={skill} variant="secondary" className="text-xs">
                                   {skill}
                                 </Badge>
