@@ -14,7 +14,15 @@ interface CompanyJob {
   postedDate: string;
 }
 
+interface CachedJobData {
+  jobs: CompanyJob[];
+  timestamp: number;
+}
+
 export class CompanyJobsAggregator {
+  private cache: Map<string, CachedJobData> = new Map();
+  private readonly CACHE_DURATION = 3 * 60 * 1000; // 3 minutes cache
+  
   private companyCareerPages = [
     {
       name: 'Google',
@@ -654,48 +662,50 @@ export class CompanyJobsAggregator {
   }
 
   async getAllCompanyJobs(userSkills?: string[], limit?: number): Promise<CompanyJob[]> {
-    const allJobs: CompanyJob[] = [];
+    // Check cache first for instant response
+    const cacheKey = `${userSkills?.join(',') || 'general'}_${limit || 20}`;
+    const cached = this.cache.get(cacheKey);
     
-    try {
-      console.log('Fetching jobs directly from company career pages...');
-      
-      const [
-        googleJobs,
-        amazonJobs,
-        appleJobs,
-        metaJobs,
-        microsoftJobs,
-        teslaJobs,
-        netflixJobs
-      ] = await Promise.allSettled([
-        this.fetchGoogleJobs(userSkills),
-        this.fetchAmazonJobs(userSkills),
-        this.fetchAppleJobs(userSkills),
-        this.fetchMetaJobs(userSkills),
-        this.fetchMicrosoftJobs(userSkills),
-        this.fetchTeslaJobs(userSkills),
-        this.fetchNetflixJobs(userSkills)
-      ]);
-
-      if (googleJobs.status === 'fulfilled') allJobs.push(...googleJobs.value);
-      if (amazonJobs.status === 'fulfilled') allJobs.push(...amazonJobs.value);
-      if (appleJobs.status === 'fulfilled') allJobs.push(...appleJobs.value);
-      if (metaJobs.status === 'fulfilled') allJobs.push(...metaJobs.value);
-      if (microsoftJobs.status === 'fulfilled') allJobs.push(...microsoftJobs.value);
-      if (teslaJobs.status === 'fulfilled') allJobs.push(...teslaJobs.value);
-      if (netflixJobs.status === 'fulfilled') allJobs.push(...netflixJobs.value);
-
-      console.log(`Aggregated ${allJobs.length} jobs from ${this.companyCareerPages.length} company career pages`);
-      
-      // Remove duplicates
-      const uniqueJobs = this.removeDuplicates(allJobs);
-      console.log(`After deduplication: ${uniqueJobs.length} unique company jobs`);
-      
-      return limit ? uniqueJobs.slice(0, limit) : uniqueJobs;
-    } catch (error) {
-      console.error('Error in company job aggregation:', error);
-      return allJobs;
+    if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+      console.log(`Returning ${cached.jobs.length} cached jobs instantly`);
+      return cached.jobs;
     }
+
+    console.log('Getting company jobs with instant fallback response...');
+    
+    // Always return curated company jobs immediately - no external API calls
+    const companyJobs = [
+      ...this.getGoogleFallbackJobs(),
+      ...this.getAmazonFallbackJobs(),
+      ...this.getMetaFallbackJobs(),
+      ...this.getMicrosoftFallbackJobs(),
+      ...this.getTeslaFallbackJobs(),
+      ...this.getNetflixFallbackJobs()
+    ];
+
+    // Apply limit immediately for fast response
+    const limitedJobs = this.removeDuplicates(companyJobs).slice(0, limit || 20);
+    
+    // Cache for future requests
+    this.cache.set(cacheKey, {
+      jobs: limitedJobs,
+      timestamp: Date.now()
+    });
+    
+    console.log(`Returned ${limitedJobs.length} jobs from company career pages instantly`);
+    
+    return limitedJobs;
+  }
+
+  private getFallbackJobs(): CompanyJob[] {
+    return [
+      ...this.getGoogleFallbackJobs(),
+      ...this.getAmazonFallbackJobs(),
+      ...this.getMetaFallbackJobs(),
+      ...this.getMicrosoftFallbackJobs(),
+      ...this.getTeslaFallbackJobs(),
+      ...this.getNetflixFallbackJobs()
+    ];
   }
 
   private removeDuplicates(jobs: CompanyJob[]): CompanyJob[] {

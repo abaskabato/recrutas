@@ -599,7 +599,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Fetching external jobs for instant matching. Skills: ${skills}, JobTitle: ${jobTitle}, Location: ${location}, WorkType: ${workType}, MinSalary: ${minSalary} (${salaryType}), Limit: ${limit}`);
       
       const skillsArray = skills && typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : undefined;
-      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, parseInt(limit as string));
+      // Optimize by reducing limit for faster response
+      const optimizedLimit = Math.min(parseInt(limit as string) || 10, 15);
+      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, optimizedLimit);
       console.log(`Retrieved ${externalJobs.length} external jobs from aggregator for skills: ${skillsArray?.join(', ') || 'general'}`);
       
       if (externalJobs.length > 0) {
