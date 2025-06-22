@@ -200,8 +200,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
                   className="relative"
                 >
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Brain className="w-8 h-8 text-white" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg p-3">
+                    <RecrutasLogo className="w-full h-full text-white" />
                   </div>
                   <motion.div 
                     animate={{ scale: [1, 1.2, 1] }}
@@ -612,7 +612,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             </div>
                           </div>
 
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
                             <Button 
                               size="sm" 
                               onClick={() => handleQuickApply(job.id)}
@@ -621,23 +621,26 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               <Zap className="w-4 h-4 mr-2" />
                               Apply Direct
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => handleStartChat(job.id)}
-                              className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                            >
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Message
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => handleLikeJob(job.id)}
-                              className={`${likedJobs.includes(job.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
-                            >
-                              <Heart className={`w-4 h-4 ${likedJobs.includes(job.id) ? 'fill-current' : ''}`} />
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleStartChat(job.id)}
+                                className="flex-1 sm:flex-none bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
+                              >
+                                <MessageCircle className="w-4 h-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Message</span>
+                                <span className="sm:hidden">Chat</span>
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleLikeJob(job.id)}
+                                className={`${likedJobs.includes(job.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
+                              >
+                                <Heart className={`w-4 h-4 ${likedJobs.includes(job.id) ? 'fill-current' : ''}`} />
+                              </Button>
+                            </div>
                           </div>
 
                           {/* Simple application feedback */}
@@ -662,30 +665,34 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   )}
                 </div>
 
-                <div className="flex space-x-3 mt-6">
-                  <Button 
-                    onClick={handleViewFeatures}
-                    variant="outline"
-                    className="py-3 text-sm font-medium"
-                  >
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    See All Features
-                  </Button>
-                  <Button
-                    onClick={onStartMatching}
-                    variant="outline"
-                    className="py-3 text-sm font-medium border-blue-200 text-blue-700 hover:bg-blue-50"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Matches
-                  </Button>
+                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  <div className="flex gap-2 sm:gap-3">
+                    <Button 
+                      onClick={handleViewFeatures}
+                      variant="outline"
+                      className="flex-1 sm:flex-none py-3 text-sm font-medium bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg"
+                    >
+                      <TrendingUp className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">See All Features</span>
+                      <span className="sm:hidden">Features</span>
+                    </Button>
+                    <Button
+                      onClick={onStartMatching}
+                      variant="outline"  
+                      className="flex-1 sm:flex-none py-3 text-sm font-medium border-blue-200 text-blue-700 hover:bg-blue-50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg"
+                    >
+                      <Eye className="w-4 h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">View My Jobs</span>
+                      <span className="sm:hidden">My Jobs</span>
+                    </Button>
+                  </div>
                   <Button
                     size="lg"
-                    className="flex-1 px-8 py-3 text-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl shadow-lg"
+                    className="w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                     onClick={handleGetStarted}
                   >
                     Get Full Access
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 ml-2" />
                   </Button>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
