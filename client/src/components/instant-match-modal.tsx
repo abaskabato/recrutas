@@ -204,14 +204,25 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
                   Jobs from 20+ company career pages: Google, Apple, Amazon, Meta, Microsoft, Tesla, Netflix, and more.
                 </p>
-                <Button
-                  size="lg"
-                  className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg"
-                  onClick={() => setStep('skills')}
-                >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Start Instant Matching
-                </Button>
+                <div className="flex gap-3 justify-center">
+                  <Button
+                    onClick={onStartMatching}
+                    variant="outline"
+                    size="lg"
+                    className="px-6 py-4 text-lg font-medium border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    <Eye className="w-5 h-5 mr-2" />
+                    View Matches
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg"
+                    onClick={() => setStep('skills')}
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Start Instant Matching
+                  </Button>
+                </div>
               </motion.div>
             )}
 
