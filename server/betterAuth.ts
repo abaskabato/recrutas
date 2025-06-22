@@ -136,24 +136,23 @@ export function setupBetterAuth(app: Express) {
         // If auth handler completely fails for sign out, clear cookies anyway
         if (req.url.includes('sign-out')) {
           console.log('Auth handler failed for sign out, clearing cookies manually');
-          res.clearCookie('better-auth.session_token');
-          res.clearCookie('better-auth.session_data');
-          res.status(200).json({ success: true });
+          res.clearCookie('better-auth.session_token', { path: '/', httpOnly: false, secure: false });
+          res.clearCookie('better-auth.session_data', { path: '/', httpOnly: false, secure: false });
+          res.clearCookie('connect.sid', { path: '/', httpOnly: true, secure: false });
+          res.status(200).json({ success: true, message: 'Signed out successfully' });
           return;
         }
         throw error;
       }
       
       // Special handling for sign out failures - clear cookies and return success
-      if (req.url.includes('sign-out') && response.status === 400) {
-        const responseText = await response.clone().text();
-        if (responseText.includes('FAILED_TO_GET_SESSION')) {
-          console.log('Sign out failed due to invalid session, clearing cookies manually');
-          res.clearCookie('better-auth.session_token');
-          res.clearCookie('better-auth.session_data');
-          res.status(200).json({ success: true });
-          return;
-        }
+      if (req.url.includes('sign-out') && (response.status === 400 || response.status === 401)) {
+        console.log('Sign out completed, clearing all session cookies');
+        res.clearCookie('better-auth.session_token', { path: '/', httpOnly: false, secure: false });
+        res.clearCookie('better-auth.session_data', { path: '/', httpOnly: false, secure: false });
+        res.clearCookie('connect.sid', { path: '/', httpOnly: true, secure: false });
+        res.status(200).json({ success: true, message: 'Signed out successfully' });
+        return;
       }
       
       // Debug logging for auth responses
