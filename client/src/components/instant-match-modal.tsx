@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, Loader2, Send, Building, Upload, FileText, CheckCircle } from "lucide-react";
+import RecrutasLogo from "@/components/recrutas-logo";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -195,8 +196,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 exit={{ opacity: 0, y: -20 }}
                 className="p-8 text-center"
               >
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Brain className="w-8 h-8 text-white" />
+                <div className="mx-auto mb-6">
+                  <RecrutasLogo size={64} />
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
                   Recrutas

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock } from "lucide-react";
+import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -206,9 +207,7 @@ export default function LandingResponsive() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             <div className="flex items-center space-x-2 md:space-x-3">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Brain className="w-4 h-4 md:w-5 md:h-5 text-white" />
-              </div>
+              <RecrutasLogo size={32} className="w-8 h-8 md:w-10 md:h-10" />
               <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Recrutas</h2>
               <Badge variant="secondary" className="hidden sm:inline-flex text-xs bg-red-500/20 text-red-300 border-red-500/30">
                 No Recruiters
@@ -411,9 +410,7 @@ export default function LandingResponsive() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-0">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Brain className="w-4 h-4 text-white" />
-              </div>
+              <RecrutasLogoSimple size={24} className="w-6 h-6 md:w-8 md:h-8" />
               <span className="text-lg md:text-xl font-bold text-white">Recrutas</span>
             </div>
             <div className="text-slate-400 text-sm md:text-base text-center md:text-right">
