@@ -457,9 +457,29 @@ export default function CandidateDashboardEnhanced() {
                     <div className="flex items-center justify-between">
                       <CardTitle>Job Matches</CardTitle>
                       <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2">
+                          <select className="text-sm border rounded px-2 py-1">
+                            <option value="all">All Locations</option>
+                            <option value="remote">Remote</option>
+                            <option value="hybrid">Hybrid</option>
+                            <option value="onsite">On-site</option>
+                          </select>
+                          <select className="text-sm border rounded px-2 py-1">
+                            <option value="all">All Companies</option>
+                            <option value="faang">FAANG</option>
+                            <option value="startup">Startup</option>
+                            <option value="enterprise">Enterprise</option>
+                          </select>
+                          <select className="text-sm border rounded px-2 py-1">
+                            <option value="all">Match Score</option>
+                            <option value="90+">90%+ Match</option>
+                            <option value="80+">80%+ Match</option>
+                            <option value="70+">70%+ Match</option>
+                          </select>
+                        </div>
                         <Button variant="outline" size="sm">
                           <Filter className="w-4 h-4 mr-2" />
-                          Filter
+                          More Filters
                         </Button>
                         <Button variant="outline" size="sm">
                           <Search className="w-4 h-4 mr-2" />
