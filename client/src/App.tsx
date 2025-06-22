@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import Landing from "@/pages/landing";
+import Landing from "@/pages/landing-responsive";
 import CandidateDashboard from "@/pages/candidate-dashboard-v2";
 import RecruiterDashboard from "@/pages/recruiter-dashboard";
 import Chat from "@/pages/chat";
