@@ -592,6 +592,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Role selection endpoint
+  app.post('/api/auth/select-role', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { role } = req.body;
+      
+      if (!role || !['candidate', 'talent_owner'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+      
+      await storage.updateUserRole(userId, role);
+      
+      res.json({ 
+        message: 'Role updated successfully',
+        role 
+      });
+    } catch (error) {
+      console.error("Role selection error:", error);
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  });
+
   // Job posting routes
   app.post('/api/jobs', requireAuth, async (req: any, res) => {
     try {

@@ -1,198 +1,221 @@
-import React from "react";
-import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, Building2, UserCheck, ArrowRight } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useMutation } from "@tanstack/react-query";
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Users, 
+  Briefcase, 
+  Target, 
+  Search, 
+  TrendingUp, 
+  Building,
+  CheckCircle,
+  ArrowRight
+} from 'lucide-react';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useLocation } from 'wouter';
 
-interface RoleSelectionProps {
-  userId: string;
-}
-
-export default function RoleSelection({ userId }: RoleSelectionProps) {
-  const [, navigate] = useLocation();
+export default function RoleSelection() {
+  const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  const updateRoleMutation = useMutation({
-    mutationFn: async (role: "candidate" | "talent_owner") => {
-      const response = await apiRequest("POST", "/api/auth/role", { role });
+  const selectRoleMutation = useMutation({
+    mutationFn: async (role: 'candidate' | 'talent_owner') => {
+      const response = await apiRequest('POST', '/api/auth/select-role', { role });
       return response.json();
     },
-    onSuccess: (data, role) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/get-session"] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/get-session'] });
       toast({
-        title: "Role selected successfully",
-        description: `Welcome to Recrutas as a ${role === "candidate" ? "job seeker" : "talent owner"}!`,
+        title: 'Role Selected',
+        description: `Welcome! Your account has been set up as a ${selectedRole === 'candidate' ? 'candidate' : 'talent owner'}.`,
       });
       
-      // Navigate to appropriate dashboard
-      if (role === "candidate") {
-        navigate("/candidate-dashboard");
+      // Redirect based on role
+      if (selectedRole === 'candidate') {
+        setLocation('/candidate-dashboard');
       } else {
-        navigate("/talent-dashboard");
+        setLocation('/talent-dashboard');
       }
     },
     onError: (error) => {
       toast({
-        title: "Role selection failed",
-        description: "Please try again or contact support if the issue persists.",
-        variant: "destructive",
+        title: 'Selection Failed',
+        description: 'Failed to set your role. Please try again.',
+        variant: 'destructive',
       });
     },
   });
 
-  const handleRoleSelect = (role: "candidate" | "talent_owner") => {
-    updateRoleMutation.mutate(role);
+  const handleRoleSelection = () => {
+    if (selectedRole) {
+      selectRoleMutation.mutate(selectedRole);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-black flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Choose Your Role
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Select how you'd like to use Recrutas. You can always change this later in your profile settings.
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl font-bold text-slate-900">Choose Your Role</h1>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Select how you'd like to use the platform. You can change this later in your settings.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        {/* Role Cards */}
+        <div className="grid md:grid-cols-2 gap-8">
           {/* Candidate Role */}
-          <Card className="relative group hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-500 cursor-pointer">
+          <Card 
+            className={`cursor-pointer transition-all duration-200 hover:shadow-xl ${
+              selectedRole === 'candidate' 
+                ? 'ring-2 ring-blue-500 shadow-lg' 
+                : 'hover:shadow-lg'
+            }`}
+            onClick={() => setSelectedRole('candidate')}
+          >
             <CardHeader className="text-center pb-4">
-              <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div className="mx-auto mb-4 relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
+                {selectedRole === 'candidate' && (
+                  <div className="absolute -top-2 -right-2">
+                    <CheckCircle className="w-6 h-6 text-green-500 fill-current" />
+                  </div>
+                )}
               </div>
-              <CardTitle className="text-2xl text-gray-900 dark:text-white">
-                Job Seeker
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                Find your dream job with AI-powered matching
-              </CardDescription>
+              <CardTitle className="text-2xl">I'm a Candidate</CardTitle>
+              <p className="text-slate-600">Looking for job opportunities</p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Get personalized job recommendations
-                  </span>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Search className="w-5 h-5 text-blue-500 mt-1" />
+                  <div>
+                    <h4 className="font-medium text-slate-900">Smart Job Matching</h4>
+                    <p className="text-sm text-slate-600">AI-powered job recommendations based on your skills and preferences</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Upload resume and build your profile
-                  </span>
+                <div className="flex items-start gap-3">
+                  <Target className="w-5 h-5 text-blue-500 mt-1" />
+                  <div>
+                    <h4 className="font-medium text-slate-900">Direct Applications</h4>
+                    <p className="text-sm text-slate-600">Apply directly to companies without going through recruiters</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Apply to jobs with one click
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Chat directly with hiring managers
-                  </span>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="w-5 h-5 text-blue-500 mt-1" />
+                  <div>
+                    <h4 className="font-medium text-slate-900">Career Insights</h4>
+                    <p className="text-sm text-slate-600">Get personalized career advice and market insights</p>
+                  </div>
                 </div>
               </div>
               
-              <div className="pt-4">
-                <Badge variant="secondary" className="mb-4">
-                  Most Popular
-                </Badge>
-                <Button 
-                  onClick={() => handleRoleSelect("candidate")}
-                  className="w-full group-hover:bg-blue-600 transition-colors"
-                  disabled={updateRoleMutation.isPending}
-                >
-                  {updateRoleMutation.isPending ? (
-                    "Setting up your account..."
-                  ) : (
-                    <>
-                      Get Started as Job Seeker
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-700">Perfect for:</span>
+                  <div className="flex gap-2">
+                    <Badge variant="secondary" className="text-xs">Job Seekers</Badge>
+                    <Badge variant="secondary" className="text-xs">Career Changers</Badge>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Talent Owner Role */}
-          <Card className="relative group hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500 cursor-pointer">
+          <Card 
+            className={`cursor-pointer transition-all duration-200 hover:shadow-xl ${
+              selectedRole === 'talent_owner' 
+                ? 'ring-2 ring-purple-500 shadow-lg' 
+                : 'hover:shadow-lg'
+            }`}
+            onClick={() => setSelectedRole('talent_owner')}
+          >
             <CardHeader className="text-center pb-4">
-              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Building2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <div className="mx-auto mb-4 relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <Building className="w-8 h-8 text-white" />
+                </div>
+                {selectedRole === 'talent_owner' && (
+                  <div className="absolute -top-2 -right-2">
+                    <CheckCircle className="w-6 h-6 text-green-500 fill-current" />
+                  </div>
+                )}
               </div>
-              <CardTitle className="text-2xl text-gray-900 dark:text-white">
-                Talent Owner
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                Find and hire the best talent efficiently
-              </CardDescription>
+              <CardTitle className="text-2xl">I'm a Talent Owner</CardTitle>
+              <p className="text-slate-600">Hiring talent for my company</p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Post job openings and requirements
-                  </span>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Briefcase className="w-5 h-5 text-purple-500 mt-1" />
+                  <div>
+                    <h4 className="font-medium text-slate-900">Post Job Openings</h4>
+                    <p className="text-sm text-slate-600">Create detailed job postings and reach qualified candidates</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    AI-powered candidate matching
-                  </span>
+                <div className="flex items-start gap-3">
+                  <Target className="w-5 h-5 text-purple-500 mt-1" />
+                  <div>
+                    <h4 className="font-medium text-slate-900">AI Candidate Matching</h4>
+                    <p className="text-sm text-slate-600">Get matched with candidates who fit your requirements</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Review applications and profiles
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Connect directly with candidates
-                  </span>
+                <div className="flex items-start gap-3">
+                  <Users className="w-5 h-5 text-purple-500 mt-1" />
+                  <div>
+                    <h4 className="font-medium text-slate-900">Direct Communication</h4>
+                    <p className="text-sm text-slate-600">Connect directly with candidates without intermediaries</p>
+                  </div>
                 </div>
               </div>
               
-              <div className="pt-4">
-                <Badge variant="outline" className="mb-4 border-green-500 text-green-600">
-                  For Employers
-                </Badge>
-                <Button 
-                  onClick={() => handleRoleSelect("talent_owner")}
-                  variant="outline"
-                  className="w-full border-green-500 text-green-600 hover:bg-green-500 hover:text-white transition-colors"
-                  disabled={updateRoleMutation.isPending}
-                >
-                  {updateRoleMutation.isPending ? (
-                    "Setting up your account..."
-                  ) : (
-                    <>
-                      Get Started as Talent Owner
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-700">Perfect for:</span>
+                  <div className="flex gap-2">
+                    <Badge variant="secondary" className="text-xs">Hiring Managers</Badge>
+                    <Badge variant="secondary" className="text-xs">Startups</Badge>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Need help deciding? <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">Contact our team</span>
-          </p>
+        {/* Continue Button */}
+        <div className="text-center">
+          <Button 
+            onClick={handleRoleSelection}
+            disabled={!selectedRole || selectRoleMutation.isPending}
+            size="lg"
+            className="px-8 py-3 text-lg"
+          >
+            {selectRoleMutation.isPending ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Setting up your account...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                Continue as {selectedRole === 'candidate' ? 'Candidate' : selectedRole === 'talent_owner' ? 'Talent Owner' : '...'}
+                <ArrowRight className="w-5 h-5" />
+              </div>
+            )}
+          </Button>
+          
+          {selectedRole && (
+            <p className="text-sm text-slate-500 mt-2">
+              You can change your role later in account settings
+            </p>
+          )}
         </div>
       </div>
     </div>

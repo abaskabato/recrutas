@@ -5,17 +5,19 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useSession } from "@/lib/auth-client";
+import { useRoleBasedAuth } from "@/hooks/useRoleBasedAuth";
 import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import RoleSelection from "@/pages/role-selection";
-import CandidateDashboard from "@/pages/candidate-dashboard-enhanced";
+import CandidateDashboard from "@/pages/candidate-dashboard";
 import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   const { data, user, isLoading, isAuthenticated } = useSession();
+  const { shouldShowRoleSelection, currentRole } = useRoleBasedAuth();
 
   if (isLoading) {
     return (
@@ -31,30 +33,26 @@ function Router() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
-      {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          {/* Role-based routing logic */}
-          {!user?.role || user.role === null ? (
-            // New users without a role go to role selection
-            <Route path="/" component={() => <RoleSelection userId={user?.id || ''} />} />
-          ) : user.role === "candidate" ? (
-            // Candidates go to candidate dashboard
-            <Route path="/" component={CandidateDashboard} />
-          ) : (
-            // Talent owners go to talent dashboard
-            <Route path="/" component={TalentDashboard} />
-          )}
-          
-          {/* Explicit dashboard routes */}
-          <Route path="/candidate-dashboard" component={CandidateDashboard} />
-          <Route path="/talent-dashboard" component={TalentDashboard} />
-          <Route path="/recruiter-dashboard" component={TalentDashboard} />
-          <Route path="/role-selection" component={() => <RoleSelection userId={user?.id || ''} />} />
-          <Route path="/chat/:roomId?" component={Chat} />
-        </>
-      )}
+      <Route path="/role-selection" component={RoleSelection} />
+      <Route path="/candidate-dashboard" component={CandidateDashboard} />
+      <Route path="/talent-dashboard" component={TalentDashboard} />
+      <Route path="/chat/:roomId?" component={Chat} />
+      
+      {/* Root route with role-based redirection */}
+      <Route path="/">
+        {!isAuthenticated ? (
+          <Landing />
+        ) : shouldShowRoleSelection ? (
+          <RoleSelection />
+        ) : currentRole === "candidate" ? (
+          <CandidateDashboard />
+        ) : currentRole === "talent_owner" ? (
+          <TalentDashboard />
+        ) : (
+          <RoleSelection />
+        )}
+      </Route>
+      
       <Route component={NotFound} />
     </Switch>
   );
