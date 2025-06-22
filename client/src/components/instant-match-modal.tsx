@@ -173,7 +173,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden p-0 border-0 bg-gradient-to-br from-white/95 via-blue-50/90 to-indigo-100/95 dark:from-gray-900/95 dark:via-blue-950/90 dark:to-indigo-950/95 backdrop-blur-2xl shadow-2xl">
+      <DialogContent className="max-w-6xl w-full max-h-[95vh] p-0 border-0 bg-gradient-to-br from-white/95 via-blue-50/90 to-indigo-100/95 dark:from-gray-900/95 dark:via-blue-950/90 dark:to-indigo-950/95 backdrop-blur-2xl shadow-2xl flex flex-col">
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">Find your perfect job match in 30 seconds with AI-powered recommendations</DialogDescription>
         
@@ -184,7 +184,19 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-purple-400/10 to-pink-600/10 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
 
-        <div className="relative z-10">
+        {/* Close button */}
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+          onClick={onClose}
+          className="absolute top-4 right-4 z-50 w-8 h-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-700 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
+        >
+          <X className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+        </motion.button>
+
+        {/* Scrollable content container */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide relative z-10">
           {/* Enhanced header with floating close button */}
           <div className="relative p-8 pb-0">
             <motion.div 
@@ -193,28 +205,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="text-center"
             >
-              <div className="flex items-center justify-center mb-6">
-                <motion.div 
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
-                  className="relative"
-                >
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg p-3">
-                    <RecrutasLogo className="w-full h-full text-white" />
-                  </div>
-                  <motion.div 
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 bg-gradient-to-br from-blue-400/30 to-purple-500/30 rounded-2xl"
-                  />
-                  <motion.div 
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    className="absolute -inset-2 bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-cyan-400/20 rounded-3xl blur-sm"
-                  />
-                </motion.div>
-              </div>
+
 
 
             </motion.div>
