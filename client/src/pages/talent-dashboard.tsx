@@ -778,7 +778,7 @@ export default function TalentDashboard() {
                 <Input
                   value={jobForm.company}
                   onChange={(e) => setJobForm({ ...jobForm, company: e.target.value })}
-                  placeholder="Your company name"
+                  placeholder="e.g., Recrutas Technologies"
                 />
               </div>
             </div>
@@ -788,7 +788,7 @@ export default function TalentDashboard() {
               <Textarea
                 value={jobForm.description}
                 onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
-                placeholder="Describe the role, responsibilities, and what you're looking for..."
+                placeholder="Join our team at Recrutas! Describe the role, responsibilities, and what you're looking for in an ideal candidate..."
                 rows={4}
               />
             </div>
@@ -839,7 +839,7 @@ export default function TalentDashboard() {
             <div>
               <label className="block text-sm font-medium mb-2">Required Skills</label>
               <Input
-                placeholder="React, Node.js, Python... (comma separated)"
+                placeholder="React, Node.js, Python, JavaScript, TypeScript... (comma separated)"
                 onChange={(e) => setJobForm({ 
                   ...jobForm, 
                   skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
@@ -850,7 +850,7 @@ export default function TalentDashboard() {
             <div>
               <label className="block text-sm font-medium mb-2">Requirements</label>
               <Textarea
-                placeholder="• 3+ years experience&#10;• Bachelor's degree&#10;• Experience with..."
+                placeholder="• 3+ years of professional experience&#10;• Bachelor's degree in Computer Science or related field&#10;• Experience with modern web technologies&#10;• Strong problem-solving skills&#10;• Excellent communication abilities"
                 rows={3}
                 onChange={(e) => setJobForm({ 
                   ...jobForm, 
