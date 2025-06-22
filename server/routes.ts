@@ -856,7 +856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const matchId = parseInt(req.params.matchId);
       
       // Update match status to applied
-      await storage.updateJobMatchStatus(matchId, userId, 'applied');
+      await storage.updateMatchStatus(matchId, userId, 'applied');
       
       res.json({ success: true });
     } catch (error) {

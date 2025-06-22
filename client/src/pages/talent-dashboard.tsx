@@ -76,9 +76,12 @@ interface Candidate {
   experience: string;
   location: string;
   matchScore: number;
-  status: 'pending' | 'viewed' | 'interested' | 'rejected';
+  status: 'applied' | 'screening' | 'interview' | 'rejected' | 'hired';
   appliedAt: string;
   resumeUrl?: string;
+  jobTitle?: string;
+  examScore?: number;
+  canChat?: boolean;
 }
 
 interface DashboardStats {
@@ -745,8 +748,9 @@ export default function TalentDashboard() {
                             </h3>
                             <Badge 
                               variant={
-                                candidate.status === 'interested' ? 'default' :
-                                candidate.status === 'viewed' ? 'secondary' :
+                                candidate.status === 'interview' ? 'default' :
+                                candidate.status === 'screening' ? 'secondary' :
+                                candidate.status === 'hired' ? 'default' :
                                 candidate.status === 'rejected' ? 'destructive' : 'outline'
                               }
                             >
@@ -788,9 +792,32 @@ export default function TalentDashboard() {
                         </div>
 
                         <div className="flex lg:flex-col gap-2">
-                          <Button variant="outline" size="sm" className="flex-1 lg:flex-none">
-                            View Profile
-                          </Button>
+                          {candidate.status === 'applied' && (
+                            <>
+                              <Button variant="outline" size="sm" className="flex-1 lg:flex-none">
+                                Review Application
+                              </Button>
+                              <Button size="sm" className="flex-1 lg:flex-none">
+                                Move to Screening
+                              </Button>
+                            </>
+                          )}
+                          {candidate.status === 'screening' && (
+                            <>
+                              <Button variant="outline" size="sm" className="flex-1 lg:flex-none">
+                                View Exam Results
+                              </Button>
+                              <Button size="sm" className="flex-1 lg:flex-none">
+                                Start Interview
+                              </Button>
+                            </>
+                          )}
+                          {(candidate.status === 'interview' || candidate.canChat) && (
+                            <Button size="sm" className="flex-1 lg:flex-none">
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Chat with Candidate
+                            </Button>
+                          )}
                           {candidate.resumeUrl && (
                             <Button variant="outline" size="sm" className="flex-1 lg:flex-none">
                               View Resume
