@@ -648,21 +648,65 @@ export default function CandidateDashboardEnhanced() {
                               
                               <div className="flex flex-col items-end space-y-2">
                                 <div className="flex items-center space-x-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleStartChat(match.id)}
-                                  >
-                                    <MessageSquare className="w-4 h-4 mr-1" />
-                                    Chat
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => applyToJobMutation.mutate(match.jobId)}
-                                    disabled={applyToJobMutation.isPending}
-                                  >
-                                    Apply Now
-                                  </Button>
+                                  {match.job.source === 'internal' ? (
+                                    // Internal jobs: Apply first, then exam, then chat after AI ranking
+                                    <>
+                                      {match.status === 'pending' && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => applyToJobMutation.mutate(match.jobId)}
+                                          disabled={applyToJobMutation.isPending}
+                                        >
+                                          Apply Now
+                                        </Button>
+                                      )}
+                                      {match.status === 'applied' && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled
+                                        >
+                                          <Clock className="w-4 h-4 mr-1" />
+                                          Awaiting Review
+                                        </Button>
+                                      )}
+                                      {(match.status === 'screening' || match.status === 'interview') && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleStartChat(match.id)}
+                                        >
+                                          <MessageSquare className="w-4 h-4 mr-1" />
+                                          Chat with Hiring Manager
+                                        </Button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    // External jobs: View career page and mark applied
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => window.open(match.job.externalUrl || match.job.careerPageUrl, '_blank')}
+                                      >
+                                        <Building className="w-4 h-4 mr-1" />
+                                        View Job
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          // Mark as applied externally
+                                          toast({
+                                            title: "Marked as Applied",
+                                            description: "We've noted that you applied to this external position.",
+                                          });
+                                        }}
+                                        disabled={match.status === 'applied'}
+                                      >
+                                        {match.status === 'applied' ? 'Applied' : 'Mark Applied'}
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                                 <p className="text-xs text-slate-400">
                                   Matched {new Date(match.createdAt).toLocaleDateString()}

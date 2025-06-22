@@ -10,7 +10,7 @@ import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import RoleSelection from "@/pages/role-selection";
-import CandidateDashboard from "@/pages/candidate-dashboard-enhanced";
+import CandidateDashboard from "@/pages/candidate-dashboard-streamlined";
 import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";

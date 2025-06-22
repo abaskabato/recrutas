@@ -849,6 +849,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark external application endpoint
+  app.post('/api/candidates/mark-applied/:matchId', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const matchId = parseInt(req.params.matchId);
+      
+      // Update match status to applied
+      await storage.updateJobMatchStatus(matchId, userId, 'applied');
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error marking as applied:', error);
+      res.status(500).json({ message: 'Failed to mark as applied' });
+    }
+  });
+
   // Advanced job matching with AI
   app.get('/api/advanced-matches/:candidateId', requireAuth, async (req: any, res) => {
     try {

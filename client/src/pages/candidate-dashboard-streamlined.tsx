@@ -1,0 +1,585 @@
+import { useState } from "react";
+import { useSession, signOut } from "@/lib/auth-client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  getStatusColor, 
+  formatSalary, 
+  formatWorkType, 
+  timeAgo 
+} from "@/lib/dashboard-utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import RealTimeChat from "@/components/real-time-chat";
+import AdvancedNotificationCenter from "@/components/advanced-notification-center";
+import InstantJobSearch from "@/components/instant-job-search";
+import EnhancedProfileCompletion from "@/components/enhanced-profile-completion";
+import { 
+  Briefcase, 
+  MessageSquare, 
+  Star, 
+  TrendingUp,
+  Eye,
+  Clock,
+  Building,
+  MapPin,
+  DollarSign,
+  User,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ExternalLink,
+  Settings
+} from "lucide-react";
+
+interface CandidateStats {
+  totalApplications: number;
+  activeMatches: number;
+  profileViews: number;
+  profileStrength: number;
+  responseRate: number;
+  avgMatchScore: number;
+}
+
+interface JobMatch {
+  id: number;
+  jobId: number;
+  matchScore: string;
+  status: string;
+  createdAt: string;
+  aiExplanation?: string;
+  job: {
+    id: number;
+    title: string;
+    company: string;
+    location: string;
+    description: string;
+    workType: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    source: string;
+    externalUrl?: string;
+    careerPageUrl?: string;
+  };
+  recruiter?: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+interface Application {
+  id: number;
+  jobId: number;
+  status: string;
+  appliedAt: string;
+  job: {
+    title: string;
+    company: string;
+    location: string;
+  };
+}
+
+interface Activity {
+  id: number;
+  description: string;
+  createdAt: string;
+}
+
+export default function CandidateStreamlinedDashboard() {
+  const { data: session } = useSession();
+  const user = session?.user;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [showChat, setShowChat] = useState(false);
+  const [selectedChatRoom, setSelectedChatRoom] = useState<number | null>(null);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+
+  // Fetch candidate stats
+  const { data: stats } = useQuery<CandidateStats>({
+    queryKey: ['/api/candidates/stats'],
+  });
+
+  // Fetch matches
+  const { data: matches = [], isLoading: matchesLoading } = useQuery<JobMatch[]>({
+    queryKey: ['/api/candidates/matches'],
+  });
+
+  // Fetch applications
+  const { data: applications = [], isLoading: applicationsLoading } = useQuery<Application[]>({
+    queryKey: ['/api/candidates/applications'],
+  });
+
+  // Fetch activity feed
+  const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
+    queryKey: ['/api/candidates/activity'],
+  });
+
+  // Apply to job mutation
+  const applyToJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      const response = await apiRequest("POST", `/api/candidates/apply/${jobId}`, {});
+      if (!response.ok) {
+        throw new Error('Failed to apply to job');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Application Submitted",
+        description: "Your application has been submitted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
+    },
+    onError: () => {
+      toast({
+        title: "Application Failed",
+        description: "Unable to submit application. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mark external application mutation
+  const markExternalApplicationMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      const response = await apiRequest("POST", `/api/candidates/mark-applied/${matchId}`, {});
+      if (!response.ok) {
+        throw new Error('Failed to mark as applied');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Marked as Applied",
+        description: "We've noted that you applied to this external position.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Chat initiation mutation (only for internal jobs after screening)
+  const startChatMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      const response = await apiRequest("POST", `/api/chat/start/${matchId}`, {});
+      if (!response.ok) {
+        throw new Error('Failed to start chat');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setSelectedChatRoom(data.roomId);
+      setShowChat(true);
+      toast({
+        title: "Chat Started",
+        description: "You can now chat with the hiring manager",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Chat Failed",
+        description: "Unable to start chat. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleStartChat = (matchId: number) => {
+    startChatMutation.mutate(matchId);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'applied': return <CheckCircle className="w-4 h-4" />;
+      case 'rejected': return <XCircle className="w-4 h-4" />;
+      case 'screening': return <AlertCircle className="w-4 h-4" />;
+      case 'interview': return <MessageSquare className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 sm:py-0 sm:h-16 gap-4 sm:gap-0">
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                <AvatarFallback className="bg-blue-100 text-blue-600">
+                  {user?.email?.[0]?.toUpperCase() || 'C'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl font-semibold text-slate-900 truncate">
+                  Welcome back, {user?.email?.split('@')[0] || 'Candidate'}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">
+                  Let's find your next opportunity
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-end">
+              <div className="hidden sm:block">
+                <AdvancedNotificationCenter />
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowProfileCompletion(true)}
+                className="flex-shrink-0"
+              >
+                <User className="w-4 h-4 mr-1" />
+                Complete Profile
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => signOut()}
+                className="flex-shrink-0"
+              >
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className={`grid gap-6 ${showChat ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
+          <div className={showChat ? 'lg:col-span-2' : 'lg:col-span-1'}>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <p className="text-xs text-slate-500">Applications</p>
+                      <p className="text-lg font-semibold">{stats?.totalApplications || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <Star className="w-4 h-4 text-green-600" />
+                    <div>
+                      <p className="text-xs text-slate-500">Active Matches</p>
+                      <p className="text-lg font-semibold">{stats?.activeMatches || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <Eye className="w-4 h-4 text-purple-600" />
+                    <div>
+                      <p className="text-xs text-slate-500">Profile Views</p>
+                      <p className="text-lg font-semibold">{stats?.profileViews || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-4 h-4 text-orange-600" />
+                    <div>
+                      <p className="text-xs text-slate-500">Avg Match</p>
+                      <p className="text-lg font-semibold">{stats?.avgMatchScore || 0}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Main Tabs */}
+            <Tabs defaultValue="matches" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="matches">Job Matches</TabsTrigger>
+                <TabsTrigger value="applications">Applications</TabsTrigger>
+                <TabsTrigger value="activity">Activity</TabsTrigger>
+              </TabsList>
+
+              {/* Job Matches Tab */}
+              <TabsContent value="matches" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI-Powered Job Matches</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {matchesLoading ? (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="animate-pulse">
+                            <div className="h-24 bg-slate-200 rounded"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : matches.length > 0 ? (
+                      <div className="space-y-4">
+                        {matches.map((match) => (
+                          <div key={match.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <h3 className="font-semibold text-lg text-slate-900">
+                                    {match.job.title}
+                                  </h3>
+                                  <Badge variant="secondary">
+                                    {match.matchScore}% match
+                                  </Badge>
+                                  <Badge className={getStatusColor(match.status)}>
+                                    {getStatusIcon(match.status)}
+                                    <span className="ml-1 capitalize">{match.status}</span>
+                                  </Badge>
+                                  {match.job.source === 'external' && (
+                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                                      External
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                <div className="flex items-center space-x-1 text-slate-600 mb-2">
+                                  <Building className="w-4 h-4" />
+                                  <span className="font-medium">{match.job.company}</span>
+                                </div>
+                                
+                                <div className="flex items-center space-x-4 text-sm text-slate-500 mb-4">
+                                  <div className="flex items-center space-x-1">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>{match.job.location}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <DollarSign className="w-4 h-4" />
+                                    <span>{formatSalary(match.job.salaryMin, match.job.salaryMax)}</span>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">
+                                    {match.job.workType}
+                                  </Badge>
+                                </div>
+                                
+                                {match.job.source === 'internal' && match.recruiter && (
+                                  <div className="flex items-center space-x-2 text-sm text-slate-500">
+                                    <User className="w-4 h-4" />
+                                    <span>Recruiter: {match.recruiter.firstName} {match.recruiter.lastName}</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex flex-col items-end space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  {match.job.source === 'internal' ? (
+                                    // Internal jobs: Apply first, then exam, then chat after AI ranking
+                                    <>
+                                      {match.status === 'pending' && (
+                                        <Button
+                                          size="sm"
+                                          onClick={() => applyToJobMutation.mutate(match.jobId)}
+                                          disabled={applyToJobMutation.isPending}
+                                        >
+                                          Apply Now
+                                        </Button>
+                                      )}
+                                      {match.status === 'applied' && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled
+                                        >
+                                          <Clock className="w-4 h-4 mr-1" />
+                                          Awaiting Review
+                                        </Button>
+                                      )}
+                                      {(match.status === 'screening' || match.status === 'interview') && (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleStartChat(match.id)}
+                                        >
+                                          <MessageSquare className="w-4 h-4 mr-1" />
+                                          Chat with Hiring Manager
+                                        </Button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    // External jobs: View career page and mark applied
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => window.open(match.job.externalUrl || match.job.careerPageUrl, '_blank')}
+                                      >
+                                        <ExternalLink className="w-4 h-4 mr-1" />
+                                        View Job
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => markExternalApplicationMutation.mutate(match.id)}
+                                        disabled={match.status === 'applied' || markExternalApplicationMutation.isPending}
+                                      >
+                                        {match.status === 'applied' ? 'Applied' : 'Mark Applied'}
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-400">
+                                  Matched {new Date(match.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="text-center py-8">
+                          <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-slate-900 mb-2">Discover Live Job Opportunities</h3>
+                          <p className="text-slate-500 mb-4">
+                            Search thousands of real job openings from top companies
+                          </p>
+                        </div>
+                        <InstantJobSearch />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Applications Tab */}
+              <TabsContent value="applications" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Applications</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {applicationsLoading ? (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="animate-pulse">
+                            <div className="h-16 bg-slate-200 rounded"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : applications.length > 0 ? (
+                      <div className="space-y-4">
+                        {applications.map((application) => (
+                          <div key={application.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                            <div>
+                              <h3 className="font-medium text-slate-900">{application.job.title}</h3>
+                              <p className="text-sm text-slate-500">{application.job.company} • {application.job.location}</p>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <Badge className={getStatusColor(application.status)}>
+                                {getStatusIcon(application.status)}
+                                <span className="ml-1 capitalize">{application.status}</span>
+                              </Badge>
+                              <span className="text-xs text-slate-400">
+                                {timeAgo(application.appliedAt)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Briefcase className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                        <p className="text-slate-500">No applications yet</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Activity Tab */}
+              <TabsContent value="activity" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Activity</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {activitiesLoading ? (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="animate-pulse">
+                            <div className="h-16 bg-slate-200 rounded"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : activities.length > 0 ? (
+                      <div className="space-y-4">
+                        {activities.map((activity) => (
+                          <div key={activity.id} className="flex items-start space-x-3 p-3 border-l-4 border-l-blue-500 bg-blue-50 rounded-r">
+                            <div className="flex-1">
+                              <p className="text-sm text-slate-900">{activity.description}</p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {new Date(activity.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                        <p className="text-slate-500">No recent activity</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Chat Sidebar */}
+          {showChat && (
+            <div className="lg:col-span-1">
+              <div className="sticky top-4 lg:top-8">
+                <RealTimeChat 
+                  roomId={selectedChatRoom} 
+                  onClose={() => setShowChat(false)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced Profile Completion Modal */}
+      {showProfileCompletion && user && (
+        <EnhancedProfileCompletion
+          user={user}
+          onComplete={() => {
+            setShowProfileCompletion(false);
+            queryClient.invalidateQueries({ queryKey: ['/api/session'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
+          }}
+          onCancel={() => setShowProfileCompletion(false)}
+        />
+      )}
+    </div>
+  );
+}
