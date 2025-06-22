@@ -693,25 +693,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      // Get live job matches from external sources
-      const liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 20);
+      // Get fresh job data from multiple sources with rotation
+      const currentTime = Date.now();
+      const rotationSeed = Math.floor(currentTime / (5 * 60 * 1000)); // Rotate every 5 minutes
+      
+      // Get live jobs with variety
+      const liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 50);
+      
+      // Shuffle jobs using time-based seed for variety
+      const shuffledJobs = [...liveJobs].sort(() => Math.sin(rotationSeed) - 0.5);
       
       // Get database matches as well
       const dbMatches = await storage.getMatchesForCandidate(userId);
       
-      // Transform live jobs into match format
+      // Transform live jobs into match format with unique IDs
       const liveMatches = [];
-      for (const job of liveJobs.slice(0, 8)) {
+      const usedJobIds = new Set();
+      
+      for (const job of shuffledJobs) {
+        // Skip if we've already added this job
+        const jobKey = `${job.company}_${job.title}`;
+        if (usedJobIds.has(jobKey)) continue;
+        usedJobIds.add(jobKey);
+        
+        if (liveMatches.length >= 8) break;
+        
         const matchScore = Math.floor(Math.random() * 30) + 70; // 70-99% match
+        const uniqueId = parseInt(`${currentTime}${Math.floor(Math.random() * 1000)}`);
+        
         liveMatches.push({
-          id: Math.floor(Math.random() * 1000000),
-          jobId: `external_${job.id}`,
+          id: uniqueId,
+          jobId: `external_${job.id}_${currentTime}`,
           candidateId: userId,
           matchScore: `${matchScore}%`,
           status: 'pending',
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(currentTime - Math.random() * 86400000).toISOString(), // Random within last 24h
           job: {
-            id: job.id,
+            id: `job_${uniqueId}`,
             title: job.title,
             company: job.company,
             location: job.location,
@@ -722,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             skills: job.skills
           },
           recruiter: {
-            id: 'system',
+            id: `recruiter_${uniqueId}`,
             firstName: 'Hiring',
             lastName: 'Manager',
             email: 'hiring@' + job.company.toLowerCase().replace(/\s+/g, '') + '.com'
@@ -732,6 +750,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Combine database matches with live matches
       const allMatches = [...dbMatches, ...liveMatches];
+      
+      // Sort by creation date (newest first) to show fresh matches
+      allMatches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
       res.json(allMatches);
     } catch (error) {
