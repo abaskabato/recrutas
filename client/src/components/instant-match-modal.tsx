@@ -184,20 +184,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-purple-400/10 to-pink-600/10 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
 
-        {/* Close button */}
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5 }}
-          onClick={onClose}
-          className="absolute top-4 right-4 z-50 w-8 h-8 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-700 transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl"
-        >
-          <X className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-        </motion.button>
+
 
         {/* Scrollable content container */}
         <div className="flex-1 overflow-y-auto scrollbar-hide relative z-10">
-          {/* Enhanced header with floating close button */}
           <div className="relative p-8 pb-0">
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
