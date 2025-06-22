@@ -202,7 +202,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   Recrutas
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-                  Apply to real jobs, talk to hiring managers and get your offer
+                  Find real jobs, talk to real people, and get hired—on your terms
                 </p>
                 <Button
                   size="lg"
