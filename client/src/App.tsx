@@ -10,7 +10,7 @@ import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import RoleSelection from "@/pages/role-selection";
-import CandidateDashboard from "@/pages/candidate-dashboard";
+import CandidateDashboard from "@/pages/candidate-dashboard-enhanced";
 import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
@@ -18,12 +18,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { data, user, isLoading, isAuthenticated } = useSession();
 
-  // Debug logging
-  console.log('Auth State:', { 
-    isAuthenticated, 
-    isLoading, 
-    user: user ? { id: user.id, role: user.role, email: user.email } : null 
-  });
+
 
   if (isLoading) {
     return (

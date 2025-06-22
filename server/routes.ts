@@ -25,12 +25,26 @@ import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
 
-// Simple authentication middleware for session-based auth
-function requireAuth(req: any, res: any, next: any) {
-  if (req.session?.user) {
-    req.user = req.session.user;
-    next();
-  } else {
+// Authentication middleware for Better Auth sessions
+async function requireAuth(req: any, res: any, next: any) {
+  try {
+    const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
+    
+    if (sessionCookie) {
+      try {
+        const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+        if (decodedSession.session?.user) {
+          req.user = decodedSession.session.user;
+          return next();
+        }
+      } catch (e) {
+        console.log('Auth middleware decode error:', e);
+      }
+    }
+    
+    res.status(401).json({ message: "Unauthorized" });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
     res.status(401).json({ message: "Unauthorized" });
   }
 }

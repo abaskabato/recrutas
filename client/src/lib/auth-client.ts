@@ -63,18 +63,7 @@ function useCustomSession() {
 export function useSession() {
   const customSession = useCustomSession();
   
-  // Debug logging
-  console.log('Custom session data:', {
-    isLoading: customSession.isLoading,
-    hasData: !!customSession.data,
-    hasUser: !!customSession.data?.user,
-    error: customSession.error,
-    userData: customSession.data?.user ? {
-      id: customSession.data.user.id,
-      email: customSession.data.user.email,
-      role: customSession.data.user.role
-    } : null
-  });
+  // Session data handling
   
   // Handle loading states
   if (customSession.isLoading) {
