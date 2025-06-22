@@ -66,13 +66,14 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60,
+      maxAge: 30 * 60, // 30 minutes
     },
     cookieOptions: {
       httpOnly: false, // Set to false for development to allow JavaScript access
       secure: false, // Set to false for development
       sameSite: "lax",
       path: "/",
+      domain: undefined, // Don't set domain for localhost
     },
   },
   trustedOrigins: [

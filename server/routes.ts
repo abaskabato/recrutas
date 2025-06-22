@@ -70,6 +70,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupBetterAuth(app);
 
+  // Custom session endpoint to handle Better Auth session issues
+  app.get("/api/session", async (req, res) => {
+    try {
+      const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
+      
+      if (sessionCookie) {
+        try {
+          const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+          if (decodedSession.session?.user) {
+            return res.json({
+              user: decodedSession.session.user,
+              session: decodedSession.session.session
+            });
+          }
+        } catch (e) {
+          console.log('Session decode error:', e);
+        }
+      }
+      
+      res.json(null);
+    } catch (error) {
+      console.error('Session endpoint error:', error);
+      res.json(null);
+    }
+  });
+
   // AI-powered job matching for candidates - place before other authenticated routes
   app.get('/api/ai-matches', async (req: any, res) => {
     try {
