@@ -263,18 +263,16 @@ export class DatabaseStorage implements IStorage {
 
   async getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]> {
     try {
+      // Get existing database matches
       const matches = await db
         .select()
         .from(jobMatches)
         .where(eq(jobMatches.candidateId, candidateId))
         .orderBy(desc(jobMatches.createdAt));
       
-      if (!matches || matches.length === 0) {
-        return [];
-      }
-      
       const enrichedMatches = [];
       
+      // Process existing database matches
       for (const match of matches) {
         if (!match || !match.jobId) continue;
         
@@ -593,35 +591,106 @@ export class DatabaseStorage implements IStorage {
 
   // Notification operations
   async getNotifications(userId: string): Promise<any[]> {
-    // Return mock notifications for now - in a real implementation, this would query a notifications table
-    return [
-      {
-        id: 1,
-        type: 'match',
-        title: 'New Job Match',
-        message: 'You have a new 95% match for Software Engineer at TechCorp',
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        metadata: {
-          jobId: 1,
-          jobTitle: 'Software Engineer',
-          company: 'TechCorp',
-          matchScore: 95
+    try {
+      const notifications = [];
+
+      // Get recent job matches as notifications
+      const recentMatches = await db
+        .select({
+          matchId: jobMatches.id,
+          jobId: jobMatches.jobId,
+          matchScore: jobMatches.matchScore,
+          createdAt: jobMatches.createdAt,
+          jobTitle: jobPostings.title,
+          company: jobPostings.company,
+          status: jobMatches.status
+        })
+        .from(jobMatches)
+        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
+        .where(eq(jobMatches.candidateId, userId))
+        .orderBy(desc(jobMatches.createdAt))
+        .limit(5);
+
+      // Convert matches to notifications
+      recentMatches.forEach((match, index) => {
+        if (match.status === 'pending') {
+          notifications.push({
+            id: `match_${match.matchId}`,
+            type: 'match',
+            title: 'New Job Match',
+            message: `You have a new ${match.matchScore} match for ${match.jobTitle} at ${match.company}`,
+            isRead: false,
+            createdAt: match.createdAt?.toISOString() || new Date().toISOString(),
+            metadata: {
+              jobId: match.jobId,
+              matchId: match.matchId,
+              jobTitle: match.jobTitle,
+              company: match.company,
+              matchScore: parseInt(match.matchScore || '0')
+            }
+          });
         }
-      },
-      {
-        id: 2,
-        type: 'message',
-        title: 'New Message',
-        message: 'Sarah from Google sent you a message about the Frontend Developer position',
-        isRead: false,
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        metadata: {
-          jobId: 2,
-          company: 'Google'
+      });
+
+      // Get recent applications as notifications
+      const recentApplications = await db
+        .select({
+          appId: jobApplications.id,
+          jobId: jobApplications.jobId,
+          status: jobApplications.status,
+          appliedAt: jobApplications.appliedAt,
+          jobTitle: jobPostings.title,
+          company: jobPostings.company
+        })
+        .from(jobApplications)
+        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(eq(jobApplications.candidateId, userId))
+        .orderBy(desc(jobApplications.appliedAt))
+        .limit(3);
+
+      // Convert applications to notifications
+      recentApplications.forEach((app) => {
+        let message = '';
+        switch (app.status) {
+          case 'viewed':
+            message = `Your application for ${app.jobTitle} at ${app.company} has been viewed`;
+            break;
+          case 'interviewed':
+            message = `Interview scheduled for ${app.jobTitle} at ${app.company}`;
+            break;
+          case 'rejected':
+            message = `Update on your application for ${app.jobTitle} at ${app.company}`;
+            break;
+          default:
+            message = `Application submitted for ${app.jobTitle} at ${app.company}`;
         }
-      }
-    ];
+
+        notifications.push({
+          id: `app_${app.appId}`,
+          type: 'application',
+          title: 'Application Update',
+          message,
+          isRead: app.status === 'applied',
+          createdAt: app.appliedAt?.toISOString() || new Date().toISOString(),
+          metadata: {
+            jobId: app.jobId,
+            applicationId: app.appId,
+            jobTitle: app.jobTitle,
+            company: app.company,
+            status: app.status
+          }
+        });
+      });
+
+      // Sort all notifications by creation date
+      return notifications.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+    } catch (error) {
+      console.error('Error fetching real notifications:', error);
+      return [];
+    }
   }
 
   async markNotificationAsRead(notificationId: number, userId: string): Promise<void> {
