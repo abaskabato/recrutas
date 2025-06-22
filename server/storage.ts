@@ -29,6 +29,9 @@ import {
   chatMessages,
   activityLogs,
   notificationPreferences,
+  jobExams,
+  examAttempts,
+  notifications,
   type User,
   type UpsertUser,
   type CandidateProfile,
@@ -78,12 +81,21 @@ export interface IStorage {
   getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
   
-  // Chat operations
-  createChatRoom(matchId: number): Promise<ChatRoom>;
-  getChatRoom(matchId: number): Promise<ChatRoom | undefined>;
+  // Exam operations
+  createJobExam(exam: any): Promise<any>;
+  getJobExam(jobId: number): Promise<any>;
+  createExamAttempt(attempt: any): Promise<any>;
+  updateExamAttempt(attemptId: number, data: any): Promise<any>;
+  getExamAttempts(jobId: number): Promise<any[]>;
+  rankCandidatesByExamScore(jobId: number): Promise<void>;
+  
+  // Chat operations (controlled by exam performance)
+  createChatRoom(data: any): Promise<ChatRoom>;
+  getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined>;
   getChatMessages(chatRoomId: number): Promise<(ChatMessage & { sender: User })[]>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
-  getChatRoomsForUser(userId: string): Promise<(ChatRoom & { match: JobMatch & { job: JobPosting; candidate: User; recruiter: User } })[]>;
+  getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]>;
+  grantChatAccess(jobId: number, candidateId: string, examAttemptId: number, ranking: number): Promise<ChatRoom>;
   
   // Activity operations
   createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog>;
@@ -957,6 +969,220 @@ export class DatabaseStorage implements IStorage {
       return updatedUser;
     } catch (error) {
       console.error('Error updating user info:', error);
+      throw error;
+    }
+  }
+
+  // Exam operations for automatic assessment creation
+  async createJobExam(exam: any): Promise<any> {
+    try {
+      const [result] = await db.insert(jobExams).values(exam).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating job exam:', error);
+      throw error;
+    }
+  }
+
+  async getJobExam(jobId: number): Promise<any> {
+    try {
+      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, jobId));
+      return exam;
+    } catch (error) {
+      console.error('Error fetching job exam:', error);
+      throw error;
+    }
+  }
+
+  async createExamAttempt(attempt: any): Promise<any> {
+    try {
+      const [result] = await db.insert(examAttempts).values(attempt).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating exam attempt:', error);
+      throw error;
+    }
+  }
+
+  async updateExamAttempt(attemptId: number, data: any): Promise<any> {
+    try {
+      const [result] = await db
+        .update(examAttempts)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(examAttempts.id, attemptId))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating exam attempt:', error);
+      throw error;
+    }
+  }
+
+  async getExamAttempts(jobId: number): Promise<any[]> {
+    try {
+      const attempts = await db
+        .select()
+        .from(examAttempts)
+        .where(eq(examAttempts.jobId, jobId))
+        .orderBy(desc(examAttempts.score));
+      return attempts;
+    } catch (error) {
+      console.error('Error fetching exam attempts:', error);
+      throw error;
+    }
+  }
+
+  // Rank candidates by exam score and grant chat access to top performers
+  async rankCandidatesByExamScore(jobId: number): Promise<void> {
+    try {
+      const job = await this.getJobPosting(jobId);
+      if (!job || !job.maxChatCandidates) return;
+
+      const attempts = await db
+        .select()
+        .from(examAttempts)
+        .where(and(
+          eq(examAttempts.jobId, jobId),
+          eq(examAttempts.status, 'completed'),
+          eq(examAttempts.passedExam, true)
+        ))
+        .orderBy(desc(examAttempts.score));
+
+      // Update rankings and grant chat access to top candidates
+      for (let i = 0; i < attempts.length; i++) {
+        const ranking = i + 1;
+        const qualifiedForChat = ranking <= job.maxChatCandidates;
+
+        await db
+          .update(examAttempts)
+          .set({ 
+            ranking,
+            qualifiedForChat,
+            updatedAt: new Date()
+          })
+          .where(eq(examAttempts.id, attempts[i].id));
+
+        // Grant chat access to top candidates
+        if (qualifiedForChat && job.hiringManagerId) {
+          await this.grantChatAccess(jobId, attempts[i].candidateId, attempts[i].id, ranking);
+          
+          // Send notification about chat access
+          await this.createNotification({
+            userId: attempts[i].candidateId,
+            type: 'chat_access_granted',
+            title: 'Chat Access Granted',
+            message: `You've qualified for hiring manager chat! Ranked #${ranking} for ${job.title}`,
+            jobId: jobId
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error ranking candidates by exam score:', error);
+      throw error;
+    }
+  }
+
+  // Controlled chat operations based on exam performance
+  async createChatRoom(data: any): Promise<ChatRoom> {
+    try {
+      const [result] = await db.insert(chatRooms).values(data).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating chat room:', error);
+      throw error;
+    }
+  }
+
+  async getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined> {
+    try {
+      const [room] = await db
+        .select()
+        .from(chatRooms)
+        .where(and(
+          eq(chatRooms.jobId, jobId),
+          eq(chatRooms.candidateId, candidateId)
+        ));
+      return room;
+    } catch (error) {
+      console.error('Error fetching chat room:', error);
+      throw error;
+    }
+  }
+
+  async getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]> {
+    try {
+      const rooms = await db
+        .select()
+        .from(chatRooms)
+        .where(or(
+          eq(chatRooms.candidateId, userId),
+          eq(chatRooms.hiringManagerId, userId)
+        ))
+        .orderBy(desc(chatRooms.createdAt));
+
+      const enrichedRooms = [];
+      for (const room of rooms) {
+        const job = await this.getJobPosting(room.jobId);
+        const hiringManager = await this.getUser(room.hiringManagerId);
+        
+        if (job && hiringManager) {
+          enrichedRooms.push({
+            ...room,
+            job,
+            hiringManager
+          });
+        }
+      }
+      
+      return enrichedRooms;
+    } catch (error) {
+      console.error('Error fetching chat rooms for user:', error);
+      throw error;
+    }
+  }
+
+  async grantChatAccess(jobId: number, candidateId: string, examAttemptId: number, ranking: number): Promise<ChatRoom> {
+    try {
+      const job = await this.getJobPosting(jobId);
+      if (!job || !job.hiringManagerId) {
+        throw new Error('Job or hiring manager not found');
+      }
+
+      // Check if chat room already exists
+      const existingRoom = await this.getChatRoom(jobId, candidateId);
+      if (existingRoom) {
+        return existingRoom;
+      }
+
+      // Create new chat room
+      const chatRoomData = {
+        jobId,
+        candidateId,
+        hiringManagerId: job.hiringManagerId,
+        examAttemptId,
+        candidateRanking: ranking,
+        status: 'active' as const,
+        accessGrantedAt: new Date()
+      };
+
+      return await this.createChatRoom(chatRoomData);
+    } catch (error) {
+      console.error('Error granting chat access:', error);
+      throw error;
+    }
+  }
+
+  // Notification creation for exam and chat status updates
+  async createNotification(notification: any): Promise<any> {
+    try {
+      const [result] = await db.insert(notifications).values({
+        ...notification,
+        isRead: false,
+        createdAt: new Date()
+      }).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating notification:', error);
       throw error;
     }
   }

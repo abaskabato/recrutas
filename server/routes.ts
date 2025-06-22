@@ -921,7 +921,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Job posting routes
+  // Generate exam questions based on job requirements
+  async function generateExamQuestions(job: any) {
+    const questions = [];
+    const skills = job.skills || [];
+    const requirements = job.requirements || [];
+    
+    // Generate skill-based questions
+    for (let i = 0; i < Math.min(skills.length, 5); i++) {
+      const skill = skills[i];
+      questions.push({
+        id: `skill_${i + 1}`,
+        question: `What is your experience level with ${skill}?`,
+        type: 'multiple-choice' as const,
+        options: [
+          'Beginner (0-1 years)',
+          'Intermediate (2-3 years)', 
+          'Advanced (4-5 years)',
+          'Expert (5+ years)'
+        ],
+        correctAnswer: 2, // Intermediate or higher
+        points: 20
+      });
+    }
+    
+    // Generate requirement-based questions
+    for (let i = 0; i < Math.min(requirements.length, 3); i++) {
+      const requirement = requirements[i];
+      questions.push({
+        id: `req_${i + 1}`,
+        question: `How would you approach: ${requirement}?`,
+        type: 'short-answer' as const,
+        points: 15
+      });
+    }
+    
+    // Add general questions
+    questions.push({
+      id: 'general_1',
+      question: `Why are you interested in the ${job.title} position?`,
+      type: 'short-answer' as const,
+      points: 25
+    });
+    
+    return questions;
+  }
+
+  // Job posting routes with automatic exam creation
   app.post('/api/jobs', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user?.id || req.user?.claims?.sub || req.user?.sub;
@@ -937,6 +983,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const job = await storage.createJobPosting(jobData);
       
+      // Automatically create exam for internal jobs (hasExam = true by default)
+      if (job.hasExam) {
+        const examData = {
+          jobId: job.id,
+          title: `${job.title} Assessment`,
+          description: `Technical assessment for ${job.title} position at ${job.company}`,
+          timeLimit: 30,
+          passingScore: job.examPassingScore || 70,
+          isActive: true,
+          questions: await generateExamQuestions(job)
+        };
+        
+        await storage.createJobExam(examData);
+        
+        // Send notification about exam creation
+        await storage.createNotification({
+          userId: userId,
+          type: 'exam_created',
+          title: 'Exam Created',
+          message: `Assessment automatically created for job posting: ${job.title}`,
+          jobId: job.id
+        });
+      }
+      
       // Find and create matches for this job
       const candidates = await findMatchingCandidates(job);
       for (const candidate of candidates) {
@@ -946,15 +1016,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
           matchScore: candidate.matchScore.toString(),
           matchReasons: candidate.matchReasons,
         });
+        
+        // Notify candidates about new job match with exam requirement
+        await storage.createNotification({
+          userId: candidate.userId,
+          type: 'job_match',
+          title: 'New Job Match',
+          message: job.hasExam 
+            ? `New job match found: ${job.title}. Complete the assessment to qualify for hiring manager chat.`
+            : `New job match found: ${job.title}`,
+          jobId: job.id
+        });
       }
 
       // Create activity log
-      await storage.createActivityLog(userId, "job_posted", `Job posted: ${job.title}`);
+      await storage.createActivityLog(userId, "job_posted", `Job posted: ${job.title}${job.hasExam ? ' with automatic exam creation' : ''}`);
 
       res.json(job);
     } catch (error) {
       console.error("Error creating job posting:", error);
       res.status(500).json({ message: "Failed to create job posting" });
+    }
+  });
+
+  // Exam endpoints for candidate assessment
+  app.get('/api/jobs/:id/exam', requireAuth, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const exam = await storage.getJobExam(jobId);
+      
+      if (!exam) {
+        return res.status(404).json({ message: "No exam found for this job" });
+      }
+      
+      res.json(exam);
+    } catch (error) {
+      console.error("Error fetching job exam:", error);
+      res.status(500).json({ message: "Failed to fetch job exam" });
+    }
+  });
+
+  app.post('/api/jobs/:id/exam/attempt', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseInt(req.params.id);
+      
+      // Check if user already has an attempt
+      const existingAttempts = await storage.getExamAttempts(jobId);
+      const userAttempt = existingAttempts.find(attempt => attempt.candidateId === userId);
+      
+      if (userAttempt) {
+        return res.status(400).json({ message: "You have already taken this exam" });
+      }
+      
+      // Create new exam attempt
+      const attemptData = {
+        jobId,
+        candidateId: userId,
+        status: 'in_progress',
+        startedAt: new Date(),
+        answers: req.body.answers || [],
+        score: 0,
+        passedExam: false
+      };
+      
+      const attempt = await storage.createExamAttempt(attemptData);
+      res.json(attempt);
+    } catch (error) {
+      console.error("Error starting exam attempt:", error);
+      res.status(500).json({ message: "Failed to start exam attempt" });
+    }
+  });
+
+  app.put('/api/jobs/:id/exam/attempt/:attemptId', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const attemptId = parseInt(req.params.attemptId);
+      const { answers, isSubmitted } = req.body;
+      
+      if (isSubmitted) {
+        // Calculate score and determine if passed
+        const exam = await storage.getJobExam(parseInt(req.params.id));
+        const totalPoints = exam.questions.reduce((sum: number, q: any) => sum + q.points, 0);
+        
+        let earnedPoints = 0;
+        exam.questions.forEach((question: any, index: number) => {
+          const answer = answers[index];
+          if (question.type === 'multiple-choice' && answer === question.correctAnswer) {
+            earnedPoints += question.points;
+          } else if (question.type === 'short-answer' && answer && answer.length > 10) {
+            // Give partial credit for substantive answers
+            earnedPoints += question.points * 0.7;
+          }
+        });
+        
+        const score = Math.round((earnedPoints / totalPoints) * 100);
+        const passedExam = score >= (exam.passingScore || 70);
+        
+        // Update attempt with final results
+        const updatedAttempt = await storage.updateExamAttempt(attemptId, {
+          answers,
+          score,
+          passedExam,
+          status: 'completed',
+          completedAt: new Date()
+        });
+        
+        // If passed, trigger ranking and chat access process
+        if (passedExam) {
+          await storage.rankCandidatesByExamScore(parseInt(req.params.id));
+          
+          // Send notification about exam completion
+          await storage.createNotification({
+            userId: userId,
+            type: 'exam_completed',
+            title: 'Exam Completed',
+            message: `You scored ${score}% on the assessment. ${passedExam ? 'You may qualify for hiring manager chat!' : 'Keep improving for future opportunities.'}`,
+            jobId: parseInt(req.params.id)
+          });
+        }
+        
+        res.json(updatedAttempt);
+      } else {
+        // Save progress
+        const updatedAttempt = await storage.updateExamAttempt(attemptId, { answers });
+        res.json(updatedAttempt);
+      }
+    } catch (error) {
+      console.error("Error updating exam attempt:", error);
+      res.status(500).json({ message: "Failed to update exam attempt" });
+    }
+  });
+
+  // Chat access endpoints (controlled by exam performance)
+  app.get('/api/jobs/:id/chat', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseInt(req.params.id);
+      
+      const chatRoom = await storage.getChatRoom(jobId, userId);
+      
+      if (!chatRoom) {
+        return res.status(403).json({ 
+          message: "Chat access not granted. Complete the exam with a passing score to qualify." 
+        });
+      }
+      
+      res.json(chatRoom);
+    } catch (error) {
+      console.error("Error fetching chat room:", error);
+      res.status(500).json({ message: "Failed to fetch chat room" });
+    }
+  });
+
+  app.get('/api/chat-rooms', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const chatRooms = await storage.getChatRoomsForUser(userId);
+      res.json(chatRooms);
+    } catch (error) {
+      console.error("Error fetching chat rooms:", error);
+      res.status(500).json({ message: "Failed to fetch chat rooms" });
     }
   });
 

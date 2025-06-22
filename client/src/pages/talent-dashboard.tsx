@@ -251,6 +251,12 @@ export default function TalentDashboard() {
       requirements: jobForm.requirements.filter(r => r.trim()),
       skills: jobForm.skills.filter(s => s.trim()),
       urgency: jobForm.urgency,
+      // Internal job settings - automatically include exam and chat
+      hasExam: true,
+      examPassingScore: 70,
+      hiringManagerId: user?.id, // Current user as hiring manager
+      autoRankCandidates: true,
+      maxChatCandidates: 5,
     };
 
     createJobMutation.mutate(jobData);

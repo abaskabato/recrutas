@@ -158,6 +158,53 @@ export const jobPostings = pgTable("job_postings", {
   urgency: varchar("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
   viewCount: integer("view_count").default(0),
   applicationCount: integer("application_count").default(0),
+  // Exam and chat settings for internal jobs
+  hasExam: boolean("has_exam").default(true), // Internal jobs have exams by default
+  examPassingScore: integer("exam_passing_score").default(70), // Minimum score to qualify for chat
+  hiringManagerId: varchar("hiring_manager_id").references(() => users.id), // Who candidates can chat with
+  autoRankCandidates: boolean("auto_rank_candidates").default(true), // Auto-rank by exam scores
+  maxChatCandidates: integer("max_chat_candidates").default(5), // Top N candidates get chat access
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Job exams - Auto-created for internal jobs
+export const jobExams = pgTable("job_exams", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  timeLimit: integer("time_limit").default(30), // Minutes
+  passingScore: integer("passing_score").default(70), // Percentage
+  isActive: boolean("is_active").default(true),
+  questions: jsonb("questions").$type<{
+    id: string;
+    question: string;
+    type: 'multiple-choice' | 'short-answer' | 'coding';
+    options?: string[];
+    correctAnswer?: string | number;
+    points: number;
+  }[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Exam attempts - Track candidate performance
+export const examAttempts = pgTable("exam_attempts", {
+  id: serial("id").primaryKey(),
+  examId: integer("exam_id").notNull().references(() => jobExams.id),
+  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id),
+  score: integer("score"), // Percentage score
+  totalQuestions: integer("total_questions"),
+  correctAnswers: integer("correct_answers"),
+  timeSpent: integer("time_spent"), // Minutes
+  answers: jsonb("answers").$type<{questionId: string, answer: string | number}[]>().default([]),
+  status: varchar("status", { enum: ["in_progress", "completed", "abandoned"] }).default("in_progress"),
+  passedExam: boolean("passed_exam").default(false),
+  qualifiedForChat: boolean("qualified_for_chat").default(false), // Based on ranking
+  ranking: integer("ranking"), // Position among all candidates
+  completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -181,11 +228,16 @@ export const jobMatches = pgTable("job_matches", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Chat rooms
+// Chat rooms - Only accessible after exam qualification
 export const chatRooms = pgTable("chat_rooms", {
   id: serial("id").primaryKey(),
-  matchId: integer("match_id").notNull().references(() => jobMatches.id),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id),
+  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  hiringManagerId: varchar("hiring_manager_id").notNull().references(() => users.id),
+  examAttemptId: integer("exam_attempt_id").references(() => examAttempts.id), // Required for access
   status: varchar("status", { enum: ["active", "closed"] }).default("active"),
+  candidateRanking: integer("candidate_ranking"), // Their position among qualified candidates
+  accessGrantedAt: timestamp("access_granted_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -379,9 +431,17 @@ export const jobMatchesRelations = relations(jobMatches, ({ one, many }) => ({
 }));
 
 export const chatRoomsRelations = relations(chatRooms, ({ one, many }) => ({
-  match: one(jobMatches, {
-    fields: [chatRooms.matchId],
-    references: [jobMatches.id],
+  job: one(jobPostings, {
+    fields: [chatRooms.jobId],
+    references: [jobPostings.id],
+  }),
+  candidate: one(users, {
+    fields: [chatRooms.candidateId],
+    references: [users.id],
+  }),
+  hiringManager: one(users, {
+    fields: [chatRooms.hiringManagerId],
+    references: [users.id],
   }),
   messages: many(chatMessages),
 }));
