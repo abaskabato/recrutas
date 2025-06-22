@@ -98,7 +98,7 @@ export default function CandidateStreamlinedDashboard() {
   const { toast } = useToast();
 
   const [showChat, setShowChat] = useState(false);
-  const [selectedChatRoom, setSelectedChatRoom] = useState<number | null>(null);
+  const [selectedChatRoom, setSelectedChatRoom] = useState<number | undefined>(undefined);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
 
   // Fetch candidate stats
@@ -347,7 +347,7 @@ export default function CandidateStreamlinedDashboard() {
                               <div className="flex-1">
                                 <div className="flex items-center space-x-3 mb-2">
                                   <h3 className="font-semibold text-lg text-slate-900">
-                                    {match.job.title}
+                                    {match.job?.title || 'Job Title Unavailable'}
                                   </h3>
                                   <Badge variant="secondary">
                                     {match.matchScore}% match
@@ -356,7 +356,7 @@ export default function CandidateStreamlinedDashboard() {
                                     {getStatusIcon(match.status)}
                                     <span className="ml-1 capitalize">{match.status}</span>
                                   </Badge>
-                                  {match.job.source === 'external' && (
+                                  {match.job?.source === 'external' && (
                                     <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
                                       External
                                     </Badge>
@@ -365,24 +365,24 @@ export default function CandidateStreamlinedDashboard() {
                                 
                                 <div className="flex items-center space-x-1 text-slate-600 mb-2">
                                   <Building className="w-4 h-4" />
-                                  <span className="font-medium">{match.job.company}</span>
+                                  <span className="font-medium">{match.job?.company || 'Company Unavailable'}</span>
                                 </div>
                                 
                                 <div className="flex items-center space-x-4 text-sm text-slate-500 mb-4">
                                   <div className="flex items-center space-x-1">
                                     <MapPin className="w-4 h-4" />
-                                    <span>{match.job.location}</span>
+                                    <span>{match.job?.location || 'Location Unavailable'}</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <DollarSign className="w-4 h-4" />
-                                    <span>{formatSalary(match.job.salaryMin, match.job.salaryMax)}</span>
+                                    <span>{formatSalary(match.job?.salaryMin, match.job?.salaryMax)}</span>
                                   </div>
                                   <Badge variant="outline" className="text-xs">
-                                    {match.job.workType}
+                                    {match.job?.workType || 'Remote'}
                                   </Badge>
                                 </div>
                                 
-                                {match.job.source === 'internal' && match.recruiter && (
+                                {match.job?.source === 'internal' && match.recruiter && (
                                   <div className="flex items-center space-x-2 text-sm text-slate-500">
                                     <User className="w-4 h-4" />
                                     <span>Recruiter: {match.recruiter.firstName} {match.recruiter.lastName}</span>
@@ -392,7 +392,7 @@ export default function CandidateStreamlinedDashboard() {
                               
                               <div className="flex flex-col items-end space-y-2">
                                 <div className="flex items-center space-x-2">
-                                  {match.job.source === 'internal' ? (
+                                  {match.job?.source === 'internal' ? (
                                     // Internal jobs: Apply first, then exam, then chat after AI ranking
                                     <>
                                       {match.status === 'pending' && (
@@ -431,7 +431,7 @@ export default function CandidateStreamlinedDashboard() {
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => window.open(match.job.externalUrl || match.job.careerPageUrl, '_blank')}
+                                        onClick={() => window.open(match.job?.externalUrl || match.job?.careerPageUrl, '_blank')}
                                       >
                                         <ExternalLink className="w-4 h-4 mr-1" />
                                         View Job
@@ -490,8 +490,8 @@ export default function CandidateStreamlinedDashboard() {
                         {applications.map((application) => (
                           <div key={application.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                             <div>
-                              <h3 className="font-medium text-slate-900">{application.job.title}</h3>
-                              <p className="text-sm text-slate-500">{application.job.company} • {application.job.location}</p>
+                              <h3 className="font-medium text-slate-900">{application.job?.title || 'Job Title Unavailable'}</h3>
+                              <p className="text-sm text-slate-500">{application.job?.company || 'Company'} • {application.job?.location || 'Location'}</p>
                             </div>
                             <div className="flex items-center space-x-3">
                               <Badge className={getStatusColor(application.status)}>
