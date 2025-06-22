@@ -241,6 +241,31 @@ export const connectionStatus = pgTable("connection_status", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Video interviews
+export const interviews = pgTable("interviews", {
+  id: serial("id").primaryKey(),
+  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  interviewerId: varchar("interviewer_id").notNull().references(() => users.id),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id),
+  applicationId: integer("application_id").notNull().references(() => jobApplications.id),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  duration: integer("duration").notNull(), // minutes
+  platform: varchar("platform", { 
+    enum: ["zoom", "meet", "teams", "phone"] 
+  }).notNull().default("zoom"),
+  meetingUrl: text("meeting_url"),
+  meetingId: varchar("meeting_id"),
+  password: varchar("password"),
+  notes: text("notes"),
+  status: varchar("status", {
+    enum: ["scheduled", "confirmed", "completed", "cancelled", "no_show"]
+  }).notNull().default("scheduled"),
+  feedback: text("feedback"),
+  rating: integer("rating"), // 1-5 scale
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   candidateProfile: one(candidateProfiles, {
@@ -333,6 +358,25 @@ export const connectionStatusRelations = relations(connectionStatus, ({ one }) =
   }),
 }));
 
+export const interviewsRelations = relations(interviews, ({ one }) => ({
+  candidate: one(users, {
+    fields: [interviews.candidateId],
+    references: [users.id],
+  }),
+  interviewer: one(users, {
+    fields: [interviews.interviewerId],
+    references: [users.id],
+  }),
+  job: one(jobPostings, {
+    fields: [interviews.jobId],
+    references: [jobPostings.id],
+  }),
+  application: one(jobApplications, {
+    fields: [interviews.applicationId],
+    references: [jobApplications.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -369,6 +413,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 });
 
 export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInterviewSchema = createInsertSchema(interviews).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
