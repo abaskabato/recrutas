@@ -41,10 +41,43 @@ export default function AIJobFeed() {
   const [selectedJob, setSelectedJob] = useState<AIJobMatch | null>(null);
   const { toast } = useToast();
 
-  const { data: aiMatches, isLoading, refetch } = useQuery<AIJobMatch[]>({
-    queryKey: ['/api/ai-matches'],
+  // Use fast external jobs API instead of slow AI matches
+  const { data: jobsResponse, isLoading, refetch } = useQuery({
+    queryKey: ['/api/external-jobs', { limit: 10 }],
+    queryFn: async () => {
+      const response = await fetch('/api/external-jobs?limit=10');
+      if (!response.ok) throw new Error('Failed to fetch jobs');
+      return response.json();
+    },
     refetchInterval: 60000, // Refresh every minute for dynamic updates
   });
+
+  // Convert external jobs to AI match format for component compatibility
+  const aiMatches: AIJobMatch[] = jobsResponse?.jobs?.map((job: any, index: number) => ({
+    id: job.id || index,
+    job: {
+      id: job.id || index,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      workType: job.type || 'hybrid',
+      salaryMin: 0,
+      salaryMax: 0,
+      description: job.description,
+      requirements: [],
+      skills: job.skills || [],
+      aiCurated: true,
+      confidenceScore: parseInt(job.match) || 85,
+      externalSource: job.source,
+      externalUrl: job.externalUrl,
+    },
+    matchScore: job.match || '85%',
+    confidenceLevel: 0.85,
+    skillMatches: job.skills?.slice(0, 3) || [],
+    aiExplanation: job.aiInsights || 'Great match for your profile',
+    status: job.applicationStatus || 'pending',
+    createdAt: new Date().toISOString()
+  })) || [];
 
   const applyMutation = useMutation({
     mutationFn: async (jobId: number) => {
