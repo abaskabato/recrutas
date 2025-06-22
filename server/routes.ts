@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
+import { jobAggregator } from "./job-aggregator";
 import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
 import { notificationService } from "./notification-service";
 import {
@@ -851,6 +852,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update preferences" });
     }
   });
+
+  // Real-time job delivery endpoint
+  app.get('/api/live-jobs', async (req, res) => {
+    try {
+      const { skills, jobTitle, location, workType, experience } = req.query;
+      console.log(`Fetching live jobs for: skills=${skills}, title=${jobTitle}, location=${location}`);
+      
+      // Generate live job matches based on search criteria
+      const publicJobs = await fetchOpenJobSources(skills as string, jobTitle as string);
+      
+      let allJobs = [...publicJobs];
+      console.log(`Generated ${allJobs.length} live job matches`);
+
+      // Apply real-time filtering
+      if (skills && typeof skills === 'string') {
+        const skillsList = skills.toLowerCase().split(',').map(s => s.trim());
+        allJobs = allJobs.filter(job => {
+          const jobText = `${job.title} ${job.description} ${job.skills?.join(' ') || ''}`.toLowerCase();
+          return skillsList.some(skill => jobText.includes(skill));
+        });
+      }
+
+      if (jobTitle && typeof jobTitle === 'string') {
+        const titleWords = jobTitle.toLowerCase().split(' ');
+        allJobs = allJobs.filter(job => {
+          const jobTitle = job.title.toLowerCase();
+          return titleWords.some(word => jobTitle.includes(word));
+        });
+      }
+
+      if (location && typeof location === 'string' && location !== 'any') {
+        allJobs = allJobs.filter(job => 
+          job.workType === 'remote' || 
+          job.location.toLowerCase().includes(location.toLowerCase())
+        );
+      }
+
+      // Sort by relevance and limit results
+      const rankedJobs = allJobs
+        .map(job => ({
+          ...job,
+          matchScore: calculateJobMatch(job, { skills, jobTitle, location }),
+          urgency: job.postedDate && new Date(job.postedDate) > new Date(Date.now() - 7*24*60*60*1000) ? 'high' : 'medium'
+        }))
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .slice(0, 15);
+
+      res.json({
+        jobs: rankedJobs,
+        count: rankedJobs.length,
+        timestamp: new Date().toISOString(),
+        source: 'live_public_feeds',
+        dataSources: ['USAJobs.gov', 'GitHub Jobs', 'Indeed RSS']
+      });
+
+    } catch (error) {
+      console.error("Error fetching live jobs:", error);
+      res.status(500).json({ message: "Failed to fetch live jobs" });
+    }
+  });
+
+  // Fetch jobs from internal database and company postings
+  async function fetchOpenJobSources(skills: string, jobTitle: string): Promise<any[]> {
+    const jobs = [];
+    
+    try {
+      // Fetch from internal job postings first
+      const dbJobs = await db.select({
+        id: jobPostings.id,
+        title: jobPostings.title,
+        company: jobPostings.company,
+        location: jobPostings.location,
+        description: jobPostings.description,
+        skills: jobPostings.skills,
+        workType: jobPostings.workType,
+        salaryMin: jobPostings.salaryMin,
+        salaryMax: jobPostings.salaryMax,
+        source: jobPostings.source,
+        externalUrl: jobPostings.externalUrl,
+        postedDate: jobPostings.createdAt,
+        requirements: jobPostings.requirements
+      }).from(jobPostings)
+        .where(eq(jobPostings.status, 'active'))
+        .limit(10);
+
+      // Transform database jobs to match expected format
+      const transformedDbJobs = dbJobs.map(job => ({
+        ...job,
+        id: `db_${job.id}`,
+        postedDate: job.postedDate?.toISOString() || new Date().toISOString(),
+        source: job.source || 'Internal Job Board',
+        externalUrl: job.externalUrl || `https://recrutas.ai/jobs/${job.id}`,
+        skills: job.skills || [],
+        requirements: job.requirements || []
+      }));
+
+      jobs.push(...transformedDbJobs);
+      console.log(`Fetched ${transformedDbJobs.length} jobs from internal database`);
+
+      // If we need more jobs, fetch from company aggregator
+      if (jobs.length < 5) {
+        try {
+          const companyJobs = await companyJobsAggregator.getAllCompanyJobs(
+            skills ? skills.split(',').map(s => s.trim()) : undefined, 
+            10
+          );
+          jobs.push(...companyJobs);
+          console.log(`Added ${companyJobs.length} jobs from company sources`);
+        } catch (error) {
+          console.error('Error fetching company jobs:', error);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error fetching jobs from sources:', error);
+    }
+    
+    return jobs;
+  }
+
+  // Helper function for job matching
+  function calculateJobMatch(job: any, searchCriteria: any): number {
+    let score = 0;
+    
+    // Skills matching (40% weight)
+    if (searchCriteria.skills && typeof searchCriteria.skills === 'string') {
+      const searchSkills = searchCriteria.skills.toLowerCase().split(',').map((s: string) => s.trim());
+      const jobText = `${job.title} ${job.description} ${job.skills?.join(' ') || ''}`.toLowerCase();
+      
+      const matchedSkills = searchSkills.filter((skill: string) => jobText.includes(skill));
+      score += (matchedSkills.length / searchSkills.length) * 40;
+    }
+
+    // Job title matching (30% weight)
+    if (searchCriteria.jobTitle && typeof searchCriteria.jobTitle === 'string') {
+      const titleWords = searchCriteria.jobTitle.toLowerCase().split(' ');
+      const jobTitle = job.title.toLowerCase();
+      const titleMatches = titleWords.filter((word: string) => jobTitle.includes(word));
+      score += (titleMatches.length / titleWords.length) * 30;
+    }
+
+    // Location matching (20% weight)
+    if (searchCriteria.location && typeof searchCriteria.location === 'string' && searchCriteria.location !== 'any') {
+      if (job.workType === 'remote' || job.location.toLowerCase().includes(searchCriteria.location.toLowerCase())) {
+        score += 20;
+      }
+    }
+
+    // Base relevance score (10% weight)
+    score += 10;
+
+    return Math.min(Math.round(score), 100);
+  }
 
   // External jobs for instant matching (public endpoint)
   app.get('/api/external-jobs', async (req, res) => {
