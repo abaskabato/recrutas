@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
+import { universalJobScraper } from "./universal-job-scraper";
 import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
 import {
   insertCandidateProfileSchema,
