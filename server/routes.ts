@@ -487,9 +487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job posting routes
   app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
-      console.log('User object:', JSON.stringify(req.user, null, 2));
       const userId = req.user?.id || req.user?.claims?.sub || req.user?.sub;
-      console.log('Extracted userId:', userId);
       
       if (!userId) {
         return res.status(401).json({ message: "User ID not found in session" });
