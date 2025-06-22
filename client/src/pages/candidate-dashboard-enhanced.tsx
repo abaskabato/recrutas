@@ -30,7 +30,10 @@ import {
   Calendar,
   Filter,
   Search,
-  Plus
+  Plus,
+  Upload,
+  FileText,
+  Send
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -92,6 +95,9 @@ export default function CandidateDashboardEnhanced() {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedChatRoom, setSelectedChatRoom] = useState<number | undefined>();
   const [showChat, setShowChat] = useState(false);
+  const [showResumeUpload, setShowResumeUpload] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Fetch candidate stats
   const { data: stats, isLoading: statsLoading } = useQuery<CandidateStats>({
@@ -112,6 +118,64 @@ export default function CandidateDashboardEnhanced() {
   const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
     queryKey: ['/api/candidates/activity'],
   });
+
+  // Resume upload mutation
+  const uploadResumeMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('resume', file);
+      
+      const response = await fetch('/api/candidates/upload-resume', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Resume uploaded successfully",
+        description: "Your resume has been updated",
+      });
+      setShowResumeUpload(false);
+      setSelectedFile(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    },
+    onError: () => {
+      toast({
+        title: "Upload failed",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type === 'application/pdf' || file.type.includes('word')) {
+        setSelectedFile(file);
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload a PDF or Word document",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  // Handle resume upload
+  const handleResumeUpload = () => {
+    if (selectedFile) {
+      uploadResumeMutation.mutate(selectedFile);
+    }
+  };
 
   // Apply to job mutation
   const applyToJobMutation = useMutation({
@@ -195,6 +259,14 @@ export default function CandidateDashboardEnhanced() {
             
             <div className="flex items-center space-x-4">
               <AdvancedNotificationCenter />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowResumeUpload(true)}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Resume
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm"
@@ -593,6 +665,95 @@ export default function CandidateDashboardEnhanced() {
           )}
         </div>
       </div>
+
+      {/* Resume Upload Modal */}
+      {showResumeUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Upload Resume</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowResumeUpload(false)}
+              >
+                ×
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">
+                    Drop your resume here or click to browse
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Supports PDF and Word documents
+                  </p>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="resume-upload"
+                  />
+                  <label
+                    htmlFor="resume-upload"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose File
+                  </label>
+                </div>
+              </div>
+
+              {selectedFile && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">
+                        {selectedFile.name}
+                      </span>
+                    </div>
+                    <span className="text-xs text-blue-600">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowResumeUpload(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleResumeUpload}
+                  disabled={!selectedFile || uploadResumeMutation.isPending}
+                  className="flex-1"
+                >
+                  {uploadResumeMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Upload
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

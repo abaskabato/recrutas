@@ -9,6 +9,9 @@ import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
 import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
 import { notificationService } from "./notification-service";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
@@ -43,6 +46,8 @@ const upload = multer({
     }
   }
 });
+
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -732,6 +737,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching job matches:", error);
       res.status(500).json({ message: "Failed to fetch matches" });
+    }
+  });
+
+  // Resume upload endpoint
+  app.post('/api/candidates/upload-resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Generate a permanent file path
+      const fileName = `${userId}_${Date.now()}_${req.file.originalname}`;
+      const resumeUrl = `/uploads/${fileName}`;
+
+      // Update candidate profile with resume URL
+      await storage.updateCandidateProfile(userId, {
+        resumeUrl: resumeUrl
+      });
+
+      // Create activity log
+      await storage.createActivityLog(userId, "resume_uploaded", "Resume uploaded successfully");
+
+      res.json({ 
+        message: "Resume uploaded successfully",
+        resumeUrl: resumeUrl 
+      });
+    } catch (error) {
+      console.error("Error uploading resume:", error);
+      res.status(500).json({ message: "Failed to upload resume" });
     }
   });
 
