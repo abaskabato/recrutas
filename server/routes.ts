@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { jobAggregator } from "./job-aggregator";
+import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
 import {
   insertCandidateProfileSchema,
@@ -72,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Fetching external jobs for AI matching...');
       
       // Get fresh external jobs using candidate's skills
-      const externalJobs = await jobAggregator.getAllJobs(safeProfile.skills, 50);
+      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(safeProfile.skills, 50);
       console.log(`Fetched ${externalJobs.length} external jobs for matching`);
 
       // Get internal jobs from database
@@ -363,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Generate new AI matches based on updated profile
         const internalJobs = await storage.getJobPostings('');
-        const externalJobs = await jobAggregator.getAllJobs();
+        const externalJobs = await companyJobsAggregator.getAllCompanyJobs();
         
         // Combine and limit jobs for matching
         const allJobs = [
@@ -599,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Fetching external jobs for instant matching. Skills: ${skills}, Location: ${location}, WorkType: ${workType}, MinSalary: ${minSalary} (${salaryType}), Limit: ${limit}`);
       
       const skillsArray = skills && typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : undefined;
-      const externalJobs = await jobAggregator.getAllJobs(skillsArray, parseInt(limit as string));
+      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, parseInt(limit as string));
       console.log(`Retrieved ${externalJobs.length} external jobs from aggregator for skills: ${skillsArray?.join(', ') || 'general'}`);
       
       if (externalJobs.length > 0) {
@@ -832,7 +832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { skills } = req.body;
       console.log(`Syncing external jobs from API into database for skills: ${skills?.join(', ') || 'general'}`);
-      const externalJobs = await jobAggregator.getAllJobs(skills);
+      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skills);
       let syncedCount = 0;
 
       // Use first existing user as talent owner for external jobs

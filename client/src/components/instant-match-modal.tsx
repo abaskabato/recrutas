@@ -158,10 +158,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   <Brain className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  Find Jobs Fast
+                  Direct Company Jobs
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-                  Get matched with real jobs in seconds.
+                  Jobs posted directly on Google, Apple, Amazon, Meta career pages.
                 </p>
                 <Button
                   size="lg"

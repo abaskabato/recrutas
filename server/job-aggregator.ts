@@ -15,7 +15,144 @@ interface ExternalJob {
 }
 
 export class JobAggregator {
-  
+
+  // Add new open source job sources
+  async fetchFromJSearchAPI(userSkills?: string[]): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching from JSearch API (free tier)...');
+      
+      const query = userSkills && userSkills.length > 0 
+        ? userSkills.join(' ') + ' developer'
+        : 'software developer';
+      
+      const params = new URLSearchParams({
+        query: query,
+        page: '1',
+        num_pages: '3',
+        country: 'US',
+        employment_types: 'FULLTIME,PARTTIME,CONTRACTOR',
+        job_requirements: 'under_3_years_experience,more_than_3_years_experience,no_experience',
+        remote_jobs_only: 'false'
+      });
+
+      // Using RapidAPI free tier for JSearch
+      const response = await fetch(`https://jsearch.p.rapidapi.com/search?${params}`, {
+        headers: {
+          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || 'demo-key',
+          'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
+          'User-Agent': 'JobPlatform/1.0'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformJSearchJobs(data.data || []);
+        console.log(`Fetched ${jobs.length} real jobs from JSearch API`);
+        return jobs;
+      } else {
+        console.log(`JSearch API returned ${response.status}: ${response.statusText}`);
+        return [];
+      }
+    } catch (error) {
+      console.log('Error fetching from JSearch:', error.message);
+      return [];
+    }
+  }
+
+  async fetchFromArbeitNow(): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching from ArbeitNow (free European jobs)...');
+      
+      const response = await fetch('https://www.arbeitnow.com/api/job-board-api', {
+        headers: {
+          'User-Agent': 'JobPlatform/1.0',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformArbeitNowJobs(data.data || []);
+        console.log(`Fetched ${jobs.length} real jobs from ArbeitNow`);
+        return jobs;
+      } else {
+        console.log(`ArbeitNow API returned ${response.status}`);
+        return [];
+      }
+    } catch (error) {
+      console.log('Error fetching from ArbeitNow:', error.message);
+      return [];
+    }
+  }
+
+  async fetchFromJoobleAPI(userSkills?: string[]): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching from Jooble API (free tier)...');
+      
+      const keywords = userSkills && userSkills.length > 0 
+        ? userSkills.join(' ') 
+        : 'software developer programmer';
+
+      const params = new URLSearchParams({
+        keywords: keywords,
+        location: 'USA',
+        radius: '50',
+        page: '1'
+      });
+
+      const response = await fetch(`https://jooble.org/api/${process.env.JOOBLE_API_KEY || 'demo'}?${params}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'JobPlatform/1.0'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformJoobleJobs(data.jobs || []);
+        console.log(`Fetched ${jobs.length} real jobs from Jooble`);
+        return jobs;
+      } else {
+        console.log(`Jooble API returned ${response.status}`);
+        return [];
+      }
+    } catch (error) {
+      console.log('Error fetching from Jooble:', error.message);
+      return [];
+    }
+  }
+
+  async fetchFromIndeedRSS(userSkills?: string[]): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching from Indeed RSS feeds...');
+      
+      const query = userSkills && userSkills.length > 0 
+        ? userSkills.join('+') 
+        : 'software+developer';
+
+      const response = await fetch(`https://www.indeed.com/rss?q=${query}&l=&sort=date`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; JobBot/1.0)',
+          'Accept': 'application/rss+xml, application/xml'
+        }
+      });
+
+      if (response.ok) {
+        const xmlText = await response.text();
+        const jobs = this.parseIndeedRSS(xmlText);
+        console.log(`Fetched ${jobs.length} real jobs from Indeed RSS`);
+        return jobs;
+      } else {
+        console.log(`Indeed RSS returned ${response.status}`);
+        return [];
+      }
+    } catch (error) {
+      console.log('Error fetching from Indeed RSS:', error.message);
+      return [];
+    }
+  }
+
   async fetchFromUSAJobs(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from USAJobs.gov API...');
@@ -495,14 +632,124 @@ export class JobAggregator {
     return jobs.slice(0, 20);
   }
 
+  // Transformation methods for new job sources
+  private transformJSearchJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map((job, index) => ({
+      id: `jsearch_${job.job_id || index}`,
+      title: job.job_title || 'Software Developer',
+      company: job.employer_name || 'Tech Company',
+      location: job.job_city && job.job_state ? `${job.job_city}, ${job.job_state}` : job.job_country || 'Remote',
+      description: job.job_description || job.job_highlights?.Qualifications?.join('. ') || 'Join our team',
+      requirements: job.job_highlights?.Responsibilities || [job.job_title],
+      skills: this.extractSkillsFromText(job.job_description || job.job_title),
+      workType: job.job_is_remote ? 'remote' : 'onsite',
+      salaryMin: job.job_min_salary,
+      salaryMax: job.job_max_salary,
+      source: 'JSearch',
+      externalUrl: job.job_apply_link || job.job_google_link || '#',
+      postedDate: job.job_posted_at_datetime_utc || new Date().toISOString()
+    }));
+  }
+
+  private transformArbeitNowJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map((job, index) => ({
+      id: `arbeitnow_${job.slug || index}`,
+      title: job.title || 'Developer Position',
+      company: job.company_name || 'European Company',
+      location: job.location || 'Europe',
+      description: job.description || job.title,
+      requirements: job.tags || [job.title],
+      skills: job.tags || this.extractSkillsFromText(job.title),
+      workType: job.remote ? 'remote' : 'onsite',
+      source: 'ArbeitNow',
+      externalUrl: job.url || '#',
+      postedDate: job.created_at || new Date().toISOString()
+    }));
+  }
+
+  private transformJoobleJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map((job, index) => ({
+      id: `jooble_${index}`,
+      title: job.title || 'Position Available',
+      company: job.company || 'Company',
+      location: job.location || 'USA',
+      description: job.snippet || job.title,
+      requirements: this.extractRequirements(job.snippet || job.title),
+      skills: this.extractSkillsFromText(job.snippet || job.title),
+      workType: job.type === 'remote' ? 'remote' : 'onsite',
+      salaryMin: job.salary ? parseInt(job.salary.replace(/[^0-9]/g, '')) : undefined,
+      source: 'Jooble',
+      externalUrl: job.link || '#',
+      postedDate: job.updated || new Date().toISOString()
+    }));
+  }
+
+  private parseIndeedRSS(xmlText: string): ExternalJob[] {
+    const jobs: ExternalJob[] = [];
+    const itemRegex = /<item>(.*?)<\/item>/gs;
+    const matches = xmlText.match(itemRegex);
+    
+    if (matches) {
+      matches.slice(0, 20).forEach((item, index) => {
+        const titleMatch = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/);
+        const linkMatch = item.match(/<link>(.*?)<\/link>/);
+        const descMatch = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/);
+        const pubDateMatch = item.match(/<pubDate>(.*?)<\/pubDate>/);
+        
+        if (titleMatch && linkMatch) {
+          const fullTitle = titleMatch[1];
+          const titleParts = fullTitle.split(' at ');
+          const title = titleParts[0] || fullTitle;
+          const company = titleParts[1] || 'Company';
+          
+          jobs.push({
+            id: `indeed_rss_${index}`,
+            title: title.trim(),
+            company: company.trim(),
+            location: 'Various',
+            description: descMatch ? descMatch[1].substring(0, 500) : title,
+            requirements: this.extractRequirements(title),
+            skills: this.extractSkillsFromText(title),
+            workType: 'hybrid',
+            source: 'Indeed',
+            externalUrl: linkMatch[1],
+            postedDate: pubDateMatch ? new Date(pubDateMatch[1]).toISOString() : new Date().toISOString()
+          });
+        }
+      });
+    }
+    
+    return jobs;
+  }
+
+  private extractSkillsFromText(text: string): string[] {
+    const commonSkills = [
+      'JavaScript', 'Python', 'Java', 'React', 'Node.js', 'TypeScript',
+      'Angular', 'Vue', 'SQL', 'MongoDB', 'PostgreSQL', 'AWS', 'Docker',
+      'Kubernetes', 'Git', 'HTML', 'CSS', 'Express', 'Django', 'Flask',
+      'Spring', 'Bootstrap', 'jQuery', 'PHP', 'Ruby', 'Go', 'Rust', 'C++',
+      'C#', '.NET', 'GraphQL', 'REST', 'API', 'DevOps', 'CI/CD', 'Linux',
+      'Redis', 'Elasticsearch', 'Machine Learning', 'AI', 'Data Science'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return commonSkills.filter(skill => 
+      lowerText.includes(skill.toLowerCase())
+    ).slice(0, 8);
+  }
+
   async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
     
     try {
       console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
       
-      // Fetch from multiple sources in parallel with user skills
+      // Fetch from all sources including new ones
       const [
+        jsearchJobs,
+        arbeitNowJobs,
+        joobleJobs,
+        indeedJobs,
         usaJobs,
         museJobs,
         adzunaJobs,
@@ -510,6 +757,10 @@ export class JobAggregator {
         remoteOKJobs,
         jsonJobs
       ] = await Promise.allSettled([
+        this.fetchFromJSearchAPI(userSkills),
+        this.fetchFromArbeitNow(),
+        this.fetchFromJoobleAPI(userSkills),
+        this.fetchFromIndeedRSS(userSkills),
         this.fetchFromUSAJobs(userSkills),
         this.fetchFromTheMuse(),
         this.fetchFromAdzunaDemo(userSkills),
@@ -518,7 +769,11 @@ export class JobAggregator {
         this.fetchFromJSONPlaceholder()
       ]);
 
-      // Add jobs from successful fetches
+      // Add jobs from successful fetches including new sources
+      if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
+      if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
+      if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
+      if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
       if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
       if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
       if (adzunaJobs.status === 'fulfilled') allJobs.push(...adzunaJobs.value);
