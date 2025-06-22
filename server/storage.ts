@@ -1,3 +1,24 @@
+/**
+ * Storage Layer for Recrutas Platform
+ * 
+ * This module provides a comprehensive data access layer implementing the Repository pattern.
+ * It handles all database interactions while maintaining clean separation between
+ * business logic and data persistence.
+ * 
+ * Key Features:
+ * - Type-safe database operations using Drizzle ORM
+ * - Comprehensive CRUD operations for all entities
+ * - Advanced querying with filtering and pagination
+ * - Transaction support for complex operations
+ * - Error handling and data validation
+ * 
+ * Architecture:
+ * - IStorage interface defines the contract
+ * - DatabaseStorage implements the interface
+ * - All methods are async and return Promise-based results
+ * - Uses dependency injection pattern for testability
+ */
+
 import {
   users,
   candidateProfiles,
@@ -26,6 +47,12 @@ import {
 import { db } from "./db";
 import { eq, desc, and, or, sql, count } from "drizzle-orm";
 
+/**
+ * Storage Interface Definition
+ * 
+ * Defines the contract for all data access operations across the platform.
+ * This interface ensures consistency and enables easy testing through mocking.
+ */
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;

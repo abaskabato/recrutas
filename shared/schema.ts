@@ -1,3 +1,18 @@
+/**
+ * Database Schema for Recrutas Platform
+ * 
+ * This file defines the complete database schema for the AI-powered hiring platform.
+ * The schema is organized into logical sections for better maintainability:
+ * 
+ * - Authentication & User Management
+ * - Job Posting & Matching System
+ * - Communication & Messaging
+ * - Application Tracking
+ * - Notification System
+ * - Analytics & Feedback
+ * - Real-time Features
+ */
+
 import {
   pgTable,
   text,
@@ -14,7 +29,14 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-// Session storage table (required for Replit Auth)
+// =============================================================================
+// AUTHENTICATION & USER MANAGEMENT
+// =============================================================================
+
+/**
+ * Session Storage Table
+ * Required for Replit Auth integration - stores user session data
+ */
 export const sessions = pgTable(
   "sessions",
   {
@@ -25,7 +47,11 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table (required for Replit Auth)
+/**
+ * Users Table
+ * Core user management for both candidates and talent owners
+ * Integrates with Replit Auth for authentication
+ */
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
   email: varchar("email").unique(),
@@ -37,10 +63,16 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Candidate profiles
+/**
+ * Candidate Profiles Table
+ * Extended profile information for job seekers
+ * Includes portfolio links, skills, preferences, and AI-parsed resume data
+ */
 export const candidateProfiles = pgTable("candidate_profiles", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().unique().references(() => users.id),
+  
+  // Portfolio & Social Links
   resumeUrl: text("resume_url"),
   linkedinUrl: text("linkedin_url"),
   githubUrl: text("github_url"),
@@ -50,6 +82,8 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   dribbbleUrl: text("dribbble_url"),
   stackOverflowUrl: text("stack_overflow_url"),
   mediumUrl: text("medium_url"),
+  
+  // Profile Data & Preferences
   skills: jsonb("skills").$type<string[]>().default([]),
   experience: text("experience"),
   location: varchar("location"),
@@ -57,12 +91,19 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   salaryMax: integer("salary_max"),
   workType: varchar("work_type", { enum: ["remote", "hybrid", "onsite"] }),
   industry: varchar("industry"),
+  
+  // AI-Enhanced Profile Data
   bio: text("bio"), // Summary/objective from resume
-  resumeText: text("resume_text"), // Raw parsed text for search
-  profileStrength: integer("profile_strength").default(0),
+  resumeText: text("resume_text"), // Raw parsed text for AI matching
+  profileStrength: integer("profile_strength").default(0), // AI-calculated profile completeness score
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// =============================================================================
+// JOB POSTING & MATCHING SYSTEM
+// =============================================================================
 
 // Job postings - Enhanced for AI-curated feeds
 export const jobPostings = pgTable("job_postings", {
