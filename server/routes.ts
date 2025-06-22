@@ -681,19 +681,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Filter by location (more lenient)
+      // Filter by location (more lenient with geographic areas)
       if (location && typeof location === 'string' && location.toLowerCase() !== 'any') {
         const beforeLocationFilter = filteredJobs.length;
         const locationQuery = location.toLowerCase().trim();
+        
+        // Define geographic area mappings
+        const areaMapping = {
+          'san francisco': ['san francisco', 'mountain view', 'menlo park', 'palo alto', 'cupertino', 'sunnyvale', 'bay area'],
+          'seattle': ['seattle', 'redmond', 'bellevue', 'kirkland'],
+          'new york': ['new york', 'manhattan', 'brooklyn', 'queens', 'bronx', 'nyc'],
+          'los angeles': ['los angeles', 'santa monica', 'beverly hills', 'hollywood', 'la'],
+          'chicago': ['chicago', 'schaumburg', 'evanston'],
+          'austin': ['austin', 'round rock', 'cedar park'],
+          'boston': ['boston', 'cambridge', 'somerville'],
+          'denver': ['denver', 'boulder', 'aurora']
+        };
+        
         filteredJobs = filteredJobs.filter(job => {
           const jobLocation = job.location.toLowerCase();
           const jobWorkType = job.workType.toLowerCase();
           
-          // Accept if location matches or if looking for remote and job is remote
-          return jobLocation.includes(locationQuery) ||
-                 (locationQuery === 'remote' && jobWorkType.includes('remote')) ||
-                 jobWorkType.includes('remote'); // Always include remote jobs
+          // Direct match
+          if (jobLocation.includes(locationQuery)) return true;
+          
+          // Remote work handling
+          if (locationQuery === 'remote' && jobWorkType.includes('remote')) return true;
+          if (jobWorkType.includes('remote')) return true; // Always include remote jobs
+          
+          // Geographic area matching
+          const matchingAreas = areaMapping[locationQuery];
+          if (matchingAreas) {
+            return matchingAreas.some(area => jobLocation.includes(area));
+          }
+          
+          // State matching (e.g., "california" matches "Mountain View, CA")
+          if (locationQuery === 'california' || locationQuery === 'ca') {
+            return jobLocation.includes(', ca');
+          }
+          if (locationQuery === 'washington' || locationQuery === 'wa') {
+            return jobLocation.includes(', wa');
+          }
+          if (locationQuery === 'new york' || locationQuery === 'ny') {
+            return jobLocation.includes(', ny');
+          }
+          
+          return false;
         });
+        
         console.log(`Location filter (${locationQuery}): ${beforeLocationFilter} -> ${filteredJobs.length} jobs`);
       }
 
