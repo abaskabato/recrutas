@@ -66,7 +66,7 @@ export function useSession() {
         firstName: user.firstName || user.name?.split(' ')[0] || '',
         lastName: user.lastName || user.name?.split(' ')[1] || '',
         phoneNumber: user.phoneNumber || null,
-        role: user.role || 'candidate',
+        role: user.role || null,
         profileComplete: user.profileComplete || false,
       } as ExtendedUser;
       
