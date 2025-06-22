@@ -434,7 +434,7 @@ export default function CandidateDashboardEnhanced() {
                                 
                                 <div className="flex items-center space-x-2 text-sm text-slate-500">
                                   <User className="w-4 h-4" />
-                                  <span>Recruiter: {match.recruiter.firstName} {match.recruiter.lastName}</span>
+                                  <span>Recruiter: {match.recruiter?.firstName || 'Unknown'} {match.recruiter?.lastName || ''}</span>
                                 </div>
                               </div>
                               

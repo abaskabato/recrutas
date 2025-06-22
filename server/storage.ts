@@ -496,19 +496,17 @@ export class DatabaseStorage implements IStorage {
         lastStatusUpdate: jobApplications.lastStatusUpdate,
         interviewLink: jobApplications.interviewLink,
         interviewDate: jobApplications.interviewDate,
-        job: {
-          id: jobPostings.id,
-          title: jobPostings.title,
-          company: jobPostings.company,
-          location: jobPostings.location,
-          salaryMin: jobPostings.salaryMin,
-          salaryMax: jobPostings.salaryMax,
-          workType: jobPostings.workType,
-        },
-        match: {
-          matchScore: jobMatches.matchScore,
-          confidenceLevel: jobMatches.confidenceLevel,
-        }
+        // Job fields
+        jobId: jobPostings.id,
+        jobTitle: jobPostings.title,
+        jobCompany: jobPostings.company,
+        jobLocation: jobPostings.location,
+        jobSalaryMin: jobPostings.salaryMin,
+        jobSalaryMax: jobPostings.salaryMax,
+        jobWorkType: jobPostings.workType,
+        // Match fields
+        matchScore: jobMatches.matchScore,
+        confidenceLevel: jobMatches.confidenceLevel,
       })
       .from(jobApplications)
       .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
@@ -516,7 +514,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobApplications.candidateId, candidateId))
       .orderBy(desc(jobApplications.appliedAt));
 
-    return applications;
+    // Transform the flat results into nested structure
+    return applications.map(app => ({
+      id: app.id,
+      status: app.status,
+      appliedAt: app.appliedAt,
+      viewedByEmployerAt: app.viewedByEmployerAt,
+      lastStatusUpdate: app.lastStatusUpdate,
+      interviewLink: app.interviewLink,
+      interviewDate: app.interviewDate,
+      job: {
+        id: app.jobId,
+        title: app.jobTitle,
+        company: app.jobCompany,
+        location: app.jobLocation,
+        salaryMin: app.jobSalaryMin,
+        salaryMax: app.jobSalaryMax,
+        workType: app.jobWorkType,
+      },
+      match: app.matchScore ? {
+        matchScore: app.matchScore,
+        confidenceLevel: app.confidenceLevel,
+      } : null
+    }));
   }
 
   async updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any> {
