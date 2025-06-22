@@ -968,6 +968,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/recruiter/candidates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const candidates = await storage.getCandidatesForRecruiter(userId);
+      res.json(candidates);
+    } catch (error) {
+      console.error("Error fetching candidates:", error);
+      res.status(500).json({ message: "Failed to fetch candidates" });
+    }
+  });
+
   // Enhanced job application endpoint for V2
   app.post('/api/jobs/:id/apply', isAuthenticated, async (req: any, res) => {
     try {

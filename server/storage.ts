@@ -105,6 +105,7 @@ export interface IStorage {
     activeChats: number;
     hires: number;
   }>;
+  getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]>;
   
   // Notification preferences
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
@@ -424,6 +425,32 @@ export class DatabaseStorage implements IStorage {
       activeChats: chatsCount.count,
       hires: hiresCount.count,
     };
+  }
+
+  async getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]> {
+    const candidates = await db
+      .select({
+        id: candidateProfiles.userId,
+        firstName: candidateProfiles.firstName,
+        lastName: candidateProfiles.lastName,
+        email: candidateProfiles.email,
+        skills: candidateProfiles.skills,
+        experience: candidateProfiles.experience,
+        location: candidateProfiles.location,
+        resumeUrl: candidateProfiles.resumeUrl,
+        matchScore: jobMatches.matchScore,
+        status: jobMatches.status,
+        appliedAt: jobMatches.createdAt,
+        jobTitle: jobPostings.title,
+        jobId: jobPostings.id,
+      })
+      .from(jobMatches)
+      .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
+      .innerJoin(candidateProfiles, eq(jobMatches.candidateId, candidateProfiles.userId))
+      .where(eq(jobPostings.talentOwnerId, talentOwnerId))
+      .orderBy(desc(jobMatches.createdAt));
+
+    return candidates;
   }
 
   // Application tracking methods
