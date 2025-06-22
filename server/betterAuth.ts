@@ -69,7 +69,7 @@ export const auth = betterAuth({
       maxAge: 5 * 60,
     },
     cookieOptions: {
-      httpOnly: true,
+      httpOnly: false, // Set to false for development to allow JavaScript access
       secure: false, // Set to false for development
       sameSite: "lax",
       path: "/",
@@ -90,6 +90,15 @@ export function setupBetterAuth(app: Express) {
       const protocol = req.protocol || 'http'
       const host = req.get('host') || 'localhost:5000'
       const url = new URL(req.url, `${protocol}://${host}`)
+      
+      // Debug logging for session requests
+      if (req.url.includes('get-session')) {
+        console.log('Session request:', {
+          cookies: req.headers.cookie,
+          method: req.method,
+          url: req.url
+        });
+      }
       
       const headers = new Headers()
       Object.entries(req.headers).forEach(([key, value]) => {
@@ -113,6 +122,16 @@ export function setupBetterAuth(app: Express) {
       })
 
       const response = await auth.handler(webRequest)
+      
+      // Debug logging for session responses
+      if (req.url.includes('get-session')) {
+        const responseText = await response.clone().text();
+        console.log('Session response:', {
+          status: response.status,
+          body: responseText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
       
       res.status(response.status)
       response.headers.forEach((value, key) => {
