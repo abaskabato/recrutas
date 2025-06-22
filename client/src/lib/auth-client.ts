@@ -31,13 +31,11 @@ export const {
 export function useSession() {
   const session = useSessionRaw();
   
-  // If we have session data, cast the user to our extended type for compatibility
+  // Better Auth returns session data in a different format
   if (session.data?.user) {
     const user = session.data.user as any;
     return {
-      ...session,
       data: {
-        ...session.data,
         user: {
           ...user,
           // Ensure all properties are available for backward compatibility
@@ -47,9 +45,15 @@ export function useSession() {
           role: user.role || 'candidate',
           profileComplete: user.profileComplete || false,
         } as ExtendedUser
-      }
+      },
+      isPending: session.isPending,
+      error: session.error
     };
   }
   
-  return session;
+  return {
+    data: null,
+    isPending: session.isPending,
+    error: session.error
+  };
 }

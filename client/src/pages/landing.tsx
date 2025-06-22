@@ -92,7 +92,7 @@ export default function Landing() {
   const setRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'talent_owner') => {
       const apiRole = role === 'talent_owner' ? 'recruiter' : role;
-      await apiRequest('POST', '/api/auth/role', { role: apiRole });
+      await apiRequest('POST', '/api/user/role', { role: apiRole });
     },
     onSuccess: () => {
       toast({
@@ -121,7 +121,7 @@ export default function Landing() {
 
   const handleStartMatching = () => {
     setShowInstantMatch(false);
-    if (isAuthenticated && user?.role === 'candidate') {
+    if (isAuthenticated && (user as any)?.role === 'candidate') {
       window.location.href = "/candidate-dashboard";
     } else {
       handleLogin();
@@ -129,7 +129,7 @@ export default function Landing() {
   };
 
   // Show role selection for authenticated users without a role
-  if (isAuthenticated && user && !user.role) {
+  if (isAuthenticated && user && !(user as any)?.role) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-purple-900 flex items-center justify-center p-4">
         <motion.div 
@@ -147,7 +147,7 @@ export default function Landing() {
               <RecrutasLogo size={64} className="mx-auto mb-4" />
             </motion.div>
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Welcome to Recrutas, {user.firstName || 'User'}!
+              Welcome to Recrutas, {(user as any)?.firstName || 'User'}!
             </h1>
             <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
               Choose your path to revolutionize how hiring works
@@ -376,7 +376,7 @@ export default function Landing() {
               ) : (
                 <Button 
                   className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                  onClick={() => window.location.href = user?.role === 'candidate' ? '/candidate-dashboard' : '/recruiter-dashboard'}
+                  onClick={() => window.location.href = (user as any)?.role === 'candidate' ? '/candidate-dashboard' : '/recruiter-dashboard'}
                 >
                   Go to Dashboard
                 </Button>
