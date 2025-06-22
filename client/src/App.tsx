@@ -26,6 +26,11 @@ function Router() {
   }
 
   const user = session?.user;
+  
+  // Debug logging to understand user state
+  console.log("Current session:", session);
+  console.log("Current user:", user);
+  console.log("User role:", user?.role);
 
   return (
     <Switch>
