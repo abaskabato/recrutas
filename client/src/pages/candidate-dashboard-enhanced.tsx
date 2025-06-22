@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RealTimeChat from "@/components/real-time-chat";
 import AdvancedNotificationCenter from "@/components/advanced-notification-center";
+import InstantJobSearch from "@/components/instant-job-search";
 import { 
   Briefcase, 
   MessageSquare, 
@@ -201,6 +202,16 @@ export default function CandidateDashboardEnhanced() {
               >
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Messages
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                  window.location.href = '/';
+                }}
+              >
+                Sign Out
               </Button>
             </div>
           </div>
@@ -465,16 +476,15 @@ export default function CandidateDashboardEnhanced() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-12">
-                        <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-slate-900 mb-2">No matches yet</h3>
-                        <p className="text-slate-500 mb-4">
-                          We're working on finding the perfect opportunities for you
-                        </p>
-                        <Button>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Update Your Profile
-                        </Button>
+                      <div className="space-y-6">
+                        <div className="text-center py-8">
+                          <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-slate-900 mb-2">Discover Live Job Opportunities</h3>
+                          <p className="text-slate-500 mb-4">
+                            Search thousands of real job openings from top companies
+                          </p>
+                        </div>
+                        <InstantJobSearch />
                       </div>
                     )}
                   </CardContent>

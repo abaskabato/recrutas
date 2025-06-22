@@ -487,56 +487,38 @@ export class DatabaseStorage implements IStorage {
 
   // Application tracking methods
   async getApplicationsWithStatus(candidateId: string): Promise<any[]> {
-    const applications = await db
-      .select({
-        id: jobApplications.id,
-        status: jobApplications.status,
-        appliedAt: jobApplications.appliedAt,
-        viewedByEmployerAt: jobApplications.viewedByEmployerAt,
-        lastStatusUpdate: jobApplications.lastStatusUpdate,
-        interviewLink: jobApplications.interviewLink,
-        interviewDate: jobApplications.interviewDate,
-        // Job fields
-        jobId: jobPostings.id,
-        jobTitle: jobPostings.title,
-        jobCompany: jobPostings.company,
-        jobLocation: jobPostings.location,
-        jobSalaryMin: jobPostings.salaryMin,
-        jobSalaryMax: jobPostings.salaryMax,
-        jobWorkType: jobPostings.workType,
-        // Match fields
-        matchScore: jobMatches.matchScore,
-        confidenceLevel: jobMatches.confidenceLevel,
-      })
-      .from(jobApplications)
-      .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-      .leftJoin(jobMatches, eq(jobApplications.matchId, jobMatches.id))
-      .where(eq(jobApplications.candidateId, candidateId))
-      .orderBy(desc(jobApplications.appliedAt));
+    try {
+      const applications = await db
+        .select({
+          id: jobApplications.id,
+          status: jobApplications.status,
+          appliedAt: jobApplications.appliedAt,
+          jobId: jobPostings.id,
+          jobTitle: jobPostings.title,
+          jobCompany: jobPostings.company,
+          jobLocation: jobPostings.location,
+        })
+        .from(jobApplications)
+        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(eq(jobApplications.candidateId, candidateId))
+        .orderBy(desc(jobApplications.appliedAt));
 
-    // Transform the flat results into nested structure
-    return applications.map(app => ({
-      id: app.id,
-      status: app.status,
-      appliedAt: app.appliedAt,
-      viewedByEmployerAt: app.viewedByEmployerAt,
-      lastStatusUpdate: app.lastStatusUpdate,
-      interviewLink: app.interviewLink,
-      interviewDate: app.interviewDate,
-      job: {
-        id: app.jobId,
-        title: app.jobTitle,
-        company: app.jobCompany,
-        location: app.jobLocation,
-        salaryMin: app.jobSalaryMin,
-        salaryMax: app.jobSalaryMax,
-        workType: app.jobWorkType,
-      },
-      match: app.matchScore ? {
-        matchScore: app.matchScore,
-        confidenceLevel: app.confidenceLevel,
-      } : null
-    }));
+      // Transform the results into expected structure
+      return applications.map(app => ({
+        id: app.id,
+        status: app.status,
+        appliedAt: app.appliedAt,
+        job: {
+          id: app.jobId,
+          title: app.jobTitle,
+          company: app.jobCompany,
+          location: app.jobLocation,
+        }
+      }));
+    } catch (error) {
+      console.error('Error fetching applications with status:', error);
+      return [];
+    }
   }
 
   async updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any> {
