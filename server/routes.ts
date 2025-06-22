@@ -78,27 +78,6 @@ const upload = multer({
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Custom password reset endpoint to fix 404 error
-  app.post('/api/auth/forgot-password', async (req, res) => {
-    try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-      }
-      
-      console.log(`Password reset requested for ${email}`);
-      
-      res.status(200).json({ 
-        message: "If an account with that email exists, a password reset link has been sent.",
-        success: true
-      });
-      
-    } catch (error) {
-      console.error("Password reset error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
 
   // Session configuration
   const session = await import('express-session');

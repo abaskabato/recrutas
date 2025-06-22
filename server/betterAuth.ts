@@ -20,6 +20,17 @@ export const auth = betterAuth({
     minPasswordLength: 6,
     maxPasswordLength: 128,
     autoSignIn: true,
+    sendResetPassword: async ({ user, url, token }) => {
+      // Use SendGrid if configured, otherwise log for development
+      if (process.env.SENDGRID_API_KEY) {
+        const { sendPasswordResetEmail } = await import("./email-service");
+        await sendPasswordResetEmail(user.email, token);
+      } else {
+        console.log(`Password reset requested for ${user.email}`);
+        console.log(`Reset URL: ${url}`);
+        console.log(`Reset Token: ${token}`);
+      }
+    },
   },
   socialProviders: {
     google: {
