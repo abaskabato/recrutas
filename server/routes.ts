@@ -265,10 +265,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedUser = await storage.updateUserProfile(userId, {
-        firstName,
-        lastName,
-        phoneNumber,
-        profileComplete: true
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: phoneNumber
       });
 
       res.json({ success: true, user: updatedUser });

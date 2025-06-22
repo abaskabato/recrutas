@@ -174,9 +174,9 @@ export default function CandidateDashboardEnhanced() {
   // Check if profile completion is needed
   useEffect(() => {
     if (user && user.role) {
-      const needsProfileCompletion = !user.first_name || 
-                                    !user.last_name || 
-                                    !user.phone_number;
+      const needsProfileCompletion = !user.firstName || 
+                                    !user.lastName || 
+                                    !user.phoneNumber;
       setShowProfileCompletion(needsProfileCompletion);
     }
   }, [user]);
