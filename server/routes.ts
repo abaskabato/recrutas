@@ -18,8 +18,14 @@ import {
   insertChatMessageSchema,
   jobPostings,
   users,
+  candidateProfiles,
+  jobApplications,
+  notifications,
+  examAttempts,
+  chatRooms,
+  chatMessages
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
@@ -247,22 +253,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Public platform stats endpoint
+  // Public platform stats endpoint - optimized for performance
   app.get('/api/platform/stats', async (req, res) => {
     try {
-      const [users, jobs, matches] = await Promise.all([
-        db.query.users.findMany(),
-        db.query.jobPostings.findMany(),
-        db.query.jobMatches.findMany()
+      // Use count queries instead of fetching all records for better performance
+      const [userCount, jobCount, matchCount] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(users),
+        db.select({ count: sql<number>`count(*)` }).from(jobPostings),
+        db.select({ count: sql<number>`count(*)` }).from(jobApplications)
       ]);
 
       const stats = {
-        totalUsers: users.length,
-        totalJobs: jobs.length,
-        totalMatches: matches.length,
-        avgMatchScore: matches.length > 0 ? 88 : 0
+        totalUsers: userCount[0]?.count || 0,
+        totalJobs: jobCount[0]?.count || 0,
+        totalMatches: matchCount[0]?.count || 0,
+        avgMatchScore: matchCount[0]?.count > 0 ? 88 : 0
       };
 
+      // Cache response for 5 minutes
+      res.set('Cache-Control', 'public, max-age=300');
       res.json(stats);
     } catch (error) {
       console.error('Error fetching platform stats:', error);

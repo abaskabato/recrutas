@@ -103,6 +103,11 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().unique().references(() => users.id),
   
+  // Basic Info
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  email: varchar("email"),
+  
   // Portfolio & Social Links
   resumeUrl: text("resume_url"),
   linkedinUrl: text("linkedin_url"),
@@ -125,8 +130,10 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   
   // AI-Enhanced Profile Data
   bio: text("bio"), // Summary/objective from resume
+  summary: text("summary"), // Profile summary
   resumeText: text("resume_text"), // Raw parsed text for AI matching
   profileStrength: integer("profile_strength").default(0), // AI-calculated profile completeness score
+  profileViews: integer("profile_views").default(0), // Track profile views
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -153,6 +160,8 @@ export const jobPostings = pgTable("job_postings", {
   status: varchar("status", { enum: ["active", "paused", "closed"] }).default("active"),
   source: varchar("source").default("platform"), // "platform", "external_api", "scraped"
   externalId: varchar("external_id"), // For AI-curated jobs from external sources
+  externalUrl: varchar("external_url"), // External career page URL
+  careerPageUrl: varchar("career_page_url"), // Company career page
   companyLogoUrl: varchar("company_logo_url"),
   applicationUrl: varchar("application_url"), // Direct apply link
   urgency: varchar("urgency", { enum: ["low", "medium", "high"] }).default("medium"),

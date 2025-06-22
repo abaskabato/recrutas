@@ -735,12 +735,9 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced candidate stats
   async getCandidateStats(candidateId: string): Promise<{
-    totalApplications: number;
-    activeMatches: number;
+    newMatches: number;
     profileViews: number;
-    profileStrength: number;
-    responseRate: number;
-    avgMatchScore: number;
+    activeChats: number;
   }> {
     try {
       // Get application count
@@ -797,23 +794,23 @@ export class DatabaseStorage implements IStorage {
         avgMatchScore = Math.round(totalScore / matches.length);
       }
 
+      // Get active chat rooms count
+      const chatCount = await db
+        .select({ count: count() })
+        .from(chatRooms)
+        .where(eq(chatRooms.candidateId, candidateId));
+
       return {
-        totalApplications: applicationCount[0]?.count || 0,
-        activeMatches: matchCount[0]?.count || 0,
+        newMatches: matchCount[0]?.count || 0,
         profileViews: profile?.profileViews || 0,
-        profileStrength,
-        responseRate: 85, // Mock value - would be calculated from actual response data
-        avgMatchScore,
+        activeChats: chatCount[0]?.count || 0,
       };
     } catch (error) {
       console.error('Error fetching candidate stats:', error);
       return {
-        totalApplications: 0,
-        activeMatches: 0,
+        newMatches: 0,
         profileViews: 0,
-        profileStrength: 0,
-        responseRate: 0,
-        avgMatchScore: 0,
+        activeChats: 0,
       };
     }
   }

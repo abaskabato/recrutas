@@ -43,6 +43,8 @@ interface CandidateStats {
   profileStrength: number;
   responseRate: number;
   avgMatchScore: number;
+  newMatches: number;
+  activeChats: number;
 }
 
 interface JobMatch {
