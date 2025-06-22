@@ -172,6 +172,14 @@ export default function AuthPage() {
                         className="border-gray-300 focus:border-black h-11"
                       />
                     </div>
+                    
+                    {/* Forgot Password Link */}
+                    <div className="text-right">
+                      <Link href="/forgot-password" className="text-sm text-gray-600 hover:text-black transition-colors duration-200">
+                        Forgot your password?
+                      </Link>
+                    </div>
+                    
                     <Button 
                       type="submit" 
                       className="w-full bg-black text-white hover:bg-gray-800 transition-colors duration-200 h-11"
