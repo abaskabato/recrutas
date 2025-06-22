@@ -4,6 +4,14 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { 
+  getStatusColor, 
+  formatSalary, 
+  formatWorkType, 
+  timeAgo, 
+  getErrorMessage,
+  formatDate
+} from "@/lib/dashboard-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -159,7 +167,7 @@ export default function TalentDashboard() {
         location: "",
         salaryMin: "",
         salaryMax: "",
-        workType: "remote"
+        workType: "remote" as "remote" | "hybrid" | "onsite"
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
@@ -167,7 +175,7 @@ export default function TalentDashboard() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to create job posting. Please try again.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     },
@@ -189,7 +197,7 @@ export default function TalentDashboard() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to delete job posting. Please try again.",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }

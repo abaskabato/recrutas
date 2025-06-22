@@ -1001,6 +1001,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/chat/start/:matchId', requireAuth, async (req: any, res) => {
+    try {
+      const matchId = parseInt(req.params.matchId);
+      const userId = req.user.id;
+      
+      // Check if chat room already exists
+      let chatRoom = await storage.getChatRoom(matchId);
+      
+      if (!chatRoom) {
+        // Create new chat room
+        chatRoom = await storage.createChatRoom(matchId);
+      }
+      
+      res.json({ 
+        roomId: chatRoom.id, 
+        matchId: matchId,
+        status: 'active' 
+      });
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      res.status(500).json({ message: "Failed to start chat" });
+    }
+  });
+
   app.get('/api/chat/room/:matchId', requireAuth, async (req: any, res) => {
     try {
       const matchId = parseInt(req.params.matchId);

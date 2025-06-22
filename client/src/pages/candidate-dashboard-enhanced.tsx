@@ -3,6 +3,15 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getStatusColor, 
+  formatSalary, 
+  formatWorkType, 
+  timeAgo, 
+  validateFileType, 
+  formatFileSize,
+  getErrorMessage 
+} from "@/lib/dashboard-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -145,11 +154,13 @@ export default function CandidateDashboardEnhanced() {
       
       const response = await fetch('/api/candidates/upload-resume', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
       
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Upload failed');
       }
       
       return response.json();
@@ -161,14 +172,18 @@ export default function CandidateDashboardEnhanced() {
       });
       setShowResumeUpload(false);
       setSelectedFile(null);
-      // Auth data handled by Better Auth session
+      setUploadProgress(0);
+      // Refresh user data and profile
+      queryClient.invalidateQueries({ queryKey: ['/api/session'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Upload failed",
-        description: "Please try again",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
+      setUploadProgress(0);
     },
   });
 
@@ -196,15 +211,28 @@ export default function CandidateDashboardEnhanced() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type === 'application/pdf' || file.type.includes('word')) {
-        setSelectedFile(file);
-      } else {
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      
+      if (!validateFileType(file, allowedTypes)) {
         toast({
           title: "Invalid file type",
-          description: "Please upload a PDF or Word document",
+          description: "Please upload a PDF or Word document (.pdf, .doc, .docx)",
           variant: "destructive",
         });
+        return;
       }
+      
+      if (file.size > maxSize) {
+        toast({
+          title: "File too large",
+          description: `File size must be less than ${formatFileSize(maxSize)}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setSelectedFile(file);
     }
   };
 
@@ -218,7 +246,12 @@ export default function CandidateDashboardEnhanced() {
   // Apply to job mutation
   const applyToJobMutation = useMutation({
     mutationFn: async (jobId: number) => {
-      return apiRequest("POST", `/api/candidates/apply/${jobId}`, {});
+      const response = await apiRequest("POST", `/api/candidates/apply/${jobId}`, {});
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Application failed');
+      }
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -227,27 +260,18 @@ export default function CandidateDashboardEnhanced() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/candidates/applications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
     },
     onError: (error: any) => {
       toast({
         title: "Application Failed",
-        description: error.message || "Failed to submit application",
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'applied': return 'bg-blue-100 text-blue-800';
-      case 'viewed': return 'bg-yellow-100 text-yellow-800';
-      case 'interested': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'screening': return 'bg-purple-100 text-purple-800';
-      case 'interview': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-slate-100 text-slate-800';
-    }
-  };
+
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
@@ -261,16 +285,36 @@ export default function CandidateDashboardEnhanced() {
     }
   };
 
-  const formatSalary = (min?: number, max?: number) => {
-    if (!min && !max) return 'Salary not specified';
-    if (min && max) return `$${(min/1000).toFixed(0)}k - $${(max/1000).toFixed(0)}k`;
-    if (min) return `$${(min/1000).toFixed(0)}k+`;
-    return `Up to $${(max!/1000).toFixed(0)}k`;
-  };
+
+
+  // Chat initiation mutation
+  const startChatMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      const response = await apiRequest("POST", `/api/chat/start/${matchId}`, {});
+      if (!response.ok) {
+        throw new Error('Failed to start chat');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setSelectedChatRoom(data.roomId);
+      setShowChat(true);
+      toast({
+        title: "Chat Started",
+        description: "You can now chat with the hiring manager",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Chat Failed",
+        description: "Unable to start chat. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
 
   const handleStartChat = (matchId: number) => {
-    setSelectedChatRoom(matchId);
-    setShowChat(true);
+    startChatMutation.mutate(matchId);
   };
 
   return (
@@ -463,8 +507,13 @@ export default function CandidateDashboardEnhanced() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStartChat(match.id)}
+                                disabled={startChatMutation.isPending}
                               >
-                                <MessageSquare className="w-4 h-4 mr-1" />
+                                {startChatMutation.isPending ? (
+                                  <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-1" />
+                                ) : (
+                                  <MessageSquare className="w-4 h-4 mr-1" />
+                                )}
                                 Chat
                               </Button>
                               <Button
@@ -472,7 +521,11 @@ export default function CandidateDashboardEnhanced() {
                                 onClick={() => applyToJobMutation.mutate(match.jobId)}
                                 disabled={applyToJobMutation.isPending}
                               >
-                                Apply
+                                {applyToJobMutation.isPending ? (
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+                                ) : (
+                                  'Apply'
+                                )}
                               </Button>
                             </div>
                           </div>
