@@ -45,7 +45,10 @@ import {
   Mail,
   Phone,
   Target,
-  BarChart3
+  BarChart3,
+  Building,
+  CheckCircle,
+  Loader2
 } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
 
@@ -111,7 +114,17 @@ export default function TalentDashboard() {
     location: "",
     salaryMin: "",
     salaryMax: "",
-    workType: "remote" as const
+    workType: "remote" as const,
+    industry: "",
+    urgency: "medium" as const,
+    benefits: [] as string[],
+    experienceLevel: "",
+    department: "",
+    isRemoteFriendly: true,
+    applicationDeadline: "",
+    contactEmail: "",
+    companySize: "",
+    companyDescription: ""
   });
 
   // Redirect to login if not authenticated
@@ -170,7 +183,17 @@ export default function TalentDashboard() {
         location: "",
         salaryMin: "",
         salaryMax: "",
-        workType: "remote" as "remote" | "hybrid" | "onsite"
+        workType: "remote" as "remote" | "hybrid" | "onsite",
+        industry: "",
+        urgency: "medium" as const,
+        benefits: [],
+        experienceLevel: "",
+        department: "",
+        isRemoteFriendly: true,
+        applicationDeadline: "",
+        contactEmail: "",
+        companySize: "",
+        companyDescription: ""
       });
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
@@ -217,11 +240,17 @@ export default function TalentDashboard() {
     }
 
     const jobData = {
-      ...jobForm,
-      salaryMin: jobForm.salaryMin ? parseInt(jobForm.salaryMin) : undefined,
-      salaryMax: jobForm.salaryMax ? parseInt(jobForm.salaryMax) : undefined,
+      title: jobForm.title,
+      company: jobForm.company,
+      description: jobForm.description,
+      location: jobForm.location || null,
+      workType: jobForm.workType,
+      industry: jobForm.industry || null,
+      salaryMin: jobForm.salaryMin ? parseInt(jobForm.salaryMin) : null,
+      salaryMax: jobForm.salaryMax ? parseInt(jobForm.salaryMax) : null,
       requirements: jobForm.requirements.filter(r => r.trim()),
       skills: jobForm.skills.filter(s => s.trim()),
+      urgency: jobForm.urgency,
     };
 
     createJobMutation.mutate(jobData);
@@ -1025,109 +1054,276 @@ export default function TalentDashboard() {
         )}
       </div>
 
-      {/* Job Creation Dialog */}
+      {/* Enhanced Job Creation Dialog */}
       <Dialog open={showJobDialog} onOpenChange={setShowJobDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Post New Job</DialogTitle>
+            <DialogTitle className="flex items-center">
+              <Briefcase className="h-5 w-5 mr-2" />
+              Post New Job - Advanced Job Posting
+            </DialogTitle>
+            <p className="text-sm text-gray-600">Create a comprehensive job posting to attract the right candidates</p>
           </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <div className="space-y-8 py-4">
+            {/* Basic Information Section */}
+            <div className="border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Building2 className="h-4 w-4 mr-2" />
+                Basic Information
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Job Title *</label>
+                  <Input
+                    value={jobForm.title}
+                    onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
+                    placeholder="e.g., Senior Software Engineer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Company *</label>
+                  <Input
+                    value={jobForm.company}
+                    onChange={(e) => setJobForm({ ...jobForm, company: e.target.value })}
+                    placeholder="e.g., Recrutas Technologies"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Department</label>
+                  <Input
+                    value={jobForm.department}
+                    onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })}
+                    placeholder="e.g., Engineering, Marketing, Sales"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Industry</label>
+                  <Select value={jobForm.industry} onValueChange={(value) => setJobForm({ ...jobForm, industry: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="technology">Technology</SelectItem>
+                      <SelectItem value="finance">Finance</SelectItem>
+                      <SelectItem value="healthcare">Healthcare</SelectItem>
+                      <SelectItem value="education">Education</SelectItem>
+                      <SelectItem value="retail">Retail</SelectItem>
+                      <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                      <SelectItem value="consulting">Consulting</SelectItem>
+                      <SelectItem value="startup">Startup</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium mb-2">Job Title *</label>
-                <Input
-                  value={jobForm.title}
-                  onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
-                  placeholder="e.g., Senior Software Engineer"
+                <label className="block text-sm font-medium mb-2">Job Description *</label>
+                <Textarea
+                  value={jobForm.description}
+                  onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
+                  placeholder="Join our team! Describe the role, responsibilities, team culture, and what makes this opportunity exciting..."
+                  rows={4}
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium mb-2">Company *</label>
-                <Input
-                  value={jobForm.company}
-                  onChange={(e) => setJobForm({ ...jobForm, company: e.target.value })}
-                  placeholder="e.g., Recrutas Technologies"
+                <label className="block text-sm font-medium mb-2">Company Description</label>
+                <Textarea
+                  value={jobForm.companyDescription}
+                  onChange={(e) => setJobForm({ ...jobForm, companyDescription: e.target.value })}
+                  placeholder="Tell candidates about your company, mission, values, and what makes it a great place to work..."
+                  rows={3}
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Job Description *</label>
-              <Textarea
-                value={jobForm.description}
-                onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
-                placeholder="Join our team at Recrutas! Describe the role, responsibilities, and what you're looking for in an ideal candidate..."
-                rows={4}
-              />
+            {/* Location & Work Details */}
+            <div className="border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center">
+                <MapPin className="h-4 w-4 mr-2" />
+                Location & Work Details
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Location</label>
+                  <Input
+                    value={jobForm.location}
+                    onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
+                    placeholder="e.g., San Francisco, CA or Remote"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Work Type</label>
+                  <Select value={jobForm.workType} onValueChange={(value: any) => setJobForm({ ...jobForm, workType: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="remote">Remote</SelectItem>
+                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                      <SelectItem value="onsite">On-site</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Experience Level</label>
+                  <Select value={jobForm.experienceLevel} onValueChange={(value) => setJobForm({ ...jobForm, experienceLevel: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select experience level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="entry">Entry Level (0-2 years)</SelectItem>
+                      <SelectItem value="mid">Mid Level (3-5 years)</SelectItem>
+                      <SelectItem value="senior">Senior Level (6-10 years)</SelectItem>
+                      <SelectItem value="lead">Lead/Principal (10+ years)</SelectItem>
+                      <SelectItem value="executive">Executive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Company Size</label>
+                  <Select value={jobForm.companySize} onValueChange={(value) => setJobForm({ ...jobForm, companySize: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select company size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="startup">Startup (1-10)</SelectItem>
+                      <SelectItem value="small">Small (11-50)</SelectItem>
+                      <SelectItem value="medium">Medium (51-200)</SelectItem>
+                      <SelectItem value="large">Large (201-1000)</SelectItem>
+                      <SelectItem value="enterprise">Enterprise (1000+)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Compensation & Benefits */}
+            <div className="border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Compensation & Benefits
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Min Salary (Annual)</label>
+                  <Input
+                    type="number"
+                    value={jobForm.salaryMin}
+                    onChange={(e) => setJobForm({ ...jobForm, salaryMin: e.target.value })}
+                    placeholder="50000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Max Salary (Annual)</label>
+                  <Input
+                    type="number"
+                    value={jobForm.salaryMax}
+                    onChange={(e) => setJobForm({ ...jobForm, salaryMax: e.target.value })}
+                    placeholder="100000"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium mb-2">Location</label>
-                <Input
-                  value={jobForm.location}
-                  onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
-                  placeholder="e.g., San Francisco, CA"
+                <label className="block text-sm font-medium mb-2">Benefits & Perks</label>
+                <Textarea
+                  placeholder="• Health, dental, vision insurance&#10;• 401(k) with company match&#10;• Unlimited PTO&#10;• Remote work flexibility&#10;• Professional development budget&#10;• Stock options/equity&#10;• Gym membership&#10;• Free lunch"
+                  rows={3}
+                  onChange={(e) => setJobForm({ 
+                    ...jobForm, 
+                    benefits: e.target.value.split('\n').map(b => b.trim()).filter(b => b)
+                  })}
                 />
               </div>
+            </div>
+
+            {/* Requirements & Skills */}
+            <div className="border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Target className="h-4 w-4 mr-2" />
+                Requirements & Skills
+              </h3>
+              
               <div>
-                <label className="block text-sm font-medium mb-2">Min Salary</label>
+                <label className="block text-sm font-medium mb-2">Required Skills *</label>
                 <Input
-                  type="number"
-                  value={jobForm.salaryMin}
-                  onChange={(e) => setJobForm({ ...jobForm, salaryMin: e.target.value })}
-                  placeholder="50000"
+                  placeholder="React, Node.js, Python, JavaScript, TypeScript, AWS... (comma separated)"
+                  onChange={(e) => setJobForm({ 
+                    ...jobForm, 
+                    skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                  })}
+                />
+                <p className="text-xs text-gray-500 mt-1">These skills will be used for AI-powered candidate matching</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Requirements & Qualifications</label>
+                <Textarea
+                  placeholder="• 3+ years of professional software development experience&#10;• Bachelor's degree in Computer Science or related field&#10;• Experience with modern web technologies&#10;• Strong problem-solving and analytical skills&#10;• Excellent communication and collaboration abilities&#10;• Experience with agile development methodologies"
+                  rows={4}
+                  onChange={(e) => setJobForm({ 
+                    ...jobForm, 
+                    requirements: e.target.value.split('\n').map(r => r.trim()).filter(r => r)
+                  })}
                 />
               </div>
+            </div>
+
+            {/* Application Details */}
+            <div className="border rounded-lg p-6 space-y-4">
+              <h3 className="text-lg font-semibold flex items-center">
+                <Clock className="h-4 w-4 mr-2" />
+                Application Details
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Contact Email</label>
+                  <Input
+                    type="email"
+                    value={jobForm.contactEmail}
+                    onChange={(e) => setJobForm({ ...jobForm, contactEmail: e.target.value })}
+                    placeholder="hiring@company.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Application Deadline</label>
+                  <Input
+                    type="date"
+                    value={jobForm.applicationDeadline}
+                    onChange={(e) => setJobForm({ ...jobForm, applicationDeadline: e.target.value })}
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium mb-2">Max Salary</label>
-                <Input
-                  type="number"
-                  value={jobForm.salaryMax}
-                  onChange={(e) => setJobForm({ ...jobForm, salaryMax: e.target.value })}
-                  placeholder="100000"
-                />
+                <label className="block text-sm font-medium mb-2">Urgency Level</label>
+                <Select value={jobForm.urgency} onValueChange={(value: any) => setJobForm({ ...jobForm, urgency: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low - Standard hiring timeline</SelectItem>
+                    <SelectItem value="medium">Medium - Looking to fill soon</SelectItem>
+                    <SelectItem value="high">High - Urgent need, fast hiring</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Work Type</label>
-              <Select value={jobForm.workType} onValueChange={(value: any) => setJobForm({ ...jobForm, workType: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="remote">Remote</SelectItem>
-                  <SelectItem value="hybrid">Hybrid</SelectItem>
-                  <SelectItem value="onsite">On-site</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Required Skills</label>
-              <Input
-                placeholder="React, Node.js, Python, JavaScript, TypeScript... (comma separated)"
-                onChange={(e) => setJobForm({ 
-                  ...jobForm, 
-                  skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
-                })}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Requirements</label>
-              <Textarea
-                placeholder="• 3+ years of professional experience&#10;• Bachelor's degree in Computer Science or related field&#10;• Experience with modern web technologies&#10;• Strong problem-solving skills&#10;• Excellent communication abilities"
-                rows={3}
-                onChange={(e) => setJobForm({ 
-                  ...jobForm, 
-                  requirements: e.target.value.split('\n').map(r => r.trim()).filter(r => r)
-                })}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
               <Button 
                 variant="outline" 
                 onClick={() => setShowJobDialog(false)}
@@ -1140,7 +1336,17 @@ export default function TalentDashboard() {
                 disabled={createJobMutation.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {createJobMutation.isPending ? "Creating..." : "Post Job"}
+                {createJobMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Job...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Post Job
+                  </>
+                )}
               </Button>
             </div>
           </div>
