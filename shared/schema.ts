@@ -245,12 +245,7 @@ export const notifications = pgTable("notifications", {
       "high_score_alert",
       "direct_connection",
       "status_update",
-      "new_match",
-      "smart_job_alert",
-      "profile_interest",
-      "skill_demand_surge",
-      "salary_benchmark_alert",
-      "career_opportunity"
+      "new_match"
     ] 
   }).notNull(),
   title: varchar("title").notNull(),
