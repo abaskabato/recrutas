@@ -182,9 +182,7 @@ export default function LandingResponsive() {
             <div className="flex items-center space-x-2 md:space-x-3">
               <RecrutasLogo size={32} className="w-8 h-8 md:w-10 md:h-10" />
               <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Recrutas</h2>
-              <Badge variant="secondary" className="hidden sm:inline-flex text-xs bg-red-500/20 text-red-300 border-red-500/30">
-                No Recruiters
-              </Badge>
+
             </div>
             
             {/* Desktop Navigation */}

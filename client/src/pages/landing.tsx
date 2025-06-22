@@ -349,9 +349,7 @@ export default function Landing() {
             >
               <RecrutasLogo size={36} />
               <h2 className="text-2xl font-bold text-white tracking-tight">Recrutas</h2>
-              <Badge variant="secondary" className="hidden sm:inline-flex bg-red-500/20 text-red-300 border-red-500/30">
-                No Recruiters
-              </Badge>
+
             </motion.div>
             
             {/* Desktop Navigation */}
