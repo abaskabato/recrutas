@@ -37,9 +37,32 @@ export const authClient = createAuthClient({
 export const {
   signIn,
   signUp,
-  signOut,
   useSession: useSessionRaw,
 } = authClient
+
+// Custom signOut function that uses our logout endpoint
+export const signOut = async () => {
+  try {
+    // Call our custom logout endpoint
+    const response = await fetch('/api/logout', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    
+    if (response.ok) {
+      // Force reload the page to clear all client-side state
+      window.location.href = '/';
+    } else {
+      console.error('Logout failed:', response.status);
+      // Fallback: still reload the page
+      window.location.href = '/';
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Fallback: reload the page anyway
+    window.location.href = '/';
+  }
+}
 
 // Custom hook to use our session endpoint
 function useCustomSession() {

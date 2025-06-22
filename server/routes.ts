@@ -117,6 +117,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Custom logout endpoint to force clear all session data
+  app.get("/api/logout", async (req, res) => {
+    try {
+      // Clear all possible session cookies
+      res.clearCookie('better-auth.session_token', { 
+        path: '/', 
+        httpOnly: false, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      res.clearCookie('better-auth.session_data', { 
+        path: '/', 
+        httpOnly: false, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      res.clearCookie('connect.sid', { 
+        path: '/', 
+        httpOnly: true, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      
+      // Also try clearing with different path variations
+      res.clearCookie('better-auth.session_token');
+      res.clearCookie('better-auth.session_data');
+      res.clearCookie('connect.sid');
+      
+      console.log('Manual logout completed, all cookies cleared');
+      res.status(200).json({ success: true, message: 'Logged out successfully' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Logout failed' });
+    }
+  });
+
   // Role selection endpoint - uses Better Auth session
   app.post("/api/user/select-role", async (req: any, res) => {
     try {
