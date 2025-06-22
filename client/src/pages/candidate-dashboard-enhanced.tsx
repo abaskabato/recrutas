@@ -321,47 +321,44 @@ export default function CandidateDashboardEnhanced() {
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Avatar className="h-10 w-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 sm:py-0 sm:h-16 gap-4 sm:gap-0">
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                 <AvatarFallback className="bg-blue-100 text-blue-600">
                   {user?.email?.[0]?.toUpperCase() || 'C'}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl font-semibold text-slate-900 truncate">
                   Welcome back, {user?.email?.split('@')[0] || 'Candidate'}
                 </h1>
-                <p className="text-sm text-slate-500">
+                <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">
                   Let's find your next opportunity
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <AdvancedNotificationCenter />
+            <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-end">
+              <div className="hidden sm:block">
+                <AdvancedNotificationCenter />
+              </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setShowResumeUpload(true)}
+                className="flex-shrink-0"
               >
-                <Upload className="w-4 h-4 mr-2" />
-                Resume
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowProfileCompletion(true)}
-              >
-                Test Profile
+                <Upload className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Resume</span>
               </Button>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setShowChat(!showChat)}
+                className="flex-shrink-0"
               >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Messages
+                <MessageSquare className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Messages</span>
               </Button>
               <Button 
                 variant="outline" 
@@ -369,69 +366,76 @@ export default function CandidateDashboardEnhanced() {
                 onClick={() => {
                   signOut();
                 }}
+                className="flex-shrink-0"
               >
-                Sign Out
+                <span className="sm:hidden">Exit</span>
+                <span className="hidden sm:inline">Sign Out</span>
               </Button>
             </div>
+          </div>
+          
+          {/* Mobile notification center */}
+          <div className="sm:hidden pb-4">
+            <AdvancedNotificationCenter />
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="matches">Matches</TabsTrigger>
-                <TabsTrigger value="applications">Applications</TabsTrigger>
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto">
+                <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+                <TabsTrigger value="matches" className="text-xs sm:text-sm">Matches</TabsTrigger>
+                <TabsTrigger value="applications" className="text-xs sm:text-sm hidden sm:block">Applications</TabsTrigger>
+                <TabsTrigger value="profile" className="text-xs sm:text-sm">Profile</TabsTrigger>
+                <TabsTrigger value="activity" className="text-xs sm:text-sm">Activity</TabsTrigger>
               </TabsList>
 
               {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
+              <TabsContent value="overview" className="space-y-4 sm:space-y-6">
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-slate-500">Total Applications</p>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-xs sm:text-sm font-medium text-slate-500">Total Applications</p>
+                          <p className="text-xl sm:text-2xl font-bold text-slate-900">
                             {statsLoading ? '-' : stats?.totalApplications || 0}
                           </p>
                         </div>
-                        <Briefcase className="w-8 h-8 text-blue-600" />
+                        <Briefcase className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-slate-500">Active Matches</p>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-xs sm:text-sm font-medium text-slate-500">Active Matches</p>
+                          <p className="text-xl sm:text-2xl font-bold text-slate-900">
                             {statsLoading ? '-' : stats?.activeMatches || 0}
                           </p>
                         </div>
-                        <Star className="w-8 h-8 text-yellow-600" />
+                        <Star className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-600" />
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-slate-500">Profile Views</p>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-xs sm:text-sm font-medium text-slate-500">Profile Views</p>
+                          <p className="text-xl sm:text-2xl font-bold text-slate-900">
                             {statsLoading ? '-' : stats?.profileViews || 0}
                           </p>
                         </div>
-                        <Eye className="w-8 h-8 text-green-600" />
+                        <Eye className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
                       </div>
                     </CardContent>
                   </Card>
@@ -494,41 +498,43 @@ export default function CandidateDashboardEnhanced() {
                     ) : matches.slice(0, 3).length > 0 ? (
                       <div className="space-y-4">
                         {matches.slice(0, 3).map((match) => (
-                          <div key={match.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-slate-900">{match.job.title}</h4>
-                              <p className="text-sm text-slate-500">{match.job.company}</p>
-                              <div className="flex items-center space-x-4 mt-2">
-                                <Badge variant="secondary">
+                          <div key={match.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-slate-200 rounded-lg gap-3 sm:gap-0">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-slate-900 truncate">{match.job.title}</h4>
+                              <p className="text-sm text-slate-500 truncate">{match.job.company}</p>
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <Badge variant="secondary" className="text-xs">
                                   {match.matchScore}% match
                                 </Badge>
                                 <div className="flex items-center space-x-1 text-xs text-slate-500">
-                                  <MapPin className="w-3 h-3" />
-                                  <span>{match.job.location}</span>
+                                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                                  <span className="truncate">{match.job.location}</span>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 flex-shrink-0">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStartChat(match.id)}
                                 disabled={startChatMutation.isPending}
+                                className="flex-1 sm:flex-none"
                               >
                                 {startChatMutation.isPending ? (
-                                  <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-1" />
+                                  <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin sm:mr-1" />
                                 ) : (
-                                  <MessageSquare className="w-4 h-4 mr-1" />
+                                  <MessageSquare className="w-4 h-4 sm:mr-1" />
                                 )}
-                                Chat
+                                <span className="hidden sm:inline">Chat</span>
                               </Button>
                               <Button
                                 size="sm"
                                 onClick={() => applyToJobMutation.mutate(match.jobId)}
                                 disabled={applyToJobMutation.isPending}
+                                className="flex-1 sm:flex-none"
                               >
                                 {applyToJobMutation.isPending ? (
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (
                                   'Apply'
                                 )}
@@ -551,37 +557,39 @@ export default function CandidateDashboardEnhanced() {
               <TabsContent value="matches" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <CardTitle>Job Matches</CardTitle>
-                      <div className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-2">
-                          <select className="text-sm border rounded px-2 py-1">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select className="text-xs sm:text-sm border rounded px-2 py-1 flex-1 min-w-0">
                             <option value="all">All Locations</option>
                             <option value="remote">Remote</option>
                             <option value="hybrid">Hybrid</option>
                             <option value="onsite">On-site</option>
                           </select>
-                          <select className="text-sm border rounded px-2 py-1">
+                          <select className="text-xs sm:text-sm border rounded px-2 py-1 flex-1 min-w-0">
                             <option value="all">All Companies</option>
                             <option value="faang">FAANG</option>
                             <option value="startup">Startup</option>
                             <option value="enterprise">Enterprise</option>
                           </select>
-                          <select className="text-sm border rounded px-2 py-1">
+                          <select className="text-xs sm:text-sm border rounded px-2 py-1 flex-1 min-w-0">
                             <option value="all">Match Score</option>
                             <option value="90+">90%+ Match</option>
                             <option value="80+">80%+ Match</option>
                             <option value="70+">70%+ Match</option>
                           </select>
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Filter className="w-4 h-4 mr-2" />
-                          More Filters
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Search className="w-4 h-4 mr-2" />
-                          Search
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                            <Filter className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">More Filters</span>
+                          </Button>
+                          <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                            <Search className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Search</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
@@ -1082,7 +1090,7 @@ export default function CandidateDashboardEnhanced() {
           {/* Chat Sidebar */}
           {showChat && (
             <div className="lg:col-span-1">
-              <div className="sticky top-8">
+              <div className="sticky top-4 lg:top-8">
                 <RealTimeChat 
                   roomId={selectedChatRoom} 
                   onClose={() => setShowChat(false)}
