@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupBetterAuth, isAuthenticated } from "./betterAuth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
@@ -22,10 +22,7 @@ import {
 import { eq } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
-import multer from "multer";
 import { resumeParser } from "./resume-parser";
-import path from "path";
-import fs from "fs";
 
 // Configure multer for file uploads
 const uploadDir = "uploads";
@@ -50,8 +47,17 @@ const upload = multer({
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Session configuration
+  const session = await import('express-session');
+  app.use(session.default({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  }));
+
   // Auth middleware
-  await setupAuth(app);
+  setupBetterAuth(app);
 
   // AI-powered job matching for candidates - place before other authenticated routes
   app.get('/api/ai-matches', async (req: any, res) => {

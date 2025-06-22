@@ -34,35 +34,39 @@ import { relations } from "drizzle-orm";
 // =============================================================================
 
 /**
- * Session Storage Table
- * Required for Replit Auth integration - stores user session data
+ * Session Storage Table  
+ * Better Auth session management
  */
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
+export const sessions = pgTable("session", {
+  id: text("id").primaryKey(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull(),
+  ipAddress: text("ipAddress"),
+  userAgent: text("userAgent"),
+  userId: text("userId").notNull().references(() => users.id),
+});
 
 /**
  * Users Table
- * Core user management for both candidates and talent owners
- * Integrates with Replit Auth for authentication
+ * Better Auth user management for both candidates and talent owners
  */
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
+export const users = pgTable("user", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("emailVerified").notNull().default(false),
+  image: text("image"),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull(),
+  // Custom fields for our platform
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   phoneNumber: varchar("phone_number"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { enum: ["candidate", "talent_owner"] }),
   profileComplete: boolean("profile_complete").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /**
