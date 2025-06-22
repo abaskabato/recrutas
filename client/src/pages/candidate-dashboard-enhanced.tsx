@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -35,8 +35,7 @@ import {
   Plus,
   Upload,
   FileText,
-  Send,
-  BarChart3
+  Send
 } from "lucide-react";
 
 interface CandidateStats {
@@ -203,124 +202,7 @@ export default function CandidateDashboardEnhanced() {
     });
   };
 
-  // Optimized Job Recommendation Functions with Memoization
-  const filterJobMatches = useCallback((matches: JobMatch[]) => {
-    if (!matches) return [];
-    
-    return matches.filter(match => {
-      // Search query filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const titleMatch = match.job.title.toLowerCase().includes(query);
-        const companyMatch = match.job.company.toLowerCase().includes(query);
-        if (!titleMatch && !companyMatch) return false;
-      }
-      
-      // Location filter
-      if (jobFilters.location !== 'all') {
-        if (jobFilters.location === 'remote' && match.job.workType !== 'remote') return false;
-        if (jobFilters.location === 'hybrid' && match.job.workType !== 'hybrid') return false;
-        if (jobFilters.location === 'onsite' && match.job.workType !== 'onsite') return false;
-      }
-      
-      // Match score filter
-      if (jobFilters.matchScore !== 'all') {
-        const score = parseInt(match.matchScore);
-        if (jobFilters.matchScore === '90+' && score < 90) return false;
-        if (jobFilters.matchScore === '80+' && score < 80) return false;
-        if (jobFilters.matchScore === '70+' && score < 70) return false;
-      }
-      
-      // Salary range filter
-      if (jobFilters.salaryRange !== 'all') {
-        const minSalary = match.job.salaryMin || 0;
-        if (jobFilters.salaryRange === '100k+' && minSalary < 100000) return false;
-        if (jobFilters.salaryRange === '150k+' && minSalary < 150000) return false;
-        if (jobFilters.salaryRange === '200k+' && minSalary < 200000) return false;
-      }
-      
-      return true;
-    });
-  }, [searchQuery, jobFilters]);
 
-  const sortJobMatches = useCallback((matches: JobMatch[]) => {
-    if (!matches) return [];
-    
-    return [...matches].sort((a, b) => {
-      switch (sortBy) {
-        case 'match':
-          return parseInt(b.matchScore) - parseInt(a.matchScore);
-        case 'salary':
-          return (b.job.salaryMax || 0) - (a.job.salaryMax || 0);
-        case 'date':
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case 'relevance':
-        default:
-          // Enhanced relevance algorithm with weighted factors
-          const now = Date.now();
-          const dayMs = 1000 * 60 * 60 * 24;
-          
-          // Calculate recency score (newer = higher score)
-          const aRecency = Math.max(0, 7 - (now - new Date(a.createdAt).getTime()) / dayMs);
-          const bRecency = Math.max(0, 7 - (now - new Date(b.createdAt).getTime()) / dayMs);
-          
-          // Weighted relevance score: 70% match score + 20% recency + 10% salary
-          const aRelevance = parseInt(a.matchScore) * 0.7 + 
-                           aRecency * 0.2 + 
-                           ((a.job.salaryMax || 0) / 300000) * 10 * 0.1;
-          const bRelevance = parseInt(b.matchScore) * 0.7 + 
-                           bRecency * 0.2 + 
-                           ((b.job.salaryMax || 0) / 300000) * 10 * 0.1;
-          
-          return bRelevance - aRelevance;
-      }
-    });
-  }, [sortBy]);
-
-  // Memoized recommendation results
-  const recommendedJobs = useMemo(() => {
-    const filtered = filterJobMatches(matches || []);
-    return sortJobMatches(filtered);
-  }, [matches, filterJobMatches, sortJobMatches]);
-
-  const topMatches = useMemo(() => {
-    return recommendedJobs.slice(0, 3);
-  }, [recommendedJobs]);
-
-  // Performance analytics for recommendation system
-  const recommendationStats = useMemo(() => {
-    if (!matches || matches.length === 0) return null;
-    
-    const totalMatches = matches.length;
-    const filteredCount = recommendedJobs.length;
-    const avgMatchScore = filteredCount > 0 
-      ? recommendedJobs.reduce((sum, match) => sum + parseInt(match.matchScore), 0) / filteredCount 
-      : 0;
-    const highQualityMatches = recommendedJobs.filter(match => parseInt(match.matchScore) >= 80).length;
-    
-    return {
-      totalMatches,
-      filteredCount,
-      avgMatchScore: Math.round(avgMatchScore),
-      highQualityMatches,
-      filterEffectiveness: totalMatches > 0 ? Math.round((filteredCount / totalMatches) * 100) : 0
-    };
-  }, [matches, recommendedJobs]);
-
-  // Helper function to get filtering effectiveness message
-  const getFilteringMessage = useCallback(() => {
-    if (!recommendationStats) return '';
-    
-    const { filterEffectiveness, highQualityMatches, filteredCount } = recommendationStats;
-    
-    if (filterEffectiveness === 100) {
-      return 'All matches shown';
-    } else if (filterEffectiveness >= 50) {
-      return `${highQualityMatches} high-quality matches found`;
-    } else {
-      return `Filters narrowed down to ${filteredCount} best matches`;
-    }
-  }, [recommendationStats]);
 
   // Handle file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -572,9 +454,9 @@ export default function CandidateDashboardEnhanced() {
                           </div>
                         ))}
                       </div>
-                    ) : topMatches.length > 0 ? (
+                    ) : matches.length > 0 ? (
                       <div className="space-y-4">
-                        {topMatches.map((match) => (
+                        {matches.slice(0, 3).map((match) => (
                           <div key={match.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                             <div className="flex-1">
                               <h4 className="font-medium text-slate-900">{match.job.title}</h4>
@@ -708,28 +590,7 @@ export default function CandidateDashboardEnhanced() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {/* Enhanced Results Summary with Analytics */}
-                    {!matchesLoading && matches.length > 0 && (
-                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="space-y-1">
-                            <span className="text-blue-700 dark:text-blue-300">
-                              Showing {recommendedJobs.length} of {matches.length} job matches
-                            </span>
-                            {recommendationStats && (
-                              <div className="text-xs text-blue-600 dark:text-blue-400">
-                                {getFilteringMessage()} • Avg match: {recommendationStats.avgMatchScore}%
-                              </div>
-                            )}
-                          </div>
-                          {(searchQuery || Object.values(jobFilters).some(f => f !== 'all') || sortBy !== 'relevance') && (
-                            <span className="text-blue-600 dark:text-blue-400 font-medium">
-                              Filters active
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
+
                     
                     {matchesLoading ? (
                       <div className="space-y-4">
@@ -739,9 +600,9 @@ export default function CandidateDashboardEnhanced() {
                           </div>
                         ))}
                       </div>
-                    ) : recommendedJobs.length > 0 ? (
+                    ) : matches.length > 0 ? (
                       <div className="space-y-4">
-                        {recommendedJobs.map((match) => (
+                        {matches.map((match) => (
                           <div key={match.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
