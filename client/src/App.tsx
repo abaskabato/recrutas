@@ -17,7 +17,13 @@ import NotFound from "@/pages/not-found";
 
 function Router() {
   const { data, user, isLoading, isAuthenticated } = useSession();
-  const { shouldShowRoleSelection, currentRole } = useRoleBasedAuth();
+
+  // Debug logging
+  console.log('Auth State:', { 
+    isAuthenticated, 
+    isLoading, 
+    user: user ? { id: user.id, role: user.role, email: user.email } : null 
+  });
 
   if (isLoading) {
     return (
@@ -26,8 +32,6 @@ function Router() {
       </div>
     );
   }
-
-
 
   return (
     <Switch>
@@ -40,17 +44,27 @@ function Router() {
       
       {/* Root route with role-based redirection */}
       <Route path="/">
-        {!isAuthenticated ? (
-          <Landing />
-        ) : shouldShowRoleSelection ? (
-          <RoleSelection />
-        ) : currentRole === "candidate" ? (
-          <CandidateDashboard />
-        ) : currentRole === "talent_owner" ? (
-          <TalentDashboard />
-        ) : (
-          <RoleSelection />
-        )}
+        {(() => {
+          // Not authenticated - show landing page
+          if (!isAuthenticated) {
+            return <Landing />;
+          }
+          
+          // Authenticated but no role - show role selection
+          if (!user?.role) {
+            return <RoleSelection />;
+          }
+          
+          // Authenticated with role - redirect to appropriate dashboard
+          if (user.role === "candidate") {
+            return <CandidateDashboard />;
+          } else if (user.role === "talent_owner") {
+            return <TalentDashboard />;
+          }
+          
+          // Default fallback to role selection
+          return <RoleSelection />;
+        })()}
       </Route>
       
       <Route component={NotFound} />
