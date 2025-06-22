@@ -417,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Resume upload with parsing
+  // Resume upload with AI parsing
   app.post('/api/candidate/resume', requireAuth, upload.single('resume'), async (req: any, res) => {
     try {
       if (!req.file) {
@@ -428,15 +428,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resumeUrl = `/uploads/${req.file.filename}`;
       const filePath = req.file.path;
       
-      // Parse the resume to extract information
+      // Parse the resume using AI-powered parser
       let parsedData = null;
+      let aiExtracted = null;
+      let parsingSuccess = false;
+      
       try {
-        // Temporarily disabled due to pdf-parse library issue
-        // const { resumeParser } = await import('./resume-parser');
-        // parsedData = await resumeParser.parseFile(filePath);
-        console.log('Resume parsing temporarily disabled');
+        const { aiResumeParser } = await import('./ai-resume-parser');
+        const result = await aiResumeParser.parseFile(filePath);
+        parsedData = result;
+        aiExtracted = result.aiExtracted;
+        parsingSuccess = true;
+        
+        console.log(`AI Resume parsing completed with ${result.confidence}% confidence in ${result.processingTime}ms`);
+        console.log(`Extracted: ${aiExtracted.skills.technical.length} technical skills, ${aiExtracted.experience.totalYears} years experience`);
       } catch (parseError) {
-        console.error('Resume parsing failed:', parseError);
+        console.error('AI Resume parsing failed:', parseError);
         // Continue with upload even if parsing fails
       }
       
@@ -451,39 +458,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...(existingProfile || {}),
       };
 
-      // Add parsed data if available
-      if (parsedData && typeof parsedData === 'object') {
-        const data = parsedData as any;
-        if (data.skills && Array.isArray(data.skills) && data.skills.length > 0) {
-          profileData.skills = data.skills;
+      // Add AI-parsed data if available
+      if (aiExtracted && parsingSuccess) {
+        // Merge technical skills with existing skills
+        const allSkills = [
+          ...(existingProfile?.skills || []),
+          ...aiExtracted.skills.technical
+        ];
+        profileData.skills = Array.from(new Set(allSkills)).slice(0, 25);
+        
+        // Set experience level and years
+        if (aiExtracted.experience.totalYears > 0) {
+          profileData.experience = aiExtracted.experience.level;
+          profileData.experienceYears = aiExtracted.experience.totalYears;
         }
         
-        if (data.experience && data.experience !== 'Not specified') {
-          profileData.experience = data.experience;
+        // Set location from contact info
+        if (aiExtracted.personalInfo.location) {
+          profileData.location = aiExtracted.personalInfo.location;
         }
         
-        if (data.contactInfo && data.contactInfo.location) {
-          profileData.location = data.contactInfo.location;
+        // Set bio from AI-extracted summary
+        if (aiExtracted.summary && aiExtracted.summary.length > 20) {
+          profileData.bio = aiExtracted.summary;
         }
         
-        if (data.summary) {
-          profileData.bio = data.summary;
+        // Store contact info
+        if (aiExtracted.personalInfo.linkedin) {
+          profileData.linkedinUrl = aiExtracted.personalInfo.linkedin;
+        }
+        if (aiExtracted.personalInfo.github) {
+          profileData.githubUrl = aiExtracted.personalInfo.github;
+        }
+        if (aiExtracted.personalInfo.portfolio) {
+          profileData.portfolioUrl = aiExtracted.personalInfo.portfolio;
         }
 
-        // Store parsed text for future reference
-        if (data.text) {
-          profileData.resumeText = data.text;
+        // Store full parsed text for future reference
+        if (parsedData?.text) {
+          profileData.resumeText = parsedData.text;
         }
+        
+        // Store AI analysis metadata
+        profileData.resumeParsingData = {
+          confidence: parsedData?.confidence || 0,
+          processingTime: parsedData?.processingTime || 0,
+          extractedSkillsCount: aiExtracted.skills.technical.length,
+          extractedPositionsCount: aiExtracted.experience.positions.length,
+          educationCount: aiExtracted.education.length,
+          certificationsCount: aiExtracted.certifications.length,
+          projectsCount: aiExtracted.projects.length
+        };
       }
       
       // Update candidate profile with resume URL and parsed data
       const profile = await storage.upsertCandidateProfile(profileData);
 
-      // Create activity log
-      const data = parsedData as any;
-      const activityMessage = data && data.skills && data.workHistory
-        ? `Resume uploaded and parsed successfully. Found ${data.skills.length} skills and ${data.workHistory.length} work entries.`
-        : "Resume uploaded successfully";
+      // Create activity log with AI parsing details
+      let activityMessage = "Resume uploaded successfully";
+      if (parsingSuccess && aiExtracted) {
+        const skillsCount = aiExtracted.skills.technical.length;
+        const experienceYears = aiExtracted.experience.totalYears;
+        const positionsCount = aiExtracted.experience.positions.length;
+        const confidence = parsedData?.confidence || 0;
+        
+        activityMessage = `Resume uploaded and AI-parsed with ${confidence}% confidence. Extracted ${skillsCount} technical skills, ${experienceYears} years experience, and ${positionsCount} work positions.`;
+      }
       
       await storage.createActivityLog(userId, "resume_upload", activityMessage);
 
@@ -556,12 +596,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ 
         resumeUrl,
-        parsed: !!parsedData,
-        extractedInfo: data ? {
-          skillsCount: data.skills?.length || 0,
-          experience: data.experience || '',
-          workHistoryCount: data.workHistory?.length || 0,
-          hasContactInfo: data.contactInfo ? Object.keys(data.contactInfo).length > 0 : false
+        parsed: parsingSuccess,
+        aiParsing: {
+          success: parsingSuccess,
+          confidence: parsedData?.confidence || 0,
+          processingTime: parsedData?.processingTime || 0
+        },
+        extractedInfo: aiExtracted ? {
+          skillsCount: aiExtracted.skills.technical.length,
+          softSkillsCount: aiExtracted.skills.soft.length,
+          experience: `${aiExtracted.experience.totalYears} years (${aiExtracted.experience.level})`,
+          workHistoryCount: aiExtracted.experience.positions.length,
+          educationCount: aiExtracted.education.length,
+          certificationsCount: aiExtracted.certifications.length,
+          projectsCount: aiExtracted.projects.length,
+          hasContactInfo: !!(aiExtracted.personalInfo.email || aiExtracted.personalInfo.phone),
+          extractedName: aiExtracted.personalInfo.name,
+          extractedLocation: aiExtracted.personalInfo.location,
+          linkedinFound: !!aiExtracted.personalInfo.linkedin,
+          githubFound: !!aiExtracted.personalInfo.github
         } : null,
         autoMatchingTriggered: true
       });
@@ -573,6 +626,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serve uploaded files
   app.use('/uploads', express.static(uploadDir));
+
+  // AI Resume parsing demo endpoint
+  app.get('/api/resume-parsing-demo', async (req, res) => {
+    try {
+      const { aiResumeParser } = await import('./ai-resume-parser');
+      
+      // Create a mock file path for demonstration
+      const mockFilePath = 'demo.pdf';
+      
+      // Parse using AI techniques
+      const result = await aiResumeParser.parseFile(mockFilePath);
+      
+      res.json({
+        message: "AI Resume Parsing Demonstration",
+        parsing: {
+          success: true,
+          confidence: result.confidence,
+          processingTime: result.processingTime,
+          aiTechniques: [
+            "Natural Language Processing (NLP)",
+            "Pattern Recognition",
+            "Named Entity Recognition",
+            "Semantic Analysis",
+            "Machine Learning Classification"
+          ]
+        },
+        extractedData: {
+          personalInfo: result.aiExtracted.personalInfo,
+          skills: {
+            technical: result.aiExtracted.skills.technical,
+            soft: result.aiExtracted.skills.soft,
+            count: result.aiExtracted.skills.technical.length + result.aiExtracted.skills.soft.length
+          },
+          experience: {
+            totalYears: result.aiExtracted.experience.totalYears,
+            level: result.aiExtracted.experience.level,
+            positions: result.aiExtracted.experience.positions.length
+          },
+          education: result.aiExtracted.education.length,
+          certifications: result.aiExtracted.certifications.length,
+          projects: result.aiExtracted.projects.length,
+          languages: result.aiExtracted.languages.length
+        },
+        mlCapabilities: {
+          skillExtraction: "Uses semantic matching against 100+ technical skills database",
+          experienceCalculation: "Analyzes text patterns and work history duration",
+          confidenceScoring: "ML-based confidence calculation using completeness metrics",
+          entityRecognition: "Extracts names, emails, phones, URLs using regex and NLP",
+          sectionIdentification: "Automatically identifies resume sections using keyword analysis",
+          duplicateRemoval: "Smart deduplication using Set operations and similarity matching"
+        }
+      });
+    } catch (error) {
+      console.error("Resume parsing demo error:", error);
+      res.status(500).json({ error: "Failed to demonstrate AI parsing" });
+    }
+  });
 
   // Candidate matches
   app.get('/api/candidate/matches', requireAuth, async (req: any, res) => {
