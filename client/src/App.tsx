@@ -32,7 +32,7 @@ function Router() {
               <Route path="/" component={CandidateDashboard} />
               <Route path="/candidate-dashboard" component={CandidateDashboard} />
             </>
-          ) : user.role === 'talent_owner' ? (
+          ) : user.role === 'recruiter' ? (
             <>
               <Route path="/" component={RecruiterDashboard} />
               <Route path="/recruiter-dashboard" component={RecruiterDashboard} />
