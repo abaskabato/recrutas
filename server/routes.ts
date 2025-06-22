@@ -355,14 +355,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const { firstName, lastName, phoneNumber } = req.body;
       
-      if (!firstName || !lastName || !phoneNumber) {
-        return res.status(400).json({ message: "First name, last name, and phone number are required" });
+      if (!firstName || !lastName) {
+        return res.status(400).json({ message: "First name and last name are required" });
       }
 
       const updatedUser = await storage.updateUserProfile(userId, {
         firstName: firstName,
         lastName: lastName,
-        phoneNumber: phoneNumber
+        phoneNumber: phoneNumber || null
       });
 
       res.json({ success: true, user: updatedUser });

@@ -192,8 +192,7 @@ export default function CandidateDashboardEnhanced() {
     if (user) {
       const extendedUser = user as any;
       const needsProfileCompletion = !extendedUser.firstName || 
-                                    !extendedUser.lastName || 
-                                    !extendedUser.phoneNumber;
+                                    !extendedUser.lastName;
       setShowProfileCompletion(needsProfileCompletion);
     }
   }, [user]);
@@ -348,6 +347,13 @@ export default function CandidateDashboardEnhanced() {
               >
                 <Upload className="w-4 h-4 mr-2" />
                 Resume
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowProfileCompletion(true)}
+              >
+                Test Profile
               </Button>
               <Button 
                 variant="outline" 
