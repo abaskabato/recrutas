@@ -11,6 +11,31 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    additionalFields: {
+      firstName: {
+        type: "string",
+        required: false,
+      },
+      lastName: {
+        type: "string", 
+        required: false,
+      },
+      phoneNumber: {
+        type: "string",
+        required: false,
+      },
+      role: {
+        type: "string",
+        required: false,
+      },
+      profileComplete: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+      },
+    },
+  },
   session: {
     cookieCache: {
       enabled: true,

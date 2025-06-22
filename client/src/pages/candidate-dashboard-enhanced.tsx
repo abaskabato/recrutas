@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useSession, signOut } from "@/lib/auth-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -90,7 +90,8 @@ interface Activity {
 }
 
 export default function CandidateDashboardEnhanced() {
-  const { user } = useAuth();
+  const { data: session } = useSession();
+  const user = session?.user;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
@@ -173,10 +174,11 @@ export default function CandidateDashboardEnhanced() {
 
   // Check if profile completion is needed
   useEffect(() => {
-    if (user && user.role) {
-      const needsProfileCompletion = !user.firstName || 
-                                    !user.lastName || 
-                                    !user.phoneNumber;
+    if (user) {
+      const extendedUser = user as any;
+      const needsProfileCompletion = !extendedUser.firstName || 
+                                    !extendedUser.lastName || 
+                                    !extendedUser.phoneNumber;
       setShowProfileCompletion(needsProfileCompletion);
     }
   }, [user]);
@@ -316,8 +318,7 @@ export default function CandidateDashboardEnhanced() {
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  // Use the proper logout endpoint
-                  window.location.href = '/api/logout';
+                  signOut();
                 }}
               >
                 Sign Out

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useSession, signOut } from "@/lib/auth-client";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -38,7 +38,10 @@ import RealTimeNotifications from "@/components/real-time-notifications";
 import JobMatchesModal from "@/components/job-matches-modal";
 
 export default function CandidateDashboard() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, isPending } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!user;
+  const isLoading = isPending;
   const { toast } = useToast();
   const [showJobMatchesModal, setShowJobMatchesModal] = useState(false);
 
@@ -160,9 +163,9 @@ export default function CandidateDashboard() {
                 <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                   <User className="h-4 w-4 text-primary" />
                 </div>
-                <span className="text-sm font-medium">{user?.firstName || 'Candidate'}</span>
+                <span className="text-sm font-medium">{(user as any)?.firstName || 'Candidate'}</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => window.location.href = "/api/logout"}>
+              <Button variant="outline" size="sm" onClick={() => signOut()}>
                 <span className="hidden sm:inline">Sign Out</span>
                 <span className="sm:hidden">Out</span>
               </Button>
@@ -179,7 +182,7 @@ export default function CandidateDashboard() {
               <div className="flex-1">
                 <h2 className="text-xl sm:text-2xl font-bold mb-2">
                   {currentStep === 'resume' ? 'Welcome! Let\'s get started' : 
-                   `Welcome back, ${user?.firstName || 'there'}!`}
+                   `Welcome back, ${(user as any)?.firstName || 'there'}!`}
                 </h2>
                 <p className="text-muted-foreground mb-4 text-sm sm:text-base">
                   {currentStep === 'resume' ? 'Upload your resume to get personalized job matches powered by AI.' :

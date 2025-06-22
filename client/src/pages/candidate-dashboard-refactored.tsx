@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useSession, signOut } from "@/lib/auth-client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -69,7 +69,10 @@ interface Application {
 }
 
 export default function CandidateDashboardRefactored() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, isPending } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!user;
+  const isLoading = isPending;
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'applications' | 'profile'>('overview');
   const [showJobMatchesModal, setShowJobMatchesModal] = useState(false);
@@ -123,7 +126,7 @@ export default function CandidateDashboardRefactored() {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      window.location.href = "/api/logout";
+      await signOut();
     },
   });
 
@@ -175,12 +178,12 @@ export default function CandidateDashboardRefactored() {
               <div className="flex items-center space-x-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-blue-100 text-blue-600 text-sm font-medium">
-                    {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                    {(user as any)?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-slate-900">
-                    {user?.firstName || 'User'}
+                    {(user as any)?.firstName || 'User'}
                   </p>
                   <p className="text-xs text-slate-500">Candidate</p>
                 </div>
@@ -203,7 +206,7 @@ export default function CandidateDashboardRefactored() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-slate-900 mb-2">
-            Welcome back, {user?.firstName || 'there'}!
+            Welcome back, {(user as any)?.firstName || 'there'}!
           </h2>
           <p className="text-slate-600">
             Here's what's happening with your job search today.
