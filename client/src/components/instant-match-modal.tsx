@@ -216,23 +216,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 </motion.div>
               </div>
 
-              <motion.h2 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.6 }}
-                className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent mb-3"
-              >
-                AI-Powered Job Discovery
-              </motion.h2>
-              
-              <motion.p 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.6 }}
-                className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed"
-              >
-                Experience the future of job matching. Our advanced AI analyzes your profile and delivers personalized opportunities in real-time.
-              </motion.p>
+
             </motion.div>
           </div>
 
