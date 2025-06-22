@@ -629,7 +629,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         });
         
+        console.log(`Skills filter: ${skillsArray.join(', ')} - matched ${filteredJobs.length} jobs`);
+        
+        // If strict matching returns 0, try broader matching
         if (filteredJobs.length === 0) {
+          console.log('No strict matches, trying broader skill matching...');
+          filteredJobs = externalJobs.filter(job => {
+            const jobSkills = job.skills.map(s => s.toLowerCase());
+            const jobTitle = job.title.toLowerCase();
+            const jobDescription = job.description.toLowerCase();
+            const combinedText = `${jobTitle} ${jobDescription} ${jobSkills.join(' ')}`;
+            
+            return skillsArray.some(skill => {
+              // Try partial matches for programming languages
+              if (skill === 'python') return combinedText.includes('python') || combinedText.includes('django') || combinedText.includes('flask');
+              if (skill === 'javascript') return combinedText.includes('javascript') || combinedText.includes('js') || combinedText.includes('react') || combinedText.includes('node');
+              if (skill === 'react') return combinedText.includes('react') || combinedText.includes('javascript');
+              if (skill === 'java') return combinedText.includes('java') && !combinedText.includes('javascript');
+              return combinedText.includes(skill);
+            });
+          });
+          
+          console.log(`Broader matching found ${filteredJobs.length} jobs`);
+        }
+        
+        // If still no matches, return all jobs to avoid empty results
+        if (filteredJobs.length === 0) {
+          console.log('Still no matches, returning all available jobs');
           filteredJobs = externalJobs;
         }
       }
