@@ -932,6 +932,11 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
+  async getAvailableNotificationUsers(): Promise<string[]> {
+    const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
+    return result.map(r => r.userId);
+  }
 }
 
 export const storage = new DatabaseStorage();

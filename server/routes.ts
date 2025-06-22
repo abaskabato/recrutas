@@ -1669,13 +1669,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/notifications', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      console.log('Fetching notifications for user:', userId);
       const notifications = await storage.getNotifications(userId);
+      console.log('Found notifications:', notifications.length);
+      
+      // If no notifications for this user, return empty array but log available users
+      if (notifications.length === 0) {
+        console.log('No notifications for user:', userId);
+        console.log('Available notification users in DB:', await storage.getAvailableNotificationUsers());
+      }
+      
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ message: "Failed to fetch notifications" });
     }
   });
+
+
 
   app.put('/api/notifications/:id/read', requireAuth, async (req: any, res) => {
     try {
@@ -2587,64 +2598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Real-time notification endpoints
-  app.get('/api/notifications', requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const notifications = await notificationService.getAllNotifications(userId, limit);
-      res.json(notifications);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      res.status(500).json({ message: "Failed to fetch notifications" });
-    }
-  });
 
-  app.get('/api/notifications/unread', requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const notifications = await notificationService.getUnreadNotifications(userId, limit);
-      res.json(notifications);
-    } catch (error) {
-      console.error("Error fetching unread notifications:", error);
-      res.status(500).json({ message: "Failed to fetch unread notifications" });
-    }
-  });
-
-  app.get('/api/notifications/count', requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const count = await notificationService.getUnreadCount(userId);
-      res.json({ count });
-    } catch (error) {
-      console.error("Error fetching notification count:", error);
-      res.status(500).json({ message: "Failed to fetch notification count" });
-    }
-  });
-
-  app.post('/api/notifications/:id/read', requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const notificationId = parseInt(req.params.id);
-      await notificationService.markAsRead(notificationId, userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-      res.status(500).json({ message: "Failed to mark notification as read" });
-    }
-  });
-
-  app.post('/api/notifications/mark-all-read', requireAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      await notificationService.markAllAsRead(userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-      res.status(500).json({ message: "Failed to mark all notifications as read" });
-    }
-  });
 
   // Notification preferences endpoints
   app.get('/api/notification-preferences', requireAuth, async (req: any, res) => {
