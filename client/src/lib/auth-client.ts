@@ -45,6 +45,19 @@ export function useSession() {
   try {
     const session = useSessionRaw();
     
+    // Debug logging
+    console.log('Raw session data:', {
+      isPending: session.isPending,
+      hasData: !!session.data,
+      hasUser: !!session.data?.user,
+      error: session.error,
+      userData: session.data?.user ? {
+        id: session.data.user.id,
+        email: session.data.user.email,
+        role: (session.data.user as any).role
+      } : null
+    });
+    
     // Handle loading states properly to prevent unhandled rejections
     if (session.isPending) {
       return {
