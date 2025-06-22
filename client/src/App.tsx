@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/hooks/useAuth";
+import { useSession } from "@/lib/auth-client";
 import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
@@ -13,7 +13,7 @@ import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { data: session, isPending: isLoading } = useSession();
 
   if (isLoading) {
     return (
@@ -23,28 +23,21 @@ function Router() {
     );
   }
 
+  const user = session?.user;
+
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
-      {!isAuthenticated || !user?.role ? (
+      {!user ? (
         <Route path="/" component={Landing} />
       ) : (
         <>
-          {user.role === 'candidate' ? (
-            <>
-              <Route path="/" component={CandidateDashboard} />
-              <Route path="/candidate-dashboard" component={CandidateDashboard} />
-            </>
-          ) : user.role === 'talent_owner' ? (
-            <>
-              <Route path="/" component={TalentDashboard} />
-              <Route path="/talent-dashboard" component={TalentDashboard} />
-              <Route path="/recruiter-dashboard" component={TalentDashboard} />
-            </>
-          ) : (
-            <Route path="/" component={Landing} />
-          )}
+          {/* For now, all authenticated users go to candidate dashboard */}
+          <Route path="/" component={CandidateDashboard} />
+          <Route path="/candidate-dashboard" component={CandidateDashboard} />
+          <Route path="/talent-dashboard" component={TalentDashboard} />
+          <Route path="/recruiter-dashboard" component={TalentDashboard} />
           <Route path="/chat/:roomId?" component={Chat} />
         </>
       )}

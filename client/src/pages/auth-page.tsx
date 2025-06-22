@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,83 +7,79 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect, Link } from "wouter"
 import { Loader2, ArrowLeft } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { signIn, signUp, useSession } from "@/lib/auth-client"
 
 export default function AuthPage() {
-  const { isAuthenticated, user } = useAuth()
+  const { data: session } = useSession()
   const { toast } = useToast()
-  const queryClient = useQueryClient()
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const [isSigningUp, setIsSigningUp] = useState(false)
 
   // Redirect if already authenticated
-  if (isAuthenticated && user) {
+  if (session?.user) {
     return <Redirect to="/" />
   }
 
-  const signInMutation = useMutation({
-    mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const response = await fetch('/api/auth/sign-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
+  const handleSignIn = async (email: string, password: string) => {
+    setIsSigningIn(true)
+    try {
+      const { data, error } = await signIn.email({
+        email,
+        password,
       })
-      if (!response.ok) {
-        const error = await response.text()
-        throw new Error(error || 'Sign in failed')
+      
+      if (error) {
+        throw new Error(error.message)
       }
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] })
+      
       toast({ title: "Welcome back!", description: "Successfully signed in." })
-    },
-    onError: (error: Error) => {
+    } catch (error: any) {
       toast({
         title: "Sign in failed",
         description: error.message,
         variant: "destructive",
       })
-    },
-  })
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
 
-  const signUpMutation = useMutation({
-    mutationFn: async ({ name, email, password }: { name: string; email: string; password: string }) => {
-      const response = await fetch('/api/auth/sign-up', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-        credentials: 'include'
+  const handleSignUp = async (name: string, email: string, password: string) => {
+    setIsSigningUp(true)
+    try {
+      const { data, error } = await signUp.email({
+        email,
+        password,
+        name,
       })
-      if (!response.ok) {
-        const error = await response.text()
-        throw new Error(error || 'Sign up failed')
+      
+      if (error) {
+        throw new Error(error.message)
       }
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] })
-      toast({ title: "Welcome!", description: "Account created successfully." })
-    },
-    onError: (error: Error) => {
+      
+      toast({ title: "Account created!", description: "Welcome to Recrutas." })
+    } catch (error: any) {
       toast({
         title: "Sign up failed",
         description: error.message,
         variant: "destructive",
       })
-    },
-  })
+    } finally {
+      setIsSigningUp(false)
+    }
+  }
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSignInForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
     const formData = new FormData(e.currentTarget)
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    signInMutation.mutate({ email, password })
+    await handleSignIn(email, password)
   }
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSignUpForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
     const formData = new FormData(e.currentTarget)
@@ -92,7 +87,7 @@ export default function AuthPage() {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    signUpMutation.mutate({ name, email, password })
+    await handleSignUp(name, email, password)
   }
 
 
@@ -149,7 +144,7 @@ export default function AuthPage() {
                   <CardDescription className="text-gray-600">Sign in to your account to continue</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSignIn} className="space-y-4 sm:space-y-5">
+                  <form onSubmit={handleSignInForm} className="space-y-4 sm:space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="signin-email" className="text-black">Email</Label>
                       <Input
@@ -183,9 +178,9 @@ export default function AuthPage() {
                     <Button 
                       type="submit" 
                       className="w-full bg-black text-white hover:bg-gray-800 transition-colors duration-200 h-11"
-                      disabled={signInMutation.isPending}
+                      disabled={isSigningIn}
                     >
-                      {signInMutation.isPending ? (
+                      {isSigningIn ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Signing in...
@@ -206,7 +201,7 @@ export default function AuthPage() {
                   <CardDescription className="text-gray-600">Join Recrutas to find your next opportunity</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSignUp} className="space-y-4 sm:space-y-5">
+                  <form onSubmit={handleSignUpForm} className="space-y-4 sm:space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="signup-name" className="text-black">Full Name</Label>
                       <Input
@@ -244,9 +239,9 @@ export default function AuthPage() {
                     <Button 
                       type="submit" 
                       className="w-full bg-black text-white hover:bg-gray-800 transition-colors duration-200 h-11"
-                      disabled={signUpMutation.isPending}
+                      disabled={isSigningUp}
                     >
-                      {signUpMutation.isPending ? (
+                      {isSigningUp ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Creating account...
