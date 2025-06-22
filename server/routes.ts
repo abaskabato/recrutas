@@ -254,6 +254,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Complete user profile (name and phone number)
+  app.post('/api/auth/complete-profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, phoneNumber } = req.body;
+      
+      if (!firstName || !lastName || !phoneNumber) {
+        return res.status(400).json({ message: "First name, last name, and phone number are required" });
+      }
+
+      const updatedUser = await storage.updateUserProfile(userId, {
+        firstName,
+        lastName,
+        phoneNumber,
+        profileComplete: true
+      });
+
+      res.json({ success: true, user: updatedUser });
+    } catch (error) {
+      console.error("Error completing user profile:", error);
+      res.status(500).json({ message: "Failed to complete profile" });
+    }
+  });
+
   // Candidate profile routes
   app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RealTimeChat from "@/components/real-time-chat";
 import AdvancedNotificationCenter from "@/components/advanced-notification-center";
 import InstantJobSearch from "@/components/instant-job-search";
+import ProfileCompletionModal from "@/components/profile-completion-modal";
 import { 
   Briefcase, 
   MessageSquare, 
@@ -35,7 +37,6 @@ import {
   FileText,
   Send
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 interface CandidateStats {
   totalApplications: number;
@@ -98,6 +99,7 @@ export default function CandidateDashboardEnhanced() {
   const [showResumeUpload, setShowResumeUpload] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   
   // Profile preferences state
   const [profilePrefs, setProfilePrefs] = useState({
@@ -168,6 +170,26 @@ export default function CandidateDashboardEnhanced() {
       });
     },
   });
+
+  // Check if profile completion is needed
+  useEffect(() => {
+    if (user && user.role) {
+      const needsProfileCompletion = !user.first_name || 
+                                    !user.last_name || 
+                                    !user.phone_number;
+      setShowProfileCompletion(needsProfileCompletion);
+    }
+  }, [user]);
+
+  const handleProfileComplete = () => {
+    setShowProfileCompletion(false);
+    // Refresh user data
+    queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    toast({
+      title: "Profile Completed",
+      description: "Welcome to Recrutas! Your profile is now set up.",
+    });
+  };
 
   // Handle file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1099,6 +1121,14 @@ export default function CandidateDashboardEnhanced() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Profile Completion Modal */}
+      {showProfileCompletion && (
+        <ProfileCompletionModal
+          user={user}
+          onComplete={handleProfileComplete}
+        />
       )}
     </div>
   );

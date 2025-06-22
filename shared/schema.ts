@@ -57,8 +57,10 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  phoneNumber: varchar("phone_number"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role", { enum: ["candidate", "talent_owner"] }),
+  profileComplete: boolean("profile_complete").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
