@@ -95,34 +95,7 @@ export default function Landing() {
               Please select your role to get started
             </p>
             
-            {/* Skills Input for logged-in users */}
-            <div className="max-w-lg mx-auto mb-6">
-              <div className="bg-white/80 rounded-xl border border-gray-200/50 p-4 shadow-sm">
-                <div className="text-left mb-3">
-                  <h4 className="text-sm font-medium text-gray-900 mb-1">Quick Skills Preview</h4>
-                  <p className="text-xs text-gray-600">See job matches while you set up your account</p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g., React, Python, Marketing..."
-                    className="flex-1 text-sm"
-                    value={quickSkills}
-                    onChange={(e) => setQuickSkills(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
-                  />
-                  <Button 
-                    size="sm"
-                    variant="outline"
-                    onClick={handleQuickMatch}
-                    disabled={!quickSkills.trim()}
-                    className="px-3"
-                  >
-                    <Brain className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">

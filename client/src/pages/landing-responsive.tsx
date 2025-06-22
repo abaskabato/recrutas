@@ -95,34 +95,7 @@ export default function LandingResponsive() {
               Please select your role to get started
             </p>
             
-            {/* Quick Skills Preview */}
-            <div className="max-w-md mx-auto mb-6 md:mb-8">
-              <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-600/30 p-4 md:p-6">
-                <div className="text-left mb-3">
-                  <h4 className="text-sm font-medium text-white mb-1">Quick Skills Preview</h4>
-                  <p className="text-xs text-slate-400">See job matches while you set up your account</p>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g., React, Python, Marketing..."
-                    className="flex-1 bg-slate-700/50 border-slate-600/50 text-white placeholder-slate-400"
-                    value={quickSkills}
-                    onChange={(e) => setQuickSkills(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
-                  />
-                  <Button 
-                    size="sm"
-                    variant="outline"
-                    onClick={handleQuickMatch}
-                    disabled={!quickSkills.trim()}
-                    className="bg-blue-600/20 border-blue-500/50 text-blue-300 hover:bg-blue-600/30"
-                  >
-                    <Brain className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
