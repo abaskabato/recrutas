@@ -21,17 +21,22 @@ import {
 
 interface InstantJob {
   id: string;
-  title: string;
-  company: string;
-  location: string;
-  description: string;
-  skills: string[];
-  workType: string;
-  salaryRange?: string;
-  matchScore: number;
+  matchScore: string;
+  status: string;
+  createdAt: string;
+  job: {
+    id: string;
+    title: string;
+    company: string;
+    location: string;
+    description: string;
+    skills: string[];
+    workType: string;
+    salaryMin?: number;
+    salaryMax?: number;
+  };
   source: string;
   externalUrl: string;
-  postedDate: string;
   urgency: 'low' | 'medium' | 'high';
 }
 
@@ -233,52 +238,59 @@ export default function InstantJobSearch() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {job.title}
+                          {job.job.title}
                         </h3>
                         <Badge className={getUrgencyColor(job.urgency)}>
                           {job.urgency} priority
                         </Badge>
-                        <Badge variant="outline" className={getMatchScoreColor(job.matchScore)}>
-                          {job.matchScore}% match
+                        <Badge variant="outline" className={getMatchScoreColor(parseInt(job.matchScore))}>
+                          {job.matchScore} match
                         </Badge>
                       </div>
                       
                       <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                         <div className="flex items-center gap-1">
                           <Building className="w-4 h-4" />
-                          <span className="font-medium">{job.company}</span>
+                          <span className="font-medium">{job.job.company}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
-                          <span>{job.location}</span>
+                          <span>{job.job.location}</span>
                         </div>
-                        {job.salaryRange && (
+                        {(job.job.salaryMin || job.job.salaryMax) && (
                           <div className="flex items-center gap-1">
                             <DollarSign className="w-4 h-4" />
-                            <span>{job.salaryRange}</span>
+                            <span>
+                              {job.job.salaryMin && job.job.salaryMax 
+                                ? `$${job.job.salaryMin.toLocaleString()} - $${job.job.salaryMax.toLocaleString()}`
+                                : job.job.salaryMin 
+                                ? `$${job.job.salaryMin.toLocaleString()}+`
+                                : `Up to $${job.job.salaryMax?.toLocaleString()}`
+                              }
+                            </span>
                           </div>
                         )}
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
-                          <span>{new Date(job.postedDate).toLocaleDateString()}</span>
+                          <span>{new Date(job.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
                       
                       <p className="text-gray-700 mb-4 line-clamp-2">
-                        {job.description}
+                        {job.job.description}
                       </p>
                       
                       <div className="flex items-center gap-2 mb-4">
                         <span className="text-sm font-medium text-gray-700">Skills:</span>
                         <div className="flex flex-wrap gap-2">
-                          {job.skills.slice(0, 5).map((skill, index) => (
+                          {job.job.skills.slice(0, 5).map((skill, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {skill}
                             </Badge>
                           ))}
-                          {job.skills.length > 5 && (
+                          {job.job.skills.length > 5 && (
                             <Badge variant="secondary" className="text-xs">
-                              +{job.skills.length - 5} more
+                              +{job.job.skills.length - 5} more
                             </Badge>
                           )}
                         </div>
@@ -290,7 +302,7 @@ export default function InstantJobSearch() {
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <span>Source: {job.source}</span>
                       <Badge variant="outline" className="text-xs">
-                        {job.workType}
+                        {job.job.workType}
                       </Badge>
                     </div>
                     

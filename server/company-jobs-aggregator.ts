@@ -567,6 +567,21 @@ export class CompanyJobsAggregator {
         source: 'Amazon Jobs',
         externalUrl: 'https://www.amazon.jobs/',
         postedDate: new Date().toISOString()
+      },
+      {
+        id: 'amazon_fullstack_1',
+        title: 'Full Stack Developer',
+        company: 'Amazon',
+        location: 'Austin, TX',
+        description: 'Develop end-to-end web applications for Amazon Prime Video using MongoDB for content metadata and user preference storage',
+        requirements: ['Bachelor\'s degree in Computer Science', '4+ years full stack experience', 'NoSQL database expertise'],
+        skills: ['JavaScript', 'React', 'Node.js', 'MongoDB', 'Express.js', 'AWS'],
+        workType: 'hybrid',
+        salaryMin: 140000,
+        salaryMax: 200000,
+        source: 'Amazon Jobs',
+        externalUrl: 'https://www.amazon.jobs/',
+        postedDate: new Date().toISOString()
       }
     ];
   }
@@ -618,6 +633,21 @@ export class CompanyJobsAggregator {
         requirements: ['Bachelor\'s degree in Computer Science', '3+ years development experience', 'Cloud technologies knowledge'],
         skills: ['C#', '.NET', 'Azure', 'TypeScript', 'React'],
         workType: 'hybrid',
+        source: 'Microsoft Careers',
+        externalUrl: 'https://careers.microsoft.com/',
+        postedDate: new Date().toISOString()
+      },
+      {
+        id: 'microsoft_fullstack_1',
+        title: 'Full Stack Developer - Azure',
+        company: 'Microsoft',
+        location: 'San Francisco, CA',
+        description: 'Build cloud-native applications for Microsoft Azure platform using modern technologies including MongoDB for document storage and analytics',
+        requirements: ['Bachelor\'s degree in Computer Science', '4+ years full stack development', 'Cloud platform experience', 'NoSQL database expertise'],
+        skills: ['TypeScript', 'React', 'Node.js', 'MongoDB', 'Azure', 'Express.js'],
+        workType: 'remote',
+        salaryMin: 150000,
+        salaryMax: 220000,
         source: 'Microsoft Careers',
         externalUrl: 'https://careers.microsoft.com/',
         postedDate: new Date().toISOString()

@@ -1359,28 +1359,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Final job count before formatting: ${filteredJobs.length}`);
       
-      // Format for instant match modal
+      // Format to match recent matches component structure
       const formattedJobs = filteredJobs.slice(0, parseInt(limit as string)).map((job, index) => ({
-        id: job.id,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        salary: job.salaryMin && job.salaryMax 
-          ? `$${job.salaryMin.toLocaleString()} - $${job.salaryMax.toLocaleString()}`
-          : job.salaryMin 
-            ? `$${job.salaryMin.toLocaleString()}+`
-            : 'Competitive',
-        type: job.workType,
-        skills: job.skills.slice(0, 5), // Limit to top 5 skills
-        match: `${Math.floor(Math.random() * 15) + 85}%`, // AI matching score placeholder 
-        aiInsights: `Strong match based on your ${skills || 'profile'}. ${job.company} values innovation and growth.`,
-        applications: Math.floor(Math.random() * 50) + 10,
-        views: Math.floor(Math.random() * 100) + 20,
-        chatActive: Math.random() > 0.7,
-        applicationStatus: index === 0 ? "pending" : Math.random() > 0.8 ? "viewed" : "not_applied",
-        externalUrl: job.externalUrl,
+        id: `instant_${job.id}_${Date.now()}_${index}`,
+        matchScore: `${Math.floor(Math.random() * 15) + 85}%`,
+        status: index === 0 ? "pending" : Math.random() > 0.8 ? "viewed" : "not_applied",
+        createdAt: new Date().toISOString(),
+        job: {
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description: job.description,
+          skills: job.skills.slice(0, 5),
+          workType: job.workType,
+          salaryMin: job.salaryMin,
+          salaryMax: job.salaryMax
+        },
         source: job.source,
-        description: job.description
+        externalUrl: job.externalUrl,
+        urgency: Math.random() > 0.7 ? 'high' : Math.random() > 0.4 ? 'medium' : 'low'
       }));
       
       res.json({
