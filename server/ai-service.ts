@@ -168,15 +168,15 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
   // Context-aware scoring
   const contextScore = calculateContextualFit(candidate, job);
   
-  // ML-enhanced final score calculation
+  // ML-enhanced final score calculation (0-1 range)
   const skillScore = Math.min(totalSimilarity / Math.max(candidate.skills.length, 1), 1.0);
-  const finalScore = (skillScore * 0.4 + experienceScore * 0.3 + contextScore * 0.3) * 100;
+  const finalScore = skillScore * 0.4 + experienceScore * 0.3 + contextScore * 0.3;
   
   // Generate intelligent explanation using pattern analysis
   const explanation = generateMLExplanation(maxSimilarities, experienceScore, contextScore, job);
   
   return {
-    score: Math.round(finalScore),
+    score: Math.min(Math.max(finalScore, 0), 1), // Keep score between 0-1
     confidenceLevel: calculateConfidenceLevel(maxSimilarities.length, candidate.skills.length, experienceScore),
     skillMatches: maxSimilarities.map(m => m.skill),
     aiExplanation: explanation

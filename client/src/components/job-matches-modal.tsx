@@ -123,10 +123,10 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                                {match.matchScore}% match
+                                {match.matchScore} match
                               </Badge>
                               <Badge variant="outline">
-                                AI Score: {match.confidenceLevel}
+                                AI Score: {Math.round((match.confidenceLevel || 0) * 100)}%
                               </Badge>
                             </div>
                           </div>

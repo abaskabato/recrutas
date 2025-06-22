@@ -152,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: Math.floor(Math.random() * 1000000),
               job: {
                 ...job,
-                confidenceScore: Math.round(aiResult.confidenceLevel)
+                confidenceScore: Math.round(aiResult.score * 100)
               },
               matchScore: `${Math.round(aiResult.score * 100)}%`,
               confidenceLevel: aiResult.confidenceLevel,
