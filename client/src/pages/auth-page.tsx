@@ -6,8 +6,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { Redirect } from "wouter"
-import { Loader2 } from "lucide-react"
+import { Redirect, Link } from "wouter"
+import { Loader2, ArrowLeft } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 
 export default function AuthPage() {
@@ -100,7 +100,13 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left side - Auth forms */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative">
+        {/* Back to Home link */}
+        <Link href="/" className="absolute top-4 left-4 flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200">
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Back to Home</span>
+        </Link>
+        
         <div className="w-full max-w-md">
           <div className="text-center mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-black">Recrutas</h1>
