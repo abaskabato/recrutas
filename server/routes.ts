@@ -490,7 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const jobData = insertJobPostingSchema.parse({
         ...req.body,
-        recruiterId: userId,
+        talentOwnerId: userId,
       });
       
       const job = await storage.createJobPosting(jobData);
@@ -556,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const jobData = insertJobPostingSchema.parse({
         ...req.body,
-        recruiterId: userId,
+        talentOwnerId: userId,
       });
       
       const job = await storage.createJobPosting(jobData);

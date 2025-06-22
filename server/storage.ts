@@ -338,7 +338,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(jobMatches, eq(chatRooms.matchId, jobMatches.id))
       .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
       .innerJoin(users, eq(jobMatches.candidateId, users.id))
-      .where(or(eq(jobMatches.candidateId, userId), eq(jobPostings.recruiterId, userId)))
+      .where(or(eq(jobMatches.candidateId, userId), eq(jobPostings.talentOwnerId, userId)))
       .orderBy(desc(chatRooms.updatedAt)) as any;
   }
 
@@ -389,7 +389,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getRecruiterStats(recruiterId: string): Promise<{
+  async getRecruiterStats(talentOwnerId: string): Promise<{
     activeJobs: number;
     totalMatches: number;
     activeChats: number;
@@ -398,25 +398,25 @@ export class DatabaseStorage implements IStorage {
     const [jobsCount] = await db
       .select({ count: count() })
       .from(jobPostings)
-      .where(and(eq(jobPostings.talentOwnerId, recruiterId), eq(jobPostings.status, "active")));
+      .where(and(eq(jobPostings.talentOwnerId, talentOwnerId), eq(jobPostings.status, "active")));
 
     const [matchesCount] = await db
       .select({ count: count() })
       .from(jobMatches)
       .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .where(eq(jobPostings.talentOwnerId, recruiterId));
+      .where(eq(jobPostings.talentOwnerId, talentOwnerId));
 
     const [chatsCount] = await db
       .select({ count: count() })
       .from(chatRooms)
       .innerJoin(jobMatches, eq(chatRooms.matchId, jobMatches.id))
       .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .where(and(eq(jobPostings.talentOwnerId, recruiterId), eq(chatRooms.status, "active")));
+      .where(and(eq(jobPostings.talentOwnerId, talentOwnerId), eq(chatRooms.status, "active")));
 
     const [hiresCount] = await db
       .select({ count: count() })
       .from(activityLogs)
-      .where(and(eq(activityLogs.userId, recruiterId), eq(activityLogs.type, "hire_made")));
+      .where(and(eq(activityLogs.userId, talentOwnerId), eq(activityLogs.type, "hire_made")));
 
     return {
       activeJobs: jobsCount.count,
