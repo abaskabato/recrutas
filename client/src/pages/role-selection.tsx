@@ -24,7 +24,7 @@ export default function RoleSelection() {
 
   const selectRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'talent_owner') => {
-      const response = await apiRequest('POST', '/api/auth/select-role', { role });
+      const response = await apiRequest('POST', '/api/user/select-role', { role });
       return response.json();
     },
     onSuccess: (data) => {

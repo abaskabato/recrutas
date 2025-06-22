@@ -117,16 +117,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Role selection endpoint
-  app.post("/api/auth/select-role", requireAuth, async (req: any, res) => {
+  // Role selection endpoint - uses Better Auth session
+  app.post("/api/user/select-role", async (req: any, res) => {
     try {
+      // Get session using Better Auth
+      const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
+      
+      if (!sessionCookie) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      let userId;
+      try {
+        const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+        userId = decodedSession.session?.user?.id;
+        if (!userId) {
+          return res.status(401).json({ message: "Invalid session" });
+        }
+      } catch (e) {
+        return res.status(401).json({ message: "Invalid session data" });
+      }
+      
       const { role } = req.body;
       
       if (!role || !['candidate', 'talent_owner'].includes(role)) {
         return res.status(400).json({ message: "Invalid role. Must be 'candidate' or 'talent_owner'" });
       }
-      
-      const userId = req.user.id;
       
       // Update user role in database
       await db.update(users)
