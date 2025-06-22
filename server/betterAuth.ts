@@ -1,15 +1,24 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { db } from "./db"
+import { users, sessions, accounts, verifications } from "../shared/schema"
 import type { Express } from "express"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
+    schema: {
+      user: users,
+      session: sessions,
+      account: accounts,
+      verification: verifications,
+    },
   }),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    minPasswordLength: 6,
+    maxPasswordLength: 128,
   },
   socialProviders: {
     google: {
