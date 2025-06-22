@@ -1128,6 +1128,7 @@ export default function CandidateDashboardEnhanced() {
         <ProfileCompletionModal
           user={user}
           onComplete={handleProfileComplete}
+          onCancel={() => setShowProfileCompletion(false)}
         />
       )}
     </div>

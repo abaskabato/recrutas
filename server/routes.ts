@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Complete user profile (name and phone number)
   app.post('/api/auth/complete-profile', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { firstName, lastName, phoneNumber } = req.body;
       
       if (!firstName || !lastName || !phoneNumber) {
@@ -375,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Candidate profile routes
   app.get('/api/candidate/profile', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const profile = await storage.getCandidateProfile(userId);
       res.json(profile);
     } catch (error) {
@@ -386,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/candidate/profile', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const profileData = insertCandidateProfileSchema.parse({
         ...req.body,
         userId,
@@ -402,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/candidate/profile', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const profileData = {
         ...req.body,
         userId,
@@ -424,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const resumeUrl = `/uploads/${req.file.filename}`;
       const filePath = req.file.path;
       
@@ -577,7 +577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Candidate matches
   app.get('/api/candidate/matches', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const matches = await storage.getMatchesForCandidate(userId);
       res.json(matches);
     } catch (error) {
@@ -589,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Candidate stats
   app.get('/api/candidate/stats', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const stats = await storage.getCandidateStats(userId);
       res.json(stats);
     } catch (error) {
@@ -620,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update candidate matching preferences
   app.put('/api/candidate/match-preferences', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const preferences = req.body;
       
       await advancedMatchingEngine.updateMatchPreferences(userId, preferences);
@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Role selection endpoint
   app.post('/api/auth/select-role', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { role } = req.body;
       
       if (!role || !['candidate', 'talent_owner'].includes(role)) {
@@ -693,7 +693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/jobs', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobs = await storage.getJobPostings(userId);
       res.json(jobs);
     } catch (error) {
@@ -716,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job editing endpoint
   app.put('/api/jobs/:id', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobId = parseInt(req.params.id);
       
       const jobData = {
@@ -735,7 +735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job deletion endpoint
   app.delete('/api/jobs/:id', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobId = parseInt(req.params.id);
       
       await storage.deleteJobPosting(jobId, userId);
@@ -749,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Recruiter stats
   app.get('/api/recruiter/stats', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const stats = await storage.getRecruiterStats(userId);
       res.json(stats);
     } catch (error) {
@@ -761,7 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job postings routes
   app.post('/api/jobs', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobData = insertJobPostingSchema.parse({
         ...req.body,
         talentOwnerId: userId,
@@ -793,7 +793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity logs
   app.get('/api/activity', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const activities = await storage.getActivityLogs(userId);
       res.json(activities);
     } catch (error) {
@@ -805,7 +805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Candidate dashboard endpoints
   app.get('/api/candidates/stats', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const stats = await storage.getCandidateStats(userId);
       res.json(stats);
     } catch (error) {
@@ -816,7 +816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/candidate/profile', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const profile = await storage.getCandidateProfile(userId);
       res.json(profile);
     } catch (error) {
@@ -827,7 +827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/candidates/activity', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const activities = await storage.getActivityLogs(userId, 20);
       res.json(activities);
     } catch (error) {
@@ -838,7 +838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/candidates/applications', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applications = await storage.getApplicationsWithStatus(userId);
       res.json(applications);
     } catch (error) {
@@ -849,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/candidates/matches', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get candidate profile for matching
       const candidateProfile = await storage.getCandidateProfile(userId);
@@ -932,7 +932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Resume upload endpoint
   app.post('/api/candidates/upload-resume', requireAuth, upload.single('resume'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -963,7 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/candidates/apply/:jobId', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobId = parseInt(req.params.jobId);
       
       // Check if already applied
@@ -992,7 +992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat endpoints
   app.get('/api/chat/rooms', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const chatRooms = await storage.getChatRoomsForUser(userId);
       res.json(chatRooms);
     } catch (error) {
@@ -1032,7 +1032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/chat/rooms/:roomId/messages', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const roomId = parseInt(req.params.roomId);
       const { content } = req.body;
 
@@ -1063,7 +1063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification endpoints
   app.get('/api/notifications', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const notifications = await storage.getNotifications(userId);
       res.json(notifications);
     } catch (error) {
@@ -1074,7 +1074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/notifications/:id/read', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const notificationId = parseInt(req.params.id);
       await storage.markNotificationAsRead(notificationId, userId);
       res.json({ success: true });
@@ -1086,7 +1086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/notifications/mark-all-read', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       await storage.markAllNotificationsAsRead(userId);
       res.json({ success: true });
     } catch (error) {
@@ -1097,7 +1097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/notifications/preferences', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const preferences = await storage.getNotificationPreferences(userId);
       res.json(preferences || {
         emailMatches: true,
@@ -1115,7 +1115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/notifications/preferences', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const preferences = req.body;
       await storage.updateNotificationPreferences(userId, preferences);
       res.json({ success: true });
@@ -1625,7 +1625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Recruiter endpoints
   app.get('/api/recruiter/stats', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const stats = await storage.getRecruiterStats(userId);
       res.json(stats);
     } catch (error) {
@@ -1636,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/recruiter/jobs', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobs = await storage.getJobPostings(userId);
       res.json(jobs);
     } catch (error) {
@@ -1647,7 +1647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/recruiter/candidates', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const candidates = await storage.getCandidatesForRecruiter(userId);
       res.json(candidates);
     } catch (error) {
@@ -1659,7 +1659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced job application endpoint for V2
   app.post('/api/jobs/:id/apply', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobId = parseInt(req.params.id);
       
       // Check if user has already applied
@@ -1787,7 +1787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const match = await storage.updateMatchStatus(matchId, status);
       
       // Create activity log
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       await storage.createActivityLog(userId, "match_status_updated", `Match status updated to ${status}`);
 
       res.json(match);
@@ -1800,7 +1800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Application tracking routes
   app.get('/api/applications/status', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applications = await storage.getApplicationsWithStatus(userId);
       res.json(applications);
     } catch (error) {
@@ -1813,7 +1813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const applicationId = parseInt(req.params.id);
       const { status, interviewDate, notes } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const application = await storage.updateApplicationStatus(applicationId, status, { interviewDate, notes });
       
@@ -1894,7 +1894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/jobs/:id/quick-apply', requireAuth, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Check if already applied
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
@@ -1932,7 +1932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat routes
   app.get('/api/chat/rooms', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const rooms = await storage.getChatRoomsForUser(userId);
       res.json(rooms);
     } catch (error) {
@@ -1972,7 +1972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity logs
   app.get('/api/activity', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const limit = parseInt(req.query.limit as string) || 10;
       const logs = await storage.getActivityLogs(userId, limit);
       res.json(logs);
@@ -1985,7 +1985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Real-time notification endpoints
   app.get('/api/notifications', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const limit = parseInt(req.query.limit as string) || 20;
       const notifications = await notificationService.getAllNotifications(userId, limit);
       res.json(notifications);
@@ -1997,7 +1997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/notifications/unread', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const limit = parseInt(req.query.limit as string) || 20;
       const notifications = await notificationService.getUnreadNotifications(userId, limit);
       res.json(notifications);
@@ -2009,7 +2009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/notifications/count', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const count = await notificationService.getUnreadCount(userId);
       res.json({ count });
     } catch (error) {
@@ -2020,7 +2020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/notifications/:id/read', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const notificationId = parseInt(req.params.id);
       await notificationService.markAsRead(notificationId, userId);
       res.json({ success: true });
@@ -2032,7 +2032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/notifications/mark-all-read', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       await notificationService.markAllAsRead(userId);
       res.json({ success: true });
     } catch (error) {
@@ -2044,7 +2044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification preferences endpoints
   app.get('/api/notification-preferences', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const preferences = await storage.getNotificationPreferences(userId);
       res.json(preferences);
     } catch (error) {
@@ -2055,7 +2055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/notification-preferences', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const preferences = await storage.updateNotificationPreferences(userId, req.body);
       res.json(preferences);
     } catch (error) {

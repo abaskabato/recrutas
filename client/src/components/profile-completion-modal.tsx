@@ -9,11 +9,13 @@ import { apiRequest } from "@/lib/queryClient";
 interface ProfileCompletionModalProps {
   user: any;
   onComplete: () => void;
+  onCancel: () => void;
 }
 
-export default function ProfileCompletionModal({ user, onComplete }: ProfileCompletionModalProps) {
+export default function ProfileCompletionModal({ user, onComplete, onCancel }: ProfileCompletionModalProps) {
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -21,7 +23,7 @@ export default function ProfileCompletionModal({ user, onComplete }: ProfileComp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
       toast({
         title: "Required Fields Missing",
         description: "Please fill in all required fields.",
@@ -30,15 +32,28 @@ export default function ProfileCompletionModal({ user, onComplete }: ProfileComp
       return;
     }
 
-    // Basic phone number validation
-    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-    if (!phoneRegex.test(phoneNumber.replace(/[\s\-\(\)]/g, ''))) {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
       toast({
-        title: "Invalid Phone Number",
-        description: "Please enter a valid phone number.",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       });
       return;
+    }
+
+    // Optional phone number validation (only if provided)
+    if (phoneNumber.trim()) {
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(phoneNumber.replace(/[\s\-\(\)]/g, ''))) {
+        toast({
+          title: "Invalid Phone Number",
+          description: "Please enter a valid phone number.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -47,7 +62,8 @@ export default function ProfileCompletionModal({ user, onComplete }: ProfileComp
       const response = await apiRequest("POST", "/api/auth/complete-profile", {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phoneNumber: phoneNumber.trim()
+        email: email.trim(),
+        phoneNumber: phoneNumber.trim() || null
       });
 
       if (response.ok) {
@@ -117,10 +133,29 @@ export default function ProfileCompletionModal({ user, onComplete }: ProfileComp
               />
             </div>
 
+            {/* Email Address */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address *
+              </label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+                required
+                disabled={isSubmitting}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                We'll use this for job notifications and important updates.
+              </p>
+            </div>
+
             {/* Phone Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number *
+                Phone Number (Optional)
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -129,50 +164,44 @@ export default function ProfileCompletionModal({ user, onComplete }: ProfileComp
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="+1 (555) 123-4567"
-                  required
                   disabled={isSubmitting}
                   className="pl-10 w-full"
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                We'll use this to send you important updates about job opportunities.
+                Optional: We may use this for urgent job opportunities.
               </p>
             </div>
 
-            {/* Email Display */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
-              <Input
-                type="email"
-                value={user?.email || ""}
-                disabled
-                className="w-full bg-gray-50 text-gray-600"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Email is automatically verified through your account.
-              </p>
+            {/* Action Buttons */}
+            <div className="flex space-x-3 mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    <span>Completing...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Complete Profile</span>
+                  </div>
+                )}
+              </Button>
             </div>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              className="w-full mt-6"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <div className="flex items-center space-x-2">
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                  <span>Completing Profile...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Complete Profile</span>
-                </div>
-              )}
-            </Button>
           </form>
 
           <div className="mt-4 text-center">
