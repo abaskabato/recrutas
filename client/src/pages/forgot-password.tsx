@@ -16,7 +16,7 @@ export default function ForgotPasswordPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest("POST", "/api/auth/forgot-password", { email })
+      const response = await apiRequest("POST", "/api/auth/forget-password", { email })
       return response.json()
     },
     onSuccess: () => {
