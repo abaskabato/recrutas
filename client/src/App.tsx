@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing-responsive";
+import AuthPage from "@/pages/auth-page";
 import CandidateDashboard from "@/pages/candidate-dashboard-enhanced";
 import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
@@ -23,6 +24,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/auth" component={AuthPage} />
       {!isAuthenticated || !user?.role ? (
         <Route path="/" component={Landing} />
       ) : (

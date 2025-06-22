@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useSession, useSignIn, useSignUp } from "@/lib/auth-client"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,17 +8,71 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect } from "wouter"
 import { Loader2 } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function AuthPage() {
-  const { data: session, isPending } = useSession()
-  const signInMutation = useSignIn()
-  const signUpMutation = useSignUp()
+  const { isAuthenticated, user } = useAuth()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
 
   // Redirect if already authenticated
-  if (session?.user && !isPending) {
+  if (isAuthenticated && user) {
     return <Redirect to="/" />
   }
+
+  const signInMutation = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const response = await fetch('/api/auth/sign-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(error || 'Sign in failed')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] })
+      toast({ title: "Welcome back!", description: "Successfully signed in." })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
+
+  const signUpMutation = useMutation({
+    mutationFn: async ({ name, email, password }: { name: string; email: string; password: string }) => {
+      const response = await fetch('/api/auth/sign-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(error || 'Sign up failed')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] })
+      toast({ title: "Welcome!", description: "Account created successfully." })
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sign up failed",
+        description: error.message,
+        variant: "destructive",
+      })
+    },
+  })
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -27,24 +81,7 @@ export default function AuthPage() {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    try {
-      const result = await signInMutation.mutateAsync({ email, password })
-
-      if (result.error) {
-        throw new Error(result.error.message)
-      }
-
-      toast({
-        title: "Success",
-        description: "Welcome back!",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials",
-        variant: "destructive",
-      })
-    }
+    signInMutation.mutate({ email, password })
   }
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -55,33 +92,10 @@ export default function AuthPage() {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    try {
-      const result = await signUpMutation.mutateAsync({ name, email, password })
-
-      if (result.error) {
-        throw new Error(result.error.message)
-      }
-
-      toast({
-        title: "Account created",
-        description: "Welcome to Recrutas!",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Registration failed",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      })
-    }
+    signUpMutation.mutate({ name, email, password })
   }
 
-  if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-black" />
-      </div>
-    )
-  }
+
 
   return (
     <div className="min-h-screen bg-white flex">
