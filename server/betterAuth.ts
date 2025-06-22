@@ -62,9 +62,11 @@ export const auth = betterAuth({
   },
   trustedOrigins: [
     "http://localhost:5000",
-    "https://*.replit.app",
+    "https://*.replit.app", 
     "https://*.replit.dev",
-  ],
+    "https://e0f14cb7-13c7-49be-849b-00e0e677863c-00-13vuezjrrpu3a.picard.replit.dev",
+    process.env.REPLIT_DEV_DOMAIN || "",
+  ].filter(Boolean),
 })
 
 export function setupBetterAuth(app: Express) {
