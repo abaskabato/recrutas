@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { signOut } from "@/lib/auth-client";
 import { 
   getStatusColor, 
   formatSalary, 
@@ -263,7 +264,7 @@ export default function TalentDashboard() {
   };
 
   const handleLogout = () => {
-    window.location.href = "/api/logout";
+    signOut();
   };
 
   const filteredJobs = jobs.filter(job => {
