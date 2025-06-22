@@ -7,6 +7,7 @@ import {
   chatRooms,
   chatMessages,
   activityLogs,
+  notificationPreferences,
   type User,
   type UpsertUser,
   type CandidateProfile,
@@ -19,6 +20,8 @@ import {
   type ChatMessage,
   type InsertChatMessage,
   type ActivityLog,
+  type NotificationPreferences,
+  type InsertNotificationPreferences,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, count } from "drizzle-orm";
@@ -75,6 +78,10 @@ export interface IStorage {
     activeChats: number;
     hires: number;
   }>;
+  
+  // Notification preferences
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
+  updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -468,6 +475,32 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return newApplication;
+  }
+
+  // Notification preferences
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    const [preferences] = await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId));
+    
+    return preferences;
+  }
+
+  async updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    const [updated] = await db
+      .insert(notificationPreferences)
+      .values({ userId, ...preferences })
+      .onConflictDoUpdate({
+        target: notificationPreferences.userId,
+        set: {
+          ...preferences,
+          updatedAt: new Date(),
+        }
+      })
+      .returning();
+
+    return updated;
   }
 }
 

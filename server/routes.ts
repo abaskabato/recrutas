@@ -7,6 +7,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
+import { notificationService } from "./notification-service";
 import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
@@ -1262,40 +1263,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Real-time notification endpoints
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const notifications = await notificationService.getAllNotifications(userId, limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get('/api/notifications/unread', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const notifications = await notificationService.getUnreadNotifications(userId, limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching unread notifications:", error);
+      res.status(500).json({ message: "Failed to fetch unread notifications" });
+    }
+  });
+
+  app.get('/api/notifications/count', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const count = await notificationService.getUnreadCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+      res.status(500).json({ message: "Failed to fetch notification count" });
+    }
+  });
+
+  app.post('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notificationId = parseInt(req.params.id);
+      await notificationService.markAsRead(notificationId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.post('/api/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await notificationService.markAllAsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // Notification preferences endpoints
+  app.get('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const preferences = await storage.getNotificationPreferences(userId);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.post('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const preferences = await storage.updateNotificationPreferences(userId, req.body);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
   const httpServer = createServer(app);
 
-  // WebSocket server for real-time chat
+  // WebSocket server for real-time chat and notifications
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
+  // Start notification service heartbeat
+  notificationService.startHeartbeat();
+  
   wss.on('connection', (ws: WebSocket, req) => {
-    console.log('New WebSocket connection');
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const userId = url.searchParams.get('userId');
     
-    ws.on('message', async (data) => {
-      try {
-        const message = JSON.parse(data.toString());
-        
-        if (message.type === 'chat_message') {
-          const messageData = insertChatMessageSchema.parse(message.data);
-          const savedMessage = await storage.createChatMessage(messageData);
+    if (userId) {
+      console.log(`User ${userId} connected to WebSocket`);
+      
+      // Add connection to notification service
+      notificationService.addConnection(userId, ws as any);
+      
+      ws.on('message', async (data) => {
+        try {
+          const message = JSON.parse(data.toString());
           
-          // Broadcast to all clients in the chat room
-          wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify({
-                type: 'new_message',
-                data: savedMessage,
-              }));
-            }
-          });
+          if (message.type === 'chat_message') {
+            const messageData = insertChatMessageSchema.parse(message.data);
+            const savedMessage = await storage.createChatMessage(messageData);
+            
+            // Broadcast to all clients in the chat room
+            wss.clients.forEach((client) => {
+              if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                  type: 'new_message',
+                  data: savedMessage,
+                }));
+              }
+            });
+          } else if (message.type === 'mark_notification_read') {
+            await notificationService.markAsRead(message.notificationId, userId);
+          } else if (message.type === 'mark_all_notifications_read') {
+            await notificationService.markAllAsRead(userId);
+          }
+        } catch (error) {
+          console.error('WebSocket message error:', error);
         }
-      } catch (error) {
-        console.error('WebSocket message error:', error);
-      }
-    });
-    
-    ws.on('close', () => {
-      console.log('WebSocket connection closed');
-    });
+      });
+      
+      ws.on('close', () => {
+        console.log(`User ${userId} disconnected`);
+      });
+    } else {
+      console.log('WebSocket connection without userId, closing');
+      ws.close();
+    }
   });
 
   return httpServer;

@@ -182,6 +182,65 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Real-time notifications system
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: varchar("type", { 
+    enum: [
+      "application_viewed", 
+      "application_ranked", 
+      "application_accepted", 
+      "application_rejected",
+      "exam_completed",
+      "candidate_message",
+      "interview_scheduled",
+      "high_score_alert",
+      "direct_connection",
+      "status_update",
+      "new_match"
+    ] 
+  }).notNull(),
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  data: jsonb("data"), // Additional context data
+  read: boolean("read").default(false),
+  priority: varchar("priority", { enum: ["low", "medium", "high", "urgent"] }).default("medium"),
+  relatedJobId: integer("related_job_id").references(() => jobPostings.id),
+  relatedApplicationId: integer("related_application_id").references(() => jobApplications.id),
+  relatedMatchId: integer("related_match_id").references(() => jobMatches.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  readAt: timestamp("read_at"),
+});
+
+// Notification preferences for users
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id),
+  inAppNotifications: boolean("in_app_notifications").default(true),
+  emailNotifications: boolean("email_notifications").default(true),
+  pushNotifications: boolean("push_notifications").default(false),
+  applicationUpdates: boolean("application_updates").default(true),
+  examAlerts: boolean("exam_alerts").default(true),
+  messageNotifications: boolean("message_notifications").default(true),
+  highPriorityOnly: boolean("high_priority_only").default(false),
+  quietHours: jsonb("quiet_hours"), // { start: "22:00", end: "08:00" }
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Real-time connection tracking
+export const connectionStatus = pgTable("connection_status", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id),
+  isOnline: boolean("is_online").default(false),
+  lastSeen: timestamp("last_seen").defaultNow(),
+  socketId: varchar("socket_id"),
+  deviceInfo: jsonb("device_info"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   candidateProfile: one(candidateProfiles, {
@@ -241,6 +300,39 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   }),
 }));
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  relatedJob: one(jobPostings, {
+    fields: [notifications.relatedJobId],
+    references: [jobPostings.id],
+  }),
+  relatedApplication: one(jobApplications, {
+    fields: [notifications.relatedApplicationId],
+    references: [jobApplications.id],
+  }),
+  relatedMatch: one(jobMatches, {
+    fields: [notifications.relatedMatchId],
+    references: [jobMatches.id],
+  }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
+export const connectionStatusRelations = relations(connectionStatus, ({ one }) => ({
+  user: one(users, {
+    fields: [connectionStatus.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -270,6 +362,24 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   createdAt: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+  readAt: true,
+});
+
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertConnectionStatusSchema = createInsertSchema(connectionStatus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -286,3 +396,9 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export type JobApplication = typeof jobApplications.$inferSelect;
 export type ApplicationUpdate = typeof applicationUpdates.$inferSelect;
 export type MatchFeedback = typeof matchFeedback.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type ConnectionStatus = typeof connectionStatus.$inferSelect;
+export type InsertConnectionStatus = z.infer<typeof insertConnectionStatusSchema>;
