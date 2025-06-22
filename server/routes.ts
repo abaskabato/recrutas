@@ -117,6 +117,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Role selection endpoint
+  app.post("/api/auth/select-role", requireAuth, async (req: any, res) => {
+    try {
+      const { role } = req.body;
+      
+      if (!role || !['candidate', 'talent_owner'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be 'candidate' or 'talent_owner'" });
+      }
+      
+      const userId = req.user.id;
+      
+      // Update user role in database
+      await db.update(users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      
+      // Get updated user
+      const [updatedUser] = await db.select().from(users).where(eq(users.id, userId));
+      
+      res.json({ 
+        success: true, 
+        user: updatedUser,
+        message: `Role set to ${role}` 
+      });
+    } catch (error) {
+      console.error('Role selection error:', error);
+      res.status(500).json({ message: "Failed to set role" });
+    }
+  });
+
   // AI-powered job matching for candidates - place before other authenticated routes
   app.get('/api/ai-matches', async (req: any, res) => {
     try {
