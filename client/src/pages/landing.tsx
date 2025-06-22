@@ -221,9 +221,15 @@ export default function Landing() {
               </span>
             </h1>
             
-            <p className="text-xl sm:text-2xl text-slate-300 mb-6 font-light max-w-4xl mx-auto">
-              The only platform where hiring managers connect directly with candidates. Like DoorDash for jobs—instant, direct, transparent.
+            <p className="text-xl sm:text-2xl text-slate-300 mb-4 font-light max-w-4xl mx-auto">
+              The first platform built to eliminate third-party recruiters. Connect directly with hiring managers who actually make decisions.
             </p>
+            
+            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 mb-6 max-w-3xl mx-auto">
+              <p className="text-red-200 text-lg font-medium">
+                "Like DoorDash for jobs—skip the restaurant, go straight to the kitchen."
+              </p>
+            </div>
             
             <div className="grid sm:grid-cols-3 gap-4 mb-8 max-w-3xl mx-auto">
               <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-600/30">
@@ -517,6 +523,51 @@ export default function Landing() {
         </div>
       </div>
 
+      {/* Mission Statement Section */}
+      <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-20 bg-gradient-to-br from-blue-900 to-indigo-900 text-white">
+        <div className="text-center mb-12 sm:mb-16">
+          <div className="inline-flex items-center px-6 py-3 bg-red-500/20 border border-red-400/30 rounded-full mb-6">
+            <span className="text-2xl mr-3">🎯</span>
+            <span className="text-lg font-semibold">Our Mission</span>
+          </div>
+          
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-8 leading-tight">
+            End the Recruiter Industrial Complex
+          </h2>
+          
+          <div className="max-w-4xl mx-auto space-y-6 text-lg sm:text-xl leading-relaxed">
+            <p className="text-blue-100">
+              For too long, third-party recruiters have inserted themselves between talented candidates and companies, 
+              creating delays, miscommunication, and unnecessary barriers.
+            </p>
+            
+            <p className="text-white font-medium text-xl sm:text-2xl">
+              We believe hiring should be human, direct, and transparent.
+            </p>
+            
+            <p className="text-blue-100">
+              Recrutas eliminates the middleman entirely. Companies post jobs, candidates apply directly, 
+              and hiring managers make decisions in real-time. No gatekeepers. No delays. No noise.
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap justify-center gap-8 mt-12 max-w-3xl mx-auto">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-red-400">0</div>
+              <div className="text-sm text-blue-200">Third-Party Recruiters</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-400">100%</div>
+              <div className="text-sm text-blue-200">Direct Connections</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-yellow-400">Real-Time</div>
+              <div className="text-sm text-blue-200">Instant Feedback</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Why Choose Recrutas Section */}
       <div className="container mx-auto px-4 sm:px-6 py-16 sm:py-20 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
         <div className="text-center mb-12 sm:mb-16">
@@ -680,8 +731,15 @@ export default function Landing() {
               <span className="font-bold bg-gradient-to-r from-white via-blue-100 to-indigo-100 bg-clip-text text-transparent">Find Your Job.</span>
             </h2>
             <p className="text-lg sm:text-xl mb-8 sm:mb-10 text-slate-200 max-w-2xl mx-auto leading-relaxed">
-              Join the platform where hiring managers connect directly with candidates. No recruiters, no delays, no black holes.
+              Join thousands of candidates and hiring managers who've already said goodbye to recruiter spam and application black holes.
             </p>
+            
+            <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-400/40 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
+              <p className="text-red-200 font-medium text-lg">
+                "Finally, a platform that treats job seekers like humans, not LinkedIn leads." 
+              </p>
+              <p className="text-red-300 text-sm mt-2">- Sarah K., Software Engineer</p>
+            </div>
             <Button 
               size="lg"
               className="px-8 sm:px-12 py-4 sm:py-5 text-lg font-medium bg-white text-slate-900 hover:bg-slate-50 shadow-2xl hover:shadow-white/25 transition-all duration-300 rounded-xl border-0 group"
