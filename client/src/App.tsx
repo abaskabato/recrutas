@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing-responsive";
-import CandidateDashboard from "@/pages/candidate-dashboard-refactored";
+import CandidateDashboard from "@/pages/candidate-dashboard-enhanced";
 import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";

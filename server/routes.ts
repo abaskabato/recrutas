@@ -632,6 +632,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Candidate dashboard endpoints
+  app.get('/api/candidates/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getCandidateStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching candidate stats:", error);
+      res.status(500).json({ message: "Failed to fetch candidate stats" });
+    }
+  });
+
+  app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getCandidateProfile(userId);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching candidate profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  app.get('/api/candidates/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const activities = await storage.getActivityLogs(userId, 20);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching candidate activity:", error);
+      res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
+  app.get('/api/candidates/applications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const applications = await storage.getApplicationsWithStatus(userId);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching applications:", error);
+      res.status(500).json({ message: "Failed to fetch applications" });
+    }
+  });
+
+  app.get('/api/candidates/matches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const matches = await storage.getMatchesForCandidate(userId);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching job matches:", error);
+      res.status(500).json({ message: "Failed to fetch matches" });
+    }
+  });
+
+  app.post('/api/candidates/apply/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const jobId = parseInt(req.params.jobId);
+      
+      // Check if already applied
+      const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
+      if (existingApplication) {
+        return res.status(400).json({ message: "Already applied to this job" });
+      }
+
+      const application = await storage.createJobApplication({
+        jobId,
+        candidateId: userId,
+        status: 'applied',
+        appliedAt: new Date(),
+      });
+
+      // Create activity log
+      await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
+
+      res.json(application);
+    } catch (error) {
+      console.error("Error applying to job:", error);
+      res.status(500).json({ message: "Failed to apply to job" });
+    }
+  });
+
+  // Chat endpoints
+  app.get('/api/chat/rooms', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const chatRooms = await storage.getChatRoomsForUser(userId);
+      res.json(chatRooms);
+    } catch (error) {
+      console.error("Error fetching chat rooms:", error);
+      res.status(500).json({ message: "Failed to fetch chat rooms" });
+    }
+  });
+
+  app.get('/api/chat/room/:matchId', isAuthenticated, async (req: any, res) => {
+    try {
+      const matchId = parseInt(req.params.matchId);
+      const chatRoom = await storage.getChatRoom(matchId);
+      
+      if (!chatRoom) {
+        // Create chat room if it doesn't exist
+        const newRoom = await storage.createChatRoom(matchId);
+        return res.json(newRoom);
+      }
+      
+      res.json(chatRoom);
+    } catch (error) {
+      console.error("Error fetching chat room:", error);
+      res.status(500).json({ message: "Failed to fetch chat room" });
+    }
+  });
+
+  app.get('/api/chat/messages/:roomId', isAuthenticated, async (req: any, res) => {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      const messages = await storage.getChatMessages(roomId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post('/api/chat/rooms/:roomId/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const roomId = parseInt(req.params.roomId);
+      const { content } = req.body;
+
+      const message = await storage.createChatMessage({
+        chatRoomId: roomId,
+        senderId: userId,
+        message: content,
+      });
+
+      // Broadcast message via WebSocket
+      wss.clients.forEach((client: WebSocket) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'new_message',
+            roomId,
+            message,
+          }));
+        }
+      });
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Notification endpoints
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notifications = await storage.getNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.put('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notificationId = parseInt(req.params.id);
+      await storage.markNotificationAsRead(notificationId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.put('/api/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.get('/api/notifications/preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const preferences = await storage.getNotificationPreferences(userId);
+      res.json(preferences || {
+        emailMatches: true,
+        emailMessages: true,
+        emailApplications: true,
+        pushMatches: true,
+        pushMessages: true,
+        pushApplications: true,
+      });
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+
+  app.put('/api/notifications/preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const preferences = req.body;
+      await storage.updateNotificationPreferences(userId, preferences);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
   // External jobs for instant matching (public endpoint)
   app.get('/api/external-jobs', async (req, res) => {
     try {

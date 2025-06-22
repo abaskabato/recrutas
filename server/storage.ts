@@ -111,6 +111,21 @@ export interface IStorage {
   // Notification preferences
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+  
+  // Notification operations
+  getNotifications(userId: string): Promise<any[]>;
+  markNotificationAsRead(notificationId: number, userId: string): Promise<void>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+  
+  // Enhanced candidate operations
+  getCandidateStats(candidateId: string): Promise<{
+    totalApplications: number;
+    activeMatches: number;
+    profileViews: number;
+    profileStrength: number;
+    responseRate: number;
+    avgMatchScore: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -572,6 +587,134 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  // Notification operations
+  async getNotifications(userId: string): Promise<any[]> {
+    // Return mock notifications for now - in a real implementation, this would query a notifications table
+    return [
+      {
+        id: 1,
+        type: 'match',
+        title: 'New Job Match',
+        message: 'You have a new 95% match for Software Engineer at TechCorp',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        metadata: {
+          jobId: 1,
+          jobTitle: 'Software Engineer',
+          company: 'TechCorp',
+          matchScore: 95
+        }
+      },
+      {
+        id: 2,
+        type: 'message',
+        title: 'New Message',
+        message: 'Sarah from Google sent you a message about the Frontend Developer position',
+        isRead: false,
+        createdAt: new Date(Date.now() - 3600000).toISOString(),
+        metadata: {
+          jobId: 2,
+          company: 'Google'
+        }
+      }
+    ];
+  }
+
+  async markNotificationAsRead(notificationId: number, userId: string): Promise<void> {
+    // In a real implementation, this would update the notification's read status
+    console.log(`Marking notification ${notificationId} as read for user ${userId}`);
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    // In a real implementation, this would mark all notifications as read for the user
+    console.log(`Marking all notifications as read for user ${userId}`);
+  }
+
+  // Enhanced candidate stats
+  async getCandidateStats(candidateId: string): Promise<{
+    totalApplications: number;
+    activeMatches: number;
+    profileViews: number;
+    profileStrength: number;
+    responseRate: number;
+    avgMatchScore: number;
+  }> {
+    try {
+      // Get application count
+      const applicationCount = await db
+        .select({ count: count() })
+        .from(jobApplications)
+        .where(eq(jobApplications.candidateId, candidateId));
+
+      // Get active matches count
+      const matchCount = await db
+        .select({ count: count() })
+        .from(jobMatches)
+        .where(and(
+          eq(jobMatches.candidateId, candidateId),
+          or(
+            eq(jobMatches.status, 'pending'),
+            eq(jobMatches.status, 'viewed'),
+            eq(jobMatches.status, 'interested')
+          )
+        ));
+
+      // Get candidate profile for strength calculation
+      const profile = await this.getCandidateProfile(candidateId);
+      
+      // Calculate profile strength based on completed fields
+      let profileStrength = 0;
+      if (profile) {
+        let filledFields = 0;
+        const totalFields = 8; // Adjust based on your profile fields
+        
+        if (profile.skills && profile.skills.length > 0) filledFields++;
+        if (profile.experience) filledFields++;
+        if (profile.location) filledFields++;
+        if (profile.resumeUrl) filledFields++;
+        if (profile.linkedinUrl) filledFields++;
+        if (profile.githubUrl) filledFields++;
+        if (profile.portfolioUrl) filledFields++;
+        if (profile.summary) filledFields++;
+        
+        profileStrength = Math.round((filledFields / totalFields) * 100);
+      }
+
+      // Calculate average match score
+      const matches = await db
+        .select()
+        .from(jobMatches)
+        .where(eq(jobMatches.candidateId, candidateId));
+
+      let avgMatchScore = 0;
+      if (matches.length > 0) {
+        const totalScore = matches.reduce((sum, match) => {
+          return sum + parseFloat(match.matchScore || '0');
+        }, 0);
+        avgMatchScore = Math.round(totalScore / matches.length);
+      }
+
+      return {
+        totalApplications: applicationCount[0]?.count || 0,
+        activeMatches: matchCount[0]?.count || 0,
+        profileViews: profile?.profileViews || 0,
+        profileStrength,
+        responseRate: 85, // Mock value - would be calculated from actual response data
+        avgMatchScore,
+      };
+    } catch (error) {
+      console.error('Error fetching candidate stats:', error);
+      return {
+        totalApplications: 0,
+        activeMatches: 0,
+        profileViews: 0,
+        profileStrength: 0,
+        responseRate: 0,
+        avgMatchScore: 0,
+      };
+    }
   }
 }
 
