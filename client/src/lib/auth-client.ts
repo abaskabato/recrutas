@@ -23,17 +23,9 @@ export const authClient = createAuthClient({
     onError(context) {
       // Silently handle expected authentication errors
       if (context.response?.status === 401 || context.response?.status === 403) {
-        // These are expected when not authenticated
         return;
       }
       console.warn("Authentication error:", context.error);
-    },
-    onRequest(context) {
-      // Ensure credentials are included
-      console.log("Auth request:", context.url);
-    },
-    onSuccess(context) {
-      console.log("Auth success:", context.url, context.response.status);
     }
   },
 })
@@ -50,12 +42,8 @@ export function useSession() {
   try {
     const session = useSessionRaw();
     
-    // Debug session state
-    console.log("Raw session data:", session);
-    
     // Handle loading states properly to prevent unhandled rejections
     if (session.isPending) {
-      console.log("Session is pending...");
       return {
         data: null,
         user: null,
@@ -69,7 +57,6 @@ export function useSession() {
     // Better Auth returns session data directly
     if (session.data?.user) {
       const user = session.data.user as any;
-      console.log("Session user found:", user);
       
       const extendedUser = {
         ...user,
@@ -80,8 +67,6 @@ export function useSession() {
         role: user.role || null,
         profileComplete: user.profileComplete || false,
       } as ExtendedUser;
-      
-      console.log("Extended user:", extendedUser);
       
       return {
         data: {
@@ -95,7 +80,6 @@ export function useSession() {
       };
     }
     
-    console.log("No session user found");
     return {
       data: null,
       user: null,
@@ -105,7 +89,6 @@ export function useSession() {
       error: session.error
     };
   } catch (error) {
-    console.error("Session error:", error);
     return {
       data: null,
       user: null,

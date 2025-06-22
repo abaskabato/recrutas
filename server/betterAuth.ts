@@ -19,6 +19,7 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     minPasswordLength: 6,
     maxPasswordLength: 128,
+    autoSignIn: true,
   },
   socialProviders: {
     google: {
@@ -66,6 +67,12 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
+    },
+    cookieOptions: {
+      httpOnly: true,
+      secure: false, // Set to false for development
+      sameSite: "lax",
+      path: "/",
     },
   },
   trustedOrigins: [

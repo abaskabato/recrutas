@@ -47,6 +47,11 @@ export default function AuthPage() {
       }
       
       toast({ title: "Welcome back!", description: "Successfully signed in." })
+      
+      // Force refresh to load new session
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Sign in failed",
@@ -82,6 +87,11 @@ export default function AuthPage() {
       }
       
       toast({ title: "Account created!", description: "Welcome to Recrutas!" })
+      
+      // Force refresh to load new session
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Sign up failed",

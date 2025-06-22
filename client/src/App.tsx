@@ -25,11 +25,7 @@ function Router() {
     );
   }
 
-  // Debug logging to understand user state
-  console.log("Current session data:", data);
-  console.log("Current user:", user);
-  console.log("Is authenticated:", isAuthenticated);
-  console.log("User role:", user?.role);
+
 
   return (
     <Switch>
