@@ -66,7 +66,7 @@ export default function LandingResponsive() {
   };
 
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/auth";
   };
 
   const handleLogout = () => {
