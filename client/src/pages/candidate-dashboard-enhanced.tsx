@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RealTimeChat from "@/components/real-time-chat";
 import AdvancedNotificationCenter from "@/components/advanced-notification-center";
 import InstantJobSearch from "@/components/instant-job-search";
-import ProfileCompletionModal from "@/components/profile-completion-modal";
+import EnhancedProfileCompletion from "@/components/enhanced-profile-completion";
 import { 
   Briefcase, 
   MessageSquare, 

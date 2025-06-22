@@ -127,6 +127,11 @@ export interface IStorage {
     responseRate: number;
     avgMatchScore: number;
   }>;
+  getMatchesForCandidate(candidateId: string): Promise<any[]>;
+  getApplicationsForCandidate(candidateId: string): Promise<any[]>;
+  getActivityForCandidate(candidateId: string): Promise<any[]>;
+  createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<any>;
+  updateUserInfo(userId: string, userInfo: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -404,8 +409,8 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  // Statistics
-  async getCandidateStats(candidateId: string): Promise<{
+  // Statistics (first implementation - keeping this one)
+  async getCandidateStatsBasic(candidateId: string): Promise<{
     newMatches: number;
     profileViews: number;
     activeChats: number;
@@ -798,6 +803,161 @@ export class DatabaseStorage implements IStorage {
         responseRate: 0,
         avgMatchScore: 0,
       };
+    }
+  }
+
+  async getMatchesForCandidate(candidateId: string): Promise<any[]> {
+    try {
+      const matches = await db
+        .select({
+          id: jobMatches.id,
+          jobId: jobMatches.jobId,
+          matchScore: jobMatches.matchScore,
+          status: jobMatches.status,
+          createdAt: jobMatches.createdAt,
+          job: {
+            id: jobPostings.id,
+            title: jobPostings.title,
+            company: jobPostings.company,
+            location: jobPostings.location,
+            workType: jobPostings.workType,
+            salaryMin: jobPostings.salaryMin,
+            salaryMax: jobPostings.salaryMax,
+            description: jobPostings.description,
+            requirements: jobPostings.requirements,
+            skills: jobPostings.skills,
+          }
+        })
+        .from(jobMatches)
+        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
+        .where(eq(jobMatches.candidateId, candidateId))
+        .orderBy(desc(jobMatches.createdAt))
+        .limit(50);
+
+      return matches;
+    } catch (error) {
+      console.error('Error fetching matches for candidate:', error);
+      return [];
+    }
+  }
+
+  async getApplicationsForCandidate(candidateId: string): Promise<any[]> {
+    try {
+      const applications = await db
+        .select({
+          id: jobApplications.id,
+          jobId: jobApplications.jobId,
+          status: jobApplications.status,
+          appliedAt: jobApplications.appliedAt,
+          createdAt: jobApplications.createdAt,
+          job: {
+            id: jobPostings.id,
+            title: jobPostings.title,
+            company: jobPostings.company,
+            location: jobPostings.location,
+            workType: jobPostings.workType,
+          }
+        })
+        .from(jobApplications)
+        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(eq(jobApplications.candidateId, candidateId))
+        .orderBy(desc(jobApplications.createdAt))
+        .limit(100);
+
+      return applications;
+    } catch (error) {
+      console.error('Error fetching applications for candidate:', error);
+      return [];
+    }
+  }
+
+  async getActivityForCandidate(candidateId: string): Promise<any[]> {
+    try {
+      const activities = await db
+        .select()
+        .from(activityLogs)
+        .where(eq(activityLogs.userId, candidateId))
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(50);
+
+      return activities;
+    } catch (error) {
+      console.error('Error fetching activity for candidate:', error);
+      return [];
+    }
+  }
+
+  async createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<any> {
+    try {
+      // Check if profile exists
+      const [existingProfile] = await db
+        .select()
+        .from(candidateProfiles)
+        .where(eq(candidateProfiles.userId, userId));
+
+      if (existingProfile) {
+        // Update existing profile
+        const [updatedProfile] = await db
+          .update(candidateProfiles)
+          .set({
+            title: profileData.title,
+            experience: profileData.experience,
+            skills: profileData.skills,
+            location: profileData.location,
+            workType: profileData.workType,
+            salaryMin: profileData.salaryMin,
+            salaryMax: profileData.salaryMax,
+            bio: profileData.bio,
+            resumeUrl: profileData.resumeUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(candidateProfiles.userId, userId))
+          .returning();
+        
+        return updatedProfile;
+      } else {
+        // Create new profile
+        const [newProfile] = await db
+          .insert(candidateProfiles)
+          .values({
+            userId: userId,
+            title: profileData.title,
+            experience: profileData.experience,
+            skills: profileData.skills,
+            location: profileData.location,
+            workType: profileData.workType,
+            salaryMin: profileData.salaryMin,
+            salaryMax: profileData.salaryMax,
+            bio: profileData.bio,
+            resumeUrl: profileData.resumeUrl,
+          })
+          .returning();
+        
+        return newProfile;
+      }
+    } catch (error) {
+      console.error('Error creating/updating candidate profile:', error);
+      throw error;
+    }
+  }
+
+  async updateUserInfo(userId: string, userInfo: any): Promise<any> {
+    try {
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          firstName: userInfo.firstName,
+          lastName: userInfo.lastName,
+          email: userInfo.email,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('Error updating user info:', error);
+      throw error;
     }
   }
 }

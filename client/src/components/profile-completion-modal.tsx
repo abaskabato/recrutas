@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Phone, CheckCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, Phone, CheckCircle, Upload, FileText, Briefcase, MapPin, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -13,14 +15,92 @@ interface ProfileCompletionModalProps {
 }
 
 export default function ProfileCompletionModal({ user, onComplete, onCancel }: ProfileCompletionModalProps) {
+  const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
   const [email, setEmail] = useState(user?.email || "");
   const [phoneNumber, setPhoneNumber] = useState("");
+  
+  // Resume and profile data
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeParsing, setResumeParsing] = useState(false);
+  const [parsedData, setParsedData] = useState<any>(null);
+  
+  // Profile details
+  const [title, setTitle] = useState("");
+  const [experience, setExperience] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [location, setLocation] = useState("");
+  const [workType, setWorkType] = useState("");
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const [bio, setBio] = useState("");
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleResumeUpload = async (file: File) => {
+    setResumeFile(file);
+    setResumeParsing(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('resume', file);
+      
+      const response = await apiRequest('POST', '/api/resume/parse', formData);
+      const result = await response.json();
+      
+      if (result.aiExtracted) {
+        setParsedData(result.aiExtracted);
+        
+        // Auto-fill form fields from parsed data
+        if (result.aiExtracted.personalInfo?.name) {
+          const nameParts = result.aiExtracted.personalInfo.name.split(' ');
+          if (nameParts.length >= 2) {
+            setFirstName(nameParts[0]);
+            setLastName(nameParts.slice(1).join(' '));
+          }
+        }
+        if (result.aiExtracted.personalInfo?.email) {
+          setEmail(result.aiExtracted.personalInfo.email);
+        }
+        if (result.aiExtracted.personalInfo?.phone) {
+          setPhoneNumber(result.aiExtracted.personalInfo.phone);
+        }
+        if (result.aiExtracted.personalInfo?.location) {
+          setLocation(result.aiExtracted.personalInfo.location);
+        }
+        if (result.aiExtracted.summary) {
+          setBio(result.aiExtracted.summary);
+        }
+        if (result.aiExtracted.skills?.technical?.length > 0) {
+          setSkills([...result.aiExtracted.skills.technical, ...result.aiExtracted.skills.tools]);
+        }
+        if (result.aiExtracted.experience?.level) {
+          setExperience(result.aiExtracted.experience.level);
+        }
+        
+        toast({
+          title: "Resume Parsed Successfully",
+          description: `Extracted ${result.aiExtracted.skills?.technical?.length || 0} skills and ${result.aiExtracted.experience?.totalYears || 0} years of experience.`,
+        });
+        
+        // Move to next step
+        setStep(3);
+      }
+    } catch (error) {
+      console.error('Resume parsing error:', error);
+      toast({
+        title: "Resume Parsing Failed",
+        description: "Please check your file and try again, or continue manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setResumeParsing(false);
+    }
+  };
+
+  const handleBasicInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
