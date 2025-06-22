@@ -173,19 +173,68 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl w-full max-h-[90vh] overflow-hidden p-0 border-0 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 dark:from-gray-900 dark:via-blue-950/30 dark:to-indigo-950/30">
+      <DialogContent className="max-w-6xl w-full max-h-[95vh] overflow-hidden p-0 border-0 bg-gradient-to-br from-white/95 via-blue-50/90 to-indigo-100/95 dark:from-gray-900/95 dark:via-blue-950/90 dark:to-indigo-950/95 backdrop-blur-2xl shadow-2xl">
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">Find your perfect job match in 30 seconds with AI-powered recommendations</DialogDescription>
-        <div className="relative">
-          {/* Close button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute top-4 right-4 z-10 rounded-full"
-            onClick={onClose}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+        
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/20 to-cyan-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-purple-400/10 to-pink-600/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+        </div>
+
+        <div className="relative z-10">
+          {/* Enhanced header with floating close button */}
+          <div className="relative p-8 pb-0">
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-center"
+            >
+              <div className="flex items-center justify-center mb-6">
+                <motion.div 
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
+                  className="relative"
+                >
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <Brain className="w-8 h-8 text-white" />
+                  </div>
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute inset-0 bg-gradient-to-br from-blue-400/30 to-purple-500/30 rounded-2xl"
+                  />
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                    className="absolute -inset-2 bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-cyan-400/20 rounded-3xl blur-sm"
+                  />
+                </motion.div>
+              </div>
+
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent mb-3"
+              >
+                AI-Powered Job Discovery
+              </motion.h2>
+              
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+                className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed"
+              >
+                Experience the future of job matching. Our advanced AI analyzes your profile and delivers personalized opportunities in real-time.
+              </motion.p>
+            </motion.div>
+          </div>
 
           <AnimatePresence mode="wait">
             {step === 'intro' && (
@@ -487,23 +536,52 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 + 0.3 }}
                     >
-                      <Card className="hover:shadow-xl transition-all duration-300 border-l-4 border-l-blue-500 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
-                        <CardContent className="p-6">
+                      <Card className="group hover:shadow-2xl transition-all duration-500 border-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:scale-[1.02] relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 via-purple-500 to-cyan-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-top"></div>
+                        
+                        <CardContent className="p-6 relative z-10">
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="text-xl font-semibold text-gray-900 dark:text-white">{job.title}</h4>
-                                <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-sm px-3 py-1">
-                                  {job.match}
-                                </Badge>
-                                {job.chatActive && (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                    <MessageCircle className="w-3 h-3 mr-1" />
-                                    Live
+                              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">{job.title}</h4>
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: index * 0.1 + 0.5, type: "spring", bounce: 0.5 }}
+                                >
+                                  <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
+                                    <Star className="w-3 h-3 mr-1" />
+                                    {job.match}
                                   </Badge>
+                                </motion.div>
+                                {job.chatActive && (
+                                  <motion.div
+                                    animate={{ scale: [1, 1.1, 1] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                  >
+                                    <Badge variant="secondary" className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900 dark:to-cyan-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                                      <motion.div
+                                        animate={{ scale: [1, 1.2, 1] }}
+                                        transition={{ duration: 1, repeat: Infinity }}
+                                      >
+                                        <MessageCircle className="w-3 h-3 mr-1" />
+                                      </motion.div>
+                                      Live Chat
+                                    </Badge>
+                                  </motion.div>
                                 )}
                               </div>
-                              <p className="text-gray-600 dark:text-gray-300 font-medium mb-3">{job.company}</p>
+                              <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.1 + 0.4 }}
+                              >
+                                <p className="text-gray-600 dark:text-gray-300 font-semibold mb-3 flex items-center">
+                                  <Building className="w-4 h-4 mr-2 text-gray-500" />
+                                  {job.company}
+                                </p>
+                              </motion.div>
                             </div>
                           </div>
 
