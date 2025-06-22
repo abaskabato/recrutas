@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -35,7 +35,8 @@ import {
   Plus,
   Upload,
   FileText,
-  Send
+  Send,
+  BarChart3
 } from "lucide-react";
 
 interface CandidateStats {
@@ -100,6 +101,17 @@ export default function CandidateDashboardEnhanced() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  
+  // Job Feed & Recommendation State
+  const [jobFilters, setJobFilters] = useState({
+    location: 'all',
+    companyType: 'all',
+    matchScore: 'all',
+    workType: 'all',
+    salaryRange: 'all'
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'relevance' | 'date' | 'salary' | 'match'>('relevance');
   
   // Profile preferences state
   const [profilePrefs, setProfilePrefs] = useState({
@@ -190,6 +202,125 @@ export default function CandidateDashboardEnhanced() {
       description: "Welcome to Recrutas! Your profile is now set up.",
     });
   };
+
+  // Optimized Job Recommendation Functions with Memoization
+  const filterJobMatches = useCallback((matches: JobMatch[]) => {
+    if (!matches) return [];
+    
+    return matches.filter(match => {
+      // Search query filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const titleMatch = match.job.title.toLowerCase().includes(query);
+        const companyMatch = match.job.company.toLowerCase().includes(query);
+        if (!titleMatch && !companyMatch) return false;
+      }
+      
+      // Location filter
+      if (jobFilters.location !== 'all') {
+        if (jobFilters.location === 'remote' && match.job.workType !== 'remote') return false;
+        if (jobFilters.location === 'hybrid' && match.job.workType !== 'hybrid') return false;
+        if (jobFilters.location === 'onsite' && match.job.workType !== 'onsite') return false;
+      }
+      
+      // Match score filter
+      if (jobFilters.matchScore !== 'all') {
+        const score = parseInt(match.matchScore);
+        if (jobFilters.matchScore === '90+' && score < 90) return false;
+        if (jobFilters.matchScore === '80+' && score < 80) return false;
+        if (jobFilters.matchScore === '70+' && score < 70) return false;
+      }
+      
+      // Salary range filter
+      if (jobFilters.salaryRange !== 'all') {
+        const minSalary = match.job.salaryMin || 0;
+        if (jobFilters.salaryRange === '100k+' && minSalary < 100000) return false;
+        if (jobFilters.salaryRange === '150k+' && minSalary < 150000) return false;
+        if (jobFilters.salaryRange === '200k+' && minSalary < 200000) return false;
+      }
+      
+      return true;
+    });
+  }, [searchQuery, jobFilters]);
+
+  const sortJobMatches = useCallback((matches: JobMatch[]) => {
+    if (!matches) return [];
+    
+    return [...matches].sort((a, b) => {
+      switch (sortBy) {
+        case 'match':
+          return parseInt(b.matchScore) - parseInt(a.matchScore);
+        case 'salary':
+          return (b.job.salaryMax || 0) - (a.job.salaryMax || 0);
+        case 'date':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'relevance':
+        default:
+          // Enhanced relevance algorithm with weighted factors
+          const now = Date.now();
+          const dayMs = 1000 * 60 * 60 * 24;
+          
+          // Calculate recency score (newer = higher score)
+          const aRecency = Math.max(0, 7 - (now - new Date(a.createdAt).getTime()) / dayMs);
+          const bRecency = Math.max(0, 7 - (now - new Date(b.createdAt).getTime()) / dayMs);
+          
+          // Weighted relevance score: 70% match score + 20% recency + 10% salary
+          const aRelevance = parseInt(a.matchScore) * 0.7 + 
+                           aRecency * 0.2 + 
+                           ((a.job.salaryMax || 0) / 300000) * 10 * 0.1;
+          const bRelevance = parseInt(b.matchScore) * 0.7 + 
+                           bRecency * 0.2 + 
+                           ((b.job.salaryMax || 0) / 300000) * 10 * 0.1;
+          
+          return bRelevance - aRelevance;
+      }
+    });
+  }, [sortBy]);
+
+  // Memoized recommendation results
+  const recommendedJobs = useMemo(() => {
+    const filtered = filterJobMatches(matches || []);
+    return sortJobMatches(filtered);
+  }, [matches, filterJobMatches, sortJobMatches]);
+
+  const topMatches = useMemo(() => {
+    return recommendedJobs.slice(0, 3);
+  }, [recommendedJobs]);
+
+  // Performance analytics for recommendation system
+  const recommendationStats = useMemo(() => {
+    if (!matches || matches.length === 0) return null;
+    
+    const totalMatches = matches.length;
+    const filteredCount = recommendedJobs.length;
+    const avgMatchScore = filteredCount > 0 
+      ? recommendedJobs.reduce((sum, match) => sum + parseInt(match.matchScore), 0) / filteredCount 
+      : 0;
+    const highQualityMatches = recommendedJobs.filter(match => parseInt(match.matchScore) >= 80).length;
+    
+    return {
+      totalMatches,
+      filteredCount,
+      avgMatchScore: Math.round(avgMatchScore),
+      highQualityMatches,
+      filterEffectiveness: totalMatches > 0 ? Math.round((filteredCount / totalMatches) * 100) : 0
+    };
+  }, [matches, recommendedJobs]);
+
+  // Helper function to get filtering effectiveness message
+  const getFilteringMessage = useCallback(() => {
+    if (!recommendationStats) return '';
+    
+    const { filterEffectiveness, highQualityMatches, filteredCount } = recommendationStats;
+    
+    if (filterEffectiveness === 100) {
+      return 'All matches shown';
+    } else if (filterEffectiveness >= 50) {
+      return `${highQualityMatches} high-quality matches found`;
+    } else {
+      return `Filters narrowed down to ${filteredCount} best matches`;
+    }
+  }, [recommendationStats]);
 
   // Handle file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -441,9 +572,9 @@ export default function CandidateDashboardEnhanced() {
                           </div>
                         ))}
                       </div>
-                    ) : matches.slice(0, 3).length > 0 ? (
+                    ) : topMatches.length > 0 ? (
                       <div className="space-y-4">
-                        {matches.slice(0, 3).map((match) => (
+                        {topMatches.map((match) => (
                           <div key={match.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                             <div className="flex-1">
                               <h4 className="font-medium text-slate-900">{match.job.title}</h4>
@@ -494,39 +625,112 @@ export default function CandidateDashboardEnhanced() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle>Job Matches</CardTitle>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 flex-wrap gap-2">
                         <div className="flex items-center space-x-2">
-                          <select className="text-sm border rounded px-2 py-1">
-                            <option value="all">All Locations</option>
+                          <select 
+                            className="text-sm border rounded px-2 py-1"
+                            value={jobFilters.location}
+                            onChange={(e) => setJobFilters({...jobFilters, location: e.target.value})}
+                          >
+                            <option value="all">All Work Types</option>
                             <option value="remote">Remote</option>
                             <option value="hybrid">Hybrid</option>
                             <option value="onsite">On-site</option>
                           </select>
-                          <select className="text-sm border rounded px-2 py-1">
+                          <select 
+                            className="text-sm border rounded px-2 py-1"
+                            value={jobFilters.companyType}
+                            onChange={(e) => setJobFilters({...jobFilters, companyType: e.target.value})}
+                          >
                             <option value="all">All Companies</option>
                             <option value="faang">FAANG</option>
                             <option value="startup">Startup</option>
                             <option value="enterprise">Enterprise</option>
                           </select>
-                          <select className="text-sm border rounded px-2 py-1">
-                            <option value="all">Match Score</option>
+                          <select 
+                            className="text-sm border rounded px-2 py-1"
+                            value={jobFilters.matchScore}
+                            onChange={(e) => setJobFilters({...jobFilters, matchScore: e.target.value})}
+                          >
+                            <option value="all">All Matches</option>
                             <option value="90+">90%+ Match</option>
                             <option value="80+">80%+ Match</option>
                             <option value="70+">70%+ Match</option>
                           </select>
+                          <select 
+                            className="text-sm border rounded px-2 py-1"
+                            value={jobFilters.salaryRange}
+                            onChange={(e) => setJobFilters({...jobFilters, salaryRange: e.target.value})}
+                          >
+                            <option value="all">All Salaries</option>
+                            <option value="100k+">$100k+</option>
+                            <option value="150k+">$150k+</option>
+                            <option value="200k+">$200k+</option>
+                          </select>
+                          <select 
+                            className="text-sm border rounded px-2 py-1"
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                          >
+                            <option value="relevance">Sort by Relevance</option>
+                            <option value="match">Sort by Match Score</option>
+                            <option value="salary">Sort by Salary</option>
+                            <option value="date">Sort by Date</option>
+                          </select>
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Filter className="w-4 h-4 mr-2" />
-                          More Filters
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Search className="w-4 h-4 mr-2" />
-                          Search
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            placeholder="Search jobs..."
+                            className="text-sm border rounded px-3 py-1 w-48"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setJobFilters({
+                                location: 'all',
+                                companyType: 'all',
+                                matchScore: 'all',
+                                workType: 'all',
+                                salaryRange: 'all'
+                              });
+                              setSearchQuery('');
+                              setSortBy('relevance');
+                            }}
+                          >
+                            Clear Filters
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {/* Enhanced Results Summary with Analytics */}
+                    {!matchesLoading && matches.length > 0 && (
+                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="space-y-1">
+                            <span className="text-blue-700 dark:text-blue-300">
+                              Showing {recommendedJobs.length} of {matches.length} job matches
+                            </span>
+                            {recommendationStats && (
+                              <div className="text-xs text-blue-600 dark:text-blue-400">
+                                {getFilteringMessage()} • Avg match: {recommendationStats.avgMatchScore}%
+                              </div>
+                            )}
+                          </div>
+                          {(searchQuery || Object.values(jobFilters).some(f => f !== 'all') || sortBy !== 'relevance') && (
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">
+                              Filters active
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     {matchesLoading ? (
                       <div className="space-y-4">
                         {[1, 2, 3, 4].map(i => (
@@ -535,9 +739,9 @@ export default function CandidateDashboardEnhanced() {
                           </div>
                         ))}
                       </div>
-                    ) : matches.length > 0 ? (
+                    ) : recommendedJobs.length > 0 ? (
                       <div className="space-y-4">
-                        {matches.map((match) => (
+                        {recommendedJobs.map((match) => (
                           <div key={match.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
@@ -608,13 +812,48 @@ export default function CandidateDashboardEnhanced() {
                     ) : (
                       <div className="space-y-6">
                         <div className="text-center py-8">
-                          <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-slate-900 mb-2">Discover Live Job Opportunities</h3>
-                          <p className="text-slate-500 mb-4">
-                            Search thousands of real job openings from top companies
-                          </p>
+                          {matches.length === 0 ? (
+                            <>
+                              <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                              <h3 className="text-lg font-medium text-slate-900 mb-2">No Job Matches Yet</h3>
+                              <p className="text-slate-500 mb-4">
+                                Complete your profile and skills to get AI-powered job recommendations
+                              </p>
+                              <Button onClick={() => setActiveTab('profile')} className="mx-auto">
+                                Complete Profile
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                              <h3 className="text-lg font-medium text-slate-900 mb-2">No Results Found</h3>
+                              <p className="text-slate-500 mb-4">
+                                No jobs match your current filters. Try adjusting your search criteria.
+                              </p>
+                              <div className="flex justify-center space-x-2">
+                                <Button 
+                                  variant="outline"
+                                  onClick={() => {
+                                    setJobFilters({
+                                      location: 'all',
+                                      companyType: 'all',
+                                      matchScore: 'all',
+                                      workType: 'all',
+                                      salaryRange: 'all'
+                                    });
+                                    setSearchQuery('');
+                                  }}
+                                >
+                                  Clear All Filters
+                                </Button>
+                                <Button onClick={() => setSearchQuery('')}>
+                                  Clear Search
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <InstantJobSearch />
+                        {matches.length === 0 && <InstantJobSearch />}
                       </div>
                     )}
                   </CardContent>
