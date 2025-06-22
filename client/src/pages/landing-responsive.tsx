@@ -255,13 +255,15 @@ export default function LandingResponsive() {
             </Badge>
             
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-6 md:mb-8 leading-tight tracking-tight">
+              Job Search.
+              <br />
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Recrutas
+                Reinvented.
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-4xl mx-auto">
-              Apply to real jobs, talk to hiring managers and get your offer
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
+              Upload resume → Get matched → Apply direct
             </p>
 
             {/* Skills Input Section */}
