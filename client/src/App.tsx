@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing-responsive";
 import CandidateDashboard from "@/pages/candidate-dashboard-refactored";
-import RecruiterDashboard from "@/pages/recruiter-dashboard-refactored";
+import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
@@ -34,8 +34,8 @@ function Router() {
             </>
           ) : user.role === 'recruiter' ? (
             <>
-              <Route path="/" component={RecruiterDashboard} />
-              <Route path="/recruiter-dashboard" component={RecruiterDashboard} />
+              <Route path="/" component={TalentDashboard} />
+              <Route path="/recruiter-dashboard" component={TalentDashboard} />
             </>
           ) : (
             <Route path="/" component={Landing} />

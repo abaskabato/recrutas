@@ -371,20 +371,20 @@ export class DatabaseStorage implements IStorage {
     const [jobsCount] = await db
       .select({ count: count() })
       .from(jobPostings)
-      .where(and(eq(jobPostings.recruiterId, recruiterId), eq(jobPostings.status, "active")));
+      .where(and(eq(jobPostings.talentOwnerId, recruiterId), eq(jobPostings.status, "active")));
 
     const [matchesCount] = await db
       .select({ count: count() })
       .from(jobMatches)
       .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .where(eq(jobPostings.recruiterId, recruiterId));
+      .where(eq(jobPostings.talentOwnerId, recruiterId));
 
     const [chatsCount] = await db
       .select({ count: count() })
       .from(chatRooms)
       .innerJoin(jobMatches, eq(chatRooms.matchId, jobMatches.id))
       .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .where(and(eq(jobPostings.recruiterId, recruiterId), eq(chatRooms.status, "active")));
+      .where(and(eq(jobPostings.talentOwnerId, recruiterId), eq(chatRooms.status, "active")));
 
     const [hiresCount] = await db
       .select({ count: count() })
