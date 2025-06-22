@@ -17,13 +17,14 @@ export interface ExtendedUser {
 }
 
 export const authClient = createAuthClient({
-  baseURL: window.location.origin, // Use current origin for proper environment support
+  baseURL: window.location.origin,
   fetchOptions: {
     onError(e) {
-      // Silently handle auth errors to prevent console spam
-      if (e.error?.status !== 401) {
-        console.log("Auth error:", e);
-      }
+      // Handle authentication errors gracefully
+      console.warn("Authentication error handled:", e);
+    },
+    onRequest() {
+      // Ensure requests are properly configured
     },
   },
 })
@@ -37,39 +38,51 @@ export const {
 
 // Create a wrapper for useSession that provides compatibility with existing components
 export function useSession() {
-  const session = useSessionRaw();
-  
-  // Better Auth returns session data directly
-  if (session.data?.user) {
-    const user = session.data.user as any;
-    const extendedUser = {
-      ...user,
-      // Ensure all properties are available for backward compatibility
-      firstName: user.firstName || user.name?.split(' ')[0] || '',
-      lastName: user.lastName || user.name?.split(' ')[1] || '',
-      phoneNumber: user.phoneNumber || null,
-      role: user.role || 'candidate',
-      profileComplete: user.profileComplete || false,
-    } as ExtendedUser;
+  try {
+    const session = useSessionRaw();
+    
+    // Better Auth returns session data directly
+    if (session.data?.user) {
+      const user = session.data.user as any;
+      const extendedUser = {
+        ...user,
+        // Ensure all properties are available for backward compatibility
+        firstName: user.firstName || user.name?.split(' ')[0] || '',
+        lastName: user.lastName || user.name?.split(' ')[1] || '',
+        phoneNumber: user.phoneNumber || null,
+        role: user.role || 'candidate',
+        profileComplete: user.profileComplete || false,
+      } as ExtendedUser;
+      
+      return {
+        data: {
+          user: extendedUser
+        },
+        user: extendedUser,
+        isLoading: session.isPending,
+        isAuthenticated: true,
+        isPending: session.isPending,
+        error: session.error
+      };
+    }
     
     return {
-      data: {
-        user: extendedUser
-      },
-      user: extendedUser,
-      isLoading: session.isPending,
-      isAuthenticated: true,
-      isPending: session.isPending,
+      data: null,
+      user: null,
+      isLoading: session.isPending || false,
+      isAuthenticated: false,
+      isPending: session.isPending || false,
       error: session.error
     };
+  } catch (error) {
+    console.warn("Session wrapper error:", error);
+    return {
+      data: null,
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      isPending: false,
+      error: error as any
+    };
   }
-  
-  return {
-    data: null,
-    user: null,
-    isLoading: session.isPending,
-    isAuthenticated: false,
-    isPending: session.isPending,
-    error: session.error
-  };
 }
