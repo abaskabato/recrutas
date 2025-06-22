@@ -98,6 +98,21 @@ export default function CandidateDashboardEnhanced() {
   const [showResumeUpload, setShowResumeUpload] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // Profile preferences state
+  const [profilePrefs, setProfilePrefs] = useState({
+    preferredLocations: [''],
+    preferredJobTitles: [''],
+    salaryMin: '',
+    salaryMax: '',
+    workType: 'any',
+    experienceLevel: 'mid',
+    skills: [''],
+    linkedinUrl: '',
+    githubUrl: '',
+    portfolioUrl: '',
+    availability: 'immediate'
+  });
 
   // Fetch candidate stats
   const { data: stats, isLoading: statsLoading } = useQuery<CandidateStats>({
@@ -295,10 +310,11 @@ export default function CandidateDashboardEnhanced() {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="matches">Matches</TabsTrigger>
                 <TabsTrigger value="applications">Applications</TabsTrigger>
+                <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
 
@@ -630,6 +646,316 @@ export default function CandidateDashboardEnhanced() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Profile Tab */}
+              <TabsContent value="profile" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Job Search Preferences */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Search className="w-5 h-5" />
+                        Job Search Preferences
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Preferred Job Titles */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Preferred Job Titles
+                        </label>
+                        {profilePrefs.preferredJobTitles.map((title, index) => (
+                          <div key={index} className="flex items-center gap-2 mb-2">
+                            <input
+                              type="text"
+                              value={title}
+                              onChange={(e) => {
+                                const newTitles = [...profilePrefs.preferredJobTitles];
+                                newTitles[index] = e.target.value;
+                                setProfilePrefs(prev => ({ ...prev, preferredJobTitles: newTitles }));
+                              }}
+                              placeholder="e.g. Software Engineer, Full Stack Developer"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            {profilePrefs.preferredJobTitles.length > 1 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newTitles = profilePrefs.preferredJobTitles.filter((_, i) => i !== index);
+                                  setProfilePrefs(prev => ({ ...prev, preferredJobTitles: newTitles }));
+                                }}
+                              >
+                                ×
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setProfilePrefs(prev => ({ 
+                              ...prev, 
+                              preferredJobTitles: [...prev.preferredJobTitles, ''] 
+                            }));
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Job Title
+                        </Button>
+                      </div>
+
+                      {/* Preferred Locations */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Preferred Locations
+                        </label>
+                        {profilePrefs.preferredLocations.map((location, index) => (
+                          <div key={index} className="flex items-center gap-2 mb-2">
+                            <input
+                              type="text"
+                              value={location}
+                              onChange={(e) => {
+                                const newLocations = [...profilePrefs.preferredLocations];
+                                newLocations[index] = e.target.value;
+                                setProfilePrefs(prev => ({ ...prev, preferredLocations: newLocations }));
+                              }}
+                              placeholder="e.g. San Francisco, Remote, New York"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            {profilePrefs.preferredLocations.length > 1 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newLocations = profilePrefs.preferredLocations.filter((_, i) => i !== index);
+                                  setProfilePrefs(prev => ({ ...prev, preferredLocations: newLocations }));
+                                }}
+                              >
+                                ×
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setProfilePrefs(prev => ({ 
+                              ...prev, 
+                              preferredLocations: [...prev.preferredLocations, ''] 
+                            }));
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Location
+                        </Button>
+                      </div>
+
+                      {/* Salary Range */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Minimum Salary
+                          </label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <input
+                              type="number"
+                              value={profilePrefs.salaryMin}
+                              onChange={(e) => setProfilePrefs(prev => ({ ...prev, salaryMin: e.target.value }))}
+                              placeholder="80000"
+                              className="pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm w-full"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Maximum Salary
+                          </label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <input
+                              type="number"
+                              value={profilePrefs.salaryMax}
+                              onChange={(e) => setProfilePrefs(prev => ({ ...prev, salaryMax: e.target.value }))}
+                              placeholder="150000"
+                              className="pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm w-full"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Work Type & Experience Level */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Work Type Preference
+                          </label>
+                          <select
+                            value={profilePrefs.workType}
+                            onChange={(e) => setProfilePrefs(prev => ({ ...prev, workType: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          >
+                            <option value="any">Any</option>
+                            <option value="remote">Remote Only</option>
+                            <option value="hybrid">Hybrid</option>
+                            <option value="onsite">On-site Only</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Experience Level
+                          </label>
+                          <select
+                            value={profilePrefs.experienceLevel}
+                            onChange={(e) => setProfilePrefs(prev => ({ ...prev, experienceLevel: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          >
+                            <option value="entry">Entry Level (0-2 years)</option>
+                            <option value="mid">Mid Level (2-5 years)</option>
+                            <option value="senior">Senior Level (5+ years)</option>
+                            <option value="lead">Lead/Principal (8+ years)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Availability */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Availability
+                        </label>
+                        <select
+                          value={profilePrefs.availability}
+                          onChange={(e) => setProfilePrefs(prev => ({ ...prev, availability: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        >
+                          <option value="immediate">Available Immediately</option>
+                          <option value="2weeks">2 Weeks Notice</option>
+                          <option value="1month">1 Month Notice</option>
+                          <option value="3months">3+ Months</option>
+                          <option value="not_looking">Not Currently Looking</option>
+                        </select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Professional Links & Skills */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        Professional Profile
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Professional Links */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          LinkedIn Profile
+                        </label>
+                        <input
+                          type="url"
+                          value={profilePrefs.linkedinUrl}
+                          onChange={(e) => setProfilePrefs(prev => ({ ...prev, linkedinUrl: e.target.value }))}
+                          placeholder="https://linkedin.com/in/yourprofile"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          GitHub Profile
+                        </label>
+                        <input
+                          type="url"
+                          value={profilePrefs.githubUrl}
+                          onChange={(e) => setProfilePrefs(prev => ({ ...prev, githubUrl: e.target.value }))}
+                          placeholder="https://github.com/yourusername"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Portfolio Website
+                        </label>
+                        <input
+                          type="url"
+                          value={profilePrefs.portfolioUrl}
+                          onChange={(e) => setProfilePrefs(prev => ({ ...prev, portfolioUrl: e.target.value }))}
+                          placeholder="https://yourportfolio.com"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+
+                      {/* Skills */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Key Skills
+                        </label>
+                        {profilePrefs.skills.map((skill, index) => (
+                          <div key={index} className="flex items-center gap-2 mb-2">
+                            <input
+                              type="text"
+                              value={skill}
+                              onChange={(e) => {
+                                const newSkills = [...profilePrefs.skills];
+                                newSkills[index] = e.target.value;
+                                setProfilePrefs(prev => ({ ...prev, skills: newSkills }));
+                              }}
+                              placeholder="e.g. JavaScript, React, Node.js"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            {profilePrefs.skills.length > 1 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newSkills = profilePrefs.skills.filter((_, i) => i !== index);
+                                  setProfilePrefs(prev => ({ ...prev, skills: newSkills }));
+                                }}
+                              >
+                                ×
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setProfilePrefs(prev => ({ 
+                              ...prev, 
+                              skills: [...prev.skills, ''] 
+                            }));
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Skill
+                        </Button>
+                      </div>
+
+                      {/* Save Button */}
+                      <div className="pt-4">
+                        <Button 
+                          className="w-full"
+                          onClick={() => {
+                            toast({
+                              title: "Profile Updated",
+                              description: "Your job search preferences have been saved successfully.",
+                            });
+                          }}
+                        >
+                          <Send className="w-4 h-4 mr-2" />
+                          Save Profile Preferences
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
 
               {/* Activity Tab */}
