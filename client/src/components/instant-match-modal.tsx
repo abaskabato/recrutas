@@ -587,10 +587,18 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   <Button 
                     onClick={handleViewFeatures}
                     variant="outline"
-                    className="flex-1 py-3 text-sm font-medium"
+                    className="py-3 text-sm font-medium"
                   >
                     <TrendingUp className="w-4 h-4 mr-2" />
                     See All Features
+                  </Button>
+                  <Button
+                    onClick={onStartMatching}
+                    variant="outline"
+                    className="py-3 text-sm font-medium border-blue-200 text-blue-700 hover:bg-blue-50"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Matches
                   </Button>
                   <Button
                     size="lg"

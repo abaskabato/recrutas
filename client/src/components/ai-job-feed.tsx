@@ -35,9 +35,9 @@ interface AIJobMatch {
 
 export default function AIJobFeed() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [locationFilter, setLocationFilter] = useState("");
-  const [workTypeFilter, setWorkTypeFilter] = useState("");
-  const [companyFilter, setCompanyFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("all");
+  const [workTypeFilter, setWorkTypeFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
 
   // Fetch jobs with instant filtering
   const { data: jobsResponse, isLoading } = useQuery({
@@ -123,9 +123,9 @@ export default function AIJobFeed() {
   // Clear filter functions
   const clearFilters = () => {
     setSearchTerm("");
-    setLocationFilter("");
-    setWorkTypeFilter("");
-    setCompanyFilter("");
+    setLocationFilter("all");
+    setWorkTypeFilter("all");
+    setCompanyFilter("all");
   };
 
   return (
@@ -148,7 +148,7 @@ export default function AIJobFeed() {
               <SelectValue placeholder="Location" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Locations</SelectItem>
+              <SelectItem value="all">All Locations</SelectItem>
               {uniqueLocations.slice(0, 10).map((location: string) => (
                 <SelectItem key={location} value={location}>{location}</SelectItem>
               ))}
@@ -160,7 +160,7 @@ export default function AIJobFeed() {
               <SelectValue placeholder="Work Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
               {uniqueWorkTypes.map((type: string) => (
                 <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>
               ))}
@@ -173,7 +173,7 @@ export default function AIJobFeed() {
                 <SelectValue placeholder="Company" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Companies</SelectItem>
+                <SelectItem value="all">All Companies</SelectItem>
                 {uniqueCompanies.slice(0, 15).map((company: string) => (
                   <SelectItem key={company} value={company}>{company}</SelectItem>
                 ))}
