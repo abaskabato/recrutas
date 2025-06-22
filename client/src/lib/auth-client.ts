@@ -25,7 +25,10 @@ export const authClient = createAuthClient({
       if (context.response?.status === 401 || context.response?.status === 403) {
         return;
       }
-      console.warn("Authentication error:", context.error);
+      // Only log actual errors, not network timeouts or connection issues
+      if (context.error && !context.error.message?.includes('fetch')) {
+        console.warn("Authentication error:", context.error);
+      }
     }
   },
 })

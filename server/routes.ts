@@ -23,6 +23,7 @@ import { eq } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
+import { advancedMatchingEngine } from "./advanced-matching-engine";
 
 // Simple authentication middleware for session-based auth
 function requireAuth(req: any, res: any, next: any) {
@@ -411,26 +412,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Add parsed data if available
-      if (parsedData) {
-        if (parsedData.skills && parsedData.skills.length > 0) {
-          profileData.skills = parsedData.skills;
+      if (parsedData && typeof parsedData === 'object') {
+        const data = parsedData as any;
+        if (data.skills && Array.isArray(data.skills) && data.skills.length > 0) {
+          profileData.skills = data.skills;
         }
         
-        if (parsedData.experience && parsedData.experience !== 'Not specified') {
-          profileData.experience = parsedData.experience;
+        if (data.experience && data.experience !== 'Not specified') {
+          profileData.experience = data.experience;
         }
         
-        if (parsedData.contactInfo && parsedData.contactInfo.location) {
-          profileData.location = parsedData.contactInfo.location;
+        if (data.contactInfo && data.contactInfo.location) {
+          profileData.location = data.contactInfo.location;
         }
         
-        if (parsedData.summary) {
-          profileData.bio = parsedData.summary;
+        if (data.summary) {
+          profileData.bio = data.summary;
         }
 
         // Store parsed text for future reference
-        if (parsedData.text) {
-          profileData.resumeText = parsedData.text;
+        if (data.text) {
+          profileData.resumeText = data.text;
         }
       }
       
@@ -438,8 +440,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profile = await storage.upsertCandidateProfile(profileData);
 
       // Create activity log
-      const activityMessage = parsedData && parsedData.skills && parsedData.workHistory
-        ? `Resume uploaded and parsed successfully. Found ${parsedData.skills.length} skills and ${parsedData.workHistory.length} work entries.`
+      const data = parsedData as any;
+      const activityMessage = data && data.skills && data.workHistory
+        ? `Resume uploaded and parsed successfully. Found ${data.skills.length} skills and ${data.workHistory.length} work entries.`
         : "Resume uploaded successfully";
       
       await storage.createActivityLog(userId, "resume_upload", activityMessage);
@@ -494,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   matchScore: `${Math.round(aiMatch.score)}%`,
                   confidenceLevel: aiMatch.confidenceLevel >= 80 ? 'high' : 
                                   aiMatch.confidenceLevel >= 60 ? 'medium' : 'low',
-                  skillMatches: aiMatch.skillMatches,
+                  skillMatches: aiMatch.skillMatches.map(skill => ({ skill, matched: true })),
                   aiExplanation: aiMatch.aiExplanation,
                   status: 'pending'
                 });
@@ -514,11 +517,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         resumeUrl,
         parsed: !!parsedData,
-        extractedInfo: parsedData ? {
-          skillsCount: parsedData.skills?.length || 0,
-          experience: parsedData.experience || '',
-          workHistoryCount: parsedData.workHistory?.length || 0,
-          hasContactInfo: parsedData.contactInfo ? Object.keys(parsedData.contactInfo).length > 0 : false
+        extractedInfo: data ? {
+          skillsCount: data.skills?.length || 0,
+          experience: data.experience || '',
+          workHistoryCount: data.workHistory?.length || 0,
+          hasContactInfo: data.contactInfo ? Object.keys(data.contactInfo).length > 0 : false
         } : null,
         autoMatchingTriggered: true
       });
@@ -555,15 +558,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Candidate stats
-  app.get('/api/candidate/stats', requireAuth, async (req: any, res) => {
+  // Advanced job matching with AI
+  app.get('/api/advanced-matches/:candidateId', requireAuth, async (req: any, res) => {
+    try {
+      const { candidateId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      const matches = await advancedMatchingEngine.getPersonalizedJobFeed(candidateId, limit);
+      
+      res.json({
+        matches,
+        total: matches.length,
+        algorithm: "advanced_ai_v2"
+      });
+    } catch (error) {
+      console.error("Advanced matching error:", error);
+      res.status(500).json({ error: "Failed to generate advanced matches" });
+    }
+  });
+
+  // Update candidate matching preferences
+  app.put('/api/candidate/match-preferences', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const stats = await storage.getCandidateStats(userId);
-      res.json(stats);
+      const preferences = req.body;
+      
+      await advancedMatchingEngine.updateMatchPreferences(userId, preferences);
+      
+      res.json({ message: "Preferences updated successfully" });
     } catch (error) {
-      console.error("Error fetching candidate stats:", error);
-      res.status(500).json({ message: "Failed to fetch stats" });
+      console.error("Preference update error:", error);
+      res.status(500).json({ error: "Failed to update preferences" });
     }
   });
 
@@ -829,7 +854,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allMatches = [...dbMatches, ...liveMatches];
       
       // Sort by creation date (newest first) to show fresh matches
-      allMatches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      allMatches.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
       
       res.json(allMatches);
     } catch (error) {
@@ -852,7 +881,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resumeUrl = `/uploads/${fileName}`;
 
       // Update candidate profile with resume URL
-      await storage.updateCandidateProfile(userId, {
+      await storage.upsertCandidateProfile({
+        userId: userId,
         resumeUrl: resumeUrl
       });
 
@@ -1596,7 +1626,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "Please complete your profile first" });
         }
         
-        const aiMatch = await generateJobMatch(candidateProfile, job);
+        const candidateForAI = {
+          ...candidateProfile,
+          skills: candidateProfile.skills || [],
+          experience: candidateProfile.experience || 'entry',
+          industry: candidateProfile.industry ?? undefined,
+          workType: candidateProfile.workType ?? undefined,
+          salaryMin: candidateProfile.salaryMin ?? undefined,
+          salaryMax: candidateProfile.salaryMax ?? undefined,
+          location: candidateProfile.location ?? undefined
+        };
+        const jobForAI = {
+          ...job,
+          skills: job.skills || [],
+          requirements: job.requirements || [],
+          industry: job.industry ?? undefined,
+          workType: job.workType ?? undefined,
+          salaryMin: job.salaryMin ?? undefined,
+          salaryMax: job.salaryMax ?? undefined,
+          location: job.location ?? undefined
+        };
+        const aiMatch = await generateJobMatch(candidateForAI, jobForAI);
         
         match = await storage.createJobMatch({
           jobId,
@@ -1604,14 +1654,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           matchScore: `${aiMatch.score}%`,
           confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
                          aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-          skillMatches: aiMatch.skillMatches,
+          skillMatches: aiMatch.skillMatches.map(skill => ({ skill, matched: true })),
           aiExplanation: aiMatch.aiExplanation,
           status: 'applied',
         });
       }
       
       // Create activity log
-      await storage.createActivityLog(userId, "job_applied", `Marked as applied: ${match.jobId}`);
+      if (match) {
+        await storage.createActivityLog(userId, "job_applied", `Marked as applied: ${match.jobId}`);
+      }
       
       res.json({ message: "Marked as applied successfully", match });
     } catch (error) {

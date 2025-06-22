@@ -11,6 +11,7 @@ import { Bell, User, Upload, Search, Eye, Clock, Lightbulb, MessageCircle, Check
 import MatchCard from "@/components/match-card";
 import ProfileUpload from "@/components/profile-upload";
 import AIJobFeed from "@/components/ai-job-feed";
+import AdvancedJobMatches from "@/components/advanced-job-matches";
 
 export default function CandidateDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();

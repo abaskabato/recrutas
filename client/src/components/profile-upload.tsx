@@ -33,16 +33,16 @@ export default function ProfileUpload() {
 
   // Update local state when profile data loads
   useEffect(() => {
-    if (profile) {
+    if (profile && typeof profile === 'object') {
       setProfileLinks({
-        linkedinUrl: profile.linkedinUrl || '',
-        githubUrl: profile.githubUrl || '',
-        portfolioUrl: profile.portfolioUrl || '',
-        personalWebsite: profile.personalWebsite || '',
-        behanceUrl: profile.behanceUrl || '',
-        dribbbleUrl: profile.dribbbleUrl || '',
-        stackOverflowUrl: profile.stackOverflowUrl || '',
-        mediumUrl: profile.mediumUrl || ''
+        linkedinUrl: (profile as any).linkedinUrl || '',
+        githubUrl: (profile as any).githubUrl || '',
+        portfolioUrl: (profile as any).portfolioUrl || '',
+        personalWebsite: (profile as any).personalWebsite || '',
+        behanceUrl: (profile as any).behanceUrl || '',
+        dribbbleUrl: (profile as any).dribbbleUrl || '',
+        stackOverflowUrl: (profile as any).stackOverflowUrl || '',
+        mediumUrl: (profile as any).mediumUrl || ''
       });
     }
   }, [profile]);
@@ -50,10 +50,7 @@ export default function ProfileUpload() {
   // Update profile links mutation
   const updateLinksMutation = useMutation({
     mutationFn: async (links: typeof profileLinks) => {
-      return await apiRequest('/api/candidate/profile', {
-        method: 'PATCH',
-        body: JSON.stringify(links),
-      });
+      return await apiRequest('PATCH', '/api/candidate/profile', links);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
@@ -207,7 +204,7 @@ export default function ProfileUpload() {
           </Button>
           
           {/* Show current resume info if available */}
-          {profile?.resumeUrl && (
+          {profile && (profile as any)?.resumeUrl && (
             <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
               <div className="flex items-start gap-2">
                 <FileText className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -215,15 +212,15 @@ export default function ProfileUpload() {
                   <p className="text-sm font-medium text-green-800 dark:text-green-200">
                     Resume Active
                   </p>
-                  {profile.skills && profile.skills.length > 0 && (
+                  {(profile as any).skills && (profile as any).skills.length > 0 && (
                     <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                      Auto-detected {profile.skills.length} skills: {profile.skills.slice(0, 3).join(', ')}
-                      {profile.skills.length > 3 && ` +${profile.skills.length - 3} more`}
+                      Auto-detected {(profile as any).skills.length} skills: {(profile as any).skills.slice(0, 3).join(', ')}
+                      {(profile as any).skills.length > 3 && ` +${(profile as any).skills.length - 3} more`}
                     </p>
                   )}
-                  {profile.experience && (
+                  {(profile as any).experience && (
                     <p className="text-xs text-green-700 dark:text-green-300">
-                      Experience: {profile.experience}
+                      Experience: {(profile as any).experience}
                     </p>
                   )}
                 </div>

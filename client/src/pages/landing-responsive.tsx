@@ -290,7 +290,7 @@ export default function LandingResponsive() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 text-center">
             <div className="space-y-2 md:space-y-3">
               <div className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                {platformStats?.totalUsers || '9'}+
+                {(platformStats as any)?.totalUsers || '9'}+
               </div>
               <div className="text-slate-300 text-lg md:text-xl">Active Users</div>
               <div className="flex items-center justify-center text-green-400 text-sm md:text-base">
@@ -301,7 +301,7 @@ export default function LandingResponsive() {
             
             <div className="space-y-2 md:space-y-3">
               <div className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                {platformStats?.totalJobs || '25'}+
+                {(platformStats as any)?.totalJobs || '25'}+
               </div>
               <div className="text-slate-300 text-lg md:text-xl">Live Jobs</div>
               <div className="flex items-center justify-center text-blue-400 text-sm md:text-base">
@@ -312,7 +312,7 @@ export default function LandingResponsive() {
             
             <div className="space-y-2 md:space-y-3">
               <div className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                {platformStats?.totalMatches || '47'}+
+                {(platformStats as any)?.totalMatches || '47'}+
               </div>
               <div className="text-slate-300 text-lg md:text-xl">Successful Matches</div>
               <div className="flex items-center justify-center text-emerald-400 text-sm md:text-base">

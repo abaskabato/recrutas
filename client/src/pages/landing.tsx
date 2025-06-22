@@ -446,19 +446,19 @@ export default function Landing() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
               <div>
                 <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {platformStats?.totalUsers || '10,000'}+
+                  {(platformStats as any)?.totalUsers || '10,000'}+
                 </div>
                 <div className="text-slate-400">Active Users</div>
               </div>
               <div>
                 <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {platformStats?.totalJobs || '25,000'}+
+                  {(platformStats as any)?.totalJobs || '25,000'}+
                 </div>
                 <div className="text-slate-400">Jobs Posted</div>
               </div>
               <div>
                 <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {platformStats?.totalMatches || '50,000'}+
+                  {(platformStats as any)?.totalMatches || '50,000'}+
                 </div>
                 <div className="text-slate-400">Successful Matches</div>
               </div>
