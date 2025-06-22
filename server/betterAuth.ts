@@ -3,30 +3,13 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { db } from "./db"
 import type { Express } from "express"
 
-// Better Auth configuration
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
-    provider: "pg", // PostgreSQL
+    provider: "pg",
   }),
   emailAndPassword: {
     enabled: true,
-  },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      enabled: !!process.env.GOOGLE_CLIENT_ID,
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-      enabled: !!process.env.GITHUB_CLIENT_ID,
-    },
-    microsoft: {
-      clientId: process.env.MICROSOFT_CLIENT_ID || "",
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET || "",
-      enabled: !!process.env.MICROSOFT_CLIENT_ID,
-    },
+    requireEmailVerification: false,
   },
   user: {
     additionalFields: {
@@ -35,7 +18,7 @@ export const auth = betterAuth({
         required: false,
       },
       lastName: {
-        type: "string", 
+        type: "string",
         required: false,
       },
       phoneNumber: {
@@ -45,6 +28,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
+        defaultValue: "candidate",
       },
       profileComplete: {
         type: "boolean",
@@ -56,7 +40,7 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60, // Cache for 5 minutes
+      maxAge: 5 * 60,
     },
   },
   trustedOrigins: [
@@ -67,53 +51,53 @@ export const auth = betterAuth({
 })
 
 export function setupBetterAuth(app: Express) {
-  // Mount Better Auth handler with proper request conversion
   app.all("/api/auth/*", async (req, res) => {
     try {
-      // Convert Express request to Web API Request format
-      const protocol = req.protocol || 'http';
-      const host = req.get('host') || 'localhost:5000';
-      const url = new URL(req.url, `${protocol}://${host}`);
+      const protocol = req.protocol || 'http'
+      const host = req.get('host') || 'localhost:5000'
+      const url = new URL(req.url, `${protocol}://${host}`)
       
-      const headers = new Headers();
+      const headers = new Headers()
       Object.entries(req.headers).forEach(([key, value]) => {
         if (typeof value === 'string') {
-          headers.set(key, value);
+          headers.set(key, value)
         } else if (Array.isArray(value)) {
-          headers.set(key, value.join(', '));
+          headers.set(key, value.join(', '))
         }
-      });
+      })
 
-      // Create Web API Request
+      let body: string | undefined
+      if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+        headers.set('Content-Type', 'application/json')
+      }
+
       const webRequest = new Request(url.toString(), {
         method: req.method,
         headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-      });
+        body,
+      })
 
-      const response = await auth.handler(webRequest);
+      const response = await auth.handler(webRequest)
       
-      // Convert Web API Response back to Express response
+      res.status(response.status)
       response.headers.forEach((value, key) => {
-        res.setHeader(key, value);
-      });
-      
-      res.status(response.status);
+        res.setHeader(key, value)
+      })
       
       if (response.body) {
-        const text = await response.text();
-        res.send(text);
+        const text = await response.text()
+        res.send(text)
       } else {
-        res.end();
+        res.end()
       }
     } catch (error) {
-      console.error("Auth error:", error);
-      res.status(500).json({ error: "Authentication failed" });
+      console.error("Better Auth handler error:", error)
+      res.status(500).json({ error: "Authentication system error" })
     }
-  });
+  })
 }
 
-// Auth middleware
 export async function isAuthenticated(req: any, res: any, next: any) {
   try {
     const session = await auth.api.getSession({

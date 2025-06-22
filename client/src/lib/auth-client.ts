@@ -19,9 +19,13 @@ export interface ExtendedUser {
 export const authClient = createAuthClient({
   baseURL: window.location.origin,
   fetchOptions: {
-    onError(e) {
-      // Handle authentication errors gracefully
-      console.warn("Authentication error handled:", e);
+    onError(context) {
+      // Silently handle expected authentication errors
+      if (context.response?.status === 401 || context.response?.status === 403) {
+        // These are expected when not authenticated
+        return;
+      }
+      console.warn("Authentication error:", context.error);
     },
     onRequest() {
       // Ensure requests are properly configured
@@ -41,6 +45,18 @@ export function useSession() {
   try {
     const session = useSessionRaw();
     
+    // Handle loading states properly to prevent unhandled rejections
+    if (session.isPending) {
+      return {
+        data: null,
+        user: null,
+        isLoading: true,
+        isAuthenticated: false,
+        isPending: true,
+        error: null
+      };
+    }
+    
     // Better Auth returns session data directly
     if (session.data?.user) {
       const user = session.data.user as any;
@@ -59,9 +75,9 @@ export function useSession() {
           user: extendedUser
         },
         user: extendedUser,
-        isLoading: session.isPending,
+        isLoading: false,
         isAuthenticated: true,
-        isPending: session.isPending,
+        isPending: false,
         error: session.error
       };
     }
@@ -69,13 +85,12 @@ export function useSession() {
     return {
       data: null,
       user: null,
-      isLoading: session.isPending || false,
+      isLoading: false,
       isAuthenticated: false,
-      isPending: session.isPending || false,
+      isPending: false,
       error: session.error
     };
   } catch (error) {
-    console.warn("Session wrapper error:", error);
     return {
       data: null,
       user: null,
