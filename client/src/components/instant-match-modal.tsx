@@ -21,6 +21,7 @@ interface InstantMatchModalProps {
 export default function InstantMatchModal({ isOpen, onClose, onStartMatching, initialSkills = "" }: InstantMatchModalProps) {
   const [step, setStep] = useState<'intro' | 'skills' | 'results' | 'features'>('intro');
   const [skills, setSkills] = useState(initialSkills);
+  const [jobTitle, setJobTitle] = useState("");
   const [location, setLocation] = useState("");
   const [salaryType, setSalaryType] = useState<'hourly' | 'annual'>('annual');
   const [minSalary, setMinSalary] = useState("");
@@ -35,12 +36,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   // Fetch external jobs based on skills and filters
   const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
-    queryKey: ['/api/external-jobs', skills, location, workType, salaryType, minSalary],
+    queryKey: ['/api/external-jobs', skills, jobTitle, location, workType, salaryType, minSalary],
     queryFn: async () => {
       const params = new URLSearchParams({
         skills: skills.trim(),
         limit: '8'
       });
+      if (jobTitle.trim()) params.append('jobTitle', jobTitle.trim());
       if (location.trim()) params.append('location', location.trim());
       if (workType !== 'any') params.append('workType', workType);
       if (minSalary.trim()) params.append('minSalary', minSalary.trim());
@@ -191,17 +193,47 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   </p>
                   
                   <div className="space-y-6">
+                    {/* Job Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <Briefcase className="w-4 h-4 inline mr-1" />
+                        Job Title / Role
+                      </label>
+                      <Input
+                        placeholder="Software Engineer, Data Scientist, Product Manager..."
+                        value={jobTitle}
+                        onChange={(e) => setJobTitle(e.target.value)}
+                        className="text-lg p-4 rounded-xl border-2"
+                        autoFocus
+                      />
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {['Software Engineer', 'Data Scientist', 'Product Manager', 'Designer', 'Marketing Manager', 'Sales Rep'].map((role: string) => (
+                          <Badge
+                            key={role}
+                            variant="secondary"
+                            className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
+                            onClick={() => {
+                              if (!jobTitle.includes(role)) {
+                                setJobTitle(role);
+                              }
+                            }}
+                          >
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Skills */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Skills
+                        Skills & Technologies
                       </label>
                       <Input
                         placeholder="React, Python, Marketing..."
                         value={skills}
                         onChange={(e) => setSkills(e.target.value)}
                         className="text-lg p-4 rounded-xl border-2"
-                        autoFocus
                       />
                       <div className="flex flex-wrap gap-2 mt-2">
                         {['React', 'Python', 'Design', 'Marketing', 'Sales', 'Data Science'].map((skill: string) => (

@@ -595,8 +595,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // External jobs for instant matching (public endpoint)
   app.get('/api/external-jobs', async (req, res) => {
     try {
-      const { skills, location, workType, salaryType, minSalary, limit = 10 } = req.query;
-      console.log(`Fetching external jobs for instant matching. Skills: ${skills}, Location: ${location}, WorkType: ${workType}, MinSalary: ${minSalary} (${salaryType}), Limit: ${limit}`);
+      const { skills, jobTitle, location, workType, salaryType, minSalary, limit = 10 } = req.query;
+      console.log(`Fetching external jobs for instant matching. Skills: ${skills}, JobTitle: ${jobTitle}, Location: ${location}, WorkType: ${workType}, MinSalary: ${minSalary} (${salaryType}), Limit: ${limit}`);
       
       const skillsArray = skills && typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : undefined;
       const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, parseInt(limit as string));
@@ -614,6 +614,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let filteredJobs = externalJobs;
       
       // Apply filters step by step
+      
+      // Job title filter
+      if (jobTitle && typeof jobTitle === 'string') {
+        const titleKeywords = jobTitle.toLowerCase().split(/[\s,]+/).map(s => s.trim()).filter(s => s.length > 0);
+        const beforeTitleFilter = filteredJobs.length;
+        
+        filteredJobs = filteredJobs.filter(job => {
+          const jobTitleLower = job.title.toLowerCase();
+          const jobDescriptionLower = job.description.toLowerCase();
+          
+          return titleKeywords.some(keyword => 
+            jobTitleLower.includes(keyword) ||
+            jobDescriptionLower.includes(keyword)
+          );
+        });
+        
+        console.log(`Job title filter (${jobTitle}): ${beforeTitleFilter} -> ${filteredJobs.length} jobs`);
+      }
+      
       if (skills && typeof skills === 'string') {
         const skillsArray = skills.toLowerCase().split(',').map(s => s.trim());
         

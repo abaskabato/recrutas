@@ -116,10 +116,15 @@ export async function generateJobMatch(candidate: CandidateProfile, job: JobPost
 }
 
 function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): AIMatchResult {
+  // Ensure arrays exist and are valid
+  const candidateSkills = Array.isArray(candidate.skills) ? candidate.skills : [];
+  const jobSkills = Array.isArray(job.skills) ? job.skills : [];
+  const jobRequirements = Array.isArray(job.requirements) ? job.requirements : [];
+  
   // Semantic skill matching using embeddings
-  const candidateSkillEmbeddings = candidate.skills.map(skill => getSkillEmbedding(skill));
-  const jobSkillEmbeddings = job.skills.map(skill => getSkillEmbedding(skill));
-  const jobReqEmbeddings = job.requirements.map(req => getSkillEmbedding(req));
+  const candidateSkillEmbeddings = candidateSkills.map(skill => getSkillEmbedding(skill));
+  const jobSkillEmbeddings = jobSkills.map(skill => getSkillEmbedding(skill));
+  const jobReqEmbeddings = jobRequirements.map(req => getSkillEmbedding(req));
   
   let totalSimilarity = 0;
   let maxSimilarities: Array<{ skill: string; similarity: number; matchedWith: string }> = [];
