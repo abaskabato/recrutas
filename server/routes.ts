@@ -660,50 +660,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Filter by location
-      if (location && typeof location === 'string') {
+      // Filter by location (more lenient)
+      if (location && typeof location === 'string' && location.toLowerCase() !== 'any') {
+        const beforeLocationFilter = filteredJobs.length;
         const locationQuery = location.toLowerCase().trim();
-        filteredJobs = filteredJobs.filter(job => 
-          job.location.toLowerCase().includes(locationQuery) ||
-          locationQuery === 'remote' && job.workType.toLowerCase().includes('remote')
-        );
+        filteredJobs = filteredJobs.filter(job => {
+          const jobLocation = job.location.toLowerCase();
+          const jobWorkType = job.workType.toLowerCase();
+          
+          // Accept if location matches or if looking for remote and job is remote
+          return jobLocation.includes(locationQuery) ||
+                 (locationQuery === 'remote' && jobWorkType.includes('remote')) ||
+                 jobWorkType.includes('remote'); // Always include remote jobs
+        });
+        console.log(`Location filter (${locationQuery}): ${beforeLocationFilter} -> ${filteredJobs.length} jobs`);
       }
 
-      // Filter by work type
+      // Filter by work type (more lenient)
       if (workType && typeof workType === 'string' && workType !== 'any') {
+        const beforeWorkTypeFilter = filteredJobs.length;
         filteredJobs = filteredJobs.filter(job => {
           const jobWorkType = job.workType.toLowerCase();
           const filterWorkType = workType.toLowerCase();
           
           if (filterWorkType === 'remote') {
-            return jobWorkType.includes('remote');
+            return jobWorkType.includes('remote') || jobWorkType === 'remote';
           } else if (filterWorkType === 'hybrid') {
-            return jobWorkType.includes('hybrid');
+            return jobWorkType.includes('hybrid') || jobWorkType === 'hybrid';
           } else if (filterWorkType === 'onsite') {
             return !jobWorkType.includes('remote') && !jobWorkType.includes('hybrid');
           }
           return true;
         });
+        console.log(`Work type filter (${workType}): ${beforeWorkTypeFilter} -> ${filteredJobs.length} jobs`);
       }
 
-      // Filter by minimum salary
-      if (minSalary && typeof minSalary === 'string') {
+      // Filter by minimum salary (more lenient - only filter if salary data exists)
+      if (minSalary && typeof minSalary === 'string' && minSalary !== '0') {
+        const beforeSalaryFilter = filteredJobs.length;
         const minSalaryNum = parseInt(minSalary.replace(/[^0-9]/g, ''));
-        if (!isNaN(minSalaryNum)) {
+        if (!isNaN(minSalaryNum) && minSalaryNum > 0) {
           filteredJobs = filteredJobs.filter(job => {
+            // If job has no salary data, include it anyway
+            if (!job.salaryMin && !job.salaryMax) return true;
+            
             if (salaryType === 'hourly') {
               // Convert annual to hourly (assuming 2080 work hours/year)
               const jobHourly = job.salaryMin ? job.salaryMin / 2080 : 0;
-              return jobHourly >= minSalaryNum;
+              return jobHourly >= minSalaryNum || !job.salaryMin;
             } else {
               // Annual salary
-              return (job.salaryMin || 0) >= minSalaryNum;
+              return (job.salaryMin || 0) >= minSalaryNum || !job.salaryMin;
             }
           });
         }
+        console.log(`Salary filter ($${minSalaryNum}): ${beforeSalaryFilter} -> ${filteredJobs.length} jobs`);
       }
 
       console.log(`After all filters: ${filteredJobs.length} jobs matched`);
+      
+      // Fallback: if no jobs match filters, return top jobs with skills preference
+      if (filteredJobs.length === 0 && externalJobs.length > 0) {
+        console.log('No jobs passed filters, using fallback with skill preference');
+        if (skills && typeof skills === 'string') {
+          const skillsArray = skills.toLowerCase().split(',').map(s => s.trim());
+          // Score jobs by skill relevance and return top matches
+          const scoredJobs = externalJobs.map(job => {
+            const jobSkills = job.skills.map(s => s.toLowerCase());
+            const jobTitle = job.title.toLowerCase();
+            const skillScore = skillsArray.reduce((score, skill) => {
+              if (jobSkills.some(js => js.includes(skill)) || jobTitle.includes(skill)) {
+                return score + 1;
+              }
+              return score;
+            }, 0);
+            return { job, score: skillScore };
+          });
+          
+          // Sort by score and take top matches
+          filteredJobs = scoredJobs
+            .sort((a, b) => b.score - a.score)
+            .slice(0, Math.min(parseInt(limit as string), 10))
+            .map(item => item.job);
+        } else {
+          // No skills specified, return diverse selection
+          filteredJobs = externalJobs.slice(0, Math.min(parseInt(limit as string), 10));
+        }
+        console.log(`Fallback returned ${filteredJobs.length} jobs`);
+      }
       
       console.log(`Final job count before formatting: ${filteredJobs.length}`);
       
