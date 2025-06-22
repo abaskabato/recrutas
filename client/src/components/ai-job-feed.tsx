@@ -1,15 +1,11 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Sparkles, MapPin, Building, DollarSign, Clock, ThumbsUp, ThumbsDown, Eye, ExternalLink, MessageCircle, BarChart3 } from "lucide-react";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import MatchBreakdown from "./match-breakdown";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase } from "lucide-react";
 
 interface AIJobMatch {
   id: number;
@@ -38,22 +34,45 @@ interface AIJobMatch {
 }
 
 export default function AIJobFeed() {
-  const [selectedJob, setSelectedJob] = useState<AIJobMatch | null>(null);
-  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [workTypeFilter, setWorkTypeFilter] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
 
-  // Use fast external jobs API instead of slow AI matches
-  const { data: jobsResponse, isLoading, refetch } = useQuery({
-    queryKey: ['/api/external-jobs', { limit: 10 }],
+  // Fetch jobs with instant filtering
+  const { data: jobsResponse, isLoading } = useQuery({
+    queryKey: ['/api/external-jobs', { limit: 50 }],
     queryFn: async () => {
-      const response = await fetch('/api/external-jobs?limit=10');
+      const response = await fetch('/api/external-jobs?limit=50');
       if (!response.ok) throw new Error('Failed to fetch jobs');
       return response.json();
     },
-    refetchInterval: 60000, // Refresh every minute for dynamic updates
+    refetchInterval: 300000, // Refresh every 5 minutes
   });
 
-  // Convert external jobs to AI match format for component compatibility
-  const aiMatches: AIJobMatch[] = jobsResponse?.jobs?.map((job: any, index: number) => ({
+  const rawJobs = jobsResponse?.jobs || [];
+  
+  // Instant filtering logic (no confirmation needed)
+  const filteredJobs = useMemo(() => {
+    return rawJobs.filter((job: any) => {
+      const matchesSearch = !searchTerm || 
+        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.company.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesLocation = !locationFilter || 
+        job.location.toLowerCase().includes(locationFilter.toLowerCase());
+      
+      const matchesCompany = !companyFilter || 
+        job.company.toLowerCase().includes(companyFilter.toLowerCase());
+      
+      const matchesWorkType = !workTypeFilter || 
+        job.type?.toLowerCase() === workTypeFilter.toLowerCase();
+      
+      return matchesSearch && matchesLocation && matchesCompany && matchesWorkType;
+    });
+  }, [rawJobs, searchTerm, locationFilter, companyFilter, workTypeFilter]);
+
+  const aiMatches: AIJobMatch[] = filteredJobs.map((job: any, index: number) => ({
     id: job.id || index,
     job: {
       id: job.id || index,
@@ -77,302 +96,207 @@ export default function AIJobFeed() {
     aiExplanation: job.aiInsights || 'Great match for your profile',
     status: job.applicationStatus || 'pending',
     createdAt: new Date().toISOString()
-  })) || [];
+  }));
 
-  const applyMutation = useMutation({
-    mutationFn: async (jobId: number) => {
-      const response = await fetch(`/api/jobs/${jobId}/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!response.ok) throw new Error('Failed to apply');
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Application Submitted",
-        description: "Your application has been sent successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Application Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Extract unique values for filter options
+  const locations = rawJobs.map((job: any) => job.location).filter(Boolean) as string[];
+  const companies = rawJobs.map((job: any) => job.company).filter(Boolean) as string[];
+  const workTypes = rawJobs.map((job: any) => job.type).filter(Boolean) as string[];
+  
+  const uniqueLocations = locations.filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
+  const uniqueCompanies = companies.filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
+  const uniqueWorkTypes = workTypes.filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
 
-  const feedbackMutation = useMutation({
-    mutationFn: async ({ matchId, feedback }: { matchId: number; feedback: 'positive' | 'negative' }) => {
-      return apiRequest('POST', `/api/matches/${matchId}/feedback`, { feedback });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Feedback Recorded",
-        description: "Thank you! This helps improve your job recommendations.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
-    },
-  });
-
-  const viewJobMutation = useMutation({
-    mutationFn: async (matchId: number) => {
-      return apiRequest('POST', `/api/matches/${matchId}/view`, {});
-    },
-  });
-
+  // Actions - simplified and direct
   const handleJobView = (match: AIJobMatch) => {
-    setSelectedJob(match);
-    viewJobMutation.mutate(match.id);
+    if (match.job.externalUrl) {
+      window.open(match.job.externalUrl, '_blank');
+    }
   };
 
   const handleQuickApply = (match: AIJobMatch) => {
-    // External job - redirect to external application
-    if (match.job.externalSource) {
-      window.open(match.job.externalUrl || '#', '_blank');
-      return;
+    if (match.job.externalUrl) {
+      window.open(match.job.externalUrl, '_blank');
     }
-    
-    // Internal job - apply through our system
-    applyMutation.mutate(match.job.id);
   };
 
-  const handleChatNow = (match: AIJobMatch) => {
-    // Create chat room for internal job and redirect to chat
-    window.location.href = `/chat?jobId=${match.job.id}&matchId=${match.id}`;
+  // Clear filter functions
+  const clearFilters = () => {
+    setSearchTerm("");
+    setLocationFilter("");
+    setWorkTypeFilter("");
+    setCompanyFilter("");
   };
-
-  const handleFeedback = (matchId: number, feedback: 'positive' | 'negative') => {
-    feedbackMutation.mutate({ matchId, feedback });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* AI Feed Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 mb-4 sm:mb-6">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 sm:h-5 w-4 sm:w-5 text-primary" />
-          <h2 className="text-lg sm:text-xl font-semibold">AI-Curated Job Feed</h2>
+    <div className="space-y-4">
+      {/* Instant Filters - No confirmation needed */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search jobs, companies..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          
+          <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Location" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Locations</SelectItem>
+              {uniqueLocations.slice(0, 10).map((location: string) => (
+                <SelectItem key={location} value={location}>{location}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={workTypeFilter} onValueChange={setWorkTypeFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Work Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Types</SelectItem>
+              {uniqueWorkTypes.map((type: string) => (
+                <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex gap-2">
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Companies</SelectItem>
+                {uniqueCompanies.slice(0, 15).map((company: string) => (
+                  <SelectItem key={company} value={company}>{company}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {(searchTerm || locationFilter || workTypeFilter || companyFilter) && (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
-        <Badge variant="secondary" className="w-fit">
-          {aiMatches?.length || 0} new matches
-        </Badge>
+        
+        <div className="mt-3 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+          <span>{aiMatches.length} jobs found</span>
+          <span>Updated every 5 minutes</span>
+        </div>
       </div>
 
-      {/* Job Cards */}
-      <div className="space-y-4">
-        {aiMatches?.map((match) => (
-          <Card key={match.id} className="relative hover:shadow-lg transition-shadow border-l-4 border-l-primary/20">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                    <CardTitle className="text-base sm:text-lg">{match.job.title}</CardTitle>
-                    {match.job.aiCurated && (
-                      <Badge variant="secondary" className="text-xs w-fit">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        AI Curated
+      {/* Job Feed - Clean and minimal */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse bg-white dark:bg-gray-800 rounded-lg p-4 border">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      ) : aiMatches.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border">
+          <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">No jobs match your filters</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Try adjusting your search criteria</p>
+          <Button variant="outline" onClick={clearFilters}>Clear All Filters</Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {aiMatches.map((match) => (
+            <Card key={match.id} className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150 cursor-pointer" onClick={() => handleJobView(match)}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-lg truncate">{match.job.title}</h3>
+                      <Badge variant="secondary" className="shrink-0 text-xs">
+                        {match.matchScore}
                       </Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <div className="flex items-center gap-1">
+                        <Building className="h-4 w-4" />
+                        <span className="font-medium">{match.job.company}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        <span>{match.job.location}</span>
+                      </div>
+                      {match.job.workType && (
+                        <Badge variant="outline" className="capitalize text-xs">
+                          {match.job.workType}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {match.skillMatches.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {match.skillMatches.slice(0, 4).map((skill, index) => (
+                          <Badge key={index} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-300">
+                            {skill}
+                          </Badge>
+                        ))}
+                        {match.skillMatches.length > 4 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{match.skillMatches.length - 4} more
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Building className="h-4 w-4" />
-                      {match.job.company}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      {match.job.location}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="h-4 w-4" />
-                      <span className="text-xs sm:text-sm">
-                        ${match.job.salaryMin?.toLocaleString()} - ${match.job.salaryMax?.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-center sm:text-right">
-                  <div className="text-xl sm:text-2xl font-bold text-primary mb-1">
-                    {Math.round(match.confidenceLevel * 100)}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">Match Score</div>
-                </div>
-              </div>
-            </CardHeader>
 
-            <CardContent className="pt-0">
-              {/* AI Explanation */}
-              <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg mb-4">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                      Why this matches you:
-                    </p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      {match.aiExplanation}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Skill Matches */}
-              <div className="mb-4">
-                <p className="text-sm font-medium mb-2">Matching Skills:</p>
-                <div className="flex flex-wrap gap-1">
-                  {match.skillMatches?.map((skill) => (
-                    <Badge key={skill} variant="outline" className="text-xs">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Match Progress */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Match Confidence</span>
-                  <span>{Math.round(match.confidenceLevel * 100)}%</span>
-                </div>
-                <Progress value={match.confidenceLevel * 100} className="h-2" />
-              </div>
-
-              <Separator className="my-4" />
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleJobView(match)}
-                    className="w-full sm:w-auto"
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    <span className="hidden sm:inline">View Details</span>
-                    <span className="sm:hidden">View</span>
-                  </Button>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                      >
-                        <BarChart3 className="h-4 w-4 mr-1" />
-                        <span className="hidden sm:inline">Match Analysis</span>
-                        <span className="sm:hidden">Analysis</span>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Match Analysis - {match.job.title}</DialogTitle>
-                      </DialogHeader>
-                      <MatchBreakdown 
-                        match={match} 
-                        job={{
-                          title: match.job.title,
-                          company: match.job.company,
-                          skills: match.job.skills,
-                          requirements: match.job.requirements,
-                          location: match.job.location,
-                          workType: match.job.workType,
-                          salaryMin: match.job.salaryMin,
-                          salaryMax: match.job.salaryMax
-                        }}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                  {match.job.externalSource ? (
-                    <Button
-                      size="sm"
-                      onClick={() => handleQuickApply(match)}
-                      className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 w-full sm:w-auto"
+                  <div className="flex items-center gap-2 shrink-0 ml-4">
+                    <Button 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleQuickApply(match);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      Apply Now
+                      Apply
                     </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => handleChatNow(match)}
-                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 w-full sm:w-auto"
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleJobView(match);
+                      }}
                     >
-                      <MessageCircle className="h-4 w-4 mr-1" />
-                      Chat Now
+                      <ExternalLink className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
                 </div>
 
-                {/* Feedback Buttons */}
-                <div className="flex gap-1 justify-center sm:justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFeedback(match.id, 'positive')}
-                    disabled={feedbackMutation.isPending}
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFeedback(match.id, 'negative')}
-                    disabled={feedbackMutation.isPending}
-                  >
-                    <ThumbsDown className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* External Source Info */}
-              {match.job.externalSource && (
-                <div className="mt-3 pt-3 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3 inline mr-1" />
-                    Sourced from {match.job.externalSource} • {new Date(match.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {!aiMatches || aiMatches.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Your AI Job Feed is Building</h3>
-            <p className="text-muted-foreground mb-4">
-              Our AI is analyzing your profile to find the perfect job matches. Check back soon!
-            </p>
-            <Button variant="outline">
-              Refresh Feed
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
+                {match.job.externalSource && (
+                  <div className="flex items-center justify-between pt-3 border-t">
+                    <span className="text-xs text-gray-500">
+                      Source: {match.job.externalSource}
+                    </span>
+                    <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                      <Briefcase className="h-3 w-3" />
+                      Direct from company
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
