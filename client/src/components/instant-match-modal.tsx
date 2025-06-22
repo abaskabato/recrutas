@@ -220,11 +220,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 exit={{ opacity: 0, y: -20 }}
                 className="p-8 text-center"
               >
-                <div className="mx-auto mb-6">
-                  <RecrutasLogo size={64} />
-                </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  Recrutas
+                  Welcome to Recrutas
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
                   Find real jobs, talk to real people, and get hired—on your terms
