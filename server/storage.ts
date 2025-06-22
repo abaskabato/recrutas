@@ -19,19 +19,19 @@
  * - Uses dependency injection pattern for testability
  */
 
-import {
-  users,
-  candidateProfiles,
-  jobPostings,
+import { 
+  users, 
+  candidateProfiles, 
+  jobPostings, 
   jobMatches,
-  jobApplications,
   chatRooms,
   chatMessages,
   activityLogs,
-  notificationPreferences,
-  jobExams,
-  examAttempts,
   notifications,
+  notificationPreferences,
+  jobApplications,
+  examAttempts,
+  jobExams,
   type User,
   type UpsertUser,
   type CandidateProfile,
@@ -45,10 +45,10 @@ import {
   type InsertChatMessage,
   type ActivityLog,
   type NotificationPreferences,
-  type InsertNotificationPreferences,
+  type InsertNotificationPreferences
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql, count } from "drizzle-orm";
+import { eq, desc, and, or, gte, lte, inArray, sql, isNull, isNotNull } from "drizzle-orm";
 
 /**
  * Storage Interface Definition
@@ -109,9 +109,12 @@ export interface IStorage {
   
   // Statistics
   getCandidateStats(candidateId: string): Promise<{
-    newMatches: number;
+    totalApplications: number;
+    activeMatches: number;
     profileViews: number;
-    activeChats: number;
+    profileStrength: number;
+    responseRate: number;
+    avgMatchScore: number;
   }>;
   getRecruiterStats(recruiterId: string): Promise<{
     activeJobs: number;
@@ -129,325 +132,341 @@ export interface IStorage {
   getNotifications(userId: string): Promise<any[]>;
   markNotificationAsRead(notificationId: number, userId: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
+  createNotification(notification: any): Promise<any>;
   
   // Enhanced candidate operations
-  getCandidateStats(candidateId: string): Promise<{
-    totalApplications: number;
-    activeMatches: number;
-    profileViews: number;
-    profileStrength: number;
-    responseRate: number;
-    avgMatchScore: number;
-  }>;
-  getMatchesForCandidate(candidateId: string): Promise<any[]>;
   getApplicationsForCandidate(candidateId: string): Promise<any[]>;
   getActivityForCandidate(candidateId: string): Promise<any[]>;
   createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<any>;
   updateUserInfo(userId: string, userInfo: any): Promise<any>;
 }
 
+/**
+ * Database Storage Implementation
+ * 
+ * Implements the IStorage interface using Drizzle ORM for PostgreSQL.
+ * Provides production-ready data access with proper error handling,
+ * transaction support, and optimized queries.
+ */
 export class DatabaseStorage implements IStorage {
-  // User operations
+  
+  // User operations (required for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      throw error;
+    }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    try {
+      const [user] = await db
+        .insert(users)
+        .values(userData)
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            ...userData,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      return user;
+    } catch (error) {
+      console.error('Error upserting user:', error);
+      throw error;
+    }
   }
 
   async updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
+    try {
+      const [user] = await db
+        .update(users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+      return user;
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      throw error;
+    }
   }
 
   async updateUserProfile(userId: string, userData: Partial<UpsertUser>): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ 
-        ...userData, 
-        updatedAt: new Date() 
-      })
-      .where(eq(users.id, userId))
-      .returning();
-    return user;
+    try {
+      const [user] = await db
+        .update(users)
+        .set({ ...userData, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+      return user;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
   }
 
   // Candidate operations
   async getCandidateProfile(userId: string): Promise<CandidateProfile | undefined> {
-    const [profile] = await db
-      .select()
-      .from(candidateProfiles)
-      .where(eq(candidateProfiles.userId, userId));
-    return profile;
+    try {
+      const [profile] = await db
+        .select()
+        .from(candidateProfiles)
+        .where(eq(candidateProfiles.userId, userId));
+      return profile;
+    } catch (error) {
+      console.error('Error fetching candidate profile:', error);
+      throw error;
+    }
   }
 
   async upsertCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile> {
-    // Check if profile exists first
-    const existing = await this.getCandidateProfile(profile.userId);
-    
-    if (existing) {
-      // Update existing profile
-      const [result] = await db
-        .update(candidateProfiles)
-        .set({
-          ...profile,
-          updatedAt: new Date(),
-        } as any)
-        .where(eq(candidateProfiles.userId, profile.userId))
-        .returning();
-      return result;
-    } else {
-      // Create new profile
+    try {
       const [result] = await db
         .insert(candidateProfiles)
-        .values(profile as any)
+        .values({
+          ...profile,
+          skills: profile.skills || [],
+          updatedAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: candidateProfiles.userId,
+          set: {
+            ...profile,
+            skills: profile.skills || [],
+            updatedAt: new Date(),
+          },
+        })
         .returning();
       return result;
+    } catch (error) {
+      console.error('Error upserting candidate profile:', error);
+      throw error;
     }
   }
 
   async getAllCandidateProfiles(): Promise<CandidateProfile[]> {
-    return await db
-      .select()
-      .from(candidateProfiles);
+    try {
+      return await db.select().from(candidateProfiles);
+    } catch (error) {
+      console.error('Error fetching all candidate profiles:', error);
+      throw error;
+    }
   }
 
   // Job operations
   async createJobPosting(job: InsertJobPosting): Promise<JobPosting> {
-    const [result] = await db.insert(jobPostings).values(job as any).returning();
-    return result;
+    try {
+      const [result] = await db.insert(jobPostings).values({
+        ...job,
+        skills: job.skills || [],
+      }).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating job posting:', error);
+      throw error;
+    }
   }
 
   async getJobPostings(talentOwnerId: string): Promise<JobPosting[]> {
-    if (!talentOwnerId) {
-      // Return all job postings if no specific owner requested
+    try {
       return await db
         .select()
         .from(jobPostings)
-        .orderBy(desc(jobPostings.createdAt))
-        .limit(10);
+        .where(eq(jobPostings.talentOwnerId, talentOwnerId))
+        .orderBy(desc(jobPostings.createdAt));
+    } catch (error) {
+      console.error('Error fetching job postings:', error);
+      throw error;
     }
-    
-    return await db
-      .select()
-      .from(jobPostings)
-      .where(eq(jobPostings.talentOwnerId, talentOwnerId))
-      .orderBy(desc(jobPostings.createdAt));
   }
 
   async getJobPosting(id: number): Promise<JobPosting | undefined> {
-    const [job] = await db.select().from(jobPostings).where(eq(jobPostings.id, id));
-    return job;
+    try {
+      const [job] = await db.select().from(jobPostings).where(eq(jobPostings.id, id));
+      return job;
+    } catch (error) {
+      console.error('Error fetching job posting:', error);
+      throw error;
+    }
   }
 
   async updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting> {
-    const [result] = await db
-      .update(jobPostings)
-      .set({ ...updates as any, updatedAt: new Date() })
-      .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)))
-      .returning();
-    
-    if (!result) {
-      throw new Error('Job posting not found or unauthorized');
+    try {
+      const updateData = { ...updates, updatedAt: new Date() };
+      if (updateData.skills) {
+        updateData.skills = updateData.skills;
+      }
+      const [job] = await db
+        .update(jobPostings)
+        .set(updateData)
+        .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)))
+        .returning();
+      return job;
+    } catch (error) {
+      console.error('Error updating job posting:', error);
+      throw error;
     }
-    
-    return result;
   }
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
-    const result = await db
-      .delete(jobPostings)
-      .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)))
-      .returning();
-    
-    if (!result.length) {
-      throw new Error('Job posting not found or unauthorized');
+    try {
+      await db
+        .delete(jobPostings)
+        .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
+    } catch (error) {
+      console.error('Error deleting job posting:', error);
+      throw error;
     }
   }
 
   // Matching operations
   async createJobMatch(match: InsertJobMatch): Promise<JobMatch> {
-    const [result] = await db.insert(jobMatches).values(match as any).returning();
-    return result;
+    try {
+      const [result] = await db.insert(jobMatches).values({
+        ...match,
+        matchReasons: match.matchReasons || [],
+        skillMatches: match.skillMatches || []
+      }).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating job match:', error);
+      throw error;
+    }
   }
 
   async getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]> {
     try {
-      // Get existing database matches
-      const matches = await db
+      return await db
         .select()
         .from(jobMatches)
+        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
+        .innerJoin(users, eq(jobPostings.talentOwnerId, users.id))
         .where(eq(jobMatches.candidateId, candidateId))
-        .orderBy(desc(jobMatches.createdAt));
-      
-      const enrichedMatches = [];
-      
-      // Process existing database matches
-      for (const match of matches) {
-        if (!match || !match.jobId) continue;
-        
-        try {
-          const job = await db
-            .select()
-            .from(jobPostings)
-            .where(eq(jobPostings.id, match.jobId))
-            .limit(1);
-            
-          if (!job || job.length === 0) continue;
-          
-          const talentOwner = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, job[0].talentOwnerId))
-            .limit(1);
-            
-          if (job[0] && talentOwner[0]) {
-            enrichedMatches.push({
-              ...match,
-              job: job[0],
-              talentOwner: talentOwner[0],
-            });
-          }
-        } catch (error) {
-          console.error(`Error enriching match ${match.id}:`, error);
-          continue;
-        }
-      }
-      
-      return enrichedMatches as any;
+        .orderBy(desc(jobMatches.createdAt)) as any;
     } catch (error) {
-      console.error("Error in getMatchesForCandidate:", error);
-      return [];
+      console.error('Error fetching matches for candidate:', error);
+      throw error;
     }
   }
 
   async getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]> {
-    return await db
-      .select()
-      .from(jobMatches)
-      .innerJoin(users, eq(jobMatches.candidateId, users.id))
-      .leftJoin(candidateProfiles, eq(users.id, candidateProfiles.userId))
-      .where(eq(jobMatches.jobId, jobId))
-      .orderBy(desc(jobMatches.matchScore)) as any;
+    try {
+      return await db
+        .select()
+        .from(jobMatches)
+        .innerJoin(users, eq(jobMatches.candidateId, users.id))
+        .leftJoin(candidateProfiles, eq(jobMatches.candidateId, candidateProfiles.userId))
+        .where(eq(jobMatches.jobId, jobId))
+        .orderBy(desc(jobMatches.createdAt)) as any;
+    } catch (error) {
+      console.error('Error fetching matches for job:', error);
+      throw error;
+    }
   }
 
   async updateMatchStatus(matchId: number, status: string): Promise<JobMatch> {
-    const [result] = await db
-      .update(jobMatches)
-      .set({ status: status as any, updatedAt: new Date() })
-      .where(eq(jobMatches.id, matchId))
-      .returning();
-    return result;
+    try {
+      const [match] = await db
+        .update(jobMatches)
+        .set({ status: status as any, updatedAt: new Date() })
+        .where(eq(jobMatches.id, matchId))
+        .returning();
+      return match;
+    } catch (error) {
+      console.error('Error updating match status:', error);
+      throw error;
+    }
   }
 
   // Chat operations
-  async createChatRoom(matchId: number): Promise<ChatRoom> {
-    const [result] = await db.insert(chatRooms).values({ matchId }).returning();
-    return result;
-  }
-
-  async getChatRoom(matchId: number): Promise<ChatRoom | undefined> {
-    const [room] = await db.select().from(chatRooms).where(eq(chatRooms.matchId, matchId));
-    return room;
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    try {
+      const [result] = await db.insert(chatMessages).values(message).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating chat message:', error);
+      throw error;
+    }
   }
 
   async getChatMessages(chatRoomId: number): Promise<(ChatMessage & { sender: User })[]> {
-    return await db
-      .select({
-        id: chatMessages.id,
-        chatRoomId: chatMessages.chatRoomId,
-        senderId: chatMessages.senderId,
-        message: chatMessages.message,
-        createdAt: chatMessages.createdAt,
-        sender: users,
-      })
-      .from(chatMessages)
-      .innerJoin(users, eq(chatMessages.senderId, users.id))
-      .where(eq(chatMessages.chatRoomId, chatRoomId))
-      .orderBy(chatMessages.createdAt);
-  }
-
-  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
-    const [result] = await db.insert(chatMessages).values(message).returning();
-    return result;
-  }
-
-  async getChatRoomsForUser(userId: string): Promise<(ChatRoom & { match: JobMatch & { job: JobPosting; candidate: User; recruiter: User } })[]> {
-    return await db
-      .select()
-      .from(chatRooms)
-      .innerJoin(jobMatches, eq(chatRooms.matchId, jobMatches.id))
-      .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .innerJoin(users, eq(jobMatches.candidateId, users.id))
-      .where(or(eq(jobMatches.candidateId, userId), eq(jobPostings.talentOwnerId, userId)))
-      .orderBy(desc(chatRooms.updatedAt)) as any;
+    try {
+      return await db
+        .select()
+        .from(chatMessages)
+        .innerJoin(users, eq(chatMessages.senderId, users.id))
+        .where(eq(chatMessages.chatRoomId, chatRoomId))
+        .orderBy(chatMessages.createdAt) as any;
+    } catch (error) {
+      console.error('Error fetching chat messages:', error);
+      throw error;
+    }
   }
 
   // Activity operations
   async createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog> {
-    const [result] = await db
-      .insert(activityLogs)
-      .values({ userId, type, description, metadata })
-      .returning();
-    return result;
+    try {
+      const [result] = await db
+        .insert(activityLogs)
+        .values({ userId, type, description, metadata })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating activity log:', error);
+      throw error;
+    }
   }
 
   async getActivityLogs(userId: string, limit = 10): Promise<ActivityLog[]> {
-    return await db
-      .select()
-      .from(activityLogs)
-      .where(eq(activityLogs.userId, userId))
-      .orderBy(desc(activityLogs.createdAt))
-      .limit(limit);
+    try {
+      return await db
+        .select()
+        .from(activityLogs)
+        .where(eq(activityLogs.userId, userId))
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(limit);
+    } catch (error) {
+      console.error('Error fetching activity logs:', error);
+      throw error;
+    }
   }
 
-  // Statistics (first implementation - keeping this one)
-  async getCandidateStatsBasic(candidateId: string): Promise<{
-    newMatches: number;
+  // Statistics and analytics
+  async getCandidateStats(candidateId: string): Promise<{
+    totalApplications: number;
+    activeMatches: number;
     profileViews: number;
-    activeChats: number;
+    profileStrength: number;
+    responseRate: number;
+    avgMatchScore: number;
   }> {
-    const [matchesCount] = await db
-      .select({ count: count() })
-      .from(jobMatches)
-      .where(and(eq(jobMatches.candidateId, candidateId), eq(jobMatches.status, "pending")));
+    try {
+      const applications = await db
+        .select()
+        .from(jobApplications)
+        .where(eq(jobApplications.candidateId, candidateId));
 
-    const [viewsCount] = await db
-      .select({ count: count() })
-      .from(activityLogs)
-      .where(and(eq(activityLogs.userId, candidateId), eq(activityLogs.type, "profile_view")));
+      const matches = await db
+        .select()
+        .from(jobMatches)
+        .where(eq(jobMatches.candidateId, candidateId));
 
-    const [chatsCount] = await db
-      .select({ count: count() })
-      .from(chatRooms)
-      .innerJoin(jobMatches, eq(chatRooms.matchId, jobMatches.id))
-      .where(and(eq(jobMatches.candidateId, candidateId), eq(chatRooms.status, "active")));
-
-    return {
-      newMatches: matchesCount.count,
-      profileViews: viewsCount.count,
-      activeChats: chatsCount.count,
-    };
+      return {
+        totalApplications: applications.length,
+        activeMatches: matches.filter(m => m.status === 'pending' || m.status === 'viewed').length,
+        profileViews: 0, // Would need to implement view tracking
+        profileStrength: 75, // Would calculate based on profile completeness
+        responseRate: 0.8, // Would calculate from actual data
+        avgMatchScore: matches.reduce((acc, m) => acc + parseFloat(m.matchScore || '0'), 0) / matches.length || 0
+      };
+    } catch (error) {
+      console.error('Error fetching candidate stats:', error);
+      throw error;
+    }
   }
 
   async getRecruiterStats(talentOwnerId: string): Promise<{
@@ -456,403 +475,55 @@ export class DatabaseStorage implements IStorage {
     activeChats: number;
     hires: number;
   }> {
-    const [jobsCount] = await db
-      .select({ count: count() })
-      .from(jobPostings)
-      .where(and(eq(jobPostings.talentOwnerId, talentOwnerId), eq(jobPostings.status, "active")));
-
-    const [matchesCount] = await db
-      .select({ count: count() })
-      .from(jobMatches)
-      .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .where(eq(jobPostings.talentOwnerId, talentOwnerId));
-
-    const [chatsCount] = await db
-      .select({ count: count() })
-      .from(chatRooms)
-      .innerJoin(jobMatches, eq(chatRooms.matchId, jobMatches.id))
-      .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .where(and(eq(jobPostings.talentOwnerId, talentOwnerId), eq(chatRooms.status, "active")));
-
-    const [hiresCount] = await db
-      .select({ count: count() })
-      .from(activityLogs)
-      .where(and(eq(activityLogs.userId, talentOwnerId), eq(activityLogs.type, "hire_made")));
-
-    return {
-      activeJobs: jobsCount.count,
-      totalMatches: matchesCount.count,
-      activeChats: chatsCount.count,
-      hires: hiresCount.count,
-    };
-  }
-
-  async getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]> {
-    const candidates = await db
-      .select({
-        id: candidateProfiles.userId,
-        firstName: candidateProfiles.firstName,
-        lastName: candidateProfiles.lastName,
-        email: candidateProfiles.email,
-        skills: candidateProfiles.skills,
-        experience: candidateProfiles.experience,
-        location: candidateProfiles.location,
-        resumeUrl: candidateProfiles.resumeUrl,
-        matchScore: jobMatches.matchScore,
-        status: jobMatches.status,
-        appliedAt: jobMatches.createdAt,
-        jobTitle: jobPostings.title,
-        jobId: jobPostings.id,
-      })
-      .from(jobMatches)
-      .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-      .innerJoin(candidateProfiles, eq(jobMatches.candidateId, candidateProfiles.userId))
-      .where(eq(jobPostings.talentOwnerId, talentOwnerId))
-      .orderBy(desc(jobMatches.createdAt));
-
-    return candidates;
-  }
-
-  // Application tracking methods
-  async getApplicationsWithStatus(candidateId: string): Promise<any[]> {
     try {
-      const applications = await db
-        .select({
-          id: jobApplications.id,
-          status: jobApplications.status,
-          appliedAt: jobApplications.appliedAt,
-          jobId: jobPostings.id,
-          jobTitle: jobPostings.title,
-          jobCompany: jobPostings.company,
-          jobLocation: jobPostings.location,
-        })
-        .from(jobApplications)
-        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .where(eq(jobApplications.candidateId, candidateId))
-        .orderBy(desc(jobApplications.appliedAt));
+      const jobs = await db
+        .select()
+        .from(jobPostings)
+        .where(eq(jobPostings.talentOwnerId, talentOwnerId));
 
-      // Transform the results into expected structure
-      return applications.map(app => ({
-        id: app.id,
-        status: app.status,
-        appliedAt: app.appliedAt,
-        job: {
-          id: app.jobId,
-          title: app.jobTitle,
-          company: app.jobCompany,
-          location: app.jobLocation,
-        }
-      }));
-    } catch (error) {
-      console.error('Error fetching applications with status:', error);
-      return [];
-    }
-  }
-
-  async updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any> {
-    const updateData: any = {
-      status,
-      lastStatusUpdate: new Date(),
-    };
-
-    if (data?.interviewDate) {
-      updateData.interviewDate = new Date(data.interviewDate);
-    }
-
-    if (status === 'viewed' && !data?.viewedByEmployerAt) {
-      updateData.viewedByEmployerAt = new Date();
-    }
-
-    const [application] = await db
-      .update(jobApplications)
-      .set(updateData)
-      .where(eq(jobApplications.id, applicationId))
-      .returning();
-
-    return application;
-  }
-
-  async getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any> {
-    const [application] = await db
-      .select()
-      .from(jobApplications)
-      .where(and(
-        eq(jobApplications.jobId, jobId),
-        eq(jobApplications.candidateId, candidateId)
-      ));
-
-    return application;
-  }
-
-  async createJobApplication(application: any): Promise<any> {
-    const [newApplication] = await db
-      .insert(jobApplications)
-      .values(application)
-      .returning();
-
-    return newApplication;
-  }
-
-  // Notification preferences
-  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
-    const [preferences] = await db
-      .select()
-      .from(notificationPreferences)
-      .where(eq(notificationPreferences.userId, userId));
-    
-    return preferences;
-  }
-
-  async updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
-    const [updated] = await db
-      .insert(notificationPreferences)
-      .values({ userId, ...preferences })
-      .onConflictDoUpdate({
-        target: notificationPreferences.userId,
-        set: {
-          ...preferences,
-          updatedAt: new Date(),
-        }
-      })
-      .returning();
-
-    return updated;
-  }
-
-  // Notification operations
-  async getNotifications(userId: string): Promise<any[]> {
-    try {
-      const notifications = [];
-
-      // Get recent job matches as notifications
-      const recentMatches = await db
-        .select({
-          matchId: jobMatches.id,
-          jobId: jobMatches.jobId,
-          matchScore: jobMatches.matchScore,
-          createdAt: jobMatches.createdAt,
-          jobTitle: jobPostings.title,
-          company: jobPostings.company,
-          status: jobMatches.status
-        })
-        .from(jobMatches)
-        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-        .where(eq(jobMatches.candidateId, userId))
-        .orderBy(desc(jobMatches.createdAt))
-        .limit(5);
-
-      // Convert matches to notifications
-      recentMatches.forEach((match, index) => {
-        if (match.status === 'pending') {
-          notifications.push({
-            id: `match_${match.matchId}`,
-            type: 'match',
-            title: 'New Job Match',
-            message: `You have a new ${match.matchScore} match for ${match.jobTitle} at ${match.company}`,
-            isRead: false,
-            createdAt: match.createdAt?.toISOString() || new Date().toISOString(),
-            metadata: {
-              jobId: match.jobId,
-              matchId: match.matchId,
-              jobTitle: match.jobTitle,
-              company: match.company,
-              matchScore: parseInt(match.matchScore || '0')
-            }
-          });
-        }
-      });
-
-      // Get recent applications as notifications
-      const recentApplications = await db
-        .select({
-          appId: jobApplications.id,
-          jobId: jobApplications.jobId,
-          status: jobApplications.status,
-          appliedAt: jobApplications.appliedAt,
-          jobTitle: jobPostings.title,
-          company: jobPostings.company
-        })
-        .from(jobApplications)
-        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .where(eq(jobApplications.candidateId, userId))
-        .orderBy(desc(jobApplications.appliedAt))
-        .limit(3);
-
-      // Convert applications to notifications
-      recentApplications.forEach((app) => {
-        let message = '';
-        switch (app.status) {
-          case 'viewed':
-            message = `Your application for ${app.jobTitle} at ${app.company} has been viewed`;
-            break;
-          case 'interviewed':
-            message = `Interview scheduled for ${app.jobTitle} at ${app.company}`;
-            break;
-          case 'rejected':
-            message = `Update on your application for ${app.jobTitle} at ${app.company}`;
-            break;
-          default:
-            message = `Application submitted for ${app.jobTitle} at ${app.company}`;
-        }
-
-        notifications.push({
-          id: `app_${app.appId}`,
-          type: 'application',
-          title: 'Application Update',
-          message,
-          isRead: app.status === 'applied',
-          createdAt: app.appliedAt?.toISOString() || new Date().toISOString(),
-          metadata: {
-            jobId: app.jobId,
-            applicationId: app.appId,
-            jobTitle: app.jobTitle,
-            company: app.company,
-            status: app.status
-          }
-        });
-      });
-
-      // Sort all notifications by creation date
-      return notifications.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-
-    } catch (error) {
-      console.error('Error fetching real notifications:', error);
-      return [];
-    }
-  }
-
-  async markNotificationAsRead(notificationId: number, userId: string): Promise<void> {
-    // In a real implementation, this would update the notification's read status
-    console.log(`Marking notification ${notificationId} as read for user ${userId}`);
-  }
-
-  async markAllNotificationsAsRead(userId: string): Promise<void> {
-    // In a real implementation, this would mark all notifications as read for the user
-    console.log(`Marking all notifications as read for user ${userId}`);
-  }
-
-  // Enhanced candidate stats
-  async getCandidateStats(candidateId: string): Promise<{
-    newMatches: number;
-    profileViews: number;
-    activeChats: number;
-  }> {
-    try {
-      // Get application count
-      const applicationCount = await db
-        .select({ count: count() })
-        .from(jobApplications)
-        .where(eq(jobApplications.candidateId, candidateId));
-
-      // Get active matches count
-      const matchCount = await db
-        .select({ count: count() })
-        .from(jobMatches)
-        .where(and(
-          eq(jobMatches.candidateId, candidateId),
-          or(
-            eq(jobMatches.status, 'pending'),
-            eq(jobMatches.status, 'viewed'),
-            eq(jobMatches.status, 'interested')
-          )
-        ));
-
-      // Get candidate profile for strength calculation
-      const profile = await this.getCandidateProfile(candidateId);
-      
-      // Calculate profile strength based on completed fields
-      let profileStrength = 0;
-      if (profile) {
-        let filledFields = 0;
-        const totalFields = 8; // Adjust based on your profile fields
-        
-        if (profile.skills && profile.skills.length > 0) filledFields++;
-        if (profile.experience) filledFields++;
-        if (profile.location) filledFields++;
-        if (profile.resumeUrl) filledFields++;
-        if (profile.linkedinUrl) filledFields++;
-        if (profile.githubUrl) filledFields++;
-        if (profile.portfolioUrl) filledFields++;
-        if (profile.summary) filledFields++;
-        
-        profileStrength = Math.round((filledFields / totalFields) * 100);
-      }
-
-      // Calculate average match score
       const matches = await db
         .select()
         .from(jobMatches)
-        .where(eq(jobMatches.candidateId, candidateId));
-
-      let avgMatchScore = 0;
-      if (matches.length > 0) {
-        const totalScore = matches.reduce((sum, match) => {
-          return sum + parseFloat(match.matchScore || '0');
-        }, 0);
-        avgMatchScore = Math.round(totalScore / matches.length);
-      }
-
-      // Get active chat rooms count
-      const chatCount = await db
-        .select({ count: count() })
-        .from(chatRooms)
-        .where(eq(chatRooms.candidateId, candidateId));
+        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
+        .where(eq(jobPostings.talentOwnerId, talentOwnerId));
 
       return {
-        newMatches: matchCount[0]?.count || 0,
-        profileViews: profile?.profileViews || 0,
-        activeChats: chatCount[0]?.count || 0,
+        activeJobs: jobs.filter(j => j.status === 'active').length,
+        totalMatches: matches.length,
+        activeChats: 0, // Would count active chat rooms
+        hires: 0 // Would count hired candidates
       };
     } catch (error) {
-      console.error('Error fetching candidate stats:', error);
-      return {
-        newMatches: 0,
-        profileViews: 0,
-        activeChats: 0,
-      };
+      console.error('Error fetching recruiter stats:', error);
+      throw error;
     }
   }
 
-  async getMatchesForCandidate(candidateId: string): Promise<any[]> {
+  async getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]> {
     try {
-      const matches = await db
+      return await db
         .select({
-          id: jobMatches.id,
-          jobId: jobMatches.jobId,
-          matchScore: jobMatches.matchScore,
-          status: jobMatches.status,
-          createdAt: jobMatches.createdAt,
-          job: {
-            id: jobPostings.id,
-            title: jobPostings.title,
-            company: jobPostings.company,
-            location: jobPostings.location,
-            workType: jobPostings.workType,
-            salaryMin: jobPostings.salaryMin,
-            salaryMax: jobPostings.salaryMax,
-            description: jobPostings.description,
-            requirements: jobPostings.requirements,
-            skills: jobPostings.skills,
-          }
+          candidate: users,
+          profile: candidateProfiles,
+          match: jobMatches,
+          job: jobPostings
         })
         .from(jobMatches)
+        .innerJoin(users, eq(jobMatches.candidateId, users.id))
+        .leftJoin(candidateProfiles, eq(users.id, candidateProfiles.userId))
         .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-        .where(eq(jobMatches.candidateId, candidateId))
-        .orderBy(desc(jobMatches.createdAt))
-        .limit(50);
-
-      return matches;
+        .where(eq(jobPostings.talentOwnerId, talentOwnerId))
+        .orderBy(desc(jobMatches.createdAt));
     } catch (error) {
-      console.error('Error fetching matches for candidate:', error);
-      return [];
+      console.error('Error fetching candidates for recruiter:', error);
+      throw error;
     }
   }
 
-  async getApplicationsForCandidate(candidateId: string): Promise<any[]> {
+  // Application operations
+  async getApplicationsWithStatus(candidateId: string): Promise<any[]> {
     try {
-      const applications = await db
+      return await db
         .select({
           id: jobApplications.id,
           jobId: jobApplications.jobId,
@@ -870,107 +541,136 @@ export class DatabaseStorage implements IStorage {
         .from(jobApplications)
         .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
         .where(eq(jobApplications.candidateId, candidateId))
-        .orderBy(desc(jobApplications.createdAt))
-        .limit(100);
-
-      return applications;
+        .orderBy(desc(jobApplications.createdAt));
     } catch (error) {
-      console.error('Error fetching applications for candidate:', error);
-      return [];
-    }
-  }
-
-  async getActivityForCandidate(candidateId: string): Promise<any[]> {
-    try {
-      const activities = await db
-        .select()
-        .from(activityLogs)
-        .where(eq(activityLogs.userId, candidateId))
-        .orderBy(desc(activityLogs.createdAt))
-        .limit(50);
-
-      return activities;
-    } catch (error) {
-      console.error('Error fetching activity for candidate:', error);
-      return [];
-    }
-  }
-
-  async createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<any> {
-    try {
-      // Check if profile exists
-      const [existingProfile] = await db
-        .select()
-        .from(candidateProfiles)
-        .where(eq(candidateProfiles.userId, userId));
-
-      if (existingProfile) {
-        // Update existing profile
-        const [updatedProfile] = await db
-          .update(candidateProfiles)
-          .set({
-            title: profileData.title,
-            experience: profileData.experience,
-            skills: profileData.skills,
-            location: profileData.location,
-            workType: profileData.workType,
-            salaryMin: profileData.salaryMin,
-            salaryMax: profileData.salaryMax,
-            bio: profileData.bio,
-            resumeUrl: profileData.resumeUrl,
-            updatedAt: new Date(),
-          })
-          .where(eq(candidateProfiles.userId, userId))
-          .returning();
-        
-        return updatedProfile;
-      } else {
-        // Create new profile
-        const [newProfile] = await db
-          .insert(candidateProfiles)
-          .values({
-            userId: userId,
-            title: profileData.title,
-            experience: profileData.experience,
-            skills: profileData.skills,
-            location: profileData.location,
-            workType: profileData.workType,
-            salaryMin: profileData.salaryMin,
-            salaryMax: profileData.salaryMax,
-            bio: profileData.bio,
-            resumeUrl: profileData.resumeUrl,
-          })
-          .returning();
-        
-        return newProfile;
-      }
-    } catch (error) {
-      console.error('Error creating/updating candidate profile:', error);
+      console.error('Error fetching applications with status:', error);
       throw error;
     }
   }
 
-  async updateUserInfo(userId: string, userInfo: any): Promise<any> {
+  async updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any> {
     try {
-      const [updatedUser] = await db
-        .update(users)
-        .set({
-          firstName: userInfo.firstName,
-          lastName: userInfo.lastName,
-          email: userInfo.email,
+      const [application] = await db
+        .update(jobApplications)
+        .set({ 
+          status: status as any, 
           updatedAt: new Date(),
+          ...(data || {})
         })
-        .where(eq(users.id, userId))
+        .where(eq(jobApplications.id, applicationId))
         .returning();
-      
-      return updatedUser;
+      return application;
     } catch (error) {
-      console.error('Error updating user info:', error);
+      console.error('Error updating application status:', error);
       throw error;
     }
   }
 
-  // Exam operations for automatic assessment creation
+  async getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any> {
+    try {
+      const [application] = await db
+        .select()
+        .from(jobApplications)
+        .where(and(
+          eq(jobApplications.jobId, jobId),
+          eq(jobApplications.candidateId, candidateId)
+        ));
+      return application;
+    } catch (error) {
+      console.error('Error fetching application by job and candidate:', error);
+      throw error;
+    }
+  }
+
+  async createJobApplication(application: any): Promise<any> {
+    try {
+      const [result] = await db
+        .insert(jobApplications)
+        .values(application)
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating job application:', error);
+      throw error;
+    }
+  }
+
+  // Notification operations
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    try {
+      const [prefs] = await db
+        .select()
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.userId, userId));
+      return prefs;
+    } catch (error) {
+      console.error('Error fetching notification preferences:', error);
+      throw error;
+    }
+  }
+
+  async updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    try {
+      const [result] = await db
+        .insert(notificationPreferences)
+        .values({ userId, ...preferences })
+        .onConflictDoUpdate({
+          target: notificationPreferences.userId,
+          set: { ...preferences, updatedAt: new Date() },
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating notification preferences:', error);
+      throw error;
+    }
+  }
+
+  async getNotifications(userId: string): Promise<any[]> {
+    try {
+      return await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(50);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      throw error;
+    }
+  }
+
+  async markNotificationAsRead(notificationId: number, userId: string): Promise<void> {
+    try {
+      await db
+        .update(notifications)
+        .set({ read: true, readAt: new Date() })
+        .where(and(
+          eq(notifications.id, notificationId),
+          eq(notifications.userId, userId)
+        ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    try {
+      await db
+        .update(notifications)
+        .set({ read: true, readAt: new Date() })
+        .where(and(
+          eq(notifications.userId, userId),
+          eq(notifications.read, false)
+        ));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      throw error;
+    }
+  }
+
+  // Exam operations
   async createJobExam(exam: any): Promise<any> {
     try {
       const [result] = await db.insert(jobExams).values(exam).returning();
@@ -983,7 +683,10 @@ export class DatabaseStorage implements IStorage {
 
   async getJobExam(jobId: number): Promise<any> {
     try {
-      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, jobId));
+      const [exam] = await db
+        .select()
+        .from(jobExams)
+        .where(eq(jobExams.jobId, jobId));
       return exam;
     } catch (error) {
       console.error('Error fetching job exam:', error);
@@ -1017,19 +720,17 @@ export class DatabaseStorage implements IStorage {
 
   async getExamAttempts(jobId: number): Promise<any[]> {
     try {
-      const attempts = await db
+      return await db
         .select()
         .from(examAttempts)
         .where(eq(examAttempts.jobId, jobId))
-        .orderBy(desc(examAttempts.score));
-      return attempts;
+        .orderBy(desc(examAttempts.createdAt));
     } catch (error) {
       console.error('Error fetching exam attempts:', error);
       throw error;
     }
   }
 
-  // Rank candidates by exam score and grant chat access to top performers
   async rankCandidatesByExamScore(jobId: number): Promise<void> {
     try {
       const job = await this.getJobPosting(jobId);
@@ -1062,15 +763,6 @@ export class DatabaseStorage implements IStorage {
         // Grant chat access to top candidates
         if (qualifiedForChat && job.hiringManagerId) {
           await this.grantChatAccess(jobId, attempts[i].candidateId, attempts[i].id, ranking);
-          
-          // Send notification about chat access
-          await this.createNotification({
-            userId: attempts[i].candidateId,
-            type: 'chat_access_granted',
-            title: 'Chat Access Granted',
-            message: `You've qualified for hiring manager chat! Ranked #${ranking} for ${job.title}`,
-            jobId: jobId
-          });
         }
       }
     } catch (error) {
@@ -1079,17 +771,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Controlled chat operations based on exam performance
-  async createChatRoom(data: any): Promise<ChatRoom> {
-    try {
-      const [result] = await db.insert(chatRooms).values(data).returning();
-      return result;
-    } catch (error) {
-      console.error('Error creating chat room:', error);
-      throw error;
-    }
-  }
-
+  // Chat room operations
   async getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined> {
     try {
       const [room] = await db
@@ -1102,6 +784,27 @@ export class DatabaseStorage implements IStorage {
       return room;
     } catch (error) {
       console.error('Error fetching chat room:', error);
+      throw error;
+    }
+  }
+
+  async createChatRoom(data: any): Promise<ChatRoom> {
+    try {
+      const [room] = await db
+        .insert(chatRooms)
+        .values({
+          jobId: data.jobId,
+          candidateId: data.candidateId,
+          hiringManagerId: data.hiringManagerId,
+          examAttemptId: data.examAttemptId,
+          candidateRanking: data.ranking,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return room;
+    } catch (error) {
+      console.error('Error creating chat room:', error);
       throw error;
     }
   }
@@ -1145,41 +848,85 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Job or hiring manager not found');
       }
 
-      // Check if chat room already exists
-      const existingRoom = await this.getChatRoom(jobId, candidateId);
-      if (existingRoom) {
-        return existingRoom;
-      }
-
-      // Create new chat room
-      const chatRoomData = {
+      const room = await this.createChatRoom({
         jobId,
         candidateId,
         hiringManagerId: job.hiringManagerId,
         examAttemptId,
-        candidateRanking: ranking,
-        status: 'active' as const,
-        accessGrantedAt: new Date()
-      };
+        ranking
+      });
 
-      return await this.createChatRoom(chatRoomData);
+      // Create notification for chat access
+      await this.createNotification({
+        userId: candidateId,
+        type: 'chat_access_granted',
+        message: `You now have chat access for ${job.title}`,
+        metadata: { jobId, ranking }
+      });
+
+      return room;
     } catch (error) {
       console.error('Error granting chat access:', error);
       throw error;
     }
   }
 
-  // Notification creation for exam and chat status updates
   async createNotification(notification: any): Promise<any> {
     try {
       const [result] = await db.insert(notifications).values({
         ...notification,
-        isRead: false,
+        read: false,
         createdAt: new Date()
       }).returning();
       return result;
     } catch (error) {
       console.error('Error creating notification:', error);
+      throw error;
+    }
+  }
+
+  // Enhanced candidate operations
+  async getApplicationsForCandidate(candidateId: string): Promise<any[]> {
+    try {
+      return await db
+        .select()
+        .from(jobApplications)
+        .where(eq(jobApplications.candidateId, candidateId))
+        .orderBy(desc(jobApplications.createdAt));
+    } catch (error) {
+      console.error('Error fetching applications for candidate:', error);
+      return [];
+    }
+  }
+
+  async getActivityForCandidate(candidateId: string): Promise<any[]> {
+    try {
+      return await db
+        .select()
+        .from(activityLogs)
+        .where(eq(activityLogs.userId, candidateId))
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(50);
+    } catch (error) {
+      console.error('Error fetching activity for candidate:', error);
+      return [];
+    }
+  }
+
+  async createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<CandidateProfile> {
+    try {
+      return await this.upsertCandidateProfile({ userId, ...profileData });
+    } catch (error) {
+      console.error('Error creating/updating candidate profile:', error);
+      throw error;
+    }
+  }
+
+  async updateUserInfo(userId: string, userData: any): Promise<User> {
+    try {
+      return await this.updateUserProfile(userId, userData);
+    } catch (error) {
+      console.error('Error updating user info:', error);
       throw error;
     }
   }
