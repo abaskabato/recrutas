@@ -15,7 +15,7 @@ import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { data: session, isPending: isLoading } = useSession();
+  const { data, user, isLoading, isAuthenticated } = useSession();
 
   if (isLoading) {
     return (
@@ -25,25 +25,24 @@ function Router() {
     );
   }
 
-  const user = session?.user;
-  
   // Debug logging to understand user state
-  console.log("Current session:", session);
+  console.log("Current session data:", data);
   console.log("Current user:", user);
+  console.log("Is authenticated:", isAuthenticated);
   console.log("User role:", user?.role);
 
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
-      {!user ? (
+      {!isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
         <>
           {/* Role-based routing logic */}
-          {!user.role || user.role === null ? (
+          {!user?.role || user.role === null ? (
             // New users without a role go to role selection
-            <Route path="/" component={() => <RoleSelection userId={user.id} />} />
+            <Route path="/" component={() => <RoleSelection userId={user?.id || ''} />} />
           ) : user.role === "candidate" ? (
             // Candidates go to candidate dashboard
             <Route path="/" component={CandidateDashboard} />
@@ -56,7 +55,7 @@ function Router() {
           <Route path="/candidate-dashboard" component={CandidateDashboard} />
           <Route path="/talent-dashboard" component={TalentDashboard} />
           <Route path="/recruiter-dashboard" component={TalentDashboard} />
-          <Route path="/role-selection" component={() => <RoleSelection userId={user.id} />} />
+          <Route path="/role-selection" component={() => <RoleSelection userId={user?.id || ''} />} />
           <Route path="/chat/:roomId?" component={Chat} />
         </>
       )}
