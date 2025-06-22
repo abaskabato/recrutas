@@ -109,7 +109,16 @@ export async function signUp(email: string, password: string, name: string): Pro
 
 export async function signOut(): Promise<void> {
   try {
-    await apiRequest('POST', '/api/auth/sign-out');
+    const response = await fetch('/api/auth/sign-out', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    // Always redirect to home after sign out attempt
     window.location.href = '/';
   } catch (error) {
     console.error('Sign out failed:', error);

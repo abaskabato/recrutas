@@ -92,12 +92,13 @@ export function setupBetterAuth(app: Express) {
       const host = req.get('host') || 'localhost:5000'
       const url = new URL(req.url, `${protocol}://${host}`)
       
-      // Debug logging for session requests
-      if (req.url.includes('get-session')) {
-        console.log('Session request:', {
-          cookies: req.headers.cookie,
+      // Debug logging for auth requests
+      if (req.url.includes('sign-out')) {
+        console.log('Sign out request:', {
           method: req.method,
-          url: req.url
+          url: req.url,
+          cookies: req.headers.cookie,
+          body: req.body
         });
       }
       
@@ -111,9 +112,15 @@ export function setupBetterAuth(app: Express) {
       })
 
       let body: string | undefined
-      if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
-        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
-        headers.set('Content-Type', 'application/json')
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        if (req.body && Object.keys(req.body).length > 0) {
+          body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+          headers.set('Content-Type', 'application/json')
+        } else if (req.url.includes('sign-out')) {
+          // For sign out, ensure we have an empty body
+          body = '{}'
+          headers.set('Content-Type', 'application/json')
+        }
       }
 
       const webRequest = new Request(url.toString(), {
@@ -122,12 +129,37 @@ export function setupBetterAuth(app: Express) {
         body,
       })
 
-      const response = await auth.handler(webRequest)
+      let response;
+      try {
+        response = await auth.handler(webRequest);
+      } catch (error) {
+        // If auth handler completely fails for sign out, clear cookies anyway
+        if (req.url.includes('sign-out')) {
+          console.log('Auth handler failed for sign out, clearing cookies manually');
+          res.clearCookie('better-auth.session_token');
+          res.clearCookie('better-auth.session_data');
+          res.status(200).json({ success: true });
+          return;
+        }
+        throw error;
+      }
       
-      // Debug logging for session responses
-      if (req.url.includes('get-session')) {
+      // Special handling for sign out failures - clear cookies and return success
+      if (req.url.includes('sign-out') && response.status === 400) {
         const responseText = await response.clone().text();
-        console.log('Session response:', {
+        if (responseText.includes('FAILED_TO_GET_SESSION')) {
+          console.log('Sign out failed due to invalid session, clearing cookies manually');
+          res.clearCookie('better-auth.session_token');
+          res.clearCookie('better-auth.session_data');
+          res.status(200).json({ success: true });
+          return;
+        }
+      }
+      
+      // Debug logging for auth responses
+      if (req.url.includes('sign-out')) {
+        const responseText = await response.clone().text();
+        console.log('Sign out response:', {
           status: response.status,
           body: responseText,
           headers: Object.fromEntries(response.headers.entries())
