@@ -101,17 +101,6 @@ export default function CandidateDashboardEnhanced() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   
-  // Job Feed & Recommendation State
-  const [jobFilters, setJobFilters] = useState({
-    location: 'all',
-    companyType: 'all',
-    matchScore: 'all',
-    workType: 'all',
-    salaryRange: 'all'
-  });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'relevance' | 'date' | 'salary' | 'match'>('relevance');
-  
   // Profile preferences state
   const [profilePrefs, setProfilePrefs] = useState({
     preferredLocations: [''],
@@ -201,8 +190,6 @@ export default function CandidateDashboardEnhanced() {
       description: "Welcome to Recrutas! Your profile is now set up.",
     });
   };
-
-
 
   // Handle file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -454,7 +441,7 @@ export default function CandidateDashboardEnhanced() {
                           </div>
                         ))}
                       </div>
-                    ) : matches.length > 0 ? (
+                    ) : matches.slice(0, 3).length > 0 ? (
                       <div className="space-y-4">
                         {matches.slice(0, 3).map((match) => (
                           <div key={match.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
@@ -507,91 +494,39 @@ export default function CandidateDashboardEnhanced() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle>Job Matches</CardTitle>
-                      <div className="flex items-center space-x-2 flex-wrap gap-2">
+                      <div className="flex items-center space-x-2">
                         <div className="flex items-center space-x-2">
-                          <select 
-                            className="text-sm border rounded px-2 py-1"
-                            value={jobFilters.location}
-                            onChange={(e) => setJobFilters({...jobFilters, location: e.target.value})}
-                          >
-                            <option value="all">All Work Types</option>
+                          <select className="text-sm border rounded px-2 py-1">
+                            <option value="all">All Locations</option>
                             <option value="remote">Remote</option>
                             <option value="hybrid">Hybrid</option>
                             <option value="onsite">On-site</option>
                           </select>
-                          <select 
-                            className="text-sm border rounded px-2 py-1"
-                            value={jobFilters.companyType}
-                            onChange={(e) => setJobFilters({...jobFilters, companyType: e.target.value})}
-                          >
+                          <select className="text-sm border rounded px-2 py-1">
                             <option value="all">All Companies</option>
                             <option value="faang">FAANG</option>
                             <option value="startup">Startup</option>
                             <option value="enterprise">Enterprise</option>
                           </select>
-                          <select 
-                            className="text-sm border rounded px-2 py-1"
-                            value={jobFilters.matchScore}
-                            onChange={(e) => setJobFilters({...jobFilters, matchScore: e.target.value})}
-                          >
-                            <option value="all">All Matches</option>
+                          <select className="text-sm border rounded px-2 py-1">
+                            <option value="all">Match Score</option>
                             <option value="90+">90%+ Match</option>
                             <option value="80+">80%+ Match</option>
                             <option value="70+">70%+ Match</option>
                           </select>
-                          <select 
-                            className="text-sm border rounded px-2 py-1"
-                            value={jobFilters.salaryRange}
-                            onChange={(e) => setJobFilters({...jobFilters, salaryRange: e.target.value})}
-                          >
-                            <option value="all">All Salaries</option>
-                            <option value="100k+">$100k+</option>
-                            <option value="150k+">$150k+</option>
-                            <option value="200k+">$200k+</option>
-                          </select>
-                          <select 
-                            className="text-sm border rounded px-2 py-1"
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value as any)}
-                          >
-                            <option value="relevance">Sort by Relevance</option>
-                            <option value="match">Sort by Match Score</option>
-                            <option value="salary">Sort by Salary</option>
-                            <option value="date">Sort by Date</option>
-                          </select>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            placeholder="Search jobs..."
-                            className="text-sm border rounded px-3 py-1 w-48"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                          />
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setJobFilters({
-                                location: 'all',
-                                companyType: 'all',
-                                matchScore: 'all',
-                                workType: 'all',
-                                salaryRange: 'all'
-                              });
-                              setSearchQuery('');
-                              setSortBy('relevance');
-                            }}
-                          >
-                            Clear Filters
-                          </Button>
-                        </div>
+                        <Button variant="outline" size="sm">
+                          <Filter className="w-4 h-4 mr-2" />
+                          More Filters
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Search className="w-4 h-4 mr-2" />
+                          Search
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-
-                    
                     {matchesLoading ? (
                       <div className="space-y-4">
                         {[1, 2, 3, 4].map(i => (
@@ -673,48 +608,13 @@ export default function CandidateDashboardEnhanced() {
                     ) : (
                       <div className="space-y-6">
                         <div className="text-center py-8">
-                          {matches.length === 0 ? (
-                            <>
-                              <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                              <h3 className="text-lg font-medium text-slate-900 mb-2">No Job Matches Yet</h3>
-                              <p className="text-slate-500 mb-4">
-                                Complete your profile and skills to get AI-powered job recommendations
-                              </p>
-                              <Button onClick={() => setActiveTab('profile')} className="mx-auto">
-                                Complete Profile
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Search className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                              <h3 className="text-lg font-medium text-slate-900 mb-2">No Results Found</h3>
-                              <p className="text-slate-500 mb-4">
-                                No jobs match your current filters. Try adjusting your search criteria.
-                              </p>
-                              <div className="flex justify-center space-x-2">
-                                <Button 
-                                  variant="outline"
-                                  onClick={() => {
-                                    setJobFilters({
-                                      location: 'all',
-                                      companyType: 'all',
-                                      matchScore: 'all',
-                                      workType: 'all',
-                                      salaryRange: 'all'
-                                    });
-                                    setSearchQuery('');
-                                  }}
-                                >
-                                  Clear All Filters
-                                </Button>
-                                <Button onClick={() => setSearchQuery('')}>
-                                  Clear Search
-                                </Button>
-                              </div>
-                            </>
-                          )}
+                          <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-slate-900 mb-2">Discover Live Job Opportunities</h3>
+                          <p className="text-slate-500 mb-4">
+                            Search thousands of real job openings from top companies
+                          </p>
                         </div>
-                        {matches.length === 0 && <InstantJobSearch />}
+                        <InstantJobSearch />
                       </div>
                     )}
                   </CardContent>

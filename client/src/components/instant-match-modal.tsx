@@ -566,7 +566,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                           <div className="mb-4">
                             <div className="flex flex-wrap gap-1">
-                              {(job.skills || []).map((skill: string) => (
+                              {job.skills.map((skill: string) => (
                                 <Badge key={skill} variant="secondary" className="text-xs">
                                   {skill}
                                 </Badge>
