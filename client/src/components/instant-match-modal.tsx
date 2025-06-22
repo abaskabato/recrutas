@@ -506,7 +506,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">{job.title}</h4>
+                                <h4 className="text-xl font-bold text-black group-hover:text-blue-600 transition-colors duration-300">{job.title}</h4>
                                 <motion.div
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
@@ -539,7 +539,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: index * 0.1 + 0.4 }}
                               >
-                                <p className="text-gray-600 dark:text-gray-300 font-semibold mb-3 flex items-center">
+                                <p className="text-gray-700 font-semibold mb-3 flex items-center">
                                   <Building className="w-4 h-4 mr-2 text-gray-500" />
                                   {job.company}
                                 </p>
@@ -547,7 +547,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-300">
+                          <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
                             <div className="flex items-center">
                               <MapPin className="w-4 h-4 mr-1" />
                               {job.location}
