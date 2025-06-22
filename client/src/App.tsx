@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing-responsive";
 import CandidateDashboard from "@/pages/candidate-dashboard-refactored";
-import RecruiterDashboard from "@/pages/recruiter-dashboard";
+import RecruiterDashboard from "@/pages/recruiter-dashboard-refactored";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
