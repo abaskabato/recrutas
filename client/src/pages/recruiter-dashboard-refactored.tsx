@@ -41,10 +41,14 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  MessageCircle
 } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
 import RealTimeNotifications from "@/components/real-time-notifications";
+import JobPostingWizard from "@/components/job-posting-wizard";
+import CandidateRankingEngine from "@/components/candidate-ranking-engine";
+import DirectConnectionHub from "@/components/direct-connection-hub";
 
 interface RecruiterStats {
   activeJobs: number;
@@ -88,9 +92,12 @@ interface Candidate {
 export default function RecruiterDashboardRefactored() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics' | 'connections'>('overview');
   const [showJobDialog, setShowJobDialog] = useState(false);
+  const [showJobPostingWizard, setShowJobPostingWizard] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
+  const [selectedJobForRanking, setSelectedJobForRanking] = useState<number | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -407,6 +414,17 @@ export default function RecruiterDashboardRefactored() {
               <TrendingUp className="h-4 w-4 mr-2 inline" />
               Analytics
             </button>
+            <button
+              onClick={() => setActiveTab('connections')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'connections'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              <MessageCircle className="h-4 w-4 mr-2 inline" />
+              Direct Connections
+            </button>
           </nav>
         </div>
 
@@ -472,7 +490,15 @@ export default function RecruiterDashboardRefactored() {
                     onClick={() => setShowJobDialog(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Job Posting
+                    Quick Job Posting
+                  </Button>
+                  
+                  <Button 
+                    className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={() => setShowJobPostingWizard(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Advanced Job Wizard
                   </Button>
                   
                   <Button 
@@ -581,6 +607,14 @@ export default function RecruiterDashboardRefactored() {
                         <Button size="sm" variant="outline">
                           <Eye className="h-4 w-4 mr-1" />
                           View
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                          onClick={() => setSelectedJobForRanking(job.id)}
+                        >
+                          <Users className="h-4 w-4 mr-1" />
+                          Rank Candidates
                         </Button>
                         <Button size="sm" variant="outline">
                           <Edit className="h-4 w-4 mr-1" />
@@ -783,7 +817,72 @@ export default function RecruiterDashboardRefactored() {
             </Card>
           </div>
         )}
+
+        {activeTab === 'connections' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Direct Connections</h3>
+              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                Real-time messaging enabled
+              </Badge>
+            </div>
+            
+            <DirectConnectionHub 
+              hiringManagerId={user?.id || "hiring-manager-1"}
+              onConnectionUpdate={(connection) => {
+                toast({
+                  title: "Connection Updated",
+                  description: `Status changed for ${connection.candidate.firstName} ${connection.candidate.lastName}`,
+                });
+              }}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Job Posting Wizard Dialog */}
+      <Dialog open={showJobPostingWizard} onOpenChange={setShowJobPostingWizard}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Advanced Job Posting Wizard</DialogTitle>
+          </DialogHeader>
+          <JobPostingWizard 
+            onSubmit={(jobData) => {
+              createJobMutation.mutate(jobData);
+            }}
+            onCancel={() => setShowJobPostingWizard(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Candidate Ranking Engine Modal for Job Selection */}
+      {selectedJobForRanking && (
+        <Dialog open={!!selectedJobForRanking} onOpenChange={() => setSelectedJobForRanking(null)}>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Candidate Ranking & Scoring Engine</DialogTitle>
+            </DialogHeader>
+            <CandidateRankingEngine 
+              jobId={selectedJobForRanking}
+              onCandidateSelect={(candidate) => {
+                setSelectedCandidate(candidate);
+                toast({
+                  title: "Candidate Selected",
+                  description: `Viewing profile for ${candidate.candidate.firstName} ${candidate.candidate.lastName}`,
+                });
+              }}
+              onDirectConnect={(candidate) => {
+                setSelectedJobForRanking(null);
+                setActiveTab('connections');
+                toast({
+                  title: "Direct Connection Initiated",
+                  description: `Connected with ${candidate.candidate.firstName} ${candidate.candidate.lastName}`,
+                });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
