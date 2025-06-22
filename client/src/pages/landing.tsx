@@ -214,13 +214,13 @@ export default function Landing() {
             </Badge>
             
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
-              Job Search.
+              DoorDash
               <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Reinvented.</span>
+              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">for Jobs</span>
             </h1>
             
             <p className="text-xl sm:text-2xl text-slate-300 mb-8 font-light">
-              Upload resume → Get matched → Apply direct
+              Jobs delivered to you • On-demand • Zero middlemen
             </p>
 
             {/* Skills Input Section */}
