@@ -8,6 +8,7 @@ import { useSession } from "@/lib/auth-client";
 import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
+import RoleSelection from "@/pages/role-selection";
 import CandidateDashboard from "@/pages/candidate-dashboard-enhanced";
 import TalentDashboard from "@/pages/talent-dashboard";
 import Chat from "@/pages/chat";
@@ -34,11 +35,23 @@ function Router() {
         <Route path="/" component={Landing} />
       ) : (
         <>
-          {/* For now, all authenticated users go to candidate dashboard */}
-          <Route path="/" component={CandidateDashboard} />
+          {/* Role-based routing logic */}
+          {!user.role || user.role === null ? (
+            // New users without a role go to role selection
+            <Route path="/" component={() => <RoleSelection userId={user.id} />} />
+          ) : user.role === "candidate" ? (
+            // Candidates go to candidate dashboard
+            <Route path="/" component={CandidateDashboard} />
+          ) : (
+            // Talent owners go to talent dashboard
+            <Route path="/" component={TalentDashboard} />
+          )}
+          
+          {/* Explicit dashboard routes */}
           <Route path="/candidate-dashboard" component={CandidateDashboard} />
           <Route path="/talent-dashboard" component={TalentDashboard} />
           <Route path="/recruiter-dashboard" component={TalentDashboard} />
+          <Route path="/role-selection" component={() => <RoleSelection userId={user.id} />} />
           <Route path="/chat/:roomId?" component={Chat} />
         </>
       )}
