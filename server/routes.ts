@@ -1574,23 +1574,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dbMatches = await storage.getMatchesForCandidate(userId);
       console.log(`Found ${dbMatches.length} database matches`);
 
-      // Transform database matches to ensure proper source mapping
+      // Transform database matches to ensure proper source mapping and exam indicators
       const internalMatches = dbMatches.map(match => {
-        const isTestJob = match.job?.title === 'Test';
-        if (isTestJob) {
-          console.log(`DEBUG: Test job match ${match.id}:`, {
-            title: match.job?.title,
-            hasExam: match.job?.hasExam,
-            source: match.job?.source,
-            rawJobData: JSON.stringify(match.job, null, 2)
-          });
-        }
+        console.log(`DEBUG: Processing internal job match ${match.id}:`, {
+          jobTitle: match.job?.title,
+          hasExam: match.job?.hasExam,
+          jobId: match.job?.id
+        });
+        
         return {
           ...match,
           job: {
             ...match.job,
-            source: match.job?.source === 'platform' ? 'internal' : match.job?.source || 'internal',
-            hasExam: Boolean(match.job?.hasExam)
+            source: 'internal', // All database jobs are internal
+            hasExam: Boolean(match.job?.hasExam), // This should be correctly mapped from storage
+            company: match.job?.company || 'Recrutas',
+            workType: match.job?.workType || 'remote'
           }
         };
       });
