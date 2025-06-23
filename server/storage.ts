@@ -1050,6 +1050,26 @@ export class DatabaseStorage implements IStorage {
     const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
     return result.map(r => r.userId);
   }
+
+  async getActiveCandidates(): Promise<any[]> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    try {
+      const activeCandidates = await db
+        .select({ userId: users.id })
+        .from(users)
+        .innerJoin(activityLogs, eq(users.id, activityLogs.userId))
+        .where(gte(activityLogs.createdAt, sevenDaysAgo))
+        .groupBy(users.id)
+        .limit(50);
+
+      return activeCandidates;
+    } catch (error) {
+      console.error('Error fetching active candidates:', error);
+      return [];
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

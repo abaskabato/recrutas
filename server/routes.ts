@@ -7,6 +7,7 @@ import { setupBetterAuth } from "./betterAuth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
+import { jobScheduler } from "./job-scheduler";
 import { sendNotification, sendApplicationStatusUpdate } from "./notifications";
 import { notificationService } from "./notification-service";
 import multer from "multer";
@@ -1607,15 +1608,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      // Get fresh job data from multiple sources with rotation
-      const currentTime = Date.now();
-      const rotationSeed = Math.floor(currentTime / (5 * 60 * 1000)); // Rotate every 5 minutes
+      // Use job scheduler for cached/fresh jobs - hybrid approach
+      const cachedJobs = await jobScheduler.getJobs(userId, 25);
+      console.log(`📦 Job scheduler returned ${cachedJobs.length} jobs (cached or fresh)`);
       
-      // Get live jobs with variety
-      const liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 50);
-      
-      // Shuffle jobs using time-based seed for variety
-      const shuffledJobs = [...liveJobs].sort(() => Math.sin(rotationSeed) - 0.5);
+      // Fallback to live aggregation if scheduler returns no jobs
+      let liveJobs = [];
+      if (cachedJobs.length === 0) {
+        console.log('🔄 Scheduler cache empty, falling back to live aggregation');
+        liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 25);
+      }
       
       // Get database matches as well
       const dbMatches = await storage.getMatchesForCandidate(userId);
