@@ -34,8 +34,16 @@ import {
   XCircle,
   AlertCircle,
   ExternalLink,
-  Settings
+  Settings,
+  BookOpen
 } from "lucide-react";
+import { 
+  JobMatchCard, 
+  ApplicationCard, 
+  ActivityItem, 
+  EmptyState, 
+  LoadingSkeleton 
+} from "@/components/candidate-dashboard-components";
 
 interface CandidateStats {
   totalApplications: number;
@@ -365,13 +373,7 @@ export default function CandidateStreamlinedDashboard() {
                   </CardHeader>
                   <CardContent>
                     {matchesLoading ? (
-                      <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-24 bg-slate-200 rounded"></div>
-                          </div>
-                        ))}
-                      </div>
+                      <LoadingSkeleton count={3} />
                     ) : matches?.length > 0 ? (
                       <div className="space-y-4">
                         {matches.map((match) => {
@@ -542,16 +544,13 @@ export default function CandidateStreamlinedDashboard() {
                         })}
                       </div>
                     ) : (
-                      <div className="space-y-6">
-                        <div className="text-center py-8">
-                          <Star className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                          <h3 className="text-lg font-medium text-slate-900 mb-2">Discover Live Job Opportunities</h3>
-                          <p className="text-slate-500 mb-4">
-                            Search thousands of real job openings from top companies
-                          </p>
-                        </div>
+                      <EmptyState
+                        icon={Star}
+                        title="Discover Live Job Opportunities"
+                        description="Search thousands of real job openings from top companies"
+                      >
                         <InstantJobSearch />
-                      </div>
+                      </EmptyState>
                     )}
                   </CardContent>
                 </Card>
@@ -565,38 +564,25 @@ export default function CandidateStreamlinedDashboard() {
                   </CardHeader>
                   <CardContent>
                     {applicationsLoading ? (
-                      <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-16 bg-slate-200 rounded"></div>
-                          </div>
-                        ))}
-                      </div>
+                      <LoadingSkeleton count={3} />
                     ) : applications?.length > 0 ? (
                       <div className="space-y-4">
                         {applications.map((application) => (
-                          <div key={application.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                            <div>
-                              <h3 className="font-medium text-slate-900">{application.job?.title || 'Job Title Unavailable'}</h3>
-                              <p className="text-sm text-slate-500">{application.job?.company || 'Company'} • {application.job?.location || 'Location'}</p>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              <Badge className={getStatusColor(application.status)}>
-                                {getStatusIcon(application.status)}
-                                <span className="ml-1 capitalize">{application.status}</span>
-                              </Badge>
-                              <span className="text-xs text-slate-400">
-                                {timeAgo(application.appliedAt)}
-                              </span>
-                            </div>
-                          </div>
+                          <ApplicationCard
+                            key={application.id}
+                            application={application}
+                            getStatusColor={getStatusColor}
+                            getStatusIcon={getStatusIcon}
+                            timeAgo={timeAgo}
+                          />
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <Briefcase className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                        <p className="text-slate-500">No applications yet</p>
-                      </div>
+                      <EmptyState
+                        icon={Briefcase}
+                        title="No Applications Yet"
+                        description="Start applying to jobs to track your application status here"
+                      />
                     )}
                   </CardContent>
                 </Card>
