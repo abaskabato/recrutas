@@ -317,6 +317,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
+      // First, delete all related job matches
+      await db
+        .delete(jobMatches)
+        .where(eq(jobMatches.jobId, id));
+
+      // Then delete all related job exams
+      await db
+        .delete(jobExams)
+        .where(eq(jobExams.jobId, id));
+
+      // Finally, delete the job posting itself
       await db
         .delete(jobPostings)
         .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
