@@ -2823,6 +2823,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Candidate application endpoints
+  app.post('/api/candidates/apply/:jobId', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseInt(req.params.jobId);
+      
+      // Create job application
+      const application = await storage.createJobApplication({
+        candidateId: userId,
+        jobId: jobId,
+        status: 'applied',
+        appliedAt: new Date()
+      });
+      
+      // Update match status
+      const existingMatch = await storage.getApplicationByJobAndCandidate(jobId, userId);
+      if (existingMatch) {
+        await storage.updateApplicationStatus(existingMatch.id, 'applied');
+      }
+      
+      // Create activity log
+      await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
+      
+      res.json({ success: true, application });
+    } catch (error) {
+      console.error("Error applying to job:", error);
+      res.status(500).json({ message: "Failed to apply to job" });
+    }
+  });
+
+  // Mark external application as applied
+  app.post('/api/candidates/mark-applied/:matchId', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const matchId = parseInt(req.params.matchId);
+      
+      // Update match status to applied
+      await storage.updateMatchStatus(matchId, 'applied');
+      
+      // Create activity log
+      await storage.createActivityLog(userId, "external_applied", `Marked external job as applied`);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking external application:", error);
+      res.status(500).json({ message: "Failed to mark as applied" });
+    }
+  });
+
+  // Start chat with hiring manager (after exam qualification)
+  app.post('/api/candidates/start-chat/:jobId', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseInt(req.params.jobId);
+      
+      // Check if candidate has chat access (passed exam)
+      const chatRoom = await storage.getChatRoom(jobId, userId);
+      
+      if (!chatRoom) {
+        return res.status(403).json({ 
+          message: "Chat access not available. Complete the exam with a passing score to qualify." 
+        });
+      }
+      
+      res.json({ success: true, chatRoomId: chatRoom.id });
+    } catch (error) {
+      console.error("Error starting chat:", error);
+      res.status(500).json({ message: "Failed to start chat" });
+    }
+  });
+
 
 
   // Notification preferences endpoints
