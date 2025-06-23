@@ -511,6 +511,27 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2 flex-wrap">
                                 <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.title}</h4>
+                                
+                                {/* Job Source Badge */}
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: index * 0.1 + 0.4, type: "spring", bounce: 0.5 }}
+                                >
+                                  {job.source === 'internal' ? (
+                                    <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-0 text-xs px-2 py-1 shadow-lg">
+                                      <Building className="w-3 h-3 mr-1" />
+                                      Internal
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-0 text-xs px-2 py-1 shadow-lg">
+                                      <Zap className="w-3 h-3 mr-1" />
+                                      {job.company || 'External'}
+                                    </Badge>
+                                  )}
+                                </motion.div>
+
+                                {/* Match Score Badge */}
                                 <motion.div
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
@@ -518,18 +539,22 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 >
                                   <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
                                     <Star className="w-3 h-3 mr-1" />
-                                    {match.matchScore ? `${Math.round(match.matchScore)}%` : '90%'}
+                                    {match.matchScore || '90%'}
                                   </Badge>
                                 </motion.div>
+
+                                {/* Exam Badge */}
                                 {job.hasExam && (
                                   <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
-                                    <Award className="w-3 h-3 mr-1" />
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
                                     Take Exam
                                   </Badge>
                                 )}
+
+                                {/* Chat Badge for Internal Jobs */}
                                 {job.source === 'internal' && (
-                                  <Badge className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
-                                    <MessageSquare className="w-3 h-3 mr-1" />
+                                  <Badge className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
+                                    <MessageCircle className="w-3 h-3 mr-1" />
                                     Chat with HM
                                   </Badge>
                                 )}

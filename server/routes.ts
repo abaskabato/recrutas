@@ -1027,33 +1027,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const allJobs = [...internalJobs, ...externalJobs];
       
-      // Filter jobs based on user criteria
+      // Filter jobs based on user criteria with broader matching
       const relevantJobs = allJobs.filter(job => {
         const jobTitle = (job.title || '').toLowerCase();
         const jobSkills = (job.skills || []).map(s => s.toLowerCase());
         const jobDescription = (job.description || '').toLowerCase();
         const jobText = `${jobTitle} ${jobDescription}`;
         
+        // Check skill overlap with broader matching
+        const skillMatches = skillsArray.filter(userSkill => {
+          // Direct skill match in job skills array
+          const directMatch = jobSkills.some(jobSkill => 
+            jobSkill.includes(userSkill) || userSkill.includes(jobSkill)
+          );
+          
+          // Skill mentioned in title or description
+          const textMatch = jobText.includes(userSkill);
+          
+          // Fuzzy matching for common variations
+          const fuzzyMatch = jobSkills.some(jobSkill => {
+            if (userSkill === 'marketing' && (jobSkill.includes('market') || jobSkill.includes('growth'))) return true;
+            if (userSkill === 'sales' && (jobSkill.includes('sale') || jobSkill.includes('business'))) return true;
+            if (userSkill === 'design' && (jobSkill.includes('ui') || jobSkill.includes('ux'))) return true;
+            return false;
+          });
+          
+          return directMatch || textMatch || fuzzyMatch;
+        });
+        
         // Check title match if provided
+        let titleMatch = false;
         if (titleQuery) {
           const titleWords = titleQuery.split(' ').filter(w => w.length > 2);
-          const titleMatch = titleWords.some(word => jobTitle.includes(word) || jobText.includes(word));
-          if (!titleMatch) {
-            return false;
-          }
+          titleMatch = titleWords.some(word => jobTitle.includes(word) || jobText.includes(word));
         }
         
-        // Check skill overlap
-        const skillMatches = skillsArray.filter(userSkill => 
-          jobSkills.some(jobSkill => jobSkill.includes(userSkill) || userSkill.includes(jobSkill)) ||
-          jobText.includes(userSkill)
+        // More lenient matching: skill match OR title match OR broad category match
+        const hasSkillMatch = skillMatches.length > 0;
+        const hasTitleMatch = titleMatch;
+        const hasBroadMatch = skillsArray.some(skill => 
+          jobText.includes(skill.substring(0, 4)) || // Partial word matching
+          jobTitle.includes(skill.substring(0, 4))
         );
         
-        // Must have at least 1 skill match or strong title match
-        const hasSkillMatch = skillMatches.length > 0;
-        const hasStrongTitleMatch = titleQuery && jobTitle.includes(titleQuery);
-        
-        return hasSkillMatch || hasStrongTitleMatch;
+        return hasSkillMatch || hasTitleMatch || hasBroadMatch;
       });
       
       console.log(`Filtered to ${relevantJobs.length} relevant jobs`);
