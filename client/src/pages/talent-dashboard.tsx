@@ -13,6 +13,7 @@ import {
   getErrorMessage,
   formatDate
 } from "@/lib/dashboard-utils";
+import RealTimeNotifications from "@/components/real-time-notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -312,9 +313,7 @@ export default function TalentDashboard() {
           </div>
           
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <RealTimeNotifications />
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />
             </Button>
@@ -372,9 +371,7 @@ export default function TalentDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="h-5 w-5" />
-              </Button>
+              <RealTimeNotifications />
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
