@@ -6,6 +6,7 @@
  */
 
 import { jobAggregator } from './job-aggregator';
+import { companyJobsAggregator } from './company-jobs-aggregator';
 import { storage } from './storage';
 
 interface JobCache {
@@ -120,8 +121,10 @@ export class JobScheduler {
       // Get candidate profile for personalized matching
       const profile = await storage.getCandidateProfile(candidateId);
       
-      // Fetch from job aggregator using existing method
-      const jobs = await jobAggregator.aggregateJobs(candidateId, limit);
+      // Fetch from company jobs aggregator using existing method
+      const skillsArray = profile?.skills || [];
+      const { companyJobsAggregator } = await import('./company-jobs-aggregator');
+      const jobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, limit);
       
       return jobs || [];
     } catch (error) {

@@ -1613,10 +1613,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📦 Job scheduler returned ${cachedJobs.length} jobs (cached or fresh)`);
       
       // Fallback to live aggregation if scheduler returns no jobs
-      let liveJobs = [];
+      const allJobs = cachedJobs.length > 0 ? cachedJobs : await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 25);
       if (cachedJobs.length === 0) {
         console.log('🔄 Scheduler cache empty, falling back to live aggregation');
-        liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 25);
       }
       
       // Get database matches as well
@@ -1664,11 +1663,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return transformedMatch;
       });
       
-      // Transform live jobs into match format with unique IDs
+      // Transform external jobs into match format with unique IDs
+      const currentTime = Date.now();
       const liveMatches = [];
       const usedJobIds = new Set();
       
-      for (const job of shuffledJobs) {
+      for (const job of allJobs.slice(0, 10)) {
         // Skip if we've already added this job
         const jobKey = `${job.company}_${job.title}`;
         if (usedJobIds.has(jobKey)) continue;
@@ -1696,7 +1696,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             workType: job.workType,
             description: job.description,
             skills: job.skills,
-            source: 'external'
+            source: 'external',
+            externalUrl: job.externalUrl // Include the specific job application URL
           },
           recruiter: {
             id: `recruiter_${uniqueId}`,

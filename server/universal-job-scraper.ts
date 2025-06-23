@@ -1,3 +1,5 @@
+import { jobUrlExtractor } from './job-url-extractor';
+
 interface UniversalJob {
   id: string;
   title: string;
@@ -50,22 +52,55 @@ export class UniversalJobScraper {
 
   private parseJobsFromHTML(html: string, sourceUrl: string, companyName?: string): UniversalJob[] {
     const jobs: UniversalJob[] = [];
-    const domain = new URL(sourceUrl).hostname;
     
-    // Method 1: JSON-LD Structured Data
+    // Method 1: Advanced Job URL Extractor (highest priority for specific URLs)
+    const extractedJobs = jobUrlExtractor.extractJobUrls(html, sourceUrl);
+    if (extractedJobs.length > 0) {
+      console.log(`Found ${extractedJobs.length} specific job URLs using advanced extractor`);
+      
+      // Convert extracted jobs to UniversalJob format
+      for (const extractedJob of extractedJobs) {
+        jobs.push({
+          id: extractedJob.jobId || this.generateId(extractedJob.title, companyName),
+          title: extractedJob.title,
+          company: companyName || new URL(sourceUrl).hostname.replace('www.', '').replace('.com', ''),
+          location: this.inferLocationFromHtml(html) || 'Remote',
+          description: `${extractedJob.title} position at ${companyName}. Apply directly through our application portal.`,
+          requirements: this.extractRequirements(extractedJob.title),
+          skills: this.extractSkills(extractedJob.title),
+          workType: this.inferWorkTypeFromHtml(html, extractedJob.title),
+          salaryMin: undefined,
+          salaryMax: undefined,
+          source: 'external',
+          externalUrl: extractedJob.url, // Use the specific job application URL
+          postedDate: new Date().toISOString()
+        });
+      }
+      
+      // If we found specific job URLs, prioritize them and return
+      if (jobs.length > 0) {
+        return this.deduplicateJobs(jobs).slice(0, 15);
+      }
+    }
+    
+    // Fallback methods only if advanced extractor finds nothing
+    
+    // Method 2: JSON-LD Structured Data
     const jsonLdJobs = this.extractJsonLdJobs(html, sourceUrl, companyName);
     jobs.push(...jsonLdJobs);
 
-    // Method 2: Next.js/React Data Islands
+    // Method 3: Next.js/React Data Islands
     const dataIslandJobs = this.extractDataIslandJobs(html, sourceUrl, companyName);
     jobs.push(...dataIslandJobs);
 
-    // Method 3: HTML Structure Parsing (simplified)
-    const htmlJobs = this.extractSimpleHtmlJobs(html, sourceUrl, companyName);
-    jobs.push(...htmlJobs);
+    // Method 4: HTML Structure Parsing (final fallback)
+    if (jobs.length === 0) {
+      const htmlJobs = this.extractSimpleHtmlJobs(html, sourceUrl, companyName);
+      jobs.push(...htmlJobs);
+    }
 
     // Remove duplicates and return
-    return this.deduplicateJobs(jobs).slice(0, 50);
+    return this.deduplicateJobs(jobs).slice(0, 15);
   }
 
   private extractJsonLdJobs(html: string, sourceUrl: string, companyName?: string): UniversalJob[] {
