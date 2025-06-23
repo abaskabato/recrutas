@@ -103,6 +103,9 @@ export default function CandidateStreamlinedDashboard() {
   const [showChat, setShowChat] = useState(false);
   const [selectedChatRoom, setSelectedChatRoom] = useState<number | undefined>(undefined);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [showExam, setShowExam] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<number | undefined>(undefined);
+  const [selectedJobTitle, setSelectedJobTitle] = useState<string>("");
 
   // Fetch candidate stats
   const { data: stats } = useQuery<CandidateStats>({
@@ -175,6 +178,33 @@ export default function CandidateStreamlinedDashboard() {
       });
     }
   });
+
+  // Handle exam taking
+  const handleTakeExam = (jobId: number, jobTitle: string) => {
+    setSelectedJobId(jobId);
+    setSelectedJobTitle(jobTitle);
+    setShowExam(true);
+  };
+
+  // Handle exam completion
+  const handleExamComplete = (score: number, passed: boolean) => {
+    setShowExam(false);
+    
+    if (passed) {
+      toast({
+        title: "Exam Passed!",
+        description: `You scored ${score}%. You can now chat with the hiring manager.`,
+      });
+      // Refresh matches to update status
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
+    } else {
+      toast({
+        title: "Exam Complete",
+        description: `You scored ${score}%. Unfortunately, this didn't meet the passing threshold.`,
+        variant: "destructive",
+      });
+    }
+  };
 
   // Chat initiation mutation (only for internal jobs after screening)
   const startChatMutation = useMutation({
@@ -420,7 +450,16 @@ export default function CandidateStreamlinedDashboard() {
                                           Apply Now
                                         </Button>
                                       )}
-                                      {match.status === 'applied' && (
+                                      {match.status === 'applied' && match.job?.hasExam && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                                          onClick={() => handleTakeExam(match.jobId, match.job.title)}
+                                        >
+                                          📝 Take Exam
+                                        </Button>
+                                      )}
+                                      {match.status === 'applied' && !match.job?.hasExam && (
                                         <Button
                                           size="sm"
                                           variant="outline"
@@ -596,6 +635,22 @@ export default function CandidateStreamlinedDashboard() {
             queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
           }}
           onCancel={() => setShowProfileCompletion(false)}
+        />
+      )}
+
+      {/* Job Exam Modal */}
+      {showExam && selectedJobId && (
+        <JobExam
+          jobId={selectedJobId}
+          onComplete={() => {
+            setShowExam(false);
+            queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
+            toast({
+              title: "Exam Completed",
+              description: "Your exam has been submitted for review.",
+            });
+          }}
+          onCancel={() => setShowExam(false)}
         />
       )}
     </div>

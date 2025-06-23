@@ -1578,16 +1578,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const internalMatches = dbMatches.map(match => {
         const isSDEJob = match.job?.title === 'SDE';
         if (isSDEJob) {
-          console.log(`DEBUG: SDE Job match found:`, {
+          console.log(`DEBUG: SDE Job match found - BEFORE transformation:`, {
             matchId: match.id,
             jobId: match.job?.id,
             title: match.job?.title,
             hasExam: match.job?.hasExam,
-            company: match.job?.company
+            company: match.job?.company,
+            source: match.job?.source,
+            status: match.status
           });
         }
         
-        return {
+        const transformedMatch = {
           ...match,
           job: {
             ...match.job,
@@ -1597,6 +1599,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             workType: match.job?.workType || 'remote'
           }
         };
+        
+        if (isSDEJob) {
+          console.log(`DEBUG: SDE Job match found - AFTER transformation:`, {
+            matchId: transformedMatch.id,
+            jobId: transformedMatch.job?.id,
+            title: transformedMatch.job?.title,
+            hasExam: transformedMatch.job?.hasExam,
+            company: transformedMatch.job?.company,
+            source: transformedMatch.job?.source,
+            status: transformedMatch.status
+          });
+        }
+        
+        return transformedMatch;
       });
       
       // Transform live jobs into match format with unique IDs
