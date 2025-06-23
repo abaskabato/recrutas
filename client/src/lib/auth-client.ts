@@ -122,8 +122,7 @@ export function useSession() {
       isLoading: false,
       isAuthenticated: true,
       isPending: false,
-      error: customSession.error,
-      signOut
+      error: customSession.error
     };
   }
   
@@ -133,7 +132,6 @@ export function useSession() {
     isLoading: false,
     isAuthenticated: false,
     isPending: false,
-    error: customSession.error,
-    signOut
+    error: customSession.error
   };
 }

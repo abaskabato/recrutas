@@ -11,9 +11,8 @@ import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import RoleSelection from "@/pages/role-selection";
-import OptimizedCandidateDashboard from "@/components/optimized-candidate-dashboard";
+import CandidateDashboard from "@/pages/candidate-dashboard-streamlined";
 import TalentDashboard from "@/pages/talent-dashboard";
-import CandidatesPage from "@/pages/candidates";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
@@ -35,9 +34,8 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/role-selection" component={RoleSelection} />
-      <Route path="/candidate-dashboard" component={OptimizedCandidateDashboard} />
+      <Route path="/candidate-dashboard" component={CandidateDashboard} />
       <Route path="/talent-dashboard" component={TalentDashboard} />
-      <Route path="/candidates" component={CandidatesPage} />
       <Route path="/chat/:roomId?" component={Chat} />
       
       {/* Root route with role-based redirection */}
@@ -55,7 +53,7 @@ function Router() {
           
           // Authenticated with role - redirect to appropriate dashboard
           if (user.role === "candidate") {
-            return <OptimizedCandidateDashboard />;
+            return <CandidateDashboard />;
           } else if (user.role === "talent_owner") {
             return <TalentDashboard />;
           }
