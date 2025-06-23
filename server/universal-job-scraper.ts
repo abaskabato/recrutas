@@ -169,49 +169,83 @@ export class UniversalJobScraper {
 
   private extractSimpleHtmlJobs(html: string, sourceUrl: string, companyName?: string): UniversalJob[] {
     const jobs: UniversalJob[] = [];
+    const jobEntries = new Map<string, string>(); // title -> specific job URL
     
-    // Enhanced job title patterns
+    // First, extract job links with their titles
+    const linkPatterns = [
+      /<a[^>]*href="([^"]*(?:job|position|role|career|opening)[^"]*)"[^>]*>([^<]+)<\/a>/gi,
+      /<a[^>]*href="([^"]+)"[^>]*(?:class|id)="[^"]*(?:job|position|role)[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      /<a[^>]*(?:class|id)="[^"]*(?:job|position|role)[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi
+    ];
+
+    for (const pattern of linkPatterns) {
+      const matches = Array.from(html.matchAll(pattern));
+      for (const match of matches) {
+        const href = match[1]?.trim();
+        const title = match[2]?.trim();
+        
+        if (href && title && title.length > 5 && title.length < 80) {
+          // Convert relative URLs to absolute
+          const fullUrl = href.startsWith('http') ? href : new URL(href, sourceUrl).href;
+          jobEntries.set(title, fullUrl);
+        }
+      }
+    }
+
+    // Enhanced job title patterns for fallback
     const titlePatterns = [
       /(?:Senior|Junior|Lead|Staff|Principal)?\s*(?:Software Engineer|Software Developer|Developer|Frontend Engineer|Backend Engineer|Full Stack Engineer|Full Stack Developer|Data Scientist|Data Engineer|Product Manager|UX Designer|UI Designer|DevOps Engineer|Site Reliability Engineer|Mobile Developer|iOS Developer|Android Developer|QA Engineer|Security Engineer|Machine Learning Engineer|AI Engineer)/gi
     ];
 
-    // Also look for job listing patterns in HTML structure
+    // Extract titles without specific URLs as fallback
+    for (const pattern of titlePatterns) {
+      const matches = Array.from(html.matchAll(pattern));
+      for (const match of matches) {
+        const title = match[0].trim();
+        if (title && !jobEntries.has(title)) {
+          jobEntries.set(title, sourceUrl); // Use main page as fallback
+        }
+      }
+    }
+
+    // Also extract from job listing HTML structures
     const jobListingPatterns = [
       /<div[^>]*(?:class|id)="[^"]*(?:job|position|career|opening)[^"]*"[^>]*>(.*?)<\/div>/gi,
       /<li[^>]*(?:class|id)="[^"]*(?:job|position|career|opening)[^"]*"[^>]*>(.*?)<\/li>/gi,
       /<article[^>]*>(.*?)<\/article>/gi,
     ];
 
-    const titles = new Set<string>();
-    
-    // Extract from title patterns
-    for (const pattern of titlePatterns) {
-      const matches = Array.from(html.matchAll(pattern));
-      for (const match of matches) {
-        titles.add(match[0].trim());
-      }
-    }
-
-    // Extract from job listing HTML structures
     for (const pattern of jobListingPatterns) {
       const matches = Array.from(html.matchAll(pattern));
       for (const match of matches) {
         const content = match[1];
-        const titleMatch = content.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>|<[^>]*(?:class|id)="[^"]*title[^"]*"[^>]*>([^<]+)</i);
-        if (titleMatch) {
-          const title = (titleMatch[1] || titleMatch[2] || '').trim();
-          if (title && title.length > 3 && title.length < 100) {
-            titles.add(title);
+        
+        // Look for links within the job listing
+        const linkMatch = content.match(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/i);
+        if (linkMatch) {
+          const href = linkMatch[1]?.trim();
+          const title = linkMatch[2]?.trim();
+          if (href && title && title.length > 3 && title.length < 100) {
+            const fullUrl = href.startsWith('http') ? href : new URL(href, sourceUrl).href;
+            jobEntries.set(title, fullUrl);
+          }
+        } else {
+          // Fallback to extracting just the title
+          const titleMatch = content.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>|<[^>]*(?:class|id)="[^"]*title[^"]*"[^>]*>([^<]+)</i);
+          if (titleMatch) {
+            const title = (titleMatch[1] || titleMatch[2] || '').trim();
+            if (title && title.length > 3 && title.length < 100 && !jobEntries.has(title)) {
+              jobEntries.set(title, sourceUrl);
+            }
           }
         }
       }
     }
 
     let index = 0;
-    const titleArray = Array.from(titles);
     
-    for (const title of titleArray) {
-      if (index >= 15) break; // Increased limit for better coverage
+    for (const [title, url] of jobEntries) {
+      if (index >= 15) break;
       
       // Skip generic or invalid titles
       if (title.length < 5 || title.includes('Apply') || title.includes('Login') || title.includes('Search')) {
@@ -228,7 +262,7 @@ export class UniversalJobScraper {
         skills: this.extractSkills(title),
         workType: this.inferWorkTypeFromHtml(html, title),
         source: companyName || new URL(sourceUrl).hostname,
-        externalUrl: sourceUrl,
+        externalUrl: url,
         postedDate: new Date().toISOString(),
       });
       index++;
