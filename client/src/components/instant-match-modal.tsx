@@ -523,13 +523,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 </motion.div>
                                 {job.hasExam && (
                                   <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
-                                    <Brain className="w-3 h-3 mr-1" />
-                                    Exam Required
+                                    <Award className="w-3 h-3 mr-1" />
+                                    Take Exam
                                   </Badge>
                                 )}
                                 {job.source === 'internal' && (
-                                  <Badge variant="secondary" className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900 dark:to-cyan-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                                    Internal
+                                  <Badge className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
+                                    <MessageSquare className="w-3 h-3 mr-1" />
+                                    Chat with HM
                                   </Badge>
                                 )}
                               </div>
@@ -586,7 +587,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 onClick={() => handleQuickApply(match.id)}
                                 className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0"
                               >
-                                <Brain className="w-4 h-4 mr-2" />
+                                <Award className="w-4 h-4 mr-2" />
                                 Take Exam
                               </Button>
                             ) : (
@@ -669,12 +670,12 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     className="w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                     onClick={handleGetStarted}
                   >
-                    Get Full Access
+                    Access Your Dashboard
                     <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 ml-2" />
                   </Button>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
-                  Join 8+ professionals already using Recrutas
+                  This preview shows your actual candidate dashboard - job matches, exams, and direct hiring manager chat
                 </p>
               </motion.div>
             )}
