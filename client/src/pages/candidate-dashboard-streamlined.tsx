@@ -396,15 +396,25 @@ export default function CandidateStreamlinedDashboard() {
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-2">
-                                  {match.job?.source === 'internal' ? (
-                                    <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                                      🎯 Platform Job
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
-                                      🌐 External
-                                    </Badge>
-                                  )}
+                                  {(() => {
+                                    if (match.job?.title === 'SDE') {
+                                      console.log('SDE Badge Logic:', {
+                                        source: match.job?.source,
+                                        sourceCheck: match.job?.source === 'internal',
+                                        hasExam: match.job?.hasExam,
+                                        examCheck: match.job?.source === 'internal' && match.job?.hasExam
+                                      });
+                                    }
+                                    return match.job?.source === 'internal' ? (
+                                      <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                                        🎯 Platform Job
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                                        🌐 External
+                                      </Badge>
+                                    );
+                                  })()}
                                   {match.job?.source === 'internal' && match.job?.hasExam && (
                                     <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200">
                                       📝 Has Exam
