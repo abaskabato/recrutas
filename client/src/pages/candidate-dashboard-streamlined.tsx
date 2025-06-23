@@ -374,12 +374,25 @@ export default function CandidateStreamlinedDashboard() {
                       </div>
                     ) : matches?.length > 0 ? (
                       <div className="space-y-4">
-                        {matches.map((match) => (
-                          <div key={match.id} className={`border rounded-lg p-6 transition-colors ${
-                            match.job?.source === 'internal' 
-                              ? 'border-blue-200 bg-blue-50/30 hover:border-blue-300' 
-                              : 'border-slate-200 hover:border-orange-300'
-                          }`}>
+                        {matches.map((match) => {
+                          // Debug SDE job data
+                          if (match.job?.title === 'SDE') {
+                            console.log('DEBUG: SDE Job on frontend:', {
+                              id: match.id,
+                              jobId: match.jobId,
+                              title: match.job?.title,
+                              hasExam: match.job?.hasExam,
+                              source: match.job?.source,
+                              company: match.job?.company
+                            });
+                          }
+                          
+                          return (
+                            <div key={match.id} className={`border rounded-lg p-6 transition-colors ${
+                              match.job?.source === 'internal' 
+                                ? 'border-blue-200 bg-blue-50/30 hover:border-blue-300' 
+                                : 'border-slate-200 hover:border-orange-300'
+                            }`}>
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-2">
@@ -507,7 +520,8 @@ export default function CandidateStreamlinedDashboard() {
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="space-y-6">

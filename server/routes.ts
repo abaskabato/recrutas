@@ -790,43 +790,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Found ${dbMatches.length} database matches`);
       
       // Transform database matches to include exam information  
-      const internalMatches = dbMatches.map(match => ({
-        id: match.id,
-        jobId: match.jobId,
-        matchScore: match.matchScore,
-        status: match.status,
-        createdAt: match.createdAt,
-        skillMatches: match.skillMatches || [],
-        aiExplanation: match.aiExplanation,
-        job: {
-          id: match.job.id,
-          title: match.job.title,
-          company: match.job.company,
-          location: match.job.location || 'Remote',
-          workType: match.job.workType || 'remote',
-          salaryMin: match.job.salaryMin,
-          salaryMax: match.job.salaryMax,
-          description: match.job.description,
-          requirements: match.job.requirements || [],
-          skills: match.job.skills || [],
-          hasExam: match.job.hasExam,
-          examPassingScore: match.job.examPassingScore,
-          source: 'platform',
-          exam: match.job.hasExam ? {
-            id: 1,
-            title: `${match.job.title} Assessment`,
-            timeLimit: 30,
-            passingScore: match.job.examPassingScore || 70,
-            questionsCount: 5
+      const internalMatches = dbMatches.map(match => {
+        const isSDEJob = match.job?.title === 'SDE';
+        if (isSDEJob) {
+          console.log(`DEBUG: SDE Job found in database matches:`, {
+            matchId: match.id,
+            jobId: match.jobId,
+            title: match.job?.title,
+            hasExam: match.job?.hasExam,
+            company: match.job?.company,
+            source: 'internal'
+          });
+        }
+        
+        return {
+          id: match.id,
+          jobId: match.jobId,
+          matchScore: match.matchScore,
+          status: match.status,
+          createdAt: match.createdAt,
+          skillMatches: match.skillMatches || [],
+          aiExplanation: match.aiExplanation,
+          job: {
+            id: match.job.id,
+            title: match.job.title,
+            company: match.job.company,
+            location: match.job.location || 'Remote',
+            workType: match.job.workType || 'remote',
+            salaryMin: match.job.salaryMin,
+            salaryMax: match.job.salaryMax,
+            description: match.job.description,
+            requirements: match.job.requirements || [],
+            skills: match.job.skills || [],
+            hasExam: match.job.hasExam,
+            examPassingScore: match.job.examPassingScore,
+            source: 'internal',
+            exam: match.job.hasExam ? {
+              id: 1,
+              title: `${match.job.title} Assessment`,
+              timeLimit: 30,
+              passingScore: match.job.examPassingScore || 70,
+              questionsCount: 5
+            } : null
+          },
+          recruiter: match.talentOwner ? {
+            id: match.talentOwner.id,
+            firstName: match.talentOwner.firstName,
+            lastName: match.talentOwner.lastName,
+            email: match.talentOwner.email
           } : null
-        },
-        recruiter: match.talentOwner ? {
-          id: match.talentOwner.id,
-          firstName: match.talentOwner.firstName,
-          lastName: match.talentOwner.lastName,
-          email: match.talentOwner.email
-        } : null
-      }));
+        };
+      });
       
       // Get fresh external jobs if candidate profile exists
       const externalMatches = [];
