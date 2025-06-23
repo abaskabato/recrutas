@@ -741,7 +741,10 @@ export class DatabaseStorage implements IStorage {
       return await db
         .select()
         .from(notifications)
-        .where(eq(notifications.userId, userId))
+        .where(and(
+          eq(notifications.userId, userId),
+          eq(notifications.read, false)
+        ))
         .orderBy(desc(notifications.createdAt))
         .limit(50);
     } catch (error) {
@@ -752,13 +755,14 @@ export class DatabaseStorage implements IStorage {
 
   async markNotificationAsRead(notificationId: number, userId: string): Promise<void> {
     try {
-      await db
+      const result = await db
         .update(notifications)
         .set({ read: true, readAt: new Date() })
         .where(and(
           eq(notifications.id, notificationId),
           eq(notifications.userId, userId)
         ));
+      console.log(`Mark notification ${notificationId} as read for user ${userId}, result:`, result);
     } catch (error) {
       console.error('Error marking notification as read:', error);
       throw error;
@@ -767,13 +771,14 @@ export class DatabaseStorage implements IStorage {
 
   async markAllNotificationsAsRead(userId: string): Promise<void> {
     try {
-      await db
+      const result = await db
         .update(notifications)
         .set({ read: true, readAt: new Date() })
         .where(and(
           eq(notifications.userId, userId),
           eq(notifications.read, false)
         ));
+      console.log('Mark all notifications as read result:', result);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       throw error;
