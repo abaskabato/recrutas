@@ -52,6 +52,7 @@ import {
   Loader2
 } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
+import JobPostingWizard from "@/components/job-posting-wizard";
 
 interface JobPosting {
   id: number;
@@ -100,6 +101,7 @@ export default function TalentDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
   const [showJobDialog, setShowJobDialog] = useState(false);
+  const [showJobWizard, setShowJobWizard] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -408,11 +410,11 @@ export default function TalentDashboard() {
                   </p>
                 </div>
                 <Button 
-                  onClick={() => setShowJobDialog(true)}
+                  onClick={() => setShowJobWizard(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Post New Job
+                  Create Job with Exam
                 </Button>
               </div>
             </div>
@@ -1359,6 +1361,45 @@ export default function TalentDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Job Posting Wizard with Exam Creation */}
+      {showJobWizard && (
+        <Dialog open={showJobWizard} onOpenChange={setShowJobWizard}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
+            <JobPostingWizard
+              onSubmit={async (jobData) => {
+                try {
+                  // Transform wizard data to match API format
+                  const jobPayload = {
+                    title: jobData.title,
+                    company: jobData.company,
+                    description: jobData.description,
+                    requirements: jobData.requirements,
+                    skills: jobData.skills,
+                    location: jobData.location,
+                    workType: jobData.workType,
+                    salaryMin: jobData.salaryMin,
+                    salaryMax: jobData.salaryMax,
+                    // Add exam data if filtering is enabled
+                    hasExam: jobData.enableFiltering,
+                    exam: jobData.enableFiltering ? {
+                      questions: jobData.filteringExam?.questions || [],
+                      timeLimit: jobData.filteringExam?.timeLimit || 30,
+                      passingScore: jobData.filteringExam?.passingScore || 70
+                    } : null
+                  };
+
+                  await createJobMutation.mutateAsync(jobPayload);
+                  setShowJobWizard(false);
+                } catch (error) {
+                  console.error('Failed to create job:', error);
+                }
+              }}
+              onCancel={() => setShowJobWizard(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
