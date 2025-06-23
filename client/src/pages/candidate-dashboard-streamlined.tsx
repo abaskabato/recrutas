@@ -454,8 +454,7 @@ export default function CandidateStreamlinedDashboard() {
                                 </div>
                                 
                                 {match.job?.source === 'internal' && match.recruiter && (
-                                  <div className="flex items-center space-x-2 text-sm text-slate-500">
-                                    <User className="w-4 h-4" />
+                                  <div className="text-sm text-slate-500">
                                     <span>{match.recruiter.firstName} {match.recruiter.lastName}</span>
                                   </div>
                                 )}
