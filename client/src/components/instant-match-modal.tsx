@@ -467,7 +467,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <Sparkles className="w-8 h-8 text-white" />
                   </motion.div>
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                    {jobsLoading ? "Finding Matches..." : `${jobsToShow.length} Jobs Found`}
+                    {jobsLoading ? "Loading Your Dashboard..." : `Your Live Job Feed (${jobsToShow.length} matches)`}
                   </h3>
                   {jobsLoading && (
                     <motion.div
