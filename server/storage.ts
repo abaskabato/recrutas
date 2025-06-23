@@ -317,47 +317,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // First, delete all chat messages related to this job
-      const relatedChatRooms = await db
-        .select({ id: chatRooms.id })
-        .from(chatRooms)
-        .where(eq(chatRooms.jobId, id));
-      
-      for (const room of relatedChatRooms) {
-        await db
-          .delete(chatMessages)
-          .where(eq(chatMessages.chatRoomId, room.id));
-      }
-      
-      // Delete chat rooms for this job
-      await db
-        .delete(chatRooms)
-        .where(eq(chatRooms.jobId, id));
-
-      // Delete all job applications
-      await db
-        .delete(jobApplications)
-        .where(eq(jobApplications.jobId, id));
-
-      // Delete all job matches
-      await db
-        .delete(jobMatches)
-        .where(eq(jobMatches.jobId, id));
-
-      // Delete all exam attempts
-      await db
-        .delete(examAttempts)
-        .where(eq(examAttempts.jobId, id));
-
-      // Delete all job exams
-      await db
-        .delete(jobExams)
-        .where(eq(jobExams.jobId, id));
-
-      // Finally, delete the job posting itself
-      await db
-        .delete(jobPostings)
-        .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
+      // Use raw SQL to handle cascading deletions properly
+      await db.execute(sql`
+        DO $$
+        DECLARE
+            match_record RECORD;
+            room_record RECORD;
+        BEGIN
+            -- Delete chat messages for chat rooms related to job matches
+            FOR match_record IN SELECT id FROM job_matches WHERE job_id = ${id}
+            LOOP
+                FOR room_record IN SELECT id FROM chat_rooms WHERE match_id = match_record.id
+                LOOP
+                    DELETE FROM chat_messages WHERE chat_room_id = room_record.id;
+                END LOOP;
+                DELETE FROM chat_rooms WHERE match_id = match_record.id;
+            END LOOP;
+            
+            -- Delete job applications
+            DELETE FROM job_applications WHERE job_id = ${id};
+            
+            -- Delete job matches
+            DELETE FROM job_matches WHERE job_id = ${id};
+            
+            -- Delete exam attempts
+            DELETE FROM exam_attempts WHERE job_id = ${id};
+            
+            -- Delete job exams
+            DELETE FROM job_exams WHERE job_id = ${id};
+            
+            -- Finally delete the job posting
+            DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = ${talentOwnerId};
+        END $$;
+      `);
     } catch (error) {
       console.error('Error deleting job posting:', error);
       throw error;
