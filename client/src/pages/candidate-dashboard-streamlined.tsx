@@ -169,12 +169,20 @@ export default function CandidateStreamlinedDashboard() {
       if (!response.ok) {
         throw new Error('Failed to mark as applied');
       }
-      return response.json();
+      return { matchId, ...(await response.json()) };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update the local cache immediately
+      queryClient.setQueryData(['/api/candidates/matches'], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((match: any) => 
+          match.id === data.matchId ? { ...match, status: 'applied' } : match
+        );
+      });
+      
       toast({
         title: "Marked as Applied",
-        description: "We've noted that you applied to this external position.",
+        description: "We've noted that you applied to this position.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
     },
