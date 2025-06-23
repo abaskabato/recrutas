@@ -467,10 +467,18 @@ export default function CandidateStreamlinedDashboard() {
                                       {match.status === 'pending' && (
                                         <Button
                                           size="sm"
-                                          onClick={() => applyToJobMutation.mutate(match.jobId)}
+                                          onClick={() => {
+                                            // For jobs with exams, go directly to exam
+                                            if (match.job?.hasExam) {
+                                              handleTakeExam(match.jobId, match.job.title);
+                                            } else {
+                                              applyToJobMutation.mutate(match.jobId);
+                                            }
+                                          }}
                                           disabled={applyToJobMutation.isPending}
+                                          className={match.job?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}
                                         >
-                                          Apply Now
+                                          {match.job?.hasExam ? '📝 Take Exam' : 'Apply Now'}
                                         </Button>
                                       )}
                                       {match.status === 'applied' && match.job?.hasExam && (
