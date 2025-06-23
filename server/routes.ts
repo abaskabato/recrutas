@@ -1048,8 +1048,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const matchId = parseInt(req.params.matchId);
       
+      // Validate matchId is within PostgreSQL integer range (32-bit signed integer)
+      if (!Number.isInteger(matchId) || matchId <= 0 || matchId > 2147483647) {
+        return res.status(400).json({ message: 'Invalid match ID - must be a valid database ID' });
+      }
+      
       // Update match status to applied
-      await storage.updateMatchStatus(matchId, userId, 'applied');
+      await storage.updateMatchStatus(matchId, 'applied');
       
       res.json({ success: true });
     } catch (error) {
@@ -2560,7 +2565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           matchScore: `${aiMatch.score}%`,
           confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
                          aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-          skillMatches: aiMatch.skillMatches.map(skill => ({ skill, matched: true })),
+
           aiExplanation: aiMatch.aiExplanation,
           status: 'applied',
         });
