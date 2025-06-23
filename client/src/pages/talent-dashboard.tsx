@@ -560,13 +560,22 @@ export default function TalentDashboard() {
                 <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Job Postings</h2>
                 <p className="text-gray-600 dark:text-gray-400">Manage your job listings and track applications</p>
               </div>
-              <Button 
-                onClick={() => setShowJobDialog(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Post New Job
-              </Button>
+              <div className="flex gap-3">
+                <Button 
+                  onClick={() => setShowJobDialog(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Post New Job
+                </Button>
+                <Button 
+                  onClick={() => setShowJobWizard(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Post New Job with Exam
+                </Button>
+              </div>
             </div>
 
             {/* Search and Filters */}
