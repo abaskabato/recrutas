@@ -164,7 +164,7 @@ export default function CandidateStreamlinedDashboard() {
 
   // Mark external application mutation
   const markExternalApplicationMutation = useMutation({
-    mutationFn: async (matchId: number) => {
+    mutationFn: async (matchId: string | number) => {
       const response = await apiRequest("POST", `/api/candidates/mark-applied/${matchId}`, {});
       if (!response.ok) {
         throw new Error('Failed to mark as applied');

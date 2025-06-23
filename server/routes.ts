@@ -1045,12 +1045,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/candidates/mark-applied/:matchId', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const matchId = parseInt(req.params.matchId);
+      const matchIdStr = req.params.matchId;
       
-      // Update match status to applied
+      // Check if this is an external job (timestamp-based ID or too large for PostgreSQL integer)
+      const numericValue = Number(matchIdStr);
+      const isExternalJob = matchIdStr.length > 10 || 
+                           isNaN(numericValue) || 
+                           matchIdStr.includes('_') || 
+                           numericValue > 2147483647; // PostgreSQL integer limit
+      
+      if (isExternalJob) {
+        // External job - just return success (no database update needed)
+        res.json({ success: true, type: 'external' });
+        return;
+      }
+      
+      // Internal job - update in database
+      const matchId = parseInt(matchIdStr);
       await storage.updateMatchStatus(matchId, userId, 'applied');
       
-      res.json({ success: true });
+      res.json({ success: true, type: 'internal' });
     } catch (error) {
       console.error('Error marking as applied:', error);
       res.status(500).json({ message: 'Failed to mark as applied' });
