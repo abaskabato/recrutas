@@ -373,6 +373,7 @@ export class DatabaseStorage implements IStorage {
             requirements: jobPostings.requirements,
             skills: jobPostings.skills,
             hasExam: jobPostings.hasExam,
+            source: jobPostings.source,
             examPassingScore: jobPostings.examPassingScore,
             talentOwnerId: jobPostings.talentOwnerId
           },

@@ -51,6 +51,7 @@ interface CandidateStats {
 interface JobMatch {
   id: number;
   jobId: number;
+  candidateId: string;
   matchScore: string;
   status: string;
   createdAt: string;
@@ -67,6 +68,7 @@ interface JobMatch {
     source: string;
     externalUrl?: string;
     careerPageUrl?: string;
+    hasExam?: boolean;
   };
   recruiter?: {
     firstName: string;

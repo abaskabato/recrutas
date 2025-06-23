@@ -1539,14 +1539,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Found ${dbMatches.length} database matches`);
 
       // Transform database matches to ensure proper source mapping
-      const internalMatches = dbMatches.map(match => ({
-        ...match,
-        job: {
-          ...match.job,
-          source: match.job?.source === 'platform' ? 'internal' : match.job?.source || 'internal',
-          hasExam: match.job?.hasExam || false
+      const internalMatches = dbMatches.map(match => {
+        const isTestJob = match.job?.title === 'Test';
+        if (isTestJob) {
+          console.log(`DEBUG: Test job match ${match.id}:`, {
+            title: match.job?.title,
+            hasExam: match.job?.hasExam,
+            source: match.job?.source,
+            rawJobData: JSON.stringify(match.job, null, 2)
+          });
         }
-      }));
+        return {
+          ...match,
+          job: {
+            ...match.job,
+            source: match.job?.source === 'platform' ? 'internal' : match.job?.source || 'internal',
+            hasExam: Boolean(match.job?.hasExam)
+          }
+        };
+      });
       
       // Transform live jobs into match format with unique IDs
       const liveMatches = [];
@@ -1591,9 +1602,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Combine internal matches with live matches
+          // Combine internal matches with live matches
       const allMatches = [...internalMatches, ...liveMatches];
       console.log(`Returning ${allMatches.length} total matches (${internalMatches.length} internal, ${liveMatches.length} external)`);
+      
+      // Debug: Log the Test job specifically
+      const testMatch = allMatches.find(m => m.job?.title === 'Test');
+      if (testMatch) {
+        console.log('Final Test job data being sent to frontend:', {
+          id: testMatch.id,
+          jobTitle: testMatch.job?.title,
+          hasExam: testMatch.job?.hasExam,
+          source: testMatch.job?.source,
+          company: testMatch.job?.company
+        });
+      }
       
       // Sort by creation date (newest first) to show fresh matches
       allMatches.sort((a, b) => {
