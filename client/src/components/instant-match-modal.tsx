@@ -493,9 +493,11 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       </p>
                     </div>
                   ) : (
-                    jobsToShow.map((job: any, index: number) => (
+                    jobsToShow.map((match: any, index: number) => {
+                      const job = match.job || match; // Handle both match object and direct job object
+                      return (
                     <motion.div
-                      key={job.id}
+                      key={match.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 + 0.3 }}
@@ -508,7 +510,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.job?.title || job.title}</h4>
+                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.title}</h4>
                                 <motion.div
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
@@ -516,24 +518,19 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 >
                                   <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
                                     <Star className="w-3 h-3 mr-1" />
-                                    {job.matchScore || job.match || '90%'}
+                                    {match.matchScore ? `${Math.round(match.matchScore)}%` : '90%'}
                                   </Badge>
                                 </motion.div>
-                                {job.chatActive && (
-                                  <motion.div
-                                    animate={{ scale: [1, 1.1, 1] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                  >
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900 dark:to-cyan-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                                      <motion.div
-                                        animate={{ scale: [1, 1.2, 1] }}
-                                        transition={{ duration: 1, repeat: Infinity }}
-                                      >
-                                        <MessageCircle className="w-3 h-3 mr-1" />
-                                      </motion.div>
-                                      Live Chat
-                                    </Badge>
-                                  </motion.div>
+                                {job.hasExam && (
+                                  <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
+                                    <Brain className="w-3 h-3 mr-1" />
+                                    Exam Required
+                                  </Badge>
+                                )}
+                                {job.source === 'internal' && (
+                                  <Badge variant="secondary" className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900 dark:to-cyan-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                                    Internal
+                                  </Badge>
                                 )}
                               </div>
                               <motion.div
@@ -543,7 +540,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               >
                                 <p className="text-gray-700 dark:text-gray-300 font-semibold mb-3 flex items-center">
                                   <Building className="w-4 h-4 mr-2 text-gray-500" />
-                                  {job.job?.company || job.company}
+                                  {job.company}
                                 </p>
                               </motion.div>
                             </div>
@@ -552,30 +549,33 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center">
                               <MapPin className="w-4 h-4 mr-1" />
-                              {job.job?.location || job.location || 'Remote'}
+                              {job.location || 'Remote'}
                             </div>
                             <div className="flex items-center">
                               <DollarSign className="w-4 h-4 mr-1" />
-                              {job.job?.salaryMin && job.job?.salaryMax 
-                                ? `$${job.job.salaryMin/1000}k-$${job.job.salaryMax/1000}k`
-                                : job.salary || '$80k-120k'
+                              {job.salaryMin && job.salaryMax 
+                                ? `$${Math.round(job.salaryMin/1000)}k-$${Math.round(job.salaryMax/1000)}k`
+                                : '$80k-120k'
                               }
                             </div>
                             <div className="flex items-center">
                               <Briefcase className="w-4 h-4 mr-1" />
-                              {job.job?.workType || job.type || 'Full-time'}
+                              {job.workType || 'Full-time'}
                             </div>
                           </div>
 
-
-
                           <div className="mb-4">
                             <div className="flex flex-wrap gap-1">
-                              {(job.job?.skills || job.skills || []).map((skill: string) => (
+                              {(job.skills || []).slice(0, 5).map((skill: string) => (
                                 <Badge key={skill} variant="secondary" className="text-xs">
                                   {skill}
                                 </Badge>
                               ))}
+                              {(job.skills || []).length > 5 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{(job.skills || []).length - 5} more
+                                </Badge>
+                              )}
                             </div>
                           </div>
 
