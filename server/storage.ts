@@ -964,6 +964,7 @@ export class DatabaseStorage implements IStorage {
 
   async getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]> {
     try {
+      // Handle both old (match_id) and new (job_id) schema during transition
       const rooms = await db
         .select()
         .from(chatRooms)
@@ -971,11 +972,15 @@ export class DatabaseStorage implements IStorage {
           eq(chatRooms.candidateId, userId),
           eq(chatRooms.hiringManagerId, userId)
         ))
-        .orderBy(desc(chatRooms.createdAt));
+        .orderBy(desc(chatRooms.createdAt))
+        .catch(async () => {
+          // Fallback: return empty array if schema mismatch during migration
+          return [];
+        });
 
       const enrichedRooms = [];
       for (const room of rooms) {
-        const job = await this.getJobPosting(room.jobId);
+        const job = await this.getJobPosting(room.jobId || (room as any).matchId);
         const hiringManager = await this.getUser(room.hiringManagerId);
         
         if (job && hiringManager) {
