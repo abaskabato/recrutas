@@ -36,9 +36,9 @@ import {
   Search,
   RefreshCw
 } from "lucide-react";
+import JobWizard from "@/components/job-wizard";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
-import JobPostingWizard from "@/components/job-posting-wizard";
 
 function getErrorMessage(error: any): string {
   if (error?.message) return error.message;
@@ -286,7 +286,7 @@ export default function TalentDashboard() {
             </div>
 
             {/* Jobs List */}
-            {jobs.length === 0 ? (
+            {Array.isArray(jobs) && jobs.length === 0 ? (
               <Card className="text-center py-12">
                 <CardContent>
                   <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -429,11 +429,9 @@ export default function TalentDashboard() {
 
       {/* Job Posting Wizard */}
       {showJobWizard && (
-        <JobPostingWizard
-          isOpen={showJobWizard}
-          onClose={() => setShowJobWizard(false)}
+        <JobWizard
           onSubmit={(jobData) => createJobMutation.mutate(jobData)}
-          isSubmitting={createJobMutation.isPending}
+          onCancel={() => setShowJobWizard(false)}
         />
       )}
     </div>

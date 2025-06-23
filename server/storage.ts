@@ -229,15 +229,46 @@ export class DatabaseStorage implements IStorage {
       const [result] = await db
         .insert(candidateProfiles)
         .values({
-          ...profile,
+          userId: profile.userId,
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          summary: profile.summary,
+          experience: profile.experience,
+          location: profile.location,
+          workType: profile.workType,
+          salaryMin: profile.salaryMin,
+          salaryMax: profile.salaryMax,
+          linkedinUrl: profile.linkedinUrl,
+          githubUrl: profile.githubUrl,
+          portfolioUrl: profile.portfolioUrl,
+          resumeUrl: profile.resumeUrl,
+          industry: profile.industry,
           skills: profile.skills || [],
+          profileStrength: profile.profileStrength,
+          profileViews: profile.profileViews,
           updatedAt: new Date()
         })
         .onConflictDoUpdate({
           target: candidateProfiles.userId,
           set: {
-            ...profile,
+            email: profile.email,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            summary: profile.summary,
+            experience: profile.experience,
+            location: profile.location,
+            workType: profile.workType,
+            salaryMin: profile.salaryMin,
+            salaryMax: profile.salaryMax,
+            linkedinUrl: profile.linkedinUrl,
+            githubUrl: profile.githubUrl,
+            portfolioUrl: profile.portfolioUrl,
+            resumeUrl: profile.resumeUrl,
+            industry: profile.industry,
             skills: profile.skills || [],
+            profileStrength: profile.profileStrength,
+            profileViews: profile.profileViews,
             updatedAt: new Date(),
           },
         })
@@ -262,10 +293,27 @@ export class DatabaseStorage implements IStorage {
   async createJobPosting(job: InsertJobPosting): Promise<JobPosting> {
     try {
       const [result] = await db.insert(jobPostings).values({
-        ...job,
-        skills: job.skills || [],
-        requirements: job.requirements || [],
-        hiringManagerId: job.hiringManagerId || job.talentOwnerId, // Default to talent owner if no hiring manager specified
+        talentOwnerId: job.talentOwnerId,
+        hiringManagerId: job.hiringManagerId || job.talentOwnerId,
+        title: job.title,
+        company: job.company,
+        description: job.description,
+        location: job.location,
+        workType: job.workType,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        experienceLevel: job.experienceLevel,
+        jobType: job.jobType,
+        benefits: job.benefits,
+        applicationDeadline: job.applicationDeadline,
+        externalUrl: job.externalUrl,
+        isActive: job.isActive !== false,
+        source: job.source || 'internal',
+        priority: job.priority || 'normal',
+        aiScoreThreshold: job.aiScoreThreshold || 70,
+        autoReject: job.autoReject || false,
+        maxApplicants: job.maxApplicants,
+        maxChatCandidates: job.maxChatCandidates,
       }).returning();
       return result;
     } catch (error) {
