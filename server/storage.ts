@@ -229,46 +229,15 @@ export class DatabaseStorage implements IStorage {
       const [result] = await db
         .insert(candidateProfiles)
         .values({
-          userId: profile.userId,
-          email: profile.email,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          summary: profile.summary,
-          experience: profile.experience,
-          location: profile.location,
-          workType: profile.workType,
-          salaryMin: profile.salaryMin,
-          salaryMax: profile.salaryMax,
-          linkedinUrl: profile.linkedinUrl,
-          githubUrl: profile.githubUrl,
-          portfolioUrl: profile.portfolioUrl,
-          resumeUrl: profile.resumeUrl,
-          industry: profile.industry,
+          ...profile,
           skills: profile.skills || [],
-          profileStrength: profile.profileStrength,
-          profileViews: profile.profileViews,
           updatedAt: new Date()
         })
         .onConflictDoUpdate({
           target: candidateProfiles.userId,
           set: {
-            email: profile.email,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            summary: profile.summary,
-            experience: profile.experience,
-            location: profile.location,
-            workType: profile.workType,
-            salaryMin: profile.salaryMin,
-            salaryMax: profile.salaryMax,
-            linkedinUrl: profile.linkedinUrl,
-            githubUrl: profile.githubUrl,
-            portfolioUrl: profile.portfolioUrl,
-            resumeUrl: profile.resumeUrl,
-            industry: profile.industry,
+            ...profile,
             skills: profile.skills || [],
-            profileStrength: profile.profileStrength,
-            profileViews: profile.profileViews,
             updatedAt: new Date(),
           },
         })
@@ -293,27 +262,10 @@ export class DatabaseStorage implements IStorage {
   async createJobPosting(job: InsertJobPosting): Promise<JobPosting> {
     try {
       const [result] = await db.insert(jobPostings).values({
-        talentOwnerId: job.talentOwnerId,
-        hiringManagerId: job.hiringManagerId || job.talentOwnerId,
-        title: job.title,
-        company: job.company,
-        description: job.description,
-        location: job.location,
-        workType: job.workType,
-        salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax,
-        experienceLevel: job.experienceLevel,
-        jobType: job.jobType,
-        benefits: job.benefits,
-        applicationDeadline: job.applicationDeadline,
-        externalUrl: job.externalUrl,
-        isActive: job.isActive !== false,
-        source: job.source || 'internal',
-        priority: job.priority || 'normal',
-        aiScoreThreshold: job.aiScoreThreshold || 70,
-        autoReject: job.autoReject || false,
-        maxApplicants: job.maxApplicants,
-        maxChatCandidates: job.maxChatCandidates,
+        ...job,
+        skills: job.skills || [],
+        requirements: job.requirements || [],
+        hiringManagerId: job.hiringManagerId || job.talentOwnerId, // Default to talent owner if no hiring manager specified
       }).returning();
       return result;
     } catch (error) {
@@ -365,41 +317,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // Delete in proper order to avoid foreign key constraints
-      
-      // 1. Delete chat messages first
-      await db.execute(sql`
-        DELETE FROM chat_messages 
-        WHERE chat_room_id IN (
-          SELECT cr.id FROM chat_rooms cr 
-          INNER JOIN job_matches jm ON cr.match_id = jm.id 
-          WHERE jm.job_id = ${id}
-        )
-      `);
-      
-      // 2. Delete chat rooms
-      await db.execute(sql`
-        DELETE FROM chat_rooms 
-        WHERE match_id IN (
-          SELECT id FROM job_matches WHERE job_id = ${id}
-        )
-      `);
-      
-      // 3. Delete job applications
-      await db.execute(sql`DELETE FROM job_applications WHERE job_id = ${id}`);
-      
-      // 4. Delete job matches
-      await db.execute(sql`DELETE FROM job_matches WHERE job_id = ${id}`);
-      
-      // 5. Delete exam attempts
-      await db.execute(sql`DELETE FROM exam_attempts WHERE job_id = ${id}`);
-      
-      // 6. Delete job exams
-      await db.execute(sql`DELETE FROM job_exams WHERE job_id = ${id}`);
-      
-      // 7. Finally delete the job posting
-      await db.execute(sql`DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = ${talentOwnerId}`);
-      
+      // First, delete all related job matches
+      await db
+        .delete(jobMatches)
+        .where(eq(jobMatches.jobId, id));
+
+      // Then delete all related job exams
+      await db
+        .delete(jobExams)
+        .where(eq(jobExams.jobId, id));
+
+      // Finally, delete the job posting itself
+      await db
+        .delete(jobPostings)
+        .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
     } catch (error) {
       console.error('Error deleting job posting:', error);
       throw error;
@@ -1012,7 +943,6 @@ export class DatabaseStorage implements IStorage {
 
   async getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]> {
     try {
-      // Handle both old (match_id) and new (job_id) schema during transition
       const rooms = await db
         .select()
         .from(chatRooms)
@@ -1020,15 +950,11 @@ export class DatabaseStorage implements IStorage {
           eq(chatRooms.candidateId, userId),
           eq(chatRooms.hiringManagerId, userId)
         ))
-        .orderBy(desc(chatRooms.createdAt))
-        .catch(async () => {
-          // Fallback: return empty array if schema mismatch during migration
-          return [];
-        });
+        .orderBy(desc(chatRooms.createdAt));
 
       const enrichedRooms = [];
       for (const room of rooms) {
-        const job = await this.getJobPosting(room.jobId || (room as any).matchId);
+        const job = await this.getJobPosting(room.jobId);
         const hiringManager = await this.getUser(room.hiringManagerId);
         
         if (job && hiringManager) {

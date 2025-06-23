@@ -13,7 +13,6 @@ import ForgotPasswordPage from "@/pages/forgot-password";
 import RoleSelection from "@/pages/role-selection";
 import OptimizedCandidateDashboard from "@/components/optimized-candidate-dashboard";
 import TalentDashboard from "@/pages/talent-dashboard";
-import CandidatesPage from "@/pages/candidates";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
@@ -37,7 +36,6 @@ function Router() {
       <Route path="/role-selection" component={RoleSelection} />
       <Route path="/candidate-dashboard" component={OptimizedCandidateDashboard} />
       <Route path="/talent-dashboard" component={TalentDashboard} />
-      <Route path="/candidates" component={CandidatesPage} />
       <Route path="/chat/:roomId?" component={Chat} />
       
       {/* Root route with role-based redirection */}
