@@ -114,24 +114,45 @@ export default function CandidateStreamlinedDashboard() {
   const [showExam, setShowExam] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<number | undefined>(undefined);
   const [selectedJobTitle, setSelectedJobTitle] = useState<string>("");
+  const [appliedJobsSet, setAppliedJobsSet] = useState<Set<string>>(new Set());
 
-  // Track applied external jobs in localStorage
+  // Track applied external jobs in localStorage using stable identifiers
   const getAppliedJobs = () => {
     if (typeof window === 'undefined') return new Set();
     const stored = localStorage.getItem(`appliedJobs_${user?.id}`);
     return new Set(stored ? JSON.parse(stored) : []);
   };
 
-  const markJobAsApplied = (jobId: string | number) => {
-    if (typeof window === 'undefined') return;
-    const appliedJobs = getAppliedJobs();
-    appliedJobs.add(jobId.toString());
-    localStorage.setItem(`appliedJobs_${user?.id}`, JSON.stringify(Array.from(appliedJobs)));
+  const getJobStableId = (match: any) => {
+    // For external jobs, use company + title + location as stable identifier
+    if (match.job?.source === 'external' || match.job?.externalUrl) {
+      return `${match.job?.company || 'unknown'}-${match.job?.title || 'unknown'}-${match.job?.location || 'unknown'}`.replace(/\s+/g, '-').toLowerCase();
+    }
+    // For internal jobs, use the actual match ID
+    return match.id.toString();
   };
 
-  const isJobApplied = (jobId: string | number) => {
-    return getAppliedJobs().has(jobId.toString());
+  const markJobAsApplied = (match: any) => {
+    if (typeof window === 'undefined') return;
+    const appliedJobs = getAppliedJobs();
+    const stableId = getJobStableId(match);
+    appliedJobs.add(stableId);
+    localStorage.setItem(`appliedJobs_${user?.id}`, JSON.stringify(Array.from(appliedJobs)));
+    // Update state to trigger re-render
+    setAppliedJobsSet(new Set(appliedJobs));
   };
+
+  const isJobApplied = (match: any) => {
+    const stableId = getJobStableId(match);
+    return appliedJobsSet.has(stableId);
+  };
+
+  // Initialize applied jobs set from localStorage when user loads
+  useEffect(() => {
+    if (user?.id) {
+      setAppliedJobsSet(getAppliedJobs());
+    }
+  }, [user?.id]);
 
   // Fetch candidate stats
   const { data: stats } = useQuery<CandidateStats>({
@@ -189,17 +210,23 @@ export default function CandidateStreamlinedDashboard() {
       }
       return { matchId, ...(await response.json()) };
     },
-    onSuccess: (data) => {
-      // Mark job as applied in localStorage for persistence
-      markJobAsApplied(data.matchId);
+    onSuccess: (data, variables) => {
+      // Find the match object to mark as applied
+      const currentMatches = queryClient.getQueryData(['/api/candidates/matches']) as any[];
+      const match = currentMatches?.find(m => m.id === variables);
       
-      // Update the local cache immediately
-      queryClient.setQueryData(['/api/candidates/matches'], (oldData: any) => {
-        if (!oldData) return oldData;
-        return oldData.map((match: any) => 
-          match.id === data.matchId ? { ...match, status: 'applied' } : match
-        );
-      });
+      if (match) {
+        // Mark job as applied in localStorage for persistence
+        markJobAsApplied(match);
+        
+        // Update the local cache immediately
+        queryClient.setQueryData(['/api/candidates/matches'], (oldData: any) => {
+          if (!oldData) return oldData;
+          return oldData.map((m: any) => 
+            m.id === variables ? { ...m, status: 'applied' } : m
+          );
+        });
+      }
       
       toast({
         title: "Marked as Applied",
@@ -556,9 +583,9 @@ export default function CandidateStreamlinedDashboard() {
                                       <Button
                                         size="sm"
                                         onClick={() => markExternalApplicationMutation.mutate(match.id)}
-                                        disabled={match.status === 'applied' || isJobApplied(match.id) || markExternalApplicationMutation.isPending}
+                                        disabled={match.status === 'applied' || isJobApplied(match) || markExternalApplicationMutation.isPending}
                                       >
-                                        {match.status === 'applied' || isJobApplied(match.id) ? 'Applied' : 'Mark Applied'}
+                                        {match.status === 'applied' || isJobApplied(match) ? 'Applied' : 'Mark Applied'}
                                       </Button>
                                     </>
                                   )}
