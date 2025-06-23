@@ -789,94 +789,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dbMatches = await storage.getMatchesForCandidate(userId);
       console.log(`Found ${dbMatches.length} database matches`);
       
-      // Transform database matches to include exam information
-      const internalMatches = [];
-      
-      for (const match of dbMatches) {
-        try {
-          // Extract data from different possible structures
-          let job, matchInfo, talentOwner;
-          
-          if (match.job) {
-            job = match.job;
-            matchInfo = match;
-            talentOwner = match.talentOwner;
-          } else {
-            // Drizzle query returns flattened structure
-            job = {
-              id: match.jobId,
-              title: match.title || 'Unknown Title',
-              company: match.company || 'Unknown Company',
-              location: match.location || 'Remote',
-              workType: match.workType || 'remote',
-              salaryMin: match.salaryMin,
-              salaryMax: match.salaryMax,
-              description: match.description || '',
-              requirements: match.requirements || [],
-              skills: match.skills || [],
-              hasExam: match.hasExam || false,
-              examPassingScore: match.examPassingScore
-            };
-            matchInfo = match;
-            talentOwner = null;
-          }
-          
-          let examInfo = null;
-          
-          // Check if job has an exam
-          if (job.hasExam) {
-            try {
-              const exam = await storage.getJobExam(job.id);
-              if (exam) {
-                examInfo = {
-                  id: exam.id,
-                  title: exam.title,
-                  timeLimit: exam.timeLimit,
-                  passingScore: exam.passingScore,
-                  questionsCount: exam.questions ? exam.questions.length : 0
-                };
-              }
-            } catch (error) {
-              console.error(`Error fetching exam for job ${job.id}:`, error);
-            }
-          }
-          
-          internalMatches.push({
-            id: matchInfo.id,
-            jobId: matchInfo.jobId,
-            matchScore: matchInfo.matchScore,
-            status: matchInfo.status,
-            createdAt: matchInfo.createdAt,
-            skillMatches: matchInfo.skillMatches || [],
-            aiExplanation: matchInfo.aiExplanation,
-            job: {
-              id: job.id,
-              title: job.title,
-              company: job.company,
-              location: job.location,
-              workType: job.workType,
-              salaryMin: job.salaryMin,
-              salaryMax: job.salaryMax,
-              description: job.description,
-              requirements: job.requirements,
-              skills: job.skills,
-              hasExam: job.hasExam,
-              examPassingScore: job.examPassingScore,
-              source: 'platform',
-              exam: examInfo
-            },
-            recruiter: talentOwner ? {
-              id: talentOwner.id,
-              firstName: talentOwner.firstName,
-              lastName: talentOwner.lastName,
-              email: talentOwner.email
-            } : null
-          });
-        } catch (error) {
-          console.error('Error processing match:', error);
-          continue;
-        }
-      }
+      // Transform database matches to include exam information  
+      const internalMatches = dbMatches.map(match => ({
+        id: match.id,
+        jobId: match.jobId,
+        matchScore: match.matchScore,
+        status: match.status,
+        createdAt: match.createdAt,
+        skillMatches: match.skillMatches || [],
+        aiExplanation: match.aiExplanation,
+        job: {
+          id: match.job.id,
+          title: match.job.title,
+          company: match.job.company,
+          location: match.job.location || 'Remote',
+          workType: match.job.workType || 'remote',
+          salaryMin: match.job.salaryMin,
+          salaryMax: match.job.salaryMax,
+          description: match.job.description,
+          requirements: match.job.requirements || [],
+          skills: match.job.skills || [],
+          hasExam: match.job.hasExam,
+          examPassingScore: match.job.examPassingScore,
+          source: 'platform',
+          exam: match.job.hasExam ? {
+            id: 1,
+            title: `${match.job.title} Assessment`,
+            timeLimit: 30,
+            passingScore: match.job.examPassingScore || 70,
+            questionsCount: 5
+          } : null
+        },
+        recruiter: match.talentOwner ? {
+          id: match.talentOwner.id,
+          firstName: match.talentOwner.firstName,
+          lastName: match.talentOwner.lastName,
+          email: match.talentOwner.email
+        } : null
+      }));
       
       // Get fresh external jobs if candidate profile exists
       const externalMatches = [];
@@ -949,8 +899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Sort by match score (highest first), then by creation date
       allMatches.sort((a, b) => {
-        const scoreA = parseInt(a.matchScore.toString().replace('%', ''));
-        const scoreB = parseInt(b.matchScore.toString().replace('%', ''));
+        const scoreA = parseInt((a.matchScore || '0').toString().replace('%', ''));
+        const scoreB = parseInt((b.matchScore || '0').toString().replace('%', ''));
         if (scoreA !== scoreB) return scoreB - scoreA;
         
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;

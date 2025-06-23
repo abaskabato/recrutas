@@ -342,13 +342,55 @@ export class DatabaseStorage implements IStorage {
 
   async getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]> {
     try {
-      return await db
-        .select()
+      const results = await db
+        .select({
+          // Job match fields
+          id: jobMatches.id,
+          jobId: jobMatches.jobId,
+          candidateId: jobMatches.candidateId,
+          matchScore: jobMatches.matchScore,
+          matchReasons: jobMatches.matchReasons,
+          status: jobMatches.status,
+          createdAt: jobMatches.createdAt,
+          updatedAt: jobMatches.updatedAt,
+          confidenceLevel: jobMatches.confidenceLevel,
+          skillMatches: jobMatches.skillMatches,
+          aiExplanation: jobMatches.aiExplanation,
+          userFeedback: jobMatches.userFeedback,
+          feedbackReason: jobMatches.feedbackReason,
+          viewedAt: jobMatches.viewedAt,
+          appliedAt: jobMatches.appliedAt,
+          // Job fields
+          job: {
+            id: jobPostings.id,
+            title: jobPostings.title,
+            company: jobPostings.company,
+            description: jobPostings.description,
+            location: jobPostings.location,
+            workType: jobPostings.workType,
+            salaryMin: jobPostings.salaryMin,
+            salaryMax: jobPostings.salaryMax,
+            requirements: jobPostings.requirements,
+            skills: jobPostings.skills,
+            hasExam: jobPostings.hasExam,
+            examPassingScore: jobPostings.examPassingScore,
+            talentOwnerId: jobPostings.talentOwnerId
+          },
+          // Talent owner fields
+          talentOwner: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email
+          }
+        })
         .from(jobMatches)
         .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
         .innerJoin(users, eq(jobPostings.talentOwnerId, users.id))
         .where(eq(jobMatches.candidateId, candidateId))
-        .orderBy(desc(jobMatches.createdAt)) as any;
+        .orderBy(desc(jobMatches.createdAt));
+      
+      return results as any;
     } catch (error) {
       console.error('Error fetching matches for candidate:', error);
       throw error;
