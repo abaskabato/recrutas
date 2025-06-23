@@ -200,6 +200,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all candidates for talent owners
+  app.get('/api/candidates', async (req, res) => {
+    try {
+      const candidates = await storage.getCandidatesForRecruiter(''); // Get all candidates
+      res.json(candidates);
+    } catch (error) {
+      console.error('Error fetching candidates:', error);
+      res.status(500).json({ message: 'Failed to fetch candidates' });
+    }
+  });
+
   // AI-powered job matching for candidates - place before other authenticated routes
   app.get('/api/ai-matches', async (req: any, res) => {
     try {
