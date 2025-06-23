@@ -100,7 +100,7 @@ function JobMatchBadges({ match }) {
       )}
       
       <Badge variant="secondary" className="bg-green-100 text-green-800">
-        {match.matchScore}% match
+        {match.matchScore} match
       </Badge>
       
       <Badge className={getStatusColor(match.status)}>

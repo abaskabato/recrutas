@@ -505,7 +505,7 @@ export default function CandidateDashboardEnhanced() {
                               <p className="text-sm text-slate-500 truncate">{match.job.company}</p>
                               <div className="flex flex-wrap items-center gap-2 mt-2">
                                 <Badge variant="secondary" className="text-xs">
-                                  {match.matchScore}% match
+                                  {match.matchScore} match
                                 </Badge>
                                 <div className="flex items-center space-x-1 text-xs text-slate-500">
                                   <MapPin className="w-3 h-3 flex-shrink-0" />
