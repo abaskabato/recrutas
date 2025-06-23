@@ -2909,75 +2909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Initialize exam data for SDE job (ID 70) if not exists
-  (async () => {
-    try {
-      const existingExam = await storage.getJobExam(70);
-      if (!existingExam) {
-        console.log('Creating exam for SDE job (ID 70)...');
-        await storage.createJobExam({
-          jobId: 70,
-          timeLimit: 1800, // 30 minutes
-          passingScore: 70,
-          questions: [
-            {
-              id: "q1",
-              type: "multiple-choice",
-              question: "Which data structure provides O(1) average time complexity for insertions and lookups?",
-              options: ["Array", "Linked List", "Hash Table", "Binary Tree"],
-              correctAnswer: 2,
-              points: 10
-            },
-            {
-              id: "q2",
-              type: "multiple-choice",
-              question: "What is the time complexity of the quicksort algorithm in the average case?",
-              options: ["O(n)", "O(n log n)", "O(n²)", "O(log n)"],
-              correctAnswer: 1,
-              points: 10
-            },
-            {
-              id: "q3",
-              type: "short-answer",
-              question: "Explain the difference between a stack and a queue data structure. Provide an example use case for each.",
-              points: 15
-            },
-            {
-              id: "q4",
-              type: "multiple-choice",
-              question: "Which of the following is NOT a principle of object-oriented programming?",
-              options: ["Encapsulation", "Inheritance", "Polymorphism", "Compilation"],
-              correctAnswer: 3,
-              points: 10
-            },
-            {
-              id: "q5",
-              type: "short-answer",
-              question: "Describe how you would optimize a slow database query. What steps would you take to identify and fix performance issues?",
-              points: 20
-            },
-            {
-              id: "q6",
-              type: "multiple-choice",
-              question: "What is the main advantage of using microservices architecture?",
-              options: ["Faster development", "Better scalability and maintainability", "Lower costs", "Simpler debugging"],
-              correctAnswer: 1,
-              points: 10
-            },
-            {
-              id: "q7",
-              type: "short-answer",
-              question: "How would you handle a situation where your application needs to process 1 million user requests per minute? Describe your scaling strategy.",
-              points: 25
-            }
-          ]
-        });
-        console.log('Exam created successfully for SDE job');
-      }
-    } catch (error) {
-      console.error('Error creating exam data:', error);
-    }
-  })();
+
 
   const httpServer = createServer(app);
 
