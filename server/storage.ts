@@ -28,10 +28,10 @@ import {
   chatMessages,
   activityLogs,
   notifications,
-  notificationPreferences,
-  jobApplications,
   examAttempts,
   jobExams,
+  notificationPreferences,
+  jobApplications,
   type User,
   type UpsertUser,
   type CandidateProfile,
@@ -466,13 +466,25 @@ export class DatabaseStorage implements IStorage {
 
   async storeExamResult(result: any): Promise<void> {
     try {
-      await db.insert(examResults).values({
+      // First get the exam ID for this job
+      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
+      if (!exam) {
+        throw new Error('No exam found for this job');
+      }
+
+      await db.insert(examAttempts).values({
+        examId: exam.id,
         candidateId: result.candidateId,
         jobId: result.jobId,
         score: result.score,
-        passed: result.passed,
+        totalQuestions: result.totalQuestions,
+        correctAnswers: result.correctAnswers,
+        timeSpent: result.timeSpent,
         answers: result.answers,
-        submittedAt: result.submittedAt
+        status: 'completed',
+        passedExam: result.score >= (exam.passingScore || 70),
+        qualifiedForChat: false, // Will be set during ranking
+        completedAt: new Date(),
       });
     } catch (error) {
       console.error('Error storing exam result:', error);

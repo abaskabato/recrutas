@@ -2869,9 +2869,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         candidateId: userId,
         jobId,
         score,
-        passed,
-        answers: JSON.stringify(answers),
-        submittedAt: new Date()
+        totalQuestions: exam.questions.length,
+        correctAnswers: Math.round((earnedPoints / totalPoints) * exam.questions.length),
+        timeSpent: exam.timeLimit, // Default to full time limit since we don't track actual time spent
+        answers: Object.entries(answers).map(([questionId, answer]) => ({
+          questionId,
+          answer: answer
+        }))
       });
 
       // If passed, update job match status to enable chat
