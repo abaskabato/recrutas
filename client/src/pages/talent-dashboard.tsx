@@ -100,35 +100,13 @@ export default function TalentDashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
-  const [showJobDialog, setShowJobDialog] = useState(false);
   const [showJobWizard, setShowJobWizard] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  // Job form state
-  const [jobForm, setJobForm] = useState({
-    title: "",
-    company: "",
-    description: "",
-    requirements: [] as string[],
-    skills: [] as string[],
-    location: "",
-    salaryMin: "",
-    salaryMax: "",
-    workType: "remote" as const,
-    industry: "",
-    urgency: "medium" as const,
-    benefits: [] as string[],
-    experienceLevel: "",
-    department: "",
-    isRemoteFriendly: true,
-    applicationDeadline: "",
-    contactEmail: "",
-    companySize: "",
-    companyDescription: ""
-  });
+
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -176,28 +154,7 @@ export default function TalentDashboard() {
         title: "Success",
         description: "Job posted successfully!",
       });
-      setShowJobDialog(false);
-      setJobForm({
-        title: "",
-        company: "",
-        description: "",
-        requirements: [],
-        skills: [],
-        location: "",
-        salaryMin: "",
-        salaryMax: "",
-        workType: "remote" as "remote" | "hybrid" | "onsite",
-        industry: "",
-        urgency: "medium" as const,
-        benefits: [],
-        experienceLevel: "",
-        department: "",
-        isRemoteFriendly: true,
-        applicationDeadline: "",
-        contactEmail: "",
-        companySize: "",
-        companyDescription: ""
-      });
+      setShowJobWizard(false);
       queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
     },
@@ -232,38 +189,7 @@ export default function TalentDashboard() {
     }
   });
 
-  const handleJobSubmit = () => {
-    if (!jobForm.title || !jobForm.company || !jobForm.description) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    const jobData = {
-      title: jobForm.title,
-      company: jobForm.company,
-      description: jobForm.description,
-      location: jobForm.location || null,
-      workType: jobForm.workType,
-      industry: jobForm.industry || null,
-      salaryMin: jobForm.salaryMin ? parseInt(jobForm.salaryMin) : null,
-      salaryMax: jobForm.salaryMax ? parseInt(jobForm.salaryMax) : null,
-      requirements: jobForm.requirements.filter(r => r.trim()),
-      skills: jobForm.skills.filter(s => s.trim()),
-      urgency: jobForm.urgency,
-      // Internal job settings - automatically include exam and chat
-      hasExam: true,
-      examPassingScore: 70,
-      hiringManagerId: user?.id, // Current user as hiring manager
-      autoRankCandidates: true,
-      maxChatCandidates: 5,
-    };
-
-    createJobMutation.mutate(jobData);
-  };
 
   const handleLogout = () => {
     signOut();
@@ -516,9 +442,9 @@ export default function TalentDashboard() {
                     <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No job postings yet</h3>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">Create your first job posting to start finding great candidates.</p>
-                    <Button onClick={() => setShowJobDialog(true)}>
+                    <Button onClick={() => setShowJobWizard(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
                       <Plus className="h-4 w-4 mr-2" />
-                      Post Your First Job
+                      Post New Job with Exam
                     </Button>
                   </div>
                 ) : (
@@ -560,22 +486,13 @@ export default function TalentDashboard() {
                 <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Job Postings</h2>
                 <p className="text-gray-600 dark:text-gray-400">Manage your job listings and track applications</p>
               </div>
-              <div className="flex gap-3">
-                <Button 
-                  onClick={() => setShowJobDialog(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Post New Job
-                </Button>
-                <Button 
-                  onClick={() => setShowJobWizard(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Post New Job with Exam
-                </Button>
-              </div>
+              <Button 
+                onClick={() => setShowJobWizard(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Post New Job with Exam
+              </Button>
             </div>
 
             {/* Search and Filters */}
@@ -632,9 +549,9 @@ export default function TalentDashboard() {
                         : 'Create your first job posting to start finding great candidates'}
                     </p>
                     {!searchQuery && filterStatus === 'all' && (
-                      <Button onClick={() => setShowJobDialog(true)}>
+                      <Button onClick={() => setShowJobWizard(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
                         <Plus className="h-4 w-4 mr-2" />
-                        Post Your First Job
+                        Post New Job with Exam
                       </Button>
                     )}
                   </CardContent>
