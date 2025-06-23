@@ -233,7 +233,7 @@ export default function LandingResponsive() {
             </h1>
             
             <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
-              Upload resume → Get matched → Apply direct
+              AI-powered talent acquisition → Direct company connections → Skip the recruiters
             </p>
 
             {/* Skills Input Section */}
