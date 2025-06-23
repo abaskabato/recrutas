@@ -51,8 +51,23 @@ export default function TalentDashboard() {
   const { toast } = useToast();
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [showJobWizard, setShowJobWizard] = useState(false);
+  const [showJobDialog, setShowJobDialog] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [jobForm, setJobForm] = useState({
+    title: '',
+    company: '',
+    description: '',
+    location: '',
+    workType: 'remote',
+    salaryMin: '',
+    salaryMax: '',
+    skills: [],
+    requirements: '',
+    benefits: '',
+    hasExam: true,
+    examQuestions: []
+  });
 
   // Fetch user's job postings
   const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery({
@@ -124,7 +139,14 @@ export default function TalentDashboard() {
   });
 
   const handleLogout = () => {
-    signOut();
+    if (signOut) {
+      signOut();
+    }
+  };
+
+  const handleJobSubmit = (jobData: any) => {
+    createJobMutation.mutate(jobData);
+    setShowJobDialog(false);
   };
 
   const handleDeleteJob = (jobId: number) => {
@@ -134,13 +156,13 @@ export default function TalentDashboard() {
   };
 
   // Filter jobs based on status and search
-  const filteredJobs = jobs.filter((job: any) => {
+  const filteredJobs = Array.isArray(jobs) ? jobs.filter((job: any) => {
     const matchesStatus = filterStatus === "all" || job.status === filterStatus;
     const matchesSearch = searchQuery === "" || 
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchQuery.toLowerCase());
+      (job.title && job.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (job.company && job.company.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesStatus && matchesSearch;
-  });
+  }) : [];
 
   // Get status badge color
   const getStatusBadge = (status: string) => {
@@ -205,7 +227,7 @@ export default function TalentDashboard() {
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.activeJobs || 0}</div>
+              <div className="text-2xl font-bold">{(stats as any)?.activeJobs || 0}</div>
               <p className="text-xs text-muted-foreground">Jobs currently posted</p>
             </CardContent>
           </Card>
@@ -216,7 +238,7 @@ export default function TalentDashboard() {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalMatches || 0}</div>
+              <div className="text-2xl font-bold">{(stats as any)?.totalMatches || 0}</div>
               <p className="text-xs text-muted-foreground">Candidate matches found</p>
             </CardContent>
           </Card>
@@ -227,7 +249,7 @@ export default function TalentDashboard() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.activeChats || 0}</div>
+              <div className="text-2xl font-bold">{(stats as any)?.activeChats || 0}</div>
               <p className="text-xs text-muted-foreground">Ongoing conversations</p>
             </CardContent>
           </Card>
@@ -238,7 +260,7 @@ export default function TalentDashboard() {
               <UserCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.hires || 0}</div>
+              <div className="text-2xl font-bold">{(stats as any)?.hires || 0}</div>
               <p className="text-xs text-muted-foreground">Successful placements</p>
             </CardContent>
           </Card>
@@ -352,7 +374,7 @@ export default function TalentDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {applications.slice(0, 5).map((app: any) => (
+                  {Array.isArray(applications) ? applications.slice(0, 5).map((app: any) => (
                     <div key={app.id} className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-medium">{app.candidate?.firstName} {app.candidate?.lastName}</p>
@@ -362,8 +384,8 @@ export default function TalentDashboard() {
                         {app.status}
                       </Badge>
                     </div>
-                  ))}
-                  {applications.length === 0 && (
+                  )) : []}
+                  {(!Array.isArray(applications) || applications.length === 0) && (
                     <p className="text-sm text-gray-600 text-center py-4">No recent activity</p>
                   )}
                 </div>
