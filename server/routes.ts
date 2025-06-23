@@ -1011,48 +1011,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Skills are required' });
       }
 
-      // Use the same job fetching logic as candidate dashboard
-      const skillsArray = typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : [];
-      const searchCriteria = {
-        skills: skillsArray,
-        jobTitle: jobTitle as string,
-        location: location as string,
-        workType: workType as string,
-        minSalary: minSalary ? parseInt(minSalary as string) : undefined,
-        limit: parseInt(limit as string)
-      };
-
-      // Fetch from the same source as dashboard - internal + external
-      const matches = await fetchOpenJobSources(skillsArray.join(', '), jobTitle as string || '');
+      console.log(`Fetching instant matches for skills: ${skills}, title: ${jobTitle}`);
       
-      // Apply the same filtering and scoring logic
-      const scoredMatches = matches.slice(0, parseInt(limit as string)).map(job => ({
-        id: typeof job.id === 'string' ? job.id : job.id?.toString() || Math.random().toString(),
-        job: {
-          ...job,
-          hasExam: job.source === 'internal' && job.hasExam,
-          source: job.source || 'external'
-        },
-        matchScore: calculateJobMatch(job, searchCriteria),
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        aiExplanation: `Matched based on ${skillsArray.slice(0, 3).join(', ')} skills`
-      }));
-
-      // Sort by match score (internal jobs with exams prioritized)
-      const prioritizedMatches = scoredMatches.sort((a, b) => {
+      // Parse user input
+      const skillsArray = typeof skills === 'string' ? skills.split(',').map(s => s.trim().toLowerCase()) : [];
+      const titleQuery = (jobTitle as string || '').toLowerCase();
+      
+      // Get jobs from internal database
+      const internalJobs = await storage.getJobPostings('all');
+      console.log(`Found ${internalJobs.length} internal jobs`);
+      
+      // Get external jobs from aggregator
+      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, 15);
+      console.log(`Found ${externalJobs.length} external jobs`);
+      
+      const allJobs = [...internalJobs, ...externalJobs];
+      
+      // Filter jobs based on user criteria
+      const relevantJobs = allJobs.filter(job => {
+        const jobTitle = (job.title || '').toLowerCase();
+        const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+        const jobDescription = (job.description || '').toLowerCase();
+        const jobText = `${jobTitle} ${jobDescription}`;
+        
+        // Check title match if provided
+        if (titleQuery) {
+          const titleWords = titleQuery.split(' ').filter(w => w.length > 2);
+          const titleMatch = titleWords.some(word => jobTitle.includes(word) || jobText.includes(word));
+          if (!titleMatch) {
+            return false;
+          }
+        }
+        
+        // Check skill overlap
+        const skillMatches = skillsArray.filter(userSkill => 
+          jobSkills.some(jobSkill => jobSkill.includes(userSkill) || userSkill.includes(jobSkill)) ||
+          jobText.includes(userSkill)
+        );
+        
+        // Must have at least 1 skill match or strong title match
+        const hasSkillMatch = skillMatches.length > 0;
+        const hasStrongTitleMatch = titleQuery && jobTitle.includes(titleQuery);
+        
+        return hasSkillMatch || hasStrongTitleMatch;
+      });
+      
+      console.log(`Filtered to ${relevantJobs.length} relevant jobs`);
+      
+      // Score and rank matches
+      const scoredMatches = relevantJobs.map(job => {
+        const jobTitle = (job.title || '').toLowerCase();
+        const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+        const jobDescription = (job.description || '').toLowerCase();
+        const jobText = `${jobTitle} ${jobDescription}`;
+        
+        let score = 0;
+        
+        // Skill matching (60% weight)
+        const skillMatches = skillsArray.filter(userSkill => 
+          jobSkills.some(jobSkill => jobSkill.includes(userSkill) || userSkill.includes(jobSkill)) ||
+          jobText.includes(userSkill)
+        );
+        score += (skillMatches.length / skillsArray.length) * 60;
+        
+        // Title matching (40% weight)
+        if (titleQuery) {
+          const titleWords = titleQuery.split(' ').filter(w => w.length > 2);
+          const titleMatches = titleWords.filter(word => jobTitle.includes(word));
+          score += (titleMatches.length / titleWords.length) * 40;
+        } else {
+          score += 20; // Base score if no title specified
+        }
+        
+        return {
+          id: `match_${job.id}_${Date.now()}`,
+          job: {
+            ...job,
+            id: job.id,
+            hasExam: job.source === 'internal' && job.hasExam,
+            source: job.source || (job.talentOwnerId ? 'internal' : 'external')
+          },
+          matchScore: `${Math.min(Math.round(score), 95)}%`,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          aiExplanation: `Matched ${skillMatches.length} skills: ${skillMatches.slice(0, 3).join(', ')}`
+        };
+      });
+      
+      // Sort by relevance and prioritize internal jobs
+      const sortedMatches = scoredMatches.sort((a, b) => {
+        const scoreA = parseInt(a.matchScore.replace('%', ''));
+        const scoreB = parseInt(b.matchScore.replace('%', ''));
+        
+        // Prioritize internal jobs with exams
         if (a.job.source === 'internal' && a.job.hasExam && !(b.job.source === 'internal' && b.job.hasExam)) {
           return -1;
         }
         if (b.job.source === 'internal' && b.job.hasExam && !(a.job.source === 'internal' && a.job.hasExam)) {
           return 1;
         }
-        return b.matchScore - a.matchScore;
+        
+        return scoreB - scoreA;
       });
+      
+      const finalMatches = sortedMatches.slice(0, parseInt(limit as string));
+      console.log(`Returning ${finalMatches.length} matches`);
 
       res.json({ 
-        matches: prioritizedMatches,
-        total: prioritizedMatches.length,
+        matches: finalMatches,
+        total: finalMatches.length,
         cached: false 
       });
     } catch (error) {
