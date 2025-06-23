@@ -329,17 +329,11 @@ export class DatabaseStorage implements IStorage {
   // Matching operations
   async createJobMatch(match: InsertJobMatch): Promise<JobMatch> {
     try {
-      const insertData = {
-        jobId: match.jobId,
-        candidateId: match.candidateId,
-        matchScore: match.matchScore,
-        confidenceLevel: match.confidenceLevel,
-        aiExplanation: match.aiExplanation,
-        status: match.status || 'pending',
-        appliedAt: match.status === 'applied' ? new Date() : null
-      };
-      
-      const [result] = await db.insert(jobMatches).values(insertData).returning();
+      const [result] = await db.insert(jobMatches).values({
+        ...match,
+        matchReasons: match.matchReasons || [],
+        skillMatches: match.skillMatches || []
+      }).returning();
       return result;
     } catch (error) {
       console.error('Error creating job match:', error);
@@ -1055,26 +1049,6 @@ export class DatabaseStorage implements IStorage {
   async getAvailableNotificationUsers(): Promise<string[]> {
     const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
     return result.map(r => r.userId);
-  }
-
-  async getActiveCandidates(): Promise<any[]> {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    try {
-      const activeCandidates = await db
-        .select({ userId: users.id })
-        .from(users)
-        .innerJoin(activityLogs, eq(users.id, activityLogs.userId))
-        .where(gte(activityLogs.createdAt, sevenDaysAgo))
-        .groupBy(users.id)
-        .limit(50);
-
-      return activeCandidates;
-    } catch (error) {
-      console.error('Error fetching active candidates:', error);
-      return [];
-    }
   }
 }
 

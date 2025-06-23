@@ -281,7 +281,7 @@ export default function TalentDashboard() {
       candidate.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (candidate.skills || []).some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
+      candidate.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = filterStatus === "all" || candidate.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -816,14 +816,14 @@ export default function TalentDashboard() {
                           </p>
 
                           <div className="flex flex-wrap gap-2">
-                            {(candidate.skills || []).slice(0, 5).map((skill, index) => (
+                            {candidate.skills.slice(0, 5).map((skill, index) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {skill}
                               </Badge>
                             ))}
-                            {(candidate.skills || []).length > 5 && (
+                            {candidate.skills.length > 5 && (
                               <Badge variant="outline" className="text-xs">
-                                +{(candidate.skills || []).length - 5} more
+                                +{candidate.skills.length - 5} more
                               </Badge>
                             )}
                           </div>
