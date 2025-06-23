@@ -1002,6 +1002,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Instant matches for landing page modal - same logic as candidate dashboard
+  app.get('/api/instant-matches', async (req, res) => {
+    try {
+      const { skills, jobTitle, location, workType, minSalary, limit = '8' } = req.query;
+      
+      if (!skills) {
+        return res.status(400).json({ message: 'Skills are required' });
+      }
+
+      console.log(`Fetching instant matches for skills: ${skills}, title: ${jobTitle}`);
+      
+      // Parse user input
+      const skillsArray = typeof skills === 'string' ? skills.split(',').map(s => s.trim().toLowerCase()) : [];
+      const titleQuery = (jobTitle as string || '').toLowerCase();
+      
+      // Get jobs from internal database
+      const internalJobs = await storage.getJobPostings('all');
+      console.log(`Found ${internalJobs.length} internal jobs`);
+      
+      // Get external jobs from aggregator
+      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, 15);
+      console.log(`Found ${externalJobs.length} external jobs`);
+      
+      const allJobs = [...internalJobs, ...externalJobs];
+      
+      // Filter jobs based on user criteria with broader matching
+      const relevantJobs = allJobs.filter(job => {
+        const jobTitle = (job.title || '').toLowerCase();
+        const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+        const jobDescription = (job.description || '').toLowerCase();
+        const jobText = `${jobTitle} ${jobDescription}`;
+        
+        // Check skill overlap with broader matching
+        const skillMatches = skillsArray.filter(userSkill => {
+          // Direct skill match in job skills array
+          const directMatch = jobSkills.some(jobSkill => 
+            jobSkill.includes(userSkill) || userSkill.includes(jobSkill)
+          );
+          
+          // Skill mentioned in title or description
+          const textMatch = jobText.includes(userSkill);
+          
+          // Fuzzy matching for common variations
+          const fuzzyMatch = jobSkills.some(jobSkill => {
+            if (userSkill === 'marketing' && (jobSkill.includes('market') || jobSkill.includes('growth'))) return true;
+            if (userSkill === 'sales' && (jobSkill.includes('sale') || jobSkill.includes('business'))) return true;
+            if (userSkill === 'design' && (jobSkill.includes('ui') || jobSkill.includes('ux'))) return true;
+            return false;
+          });
+          
+          return directMatch || textMatch || fuzzyMatch;
+        });
+        
+        // Check title match if provided
+        let titleMatch = false;
+        if (titleQuery) {
+          const titleWords = titleQuery.split(' ').filter(w => w.length > 2);
+          titleMatch = titleWords.some(word => jobTitle.includes(word) || jobText.includes(word));
+        }
+        
+        // More lenient matching: skill match OR title match OR broad category match
+        const hasSkillMatch = skillMatches.length > 0;
+        const hasTitleMatch = titleMatch;
+        const hasBroadMatch = skillsArray.some(skill => 
+          jobText.includes(skill.substring(0, 4)) || // Partial word matching
+          jobTitle.includes(skill.substring(0, 4))
+        );
+        
+        return hasSkillMatch || hasTitleMatch || hasBroadMatch;
+      });
+      
+      console.log(`Filtered to ${relevantJobs.length} relevant jobs`);
+      
+      // Score and rank matches
+      const scoredMatches = relevantJobs.map(job => {
+        const jobTitle = (job.title || '').toLowerCase();
+        const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+        const jobDescription = (job.description || '').toLowerCase();
+        const jobText = `${jobTitle} ${jobDescription}`;
+        
+        let score = 0;
+        
+        // Skill matching (60% weight)
+        const skillMatches = skillsArray.filter(userSkill => 
+          jobSkills.some(jobSkill => jobSkill.includes(userSkill) || userSkill.includes(jobSkill)) ||
+          jobText.includes(userSkill)
+        );
+        score += (skillMatches.length / skillsArray.length) * 60;
+        
+        // Title matching (40% weight)
+        if (titleQuery) {
+          const titleWords = titleQuery.split(' ').filter(w => w.length > 2);
+          const titleMatches = titleWords.filter(word => jobTitle.includes(word));
+          score += (titleMatches.length / titleWords.length) * 40;
+        } else {
+          score += 20; // Base score if no title specified
+        }
+        
+        return {
+          id: `match_${job.id}_${Date.now()}`,
+          job: {
+            ...job,
+            id: job.id,
+            hasExam: job.source === 'internal' && job.hasExam,
+            source: job.source || (job.talentOwnerId ? 'internal' : 'external')
+          },
+          matchScore: `${Math.min(Math.round(score), 95)}%`,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          aiExplanation: `Matched ${skillMatches.length} skills: ${skillMatches.slice(0, 3).join(', ')}`
+        };
+      });
+      
+      // Sort by relevance and prioritize internal jobs
+      const sortedMatches = scoredMatches.sort((a, b) => {
+        const scoreA = parseInt(a.matchScore.replace('%', ''));
+        const scoreB = parseInt(b.matchScore.replace('%', ''));
+        
+        // Prioritize internal jobs with exams
+        if (a.job.source === 'internal' && a.job.hasExam && !(b.job.source === 'internal' && b.job.hasExam)) {
+          return -1;
+        }
+        if (b.job.source === 'internal' && b.job.hasExam && !(a.job.source === 'internal' && a.job.hasExam)) {
+          return 1;
+        }
+        
+        return scoreB - scoreA;
+      });
+      
+      const finalMatches = sortedMatches.slice(0, parseInt(limit as string));
+      console.log(`Returning ${finalMatches.length} matches`);
+
+      res.json({ 
+        matches: finalMatches,
+        total: finalMatches.length,
+        cached: false 
+      });
+    } catch (error) {
+      console.error('Error fetching instant matches:', error);
+      res.status(500).json({ message: 'Failed to fetch instant matches' });
+    }
+  });
+
   // Generate AI matches for candidate
   app.post('/api/candidates/generate-matches', requireAuth, async (req: any, res) => {
     try {
@@ -1017,9 +1160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         candidateId: userId,
         skills: profile.skills || [],
         experience: profile.experience || 'entry',
-        location: profile.location,
-        salaryExpectation: profile.salaryMin,
-        workType: profile.workType,
+        location: profile.location ?? undefined,
+        salaryExpectation: profile.salaryMin ?? undefined,
+        workType: profile.workType ?? undefined,
       };
 
       const matches = await advancedMatchingEngine.generateAdvancedMatches(matchCriteria);
@@ -1048,8 +1191,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const matchId = parseInt(req.params.matchId);
       
+      // Validate matchId is within PostgreSQL integer range (32-bit signed integer)
+      if (!Number.isInteger(matchId) || matchId <= 0 || matchId > 2147483647) {
+        return res.status(400).json({ message: 'Invalid match ID - must be a valid database ID' });
+      }
+      
       // Update match status to applied
-      await storage.updateMatchStatus(matchId, userId, 'applied');
+      await storage.updateMatchStatus(matchId, 'applied');
       
       res.json({ success: true });
     } catch (error) {
@@ -2560,7 +2708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           matchScore: `${aiMatch.score}%`,
           confidenceLevel: aiMatch.confidenceLevel >= 0.8 ? 'high' : 
                          aiMatch.confidenceLevel >= 0.6 ? 'medium' : 'low',
-          skillMatches: aiMatch.skillMatches.map(skill => ({ skill, matched: true })),
+
           aiExplanation: aiMatch.aiExplanation,
           status: 'applied',
         });

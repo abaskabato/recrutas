@@ -329,11 +329,17 @@ export class DatabaseStorage implements IStorage {
   // Matching operations
   async createJobMatch(match: InsertJobMatch): Promise<JobMatch> {
     try {
-      const [result] = await db.insert(jobMatches).values({
-        ...match,
-        matchReasons: match.matchReasons || [],
-        skillMatches: match.skillMatches || []
-      }).returning();
+      const insertData = {
+        jobId: match.jobId,
+        candidateId: match.candidateId,
+        matchScore: match.matchScore,
+        confidenceLevel: match.confidenceLevel,
+        aiExplanation: match.aiExplanation,
+        status: match.status || 'pending',
+        appliedAt: match.status === 'applied' ? new Date() : null
+      };
+      
+      const [result] = await db.insert(jobMatches).values(insertData).returning();
       return result;
     } catch (error) {
       console.error('Error creating job match:', error);

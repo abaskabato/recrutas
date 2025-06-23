@@ -42,9 +42,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch external jobs based on skills and filters
-  const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
-    queryKey: ['/api/external-jobs', skills, jobTitle, location, workType, salaryType, minSalary],
+  // Use the same optimized job matching system as candidate dashboard
+  const { data: matchesData, isLoading: jobsLoading } = useQuery({
+    queryKey: ['/api/instant-matches', skills, jobTitle, location, workType, salaryType, minSalary],
     queryFn: async () => {
       const params = new URLSearchParams({
         skills: skills.trim(),
@@ -56,15 +56,17 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
       if (minSalary.trim()) params.append('minSalary', minSalary.trim());
       if (salaryType) params.append('salaryType', salaryType);
       
-      const response = await fetch(`/api/external-jobs?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch jobs');
+      const response = await fetch(`/api/instant-matches?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch job matches');
       return response.json();
     },
     enabled: step === 'results' && !!skills.trim(),
     retry: 2,
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
-  const jobsToShow = externalJobsData?.jobs || [];
+  const jobsToShow = Array.isArray(matchesData?.matches) ? matchesData.matches : [];
 
   useEffect(() => {
     if (step === 'results') {
@@ -491,9 +493,11 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       </p>
                     </div>
                   ) : (
-                    jobsToShow.map((job: any, index: number) => (
+                    jobsToShow.map((match: any, index: number) => {
+                      const job = match.job || match; // Handle both match object and direct job object
+                      return (
                     <motion.div
-                      key={job.id}
+                      key={match.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 + 0.3 }}
@@ -506,7 +510,28 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.job?.title || job.title}</h4>
+                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.title}</h4>
+                                
+                                {/* Job Source Badge */}
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ delay: index * 0.1 + 0.4, type: "spring", bounce: 0.5 }}
+                                >
+                                  {job.source === 'internal' ? (
+                                    <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-0 text-xs px-2 py-1 shadow-lg">
+                                      <Building className="w-3 h-3 mr-1" />
+                                      Internal
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-gradient-to-r from-orange-500 to-red-600 text-white border-0 text-xs px-2 py-1 shadow-lg">
+                                      <Zap className="w-3 h-3 mr-1" />
+                                      {job.company || 'External'}
+                                    </Badge>
+                                  )}
+                                </motion.div>
+
+                                {/* Match Score Badge */}
                                 <motion.div
                                   initial={{ scale: 0 }}
                                   animate={{ scale: 1 }}
@@ -514,24 +539,24 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                                 >
                                   <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
                                     <Star className="w-3 h-3 mr-1" />
-                                    {job.matchScore || job.match || '90%'}
+                                    {match.matchScore || '90%'}
                                   </Badge>
                                 </motion.div>
-                                {job.chatActive && (
-                                  <motion.div
-                                    animate={{ scale: [1, 1.1, 1] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                  >
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900 dark:to-cyan-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                                      <motion.div
-                                        animate={{ scale: [1, 1.2, 1] }}
-                                        transition={{ duration: 1, repeat: Infinity }}
-                                      >
-                                        <MessageCircle className="w-3 h-3 mr-1" />
-                                      </motion.div>
-                                      Live Chat
-                                    </Badge>
-                                  </motion.div>
+
+                                {/* Exam Badge */}
+                                {job.hasExam && (
+                                  <Badge className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    Take Exam
+                                  </Badge>
+                                )}
+
+                                {/* Chat Badge for Internal Jobs */}
+                                {job.source === 'internal' && (
+                                  <Badge className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
+                                    <MessageCircle className="w-3 h-3 mr-1" />
+                                    Chat with HM
+                                  </Badge>
                                 )}
                               </div>
                               <motion.div
@@ -541,7 +566,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               >
                                 <p className="text-gray-700 dark:text-gray-300 font-semibold mb-3 flex items-center">
                                   <Building className="w-4 h-4 mr-2 text-gray-500" />
-                                  {job.job?.company || job.company}
+                                  {job.company}
                                 </p>
                               </motion.div>
                             </div>
@@ -550,47 +575,61 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center">
                               <MapPin className="w-4 h-4 mr-1" />
-                              {job.job?.location || job.location || 'Remote'}
+                              {job.location || 'Remote'}
                             </div>
                             <div className="flex items-center">
                               <DollarSign className="w-4 h-4 mr-1" />
-                              {job.job?.salaryMin && job.job?.salaryMax 
-                                ? `$${job.job.salaryMin/1000}k-$${job.job.salaryMax/1000}k`
-                                : job.salary || '$80k-120k'
+                              {job.salaryMin && job.salaryMax 
+                                ? `$${Math.round(job.salaryMin/1000)}k-$${Math.round(job.salaryMax/1000)}k`
+                                : '$80k-120k'
                               }
                             </div>
                             <div className="flex items-center">
                               <Briefcase className="w-4 h-4 mr-1" />
-                              {job.job?.workType || job.type || 'Full-time'}
+                              {job.workType || 'Full-time'}
                             </div>
                           </div>
 
-
-
                           <div className="mb-4">
                             <div className="flex flex-wrap gap-1">
-                              {(job.job?.skills || job.skills || []).map((skill: string) => (
+                              {(job.skills || []).slice(0, 5).map((skill: string) => (
                                 <Badge key={skill} variant="secondary" className="text-xs">
                                   {skill}
                                 </Badge>
                               ))}
+                              {(job.skills || []).length > 5 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{(job.skills || []).length - 5} more
+                                </Badge>
+                              )}
                             </div>
                           </div>
 
                           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleQuickApply(job.id)}
-                              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
-                            >
-                              <Zap className="w-4 h-4 mr-2" />
-                              Apply Direct
-                            </Button>
+                            {job.hasExam ? (
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleQuickApply(match.id)}
+                                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0"
+                              >
+                                <Award className="w-4 h-4 mr-2" />
+                                Take Exam
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleQuickApply(match.id)}
+                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
+                              >
+                                <Zap className="w-4 h-4 mr-2" />
+                                Apply Direct
+                              </Button>
+                            )}
                             <div className="flex gap-2">
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => handleStartChat(job.id)}
+                                onClick={() => handleStartChat(match.id)}
                                 className="flex-1 sm:flex-none bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
                               >
                                 <MessageCircle className="w-4 h-4 mr-1 sm:mr-2" />
@@ -600,16 +639,16 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => handleLikeJob(job.id)}
-                                className={`${likedJobs.includes(job.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
+                                onClick={() => handleLikeJob(match.id)}
+                                className={`${likedJobs.includes(match.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
                               >
-                                <Heart className={`w-4 h-4 ${likedJobs.includes(job.id) ? 'fill-current' : ''}`} />
+                                <Heart className={`w-4 h-4 ${likedJobs.includes(match.id) ? 'fill-current' : ''}`} />
                               </Button>
                             </div>
                           </div>
 
                           {/* Simple application feedback */}
-                          {appliedJobs.includes(job.id) && (
+                          {appliedJobs.includes(match.id) && (
                             <motion.div
                               initial={{ opacity: 0, y: -5 }}
                               animate={{ opacity: 1, y: 0 }}
@@ -626,8 +665,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                         </CardContent>
                       </Card>
                     </motion.div>
-                  ))
-                  )}
+                    );
+                  }))}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 mt-6">
