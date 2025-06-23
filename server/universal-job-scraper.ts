@@ -57,10 +57,15 @@ export class UniversalJobScraper {
     const extractedJobs = jobUrlExtractor.extractJobUrls(html, sourceUrl);
     if (extractedJobs.length > 0) {
       console.log(`Found ${extractedJobs.length} specific job URLs using advanced extractor`);
+      console.log('Sample extracted job URLs:', extractedJobs.slice(0, 3).map(job => ({
+        title: job.title,
+        url: job.url,
+        company: companyName
+      })));
       
       // Convert extracted jobs to UniversalJob format
       for (const extractedJob of extractedJobs) {
-        jobs.push({
+        const jobData = {
           id: extractedJob.jobId || this.generateId(extractedJob.title, companyName),
           title: extractedJob.title,
           company: companyName || new URL(sourceUrl).hostname.replace('www.', '').replace('.com', ''),
@@ -74,7 +79,10 @@ export class UniversalJobScraper {
           source: 'external',
           externalUrl: extractedJob.url, // Use the specific job application URL
           postedDate: new Date().toISOString()
-        });
+        };
+        
+        console.log(`Creating job with specific URL: ${extractedJob.title} -> ${extractedJob.url}`);
+        jobs.push(jobData);
       }
       
       // If we found specific job URLs, prioritize them and return
