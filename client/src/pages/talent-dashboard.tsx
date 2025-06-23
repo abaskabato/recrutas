@@ -670,12 +670,12 @@ export default function TalentDashboard() {
                           </p>
 
                           <div className="flex flex-wrap gap-2 mb-4">
-                            {job.skills.slice(0, 3).map((skill, index) => (
+                            {job.skills?.slice(0, 3).map((skill, index) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {skill}
                               </Badge>
-                            ))}
-                            {job.skills.length > 3 && (
+                            )) || []}
+                            {job.skills && job.skills.length > 3 && (
                               <Badge variant="outline" className="text-xs">
                                 +{job.skills.length - 3} more
                               </Badge>
@@ -816,12 +816,12 @@ export default function TalentDashboard() {
                           </p>
 
                           <div className="flex flex-wrap gap-2">
-                            {candidate.skills.slice(0, 5).map((skill, index) => (
+                            {candidate.skills?.slice(0, 5).map((skill, index) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {skill}
                               </Badge>
-                            ))}
-                            {candidate.skills.length > 5 && (
+                            )) || []}
+                            {candidate.skills && candidate.skills.length > 5 && (
                               <Badge variant="outline" className="text-xs">
                                 +{candidate.skills.length - 5} more
                               </Badge>
