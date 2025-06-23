@@ -343,26 +343,39 @@ export default function CandidateStreamlinedDashboard() {
                     ) : matches.length > 0 ? (
                       <div className="space-y-4">
                         {matches.map((match) => (
-                          <div key={match.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
+                          <div key={match.id} className={`border rounded-lg p-6 transition-colors ${
+                            match.job?.source === 'internal' 
+                              ? 'border-blue-200 bg-blue-50/30 hover:border-blue-300' 
+                              : 'border-slate-200 hover:border-orange-300'
+                          }`}>
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <div className="flex items-center space-x-3 mb-2">
-                                  <h3 className="font-semibold text-lg text-slate-900">
-                                    {match.job?.title || 'Job Title Unavailable'}
-                                  </h3>
-                                  <Badge variant="secondary">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  {match.job?.source === 'internal' ? (
+                                    <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                                      🎯 Platform Job
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                                      🌐 External
+                                    </Badge>
+                                  )}
+                                  {match.job?.source === 'internal' && match.job?.hasExam && (
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200">
+                                      📝 Has Exam
+                                    </Badge>
+                                  )}
+                                  <Badge variant="secondary" className="bg-green-100 text-green-800">
                                     {match.matchScore}% match
                                   </Badge>
                                   <Badge className={getStatusColor(match.status)}>
                                     {getStatusIcon(match.status)}
                                     <span className="ml-1 capitalize">{match.status}</span>
                                   </Badge>
-                                  {match.job?.source === 'external' && (
-                                    <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
-                                      External
-                                    </Badge>
-                                  )}
                                 </div>
+                                <h3 className="font-semibold text-lg text-slate-900 mb-2">
+                                  {match.job?.title || 'Job Title Unavailable'}
+                                </h3>
                                 
                                 <div className="flex items-center space-x-1 text-slate-600 mb-2">
                                   <Building className="w-4 h-4" />
