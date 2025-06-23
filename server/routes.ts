@@ -1199,26 +1199,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Find and create matches for this job
-      const candidates = await findMatchingCandidates(job);
-      for (const candidate of candidates) {
-        await storage.createJobMatch({
-          jobId: job.id,
-          candidateId: candidate.userId,
-          matchScore: candidate.matchScore.toString(),
-          matchReasons: candidate.matchReasons,
-        });
-        
-        // Notify candidates about new job match with exam requirement
-        await storage.createNotification({
-          userId: candidate.userId,
-          type: 'job_match',
-          title: 'New Job Match',
-          message: job.hasExam 
-            ? `New job match found: ${job.title}. Complete the assessment to qualify for hiring manager chat.`
-            : `New job match found: ${job.title}`,
-          jobId: job.id
-        });
+      // Create matches for ALL candidates when a new job is posted
+      const allCandidates = await storage.getAllCandidateProfiles();
+      console.log(`Creating matches for ${allCandidates.length} candidates for new job: ${job.title}`);
+      
+      for (const candidate of allCandidates) {
+        try {
+          // Calculate match score for each candidate
+          const candidateProfile = {
+            skills: candidate.skills || [],
+            experience: candidate.experience || '',
+            industry: candidate.industry,
+            workType: candidate.workType,
+            salaryMin: candidate.salaryMin,
+            salaryMax: candidate.salaryMax,
+            location: candidate.location,
+          };
+
+          const jobPosting = {
+            title: job.title,
+            company: job.company,
+            skills: job.skills || [],
+            requirements: job.requirements || [],
+            industry: job.industry,
+            workType: job.workType,
+            salaryMin: job.salaryMin,
+            salaryMax: job.salaryMax,
+            location: job.location,
+            description: job.description
+          };
+
+          const match = await generateJobMatch(candidateProfile, jobPosting);
+          
+          // Create match for every candidate (they can see all jobs)
+          await storage.createJobMatch({
+            jobId: job.id,
+            candidateId: candidate.userId,
+            matchScore: (match.score / 100).toString(),
+            matchReasons: match.skillMatches,
+          });
+          
+          // Notify candidates about new job posting
+          await storage.createNotification({
+            userId: candidate.userId,
+            type: 'job_match',
+            title: 'New Job Posted',
+            message: job.hasExam 
+              ? `New job available: ${job.title}. Take the assessment to qualify for direct chat with hiring manager.`
+              : `New job available: ${job.title}`,
+            jobId: job.id
+          });
+        } catch (candidateError) {
+          console.error(`Error creating match for candidate ${candidate.userId}:`, candidateError);
+        }
       }
 
       // Create activity log
