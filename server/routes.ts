@@ -1576,11 +1576,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Transform database matches to ensure proper source mapping and exam indicators
       const internalMatches = dbMatches.map(match => {
-        console.log(`DEBUG: Processing internal job match ${match.id}:`, {
-          jobTitle: match.job?.title,
-          hasExam: match.job?.hasExam,
-          jobId: match.job?.id
-        });
+        const isSDEJob = match.job?.title === 'SDE';
+        if (isSDEJob) {
+          console.log(`DEBUG: SDE Job match found:`, {
+            matchId: match.id,
+            jobId: match.job?.id,
+            title: match.job?.title,
+            hasExam: match.job?.hasExam,
+            company: match.job?.company
+          });
+        }
         
         return {
           ...match,
