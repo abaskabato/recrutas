@@ -171,23 +171,55 @@ export class UniversalJobScraper {
     const jobs: UniversalJob[] = [];
     const jobEntries = new Map<string, string>(); // title -> specific job URL
     
-    // First, extract job links with their titles
+    // Enhanced job link extraction with better patterns
     const linkPatterns = [
-      /<a[^>]*href="([^"]*(?:job|position|role|career|opening)[^"]*)"[^>]*>([^<]+)<\/a>/gi,
-      /<a[^>]*href="([^"]+)"[^>]*(?:class|id)="[^"]*(?:job|position|role)[^"]*"[^>]*>([^<]+)<\/a>/gi,
-      /<a[^>]*(?:class|id)="[^"]*(?:job|position|role)[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi
+      // Direct job links with job keywords in URL
+      /<a[^>]*href="([^"]*(?:job|position|role|career|opening|apply)[^"]*)"[^>]*>([^<]+)<\/a>/gi,
+      // Links with job-related classes or IDs
+      /<a[^>]*href="([^"]+)"[^>]*(?:class|id)="[^"]*(?:job|position|role|career|apply)[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      // Reverse pattern - class/id first
+      /<a[^>]*(?:class|id)="[^"]*(?:job|position|role|career|apply)[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi,
+      // Data attributes for job links
+      /<a[^>]*data-[^=]*="[^"]*(?:job|position|role)[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/gi,
+      // Button-style job links
+      /<button[^>]*onclick="[^"]*(?:job|apply)[^"]*"[^>]*>([^<]+)<\/button>/gi
     ];
 
     for (const pattern of linkPatterns) {
       const matches = Array.from(html.matchAll(pattern));
       for (const match of matches) {
-        const href = match[1]?.trim();
-        const title = match[2]?.trim();
+        let href, title;
         
-        if (href && title && title.length > 5 && title.length < 80) {
-          // Convert relative URLs to absolute
-          const fullUrl = href.startsWith('http') ? href : new URL(href, sourceUrl).href;
-          jobEntries.set(title, fullUrl);
+        if (match.length === 3) {
+          href = match[1]?.trim();
+          title = match[2]?.trim();
+        } else if (match.length === 2) {
+          // For button patterns
+          title = match[1]?.trim();
+          href = null; // Will use fallback URL
+        }
+        
+        if (title && title.length > 5 && title.length < 80) {
+          // Skip navigation and generic links
+          if (title.toLowerCase().includes('home') || 
+              title.toLowerCase().includes('about') || 
+              title.toLowerCase().includes('contact') ||
+              title.toLowerCase().includes('login') ||
+              title.toLowerCase().includes('search') ||
+              title.toLowerCase().includes('filter')) {
+            continue;
+          }
+          
+          if (href) {
+            // Convert relative URLs to absolute
+            const fullUrl = href.startsWith('http') ? href : new URL(href, sourceUrl).href;
+            jobEntries.set(title, fullUrl);
+          } else {
+            // Generate job search URL for this title
+            const baseUrl = new URL(sourceUrl);
+            const searchUrl = `${baseUrl.origin}/careers/search?q=${encodeURIComponent(title)}`;
+            jobEntries.set(title, searchUrl);
+          }
         }
       }
     }
@@ -244,7 +276,10 @@ export class UniversalJobScraper {
 
     let index = 0;
     
-    for (const [title, url] of jobEntries) {
+    // Convert Map to array to enable proper break functionality
+    const jobEntriesArray = Array.from(jobEntries.entries());
+    
+    for (const [title, url] of jobEntriesArray) {
       if (index >= 15) break;
       
       // Skip generic or invalid titles
@@ -261,9 +296,11 @@ export class UniversalJobScraper {
         requirements: this.extractRequirements(title),
         skills: this.extractSkills(title),
         workType: this.inferWorkTypeFromHtml(html, title),
-        source: companyName || new URL(sourceUrl).hostname,
+        salaryMin: undefined,
+        salaryMax: undefined,
+        source: 'web_scraping',
         externalUrl: url,
-        postedDate: new Date().toISOString(),
+        postedDate: new Date().toISOString().split('T')[0]
       });
       index++;
     }
@@ -359,6 +396,8 @@ export class UniversalJobScraper {
     
     return Array.from(new Set(skills));
   }
+
+
 
   private parseLocation(location: any): string {
     if (typeof location === 'string') return location;
