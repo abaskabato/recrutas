@@ -42,9 +42,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch external jobs based on skills and filters
-  const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
-    queryKey: ['/api/external-jobs', skills, jobTitle, location, workType, salaryType, minSalary],
+  // Use the same optimized job matching system as candidate dashboard
+  const { data: matchesData, isLoading: jobsLoading } = useQuery({
+    queryKey: ['/api/instant-matches', skills, jobTitle, location, workType, salaryType, minSalary],
     queryFn: async () => {
       const params = new URLSearchParams({
         skills: skills.trim(),
@@ -56,15 +56,17 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
       if (minSalary.trim()) params.append('minSalary', minSalary.trim());
       if (salaryType) params.append('salaryType', salaryType);
       
-      const response = await fetch(`/api/external-jobs?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch jobs');
+      const response = await fetch(`/api/instant-matches?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch job matches');
       return response.json();
     },
     enabled: step === 'results' && !!skills.trim(),
     retry: 2,
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
-  const jobsToShow = externalJobsData?.jobs || [];
+  const jobsToShow = Array.isArray(matchesData?.matches) ? matchesData.matches : [];
 
   useEffect(() => {
     if (step === 'results') {

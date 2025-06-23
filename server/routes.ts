@@ -1002,6 +1002,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Instant matches for landing page modal - same logic as candidate dashboard
+  app.get('/api/instant-matches', async (req, res) => {
+    try {
+      const { skills, jobTitle, location, workType, minSalary, limit = '8' } = req.query;
+      
+      if (!skills) {
+        return res.status(400).json({ message: 'Skills are required' });
+      }
+
+      // Use the same job fetching logic as candidate dashboard
+      const skillsArray = typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : [];
+      const searchCriteria = {
+        skills: skillsArray,
+        jobTitle: jobTitle as string,
+        location: location as string,
+        workType: workType as string,
+        minSalary: minSalary ? parseInt(minSalary as string) : undefined,
+        limit: parseInt(limit as string)
+      };
+
+      // Fetch from the same source as dashboard - internal + external
+      const matches = await fetchOpenJobSources(skillsArray.join(', '), jobTitle as string || '');
+      
+      // Apply the same filtering and scoring logic
+      const scoredMatches = matches.slice(0, parseInt(limit as string)).map(job => ({
+        id: typeof job.id === 'string' ? job.id : job.id?.toString() || Math.random().toString(),
+        job: {
+          ...job,
+          hasExam: job.source === 'internal' && job.hasExam,
+          source: job.source || 'external'
+        },
+        matchScore: calculateJobMatch(job, searchCriteria),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        aiExplanation: `Matched based on ${skillsArray.slice(0, 3).join(', ')} skills`
+      }));
+
+      // Sort by match score (internal jobs with exams prioritized)
+      const prioritizedMatches = scoredMatches.sort((a, b) => {
+        if (a.job.source === 'internal' && a.job.hasExam && !(b.job.source === 'internal' && b.job.hasExam)) {
+          return -1;
+        }
+        if (b.job.source === 'internal' && b.job.hasExam && !(a.job.source === 'internal' && a.job.hasExam)) {
+          return 1;
+        }
+        return b.matchScore - a.matchScore;
+      });
+
+      res.json({ 
+        matches: prioritizedMatches,
+        total: prioritizedMatches.length,
+        cached: false 
+      });
+    } catch (error) {
+      console.error('Error fetching instant matches:', error);
+      res.status(500).json({ message: 'Failed to fetch instant matches' });
+    }
+  });
+
   // Generate AI matches for candidate
   app.post('/api/candidates/generate-matches', requireAuth, async (req: any, res) => {
     try {
@@ -1017,9 +1076,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         candidateId: userId,
         skills: profile.skills || [],
         experience: profile.experience || 'entry',
-        location: profile.location,
-        salaryExpectation: profile.salaryMin,
-        workType: profile.workType,
+        location: profile.location ?? undefined,
+        salaryExpectation: profile.salaryMin ?? undefined,
+        workType: profile.workType ?? undefined,
       };
 
       const matches = await advancedMatchingEngine.generateAdvancedMatches(matchCriteria);
