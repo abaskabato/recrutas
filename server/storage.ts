@@ -317,6 +317,44 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
+      // First delete all related data in order of dependencies
+      
+      // Delete chat messages for this job first
+      const jobChatRooms = await db
+        .select({ id: chatRooms.id })
+        .from(chatRooms)
+        .where(eq(chatRooms.jobId, id));
+      
+      for (const room of jobChatRooms) {
+        await db
+          .delete(chatMessages)
+          .where(eq(chatMessages.chatRoomId, room.id));
+      }
+      
+      // Delete chat rooms for this job
+      await db
+        .delete(chatRooms)
+        .where(eq(chatRooms.jobId, id));
+      
+      // Delete job applications for this job
+      await db
+        .delete(jobApplications)
+        .where(eq(jobApplications.jobId, id));
+      
+      // Delete job matches
+      await this.clearJobMatches(id);
+      
+      // Delete exam attempts for this job
+      await db
+        .delete(examAttempts)
+        .where(eq(examAttempts.jobId, id));
+      
+      // Delete job exams
+      await db
+        .delete(jobExams)
+        .where(eq(jobExams.jobId, id));
+      
+      // Finally delete the job posting
       await db
         .delete(jobPostings)
         .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
