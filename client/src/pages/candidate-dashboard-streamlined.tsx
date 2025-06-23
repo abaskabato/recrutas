@@ -115,6 +115,24 @@ export default function CandidateStreamlinedDashboard() {
   const [selectedJobId, setSelectedJobId] = useState<number | undefined>(undefined);
   const [selectedJobTitle, setSelectedJobTitle] = useState<string>("");
 
+  // Track applied external jobs in localStorage
+  const getAppliedJobs = () => {
+    if (typeof window === 'undefined') return new Set();
+    const stored = localStorage.getItem(`appliedJobs_${user?.id}`);
+    return new Set(stored ? JSON.parse(stored) : []);
+  };
+
+  const markJobAsApplied = (jobId: string | number) => {
+    if (typeof window === 'undefined') return;
+    const appliedJobs = getAppliedJobs();
+    appliedJobs.add(jobId.toString());
+    localStorage.setItem(`appliedJobs_${user?.id}`, JSON.stringify(Array.from(appliedJobs)));
+  };
+
+  const isJobApplied = (jobId: string | number) => {
+    return getAppliedJobs().has(jobId.toString());
+  };
+
   // Fetch candidate stats
   const { data: stats } = useQuery<CandidateStats>({
     queryKey: ['/api/candidates/stats'],
@@ -172,6 +190,9 @@ export default function CandidateStreamlinedDashboard() {
       return { matchId, ...(await response.json()) };
     },
     onSuccess: (data) => {
+      // Mark job as applied in localStorage for persistence
+      markJobAsApplied(data.matchId);
+      
       // Update the local cache immediately
       queryClient.setQueryData(['/api/candidates/matches'], (oldData: any) => {
         if (!oldData) return oldData;
@@ -535,9 +556,9 @@ export default function CandidateStreamlinedDashboard() {
                                       <Button
                                         size="sm"
                                         onClick={() => markExternalApplicationMutation.mutate(match.id)}
-                                        disabled={match.status === 'applied' || markExternalApplicationMutation.isPending}
+                                        disabled={match.status === 'applied' || isJobApplied(match.id) || markExternalApplicationMutation.isPending}
                                       >
-                                        {match.status === 'applied' ? 'Applied' : 'Mark Applied'}
+                                        {match.status === 'applied' || isJobApplied(match.id) ? 'Applied' : 'Mark Applied'}
                                       </Button>
                                     </>
                                   )}

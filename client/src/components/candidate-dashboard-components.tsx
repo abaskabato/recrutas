@@ -202,6 +202,17 @@ function InternalJobActions({ match, onTakeExam, onApply, onStartChat }) {
 
 // External job actions
 function ExternalJobActions({ match, onMarkApplied }) {
+  // Check localStorage for applied status
+  const getAppliedJobs = () => {
+    if (typeof window === 'undefined') return new Set();
+    const stored = localStorage.getItem(`appliedJobs_${match.candidateId}`);
+    return new Set(stored ? JSON.parse(stored) : []);
+  };
+
+  const isJobApplied = (jobId) => {
+    return getAppliedJobs().has(jobId.toString());
+  };
+
   return (
     <>
       <Button
@@ -215,9 +226,9 @@ function ExternalJobActions({ match, onMarkApplied }) {
       <Button
         size="sm"
         onClick={() => onMarkApplied(match.id)}
-        disabled={match.status === 'applied'}
+        disabled={match.status === 'applied' || isJobApplied(match.id)}
       >
-        {match.status === 'applied' ? 'Applied' : 'Mark Applied'}
+        {match.status === 'applied' || isJobApplied(match.id) ? 'Applied' : 'Mark Applied'}
       </Button>
     </>
   );
