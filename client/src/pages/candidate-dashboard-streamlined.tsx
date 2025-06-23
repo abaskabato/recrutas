@@ -342,7 +342,7 @@ export default function CandidateStreamlinedDashboard() {
                           </div>
                         ))}
                       </div>
-                    ) : matches.length > 0 ? (
+                    ) : matches?.length > 0 ? (
                       <div className="space-y-4">
                         {matches.map((match) => (
                           <div key={match.id} className={`border rounded-lg p-6 transition-colors ${
@@ -501,7 +501,7 @@ export default function CandidateStreamlinedDashboard() {
                           </div>
                         ))}
                       </div>
-                    ) : applications.length > 0 ? (
+                    ) : applications?.length > 0 ? (
                       <div className="space-y-4">
                         {applications.map((application) => (
                           <div key={application.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
@@ -546,7 +546,7 @@ export default function CandidateStreamlinedDashboard() {
                           </div>
                         ))}
                       </div>
-                    ) : activities.length > 0 ? (
+                    ) : activities?.length > 0 ? (
                       <div className="space-y-4">
                         {activities.map((activity) => (
                           <div key={activity.id} className="flex items-start space-x-3 p-3 border-l-4 border-l-blue-500 bg-blue-50 rounded-r">

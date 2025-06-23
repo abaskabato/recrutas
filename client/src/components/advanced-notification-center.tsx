@@ -102,12 +102,12 @@ export default function AdvancedNotificationCenter() {
     }
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
-  const filteredNotifications = notifications.filter(notification => {
+  const filteredNotifications = notifications?.filter(notification => {
     if (activeTab === 'all') return true;
     return notification.type === activeTab;
-  });
+  }) || [];
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
