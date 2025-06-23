@@ -213,10 +213,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 className="p-8 text-center"
               >
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  Your Candidate Dashboard Preview
+                  Welcome to Recrutas
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-                  See exactly what you'll get: real job matches, company exams, direct hiring manager chat, and application tracking
+                  Find real jobs, talk to real people, and get hired—on your terms
                 </p>
                 <Button
                   size="lg"
@@ -239,10 +239,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
               >
                 <div className="max-w-3xl mx-auto">
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
-                    Your Personalized Job Feed Setup
+                    Find Your Perfect Match
                   </h3>
                   <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
-                    This is exactly how you'll configure your dashboard to receive instant job matches
+                    Tell us what you're looking for
                   </p>
                   
                   <div className="space-y-6">
@@ -467,7 +467,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <Sparkles className="w-8 h-8 text-white" />
                   </motion.div>
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                    {jobsLoading ? "Loading Your Dashboard..." : `Your Live Job Feed (${jobsToShow.length} matches)`}
+                    {jobsLoading ? "Finding Matches..." : `${jobsToShow.length} Jobs Found`}
                   </h3>
                   {jobsLoading && (
                     <motion.div
@@ -670,12 +670,12 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     className="w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                     onClick={handleGetStarted}
                   >
-                    Access Your Dashboard
+                    Get Full Access
                     <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 ml-2" />
                   </Button>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
-                  This preview shows your actual candidate dashboard - job matches, exams, and direct hiring manager chat
+                  Join 8+ professionals already using Recrutas
                 </p>
               </motion.div>
             )}
