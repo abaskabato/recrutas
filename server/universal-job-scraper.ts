@@ -1,4 +1,5 @@
 import { jobUrlExtractor } from './job-url-extractor';
+import { advancedJobExtractor } from './advanced-job-extractor';
 
 interface UniversalJob {
   id: string;
@@ -54,17 +55,17 @@ export class UniversalJobScraper {
     const jobs: UniversalJob[] = [];
     
     // Method 1: Advanced Job URL Extractor (highest priority for specific URLs)
-    const extractedJobs = jobUrlExtractor.extractJobUrls(html, sourceUrl);
-    if (extractedJobs.length > 0) {
-      console.log(`Found ${extractedJobs.length} specific job URLs using advanced extractor`);
-      console.log('Sample extracted job URLs:', extractedJobs.slice(0, 3).map(job => ({
+    const advancedExtractions = advancedJobExtractor.extractSpecificJobs(html, sourceUrl);
+    if (advancedExtractions.length > 0) {
+      console.log(`Found ${advancedExtractions.length} specific job URLs using advanced extractor`);
+      console.log('Sample extracted job URLs:', advancedExtractions.slice(0, 3).map(job => ({
         title: job.title,
         url: job.url,
         company: companyName
       })));
       
       // Convert extracted jobs to UniversalJob format
-      for (const extractedJob of extractedJobs) {
+      for (const extractedJob of advancedExtractions) {
         const jobData = {
           id: extractedJob.jobId || this.generateId(extractedJob.title, companyName),
           title: extractedJob.title,
