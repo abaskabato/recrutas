@@ -80,6 +80,7 @@ export interface IStorage {
   getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]>;
   getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
+  clearJobMatches(jobId: number): Promise<void>;
   
   // Exam operations
   createJobExam(exam: any): Promise<any>;
@@ -423,6 +424,17 @@ export class DatabaseStorage implements IStorage {
       return match;
     } catch (error) {
       console.error('Error updating match status:', error);
+      throw error;
+    }
+  }
+
+  async clearJobMatches(jobId: number): Promise<void> {
+    try {
+      await db
+        .delete(jobMatches)
+        .where(eq(jobMatches.jobId, jobId));
+    } catch (error) {
+      console.error('Error clearing job matches:', error);
       throw error;
     }
   }

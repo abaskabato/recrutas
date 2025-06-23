@@ -1399,6 +1399,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Regenerate matches for a job
+  app.post('/api/jobs/:id/regenerate-matches', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseInt(req.params.id);
+      
+      // Get the job details
+      const job = await storage.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== userId) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Find and create matches for this job
+      const candidates = await findMatchingCandidates(job);
+      console.log(`Found ${candidates.length} matching candidates for job ${jobId}`);
+      
+      // Clear existing matches first
+      await storage.clearJobMatches(jobId);
+      
+      // Create new matches
+      for (const candidate of candidates) {
+        await storage.createJobMatch({
+          jobId: job.id,
+          candidateId: candidate.candidateId,
+          matchScore: candidate.matchScore,
+          matchReasons: candidate.matchReasons,
+        });
+      }
+
+      res.json({ success: true, matchesCreated: candidates.length });
+    } catch (error) {
+      console.error("Error regenerating matches:", error);
+      res.status(500).json({ message: "Failed to regenerate matches" });
+    }
+  });
+
   // Job deletion endpoint
   app.delete('/api/jobs/:id', requireAuth, async (req: any, res) => {
     try {
@@ -2940,7 +2976,8 @@ async function findMatchingCandidates(job: any): Promise<any[]> {
       });
       
       return {
-        candidateId: candidate.userId,
+        userId: candidate.userId || candidate.id,
+        candidateId: candidate.userId || candidate.id,
         matchScore: (match.score / 100).toString(),
         matchReasons: match.skillMatches,
       };
