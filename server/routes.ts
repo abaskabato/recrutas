@@ -1536,6 +1536,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get database matches as well
       const dbMatches = await storage.getMatchesForCandidate(userId);
+      console.log(`Found ${dbMatches.length} database matches`);
+
+      // Transform database matches to ensure proper source mapping
+      const internalMatches = dbMatches.map(match => ({
+        ...match,
+        job: {
+          ...match.job,
+          source: match.job?.source === 'platform' ? 'internal' : match.job?.source || 'internal',
+          hasExam: match.job?.hasExam || false
+        }
+      }));
       
       // Transform live jobs into match format with unique IDs
       const liveMatches = [];
@@ -1568,7 +1579,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             salaryMax: job.salaryMax || 200000,
             workType: job.workType,
             description: job.description,
-            skills: job.skills
+            skills: job.skills,
+            source: 'external'
           },
           recruiter: {
             id: `recruiter_${uniqueId}`,
@@ -1579,8 +1591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Combine database matches with live matches
-      const allMatches = [...dbMatches, ...liveMatches];
+      // Combine internal matches with live matches
+      const allMatches = [...internalMatches, ...liveMatches];
+      console.log(`Returning ${allMatches.length} total matches (${internalMatches.length} internal, ${liveMatches.length} external)`);
       
       // Sort by creation date (newest first) to show fresh matches
       allMatches.sort((a, b) => {
