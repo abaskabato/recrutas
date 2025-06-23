@@ -317,39 +317,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // Use raw SQL to handle cascading deletions properly
+      // Delete in proper order to avoid foreign key constraints
+      
+      // 1. Delete chat messages first
       await db.execute(sql`
-        DO $$
-        DECLARE
-            match_record RECORD;
-            room_record RECORD;
-        BEGIN
-            -- Delete chat messages for chat rooms related to job matches
-            FOR match_record IN SELECT id FROM job_matches WHERE job_id = ${id}
-            LOOP
-                FOR room_record IN SELECT id FROM chat_rooms WHERE match_id = match_record.id
-                LOOP
-                    DELETE FROM chat_messages WHERE chat_room_id = room_record.id;
-                END LOOP;
-                DELETE FROM chat_rooms WHERE match_id = match_record.id;
-            END LOOP;
-            
-            -- Delete job applications
-            DELETE FROM job_applications WHERE job_id = ${id};
-            
-            -- Delete job matches
-            DELETE FROM job_matches WHERE job_id = ${id};
-            
-            -- Delete exam attempts
-            DELETE FROM exam_attempts WHERE job_id = ${id};
-            
-            -- Delete job exams
-            DELETE FROM job_exams WHERE job_id = ${id};
-            
-            -- Finally delete the job posting
-            DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = ${talentOwnerId};
-        END $$;
+        DELETE FROM chat_messages 
+        WHERE chat_room_id IN (
+          SELECT cr.id FROM chat_rooms cr 
+          INNER JOIN job_matches jm ON cr.match_id = jm.id 
+          WHERE jm.job_id = ${id}
+        )
       `);
+      
+      // 2. Delete chat rooms
+      await db.execute(sql`
+        DELETE FROM chat_rooms 
+        WHERE match_id IN (
+          SELECT id FROM job_matches WHERE job_id = ${id}
+        )
+      `);
+      
+      // 3. Delete job applications
+      await db.execute(sql`DELETE FROM job_applications WHERE job_id = ${id}`);
+      
+      // 4. Delete job matches
+      await db.execute(sql`DELETE FROM job_matches WHERE job_id = ${id}`);
+      
+      // 5. Delete exam attempts
+      await db.execute(sql`DELETE FROM exam_attempts WHERE job_id = ${id}`);
+      
+      // 6. Delete job exams
+      await db.execute(sql`DELETE FROM job_exams WHERE job_id = ${id}`);
+      
+      // 7. Finally delete the job posting
+      await db.execute(sql`DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = ${talentOwnerId}`);
+      
     } catch (error) {
       console.error('Error deleting job posting:', error);
       throw error;
