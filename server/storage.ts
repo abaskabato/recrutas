@@ -319,22 +319,23 @@ export class DatabaseStorage implements IStorage {
     try {
       // First delete all related data in order of dependencies
       
-      // Delete chat messages for this job first
-      const jobChatRooms = await db
-        .select({ id: chatRooms.id })
-        .from(chatRooms)
-        .where(eq(chatRooms.jobId, id));
-      
-      for (const room of jobChatRooms) {
-        await db
-          .delete(chatMessages)
-          .where(eq(chatMessages.chatRoomId, room.id));
-      }
+      // Delete chat messages and chat rooms through job matches
+      await db.execute(sql`
+        DELETE FROM chat_messages 
+        WHERE chat_room_id IN (
+          SELECT cr.id FROM chat_rooms cr
+          JOIN job_matches jm ON cr.match_id = jm.id
+          WHERE jm.job_id = ${id}
+        )
+      `);
       
       // Delete chat rooms for this job
-      await db
-        .delete(chatRooms)
-        .where(eq(chatRooms.jobId, id));
+      await db.execute(sql`
+        DELETE FROM chat_rooms 
+        WHERE match_id IN (
+          SELECT id FROM job_matches WHERE job_id = ${id}
+        )
+      `);
       
       // Delete job applications for this job
       await db
