@@ -24,21 +24,18 @@ import {
 } from "lucide-react";
 
 interface FilteringExam {
-  type: 'multiple-choice' | 'coding' | 'situational' | 'technical';
   questions: Question[];
   timeLimit: number; // in minutes
   passingScore: number; // percentage
-  autoReject: boolean;
 }
 
 interface Question {
   id: string;
-  type: 'multiple-choice' | 'coding' | 'essay' | 'true-false';
+  type: 'multiple-choice' | 'short-answer';
   question: string;
   options?: string[]; // for multiple choice
-  correctAnswer?: string | number;
+  correctAnswer?: number | string; // index for multiple choice, string for short answer
   points: number;
-  timeLimit?: number; // in minutes for individual questions
 }
 
 interface JobPostingData {
@@ -100,6 +97,7 @@ export default function JobPostingWizard({
     type: 'multiple-choice',
     question: '',
     options: ['', '', '', ''],
+    correctAnswer: 0,
     points: 10,
   });
 
@@ -132,7 +130,6 @@ export default function JobPostingWizard({
         options: currentQuestion.type === 'multiple-choice' ? currentQuestion.options : undefined,
         correctAnswer: currentQuestion.correctAnswer,
         points: currentQuestion.points || 10,
-        timeLimit: currentQuestion.timeLimit,
       };
 
       setJobData(prev => ({
@@ -148,6 +145,7 @@ export default function JobPostingWizard({
         type: 'multiple-choice',
         question: '',
         options: ['', '', '', ''],
+        correctAnswer: 0,
         points: 10,
       });
     }

@@ -2709,6 +2709,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get exam for a specific job
+  app.get("/api/jobs/:jobId/exam", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const exam = await storage.getJobExam(jobId);
+      
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found for this job" });
+      }
+
+      res.json(exam);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Submit exam answers
+  app.post("/api/jobs/:jobId/exam/submit", requireAuth, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const { answers } = req.body;
+      const userId = req.user.id;
+
+      const exam = await storage.getJobExam(jobId);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
+
+      // Calculate score based on user-provided correct answers
+      let totalPoints = 0;
+      let earnedPoints = 0;
+
+      exam.questions.forEach((question: any) => {
+        totalPoints += question.points;
+        const userAnswer = answers[question.id];
+        
+        if (question.type === 'multiple-choice' && question.correctAnswer !== undefined) {
+          if (parseInt(userAnswer) === question.correctAnswer) {
+            earnedPoints += question.points;
+          }
+        } else if (question.type === 'short-answer' && userAnswer && userAnswer.trim().length > 0) {
+          // For short answers, give full points if answered (can be manually reviewed later)
+          earnedPoints += question.points;
+        }
+      });
+
+      const score = Math.round((earnedPoints / totalPoints) * 100);
+      const passed = score >= exam.passingScore;
+
+      // Store exam result
+      await storage.storeExamResult({
+        candidateId: userId,
+        jobId,
+        score,
+        passed,
+        answers: JSON.stringify(answers),
+        submittedAt: new Date()
+      });
+
+      // If passed, update job match status to enable chat
+      if (passed) {
+        await storage.updateJobMatchStatus(userId, jobId, 'screening');
+        
+        // Create notification for successful exam
+        await storage.createNotification({
+          userId: userId,
+          type: 'exam_passed',
+          title: 'Exam Passed!',
+          message: `You scored ${score}% and can now chat with the hiring manager`,
+          jobId: jobId
+        });
+      } else {
+        // Update status to rejected if failed
+        await storage.updateJobMatchStatus(userId, jobId, 'rejected');
+        
+        await storage.createNotification({
+          userId: userId,
+          type: 'exam_failed',
+          title: 'Exam Completed',
+          message: `You scored ${score}%. The passing score was ${exam.passingScore}%`,
+          jobId: jobId
+        });
+      }
+
+      res.json({
+        score,
+        passed,
+        passingScore: exam.passingScore
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server for real-time chat and notifications

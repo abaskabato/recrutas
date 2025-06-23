@@ -426,6 +426,47 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async updateJobMatchStatus(candidateId: string, jobId: number, status: string): Promise<void> {
+    try {
+      await db
+        .update(jobMatches)
+        .set({ status: status as any, updatedAt: new Date() })
+        .where(and(eq(jobMatches.candidateId, candidateId), eq(jobMatches.jobId, jobId)));
+    } catch (error) {
+      console.error('Error updating job match status:', error);
+      throw error;
+    }
+  }
+
+  async getJobExam(jobId: number): Promise<any> {
+    try {
+      const [exam] = await db
+        .select()
+        .from(jobExams)
+        .where(eq(jobExams.jobId, jobId));
+      return exam;
+    } catch (error) {
+      console.error('Error fetching job exam:', error);
+      throw error;
+    }
+  }
+
+  async storeExamResult(result: any): Promise<void> {
+    try {
+      await db.insert(examResults).values({
+        candidateId: result.candidateId,
+        jobId: result.jobId,
+        score: result.score,
+        passed: result.passed,
+        answers: result.answers,
+        submittedAt: result.submittedAt
+      });
+    } catch (error) {
+      console.error('Error storing exam result:', error);
+      throw error;
+    }
+  }
+
   // Chat operations
   async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
     try {

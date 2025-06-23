@@ -18,6 +18,7 @@ import RealTimeChat from "@/components/real-time-chat";
 import AdvancedNotificationCenter from "@/components/advanced-notification-center";
 import InstantJobSearch from "@/components/instant-job-search";
 import EnhancedProfileCompletion from "@/components/enhanced-profile-completion";
+import { JobExam } from "@/components/job-exam";
 import { 
   Briefcase, 
   MessageSquare, 
