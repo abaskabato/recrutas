@@ -369,7 +369,7 @@ export default function CandidateStreamlinedDashboard() {
               <TabsContent value="matches" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>AI-Powered Job Matches</CardTitle>
+                    <CardTitle>Your matches</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {matchesLoading ? (
