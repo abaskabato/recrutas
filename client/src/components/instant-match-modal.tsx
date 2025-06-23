@@ -213,10 +213,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 className="p-8 text-center"
               >
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  Welcome to Recrutas
+                  Your Candidate Dashboard Preview
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-                  Find real jobs, talk to real people, and get hired—on your terms
+                  See exactly what you'll get: real job matches, company exams, direct hiring manager chat, and application tracking
                 </p>
                 <Button
                   size="lg"
@@ -239,10 +239,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
               >
                 <div className="max-w-3xl mx-auto">
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
-                    Find Your Perfect Match
+                    Your Personalized Job Feed Setup
                   </h3>
                   <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
-                    Tell us what you're looking for
+                    This is exactly how you'll configure your dashboard to receive instant job matches
                   </p>
                   
                   <div className="space-y-6">
@@ -580,19 +580,30 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           </div>
 
                           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleQuickApply(job.id)}
-                              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
-                            >
-                              <Zap className="w-4 h-4 mr-2" />
-                              Apply Direct
-                            </Button>
+                            {job.hasExam ? (
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleQuickApply(match.id)}
+                                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0"
+                              >
+                                <Brain className="w-4 h-4 mr-2" />
+                                Take Exam
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleQuickApply(match.id)}
+                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
+                              >
+                                <Zap className="w-4 h-4 mr-2" />
+                                Apply Direct
+                              </Button>
+                            )}
                             <div className="flex gap-2">
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => handleStartChat(job.id)}
+                                onClick={() => handleStartChat(match.id)}
                                 className="flex-1 sm:flex-none bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
                               >
                                 <MessageCircle className="w-4 h-4 mr-1 sm:mr-2" />
@@ -602,16 +613,16 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => handleLikeJob(job.id)}
-                                className={`${likedJobs.includes(job.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
+                                onClick={() => handleLikeJob(match.id)}
+                                className={`${likedJobs.includes(match.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
                               >
-                                <Heart className={`w-4 h-4 ${likedJobs.includes(job.id) ? 'fill-current' : ''}`} />
+                                <Heart className={`w-4 h-4 ${likedJobs.includes(match.id) ? 'fill-current' : ''}`} />
                               </Button>
                             </div>
                           </div>
 
                           {/* Simple application feedback */}
-                          {appliedJobs.includes(job.id) && (
+                          {appliedJobs.includes(match.id) && (
                             <motion.div
                               initial={{ opacity: 0, y: -5 }}
                               animate={{ opacity: 1, y: 0 }}
@@ -628,8 +639,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                         </CardContent>
                       </Card>
                     </motion.div>
-                  ))
-                  )}
+                    );
+                  }))}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 mt-6">
