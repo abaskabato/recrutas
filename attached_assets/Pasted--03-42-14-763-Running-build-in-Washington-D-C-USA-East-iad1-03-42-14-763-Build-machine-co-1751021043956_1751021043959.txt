@@ -1,0 +1,144 @@
+[03:42:14.763] Running build in Washington, D.C., USA (East) – iad1
+[03:42:14.763] Build machine configuration: 2 cores, 8 GB
+[03:42:14.801] Cloning github.com/abaskabato/recrutas (Branch: main, Commit: db8887d)
+[03:42:15.200] Cloning completed: 399.000ms
+[03:42:16.971] Restored build cache from previous deployment (BNkduMQnn9oDvM862m2FfgQyzpBk)
+[03:42:17.674] Running "vercel build"
+[03:42:18.099] Vercel CLI 43.3.0
+[03:42:18.263] WARN! Due to `builds` existing in your configuration file, the Build and Development Settings defined in your Project Settings will not apply. Learn More: https://vercel.link/unused-build-settings
+[03:42:18.727] Installing dependencies...
+[03:42:20.199] 
+[03:42:20.201] up to date in 1s
+[03:42:20.201] 
+[03:42:20.201] 86 packages are looking for funding
+[03:42:20.201]   run `npm fund` for details
+[03:42:20.451] Using TypeScript 5.6.3 (local user-provided)
+[03:42:27.553] server/routes.ts(185,16): error TS2353: Object literal may only specify known properties, and 'role' does not exist in type '{ id?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; name?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; email?: string | ... 1 more ... | PgColumn<...>; createdAt?: SQL<...> | ... 1 more ... | PgColumn<...>; updatedAt?: SQL<...> | ... 1 mo...'.
+[03:42:27.554] server/routes.ts(455,9): error TS2353: Object literal may only specify known properties, and 'firstName' does not exist in type 'Partial<{ id: string; name: string; email: string; createdAt: Date; updatedAt: Date; }>'.
+[03:42:27.554] server/routes.ts(1065,56): error TS2554: Expected 2 arguments, but got 3.
+[03:42:27.554] server/routes.ts(1830,36): error TS2554: Expected 2 arguments, but got 1.
+[03:42:27.554] server/routes.ts(1851,38): error TS2554: Expected 2 arguments, but got 1.
+[03:42:27.554] server/routes.ts(2533,9): error TS2322: Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is not assignable to type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; } & { ...; }'.
+[03:42:27.555]   Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is missing the following properties from type '{ job: { id: number; createdAt: Date; updatedAt: Date; talentOwnerId: string; hiringManagerId: string; title: string; company: string; description: string; requirements: string[]; skills: string[]; ... 18 more ...; maxChatCandidates: number; }; talentOwner: { ...; }; }': job, talentOwner
+[03:42:27.555] server/routes.ts(2568,9): error TS2322: Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is not assignable to type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; } & { ...; }'.
+[03:42:27.555]   Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is missing the following properties from type '{ job: { id: number; createdAt: Date; updatedAt: Date; talentOwnerId: string; hiringManagerId: string; title: string; company: string; description: string; requirements: string[]; skills: string[]; ... 18 more ...; maxChatCandidates: number; }; talentOwner: { ...; }; }': job, talentOwner
+[03:42:27.555] server/routes.ts(2815,32): error TS2554: Expected 2 arguments, but got 1.
+[03:42:27.555] 
+[03:42:27.707] server/vite.ts(4,10): error TS2305: Module '"vite"' has no exported member 'createServer'.
+[03:42:27.707] server/vite.ts(4,44): error TS2303: Circular definition of import alias 'createLogger'.
+[03:42:27.707] server/vite.ts(4,44): error TS2459: Module '"vite"' declares 'createLogger' locally, but it is not exported.
+[03:42:27.707] server/vite.ts(49,9): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:27.707] server/vite.ts(71,33): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:27.707] 
+[03:42:28.807] server/storage.ts(189,16): error TS2353: Object literal may only specify known properties, and 'role' does not exist in type '{ id?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; name?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; email?: string | ... 1 more ... | PgColumn<...>; createdAt?: SQL<...> | ... 1 more ... | PgColumn<...>; updatedAt?: SQL<...> | ... 1 mo...'.
+[03:42:28.808] server/storage.ts(233,11): error TS2769: No overload matches this call.
+[03:42:28.810]   Overload 1 of 2, '(value: { userId: string | SQL<unknown> | Placeholder<string, any>; }): PgInsertBase<PgTableWithColumns<{ name: "candidate_profiles"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "candidate_profiles"; ... 12 more ...; generated: undefined; }, {}, {}>; ... 26 more ...; updatedAt: PgColumn<...>; }; dialect: "pg"; }>, ... 4 more ..., never>', gave the following error.
+[03:42:28.810]     Object literal may only specify known properties, and 'skills' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; }'.
+[03:42:28.810]   Overload 2 of 2, '(values: { userId: string | SQL<unknown> | Placeholder<string, any>; }[]): PgInsertBase<PgTableWithColumns<{ name: "candidate_profiles"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "candidate_profiles"; ... 12 more ...; generated: undefined; }, {}, {}>; ... 26 more ...; updatedAt: PgColumn<...>; }; dialect: "pg"; }>, ... 4 more ..., never>', gave the following error.
+[03:42:28.811]     Object literal may only specify known properties, and 'skills' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; }[]'.
+[03:42:28.811] server/storage.ts(233,27): error TS2339: Property 'skills' does not exist on type '{}'.
+[03:42:28.811] server/storage.ts(240,13): error TS2353: Object literal may only specify known properties, and 'skills' does not exist in type 'PgUpdateSetSource<PgTableWithColumns<{ name: "candidate_profiles"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "candidate_profiles"; dataType: "number"; columnType: "PgSerial"; data: number; driverParam: number; ... 8 more ...; generated: undefined; }, {}, {}>; ... 26 more ...; updatedAt: PgC...'.
+[03:42:28.811] server/storage.ts(240,29): error TS2339: Property 'skills' does not exist on type '{}'.
+[03:42:28.812] server/storage.ts(266,9): error TS2769: No overload matches this call.
+[03:42:28.812]   Overload 1 of 2, '(value: { talentOwnerId: string | SQL<unknown> | Placeholder<string, any>; title: string | SQL<unknown> | Placeholder<string, any>; company: string | SQL<unknown> | Placeholder<...>; description: string | ... 1 more ... | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:28.813]     Object literal may only specify known properties, and 'skills' does not exist in type '{ talentOwnerId: string | SQL<unknown> | Placeholder<string, any>; title: string | SQL<unknown> | Placeholder<string, any>; company: string | SQL<unknown> | Placeholder<...>; description: string | ... 1 more ... | Placeholder<...>; }'.
+[03:42:28.813]   Overload 2 of 2, '(values: { talentOwnerId: string | SQL<unknown> | Placeholder<string, any>; title: string | SQL<unknown> | Placeholder<string, any>; company: string | SQL<unknown> | Placeholder<...>; description: string | ... 1 more ... | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:28.813]     Object literal may only specify known properties, and 'skills' does not exist in type '{ talentOwnerId: string | SQL<unknown> | Placeholder<string, any>; title: string | SQL<unknown> | Placeholder<string, any>; company: string | SQL<unknown> | Placeholder<...>; description: string | ... 1 more ... | Placeholder<...>; }[]'.
+[03:42:28.813] server/storage.ts(266,21): error TS2339: Property 'skills' does not exist on type '{}'.
+[03:42:28.813] server/storage.ts(267,27): error TS2339: Property 'requirements' does not exist on type '{}'.
+[03:42:28.813] server/storage.ts(268,30): error TS2339: Property 'hiringManagerId' does not exist on type '{}'.
+[03:42:28.813] server/storage.ts(268,53): error TS2339: Property 'talentOwnerId' does not exist on type '{}'.
+[03:42:28.813] server/storage.ts(303,22): error TS2339: Property 'skills' does not exist on type '{ updatedAt: Date; }'.
+[03:42:28.814] server/storage.ts(304,20): error TS2339: Property 'skills' does not exist on type '{ updatedAt: Date; }'.
+[03:42:28.814] server/storage.ts(304,40): error TS2339: Property 'skills' does not exist on type '{ updatedAt: Date; }'.
+[03:42:28.814] server/storage.ts(308,14): error TS2559: Type '{ updatedAt: Date; }' has no properties in common with type '{ talentOwnerId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; title?: string | SQL<unknown> | PgColumn<...>; company?: string | ... 1 more ... | PgColumn<...>; description?: string | ... 1 more ... | PgColumn<...>; }'.
+[03:42:28.814] server/storage.ts(373,9): error TS2769: No overload matches this call.
+[03:42:28.814]   Overload 1 of 2, '(value: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; matchScore: string | SQL<unknown> | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:28.814]     Object literal may only specify known properties, and 'matchReasons' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; matchScore: string | SQL<unknown> | Placeholder<...>; }'.
+[03:42:28.814]   Overload 2 of 2, '(values: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; matchScore: string | SQL<unknown> | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:28.814]     Object literal may only specify known properties, and 'matchReasons' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; matchScore: string | SQL<unknown> | Placeholder<...>; }[]'.
+[03:42:28.814] server/storage.ts(373,29): error TS2339: Property 'matchReasons' does not exist on type '{}'.
+[03:42:28.815] server/storage.ts(374,29): error TS2339: Property 'skillMatches' does not exist on type '{}'.
+[03:42:28.815] server/storage.ts(460,16): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '{ candidateId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; jobId?: number | SQL<unknown> | PgColumn<...>; matchScore?: string | ... 1 more ... | PgColumn<...>; }'.
+[03:42:28.815] server/storage.ts(485,16): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '{ candidateId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; jobId?: number | SQL<unknown> | PgColumn<...>; matchScore?: string | ... 1 more ... | PgColumn<...>; }'.
+[03:42:28.815] server/storage.ts(493,9): error TS2393: Duplicate function implementation.
+[03:42:28.815] server/storage.ts(514,37): error TS2769: No overload matches this call.
+[03:42:28.815]   Overload 1 of 2, '(value: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; examId: number | SQL<unknown> | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:28.815]     Object literal may only specify known properties, and 'score' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; examId: number | SQL<unknown> | Placeholder<...>; }'.
+[03:42:28.816]   Overload 2 of 2, '(values: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; examId: number | SQL<unknown> | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:28.816]     Object literal may only specify known properties, and 'examId' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; examId: number | SQL<unknown> | Placeholder<...>; }[]'.
+[03:42:28.816] server/storage.ts(537,61): error TS2769: No overload matches this call.
+[03:42:28.816]   Overload 1 of 2, '(value: { chatRoomId: number | SQL<unknown> | Placeholder<string, any>; senderId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:28.816]     Argument of type '{}' is not assignable to parameter of type '{ chatRoomId: number | SQL<unknown> | Placeholder<string, any>; senderId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; }'.
+[03:42:28.816]       Type '{}' is missing the following properties from type '{ chatRoomId: number | SQL<unknown> | Placeholder<string, any>; senderId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; }': chatRoomId, senderId, message
+[03:42:28.816]   Overload 2 of 2, '(values: { chatRoomId: number | SQL<unknown> | Placeholder<string, any>; senderId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:28.817]     Argument of type '{}' is not assignable to parameter of type '{ chatRoomId: number | SQL<unknown> | Placeholder<string, any>; senderId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; }[]'.
+[03:42:28.817]       Type '{}' is missing the following properties from type '{ chatRoomId: number | SQL<unknown> | Placeholder<string, any>; senderId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; }[]': length, pop, push, concat, and 29 more.
+[03:42:28.817] server/storage.ts(564,10): error TS2769: No overload matches this call.
+[03:42:28.817]   Overload 1 of 2, '(value: { description: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:28.817]     Object literal may only specify known properties, and 'metadata' does not exist in type '{ description: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<...>; }'.
+[03:42:28.817]   Overload 2 of 2, '(values: { description: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:28.817]     Object literal may only specify known properties, and 'userId' does not exist in type '{ description: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<...>; }[]'.
+[03:42:28.817] server/storage.ts(768,34): error TS2353: Object literal may only specify known properties, and 'updatedAt' does not exist in type 'PgUpdateSetSource<PgTableWithColumns<{ name: "notification_preferences"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "notification_preferences"; dataType: "number"; columnType: "PgSerial"; data: number; driverParam: number; ... 8 more ...; generated: undefined; }, {}, {}>; ... 10 more ...; up...'.
+[03:42:28.818] server/storage.ts(799,16): error TS2353: Object literal may only specify known properties, and 'read' does not exist in type '{ title?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; userId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<...>, {}, {}>; message?: string | ... 1 more ... | PgColumn<...>; type?: SQL<...> | ... 11 more ... | "new_match"; }'.
+[03:42:28.819] server/storage.ts(815,16): error TS2353: Object literal may only specify known properties, and 'read' does not exist in type '{ title?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; userId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<...>, {}, {}>; message?: string | ... 1 more ... | PgColumn<...>; type?: SQL<...> | ... 11 more ... | "new_match"; }'.
+[03:42:28.819] server/storage.ts(838,9): error TS2393: Duplicate function implementation.
+[03:42:28.819] server/storage.ts(911,13): error TS2353: Object literal may only specify known properties, and 'ranking' does not exist in type '{ candidateId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; jobId?: number | SQL<unknown> | PgColumn<...>; examId?: number | ... 1 more ... | PgColumn<...>; }'.
+[03:42:28.820] server/storage.ts(949,10): error TS2769: No overload matches this call.
+[03:42:28.820]   Overload 1 of 2, '(value: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; hiringManagerId: string | SQL<...> | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:28.820]     Object literal may only specify known properties, and 'examAttemptId' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; hiringManagerId: string | SQL<...> | Placeholder<...>; }'.
+[03:42:28.820]   Overload 2 of 2, '(values: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; hiringManagerId: string | SQL<...> | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:28.820]     Object literal may only specify known properties, and 'jobId' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; hiringManagerId: string | SQL<...> | Placeholder<...>; }[]'.
+[03:42:28.820] 
+[03:42:29.111] server/notification-service.ts(19,28): error TS2339: Property 'type' does not exist on type '{}'.
+[03:42:29.122] server/notification-service.ts(77,41): error TS2769: No overload matches this call.
+[03:42:29.122]   Overload 1 of 2, '(value: { userId: string | SQL<unknown> | Placeholder<string, any>; }): PgInsertBase<PgTableWithColumns<{ name: "connection_status"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "connection_status"; ... 12 more ...; generated: undefined; }, {}, {}>; ... 6 more ...; updatedAt: PgColumn<...>; }; dialect: "pg"; }>, ... 4 more ..., never>', gave the following error.
+[03:42:29.122]     Object literal may only specify known properties, and 'isOnline' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; }'.
+[03:42:29.122]   Overload 2 of 2, '(values: { userId: string | SQL<unknown> | Placeholder<string, any>; }[]): PgInsertBase<PgTableWithColumns<{ name: "connection_status"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "connection_status"; ... 12 more ...; generated: undefined; }, {}, {}>; ... 6 more ...; updatedAt: PgColumn<...>; }; dialect: "pg"; }>, ... 4 more ..., never>', gave the following error.
+[03:42:29.122]     Object literal may only specify known properties, and 'userId' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; }[]'.
+[03:42:29.122] server/notification-service.ts(84,11): error TS2353: Object literal may only specify known properties, and 'isOnline' does not exist in type 'PgUpdateSetSource<PgTableWithColumns<{ name: "connection_status"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "connection_status"; dataType: "number"; columnType: "PgSerial"; data: number; driverParam: number; ... 8 more ...; generated: undefined; }, {}, {}>; ... 6 more ...; updatedAt: PgColu...'.
+[03:42:29.122] server/notification-service.ts(104,61): error TS2769: No overload matches this call.
+[03:42:29.122]   Overload 1 of 2, '(value: { title: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; type: SQL<...> | ... 11 more ... | Placeholder<...>; }): PgInsertBase<...>', gave the following error.
+[03:42:29.122]     Object literal may only specify known properties, and 'priority' does not exist in type '{ title: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; type: SQL<...> | ... 11 more ... | Placeholder<...>; }'.
+[03:42:29.122]   Overload 2 of 2, '(values: { title: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; type: SQL<...> | ... 11 more ... | Placeholder<...>; }[]): PgInsertBase<...>', gave the following error.
+[03:42:29.122]     Object literal may only specify known properties, and 'userId' does not exist in type '{ title: string | SQL<unknown> | Placeholder<string, any>; userId: string | SQL<unknown> | Placeholder<string, any>; message: string | SQL<unknown> | Placeholder<...>; type: SQL<...> | ... 11 more ... | Placeholder<...>; }[]'.
+[03:42:29.122] server/notification-service.ts(384,11): error TS2353: Object literal may only specify known properties, and 'read' does not exist in type '{ title?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; userId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<...>, {}, {}>; message?: string | ... 1 more ... | PgColumn<...>; type?: SQL<...> | ... 11 more ... | "new_match"; }'.
+[03:42:29.122] server/notification-service.ts(401,11): error TS2353: Object literal may only specify known properties, and 'read' does not exist in type '{ title?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; userId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<...>, {}, {}>; message?: string | ... 1 more ... | PgColumn<...>; type?: SQL<...> | ... 11 more ... | "new_match"; }'.
+[03:42:29.122] 
+[03:42:29.837] shared/schema.ts(523,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(524,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(528,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(529,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(530,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(534,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(535,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(536,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(540,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(541,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(542,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(546,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(547,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(551,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.837] shared/schema.ts(552,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(553,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(557,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(558,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(559,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(563,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(564,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(565,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(569,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(570,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] shared/schema.ts(571,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[03:42:29.838] 
+[03:42:34.136] vite.config.ts(1,10): error TS2305: Module '"vite"' has no exported member 'defineConfig'.
+[03:42:34.136] vite.config.ts(21,25): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:34.136] vite.config.ts(22,31): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:34.136] vite.config.ts(23,31): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:34.136] vite.config.ts(26,22): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:34.136] vite.config.ts(28,26): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:42:34.137] 
+[03:42:41.991] Build Completed in /vercel/output [23s]
+[03:42:42.309] Deploying outputs...
+[03:42:49.101] 
+[03:42:49.230] Deployment completed
