@@ -1016,9 +1016,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         candidateId: userId,
         skills: profile.skills || [],
         experience: profile.experience || 'entry',
-        location: profile.location,
-        salaryExpectation: profile.salaryMin,
-        workType: profile.workType,
+        location: profile.location || undefined,
+        salaryExpectation: profile.salaryMin || undefined,
+        workType: profile.workType || undefined,
       };
 
       const matches = await advancedMatchingEngine.generateAdvancedMatches(matchCriteria);
@@ -1062,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Internal job - update in database
       const matchId = parseInt(matchIdStr);
-      await storage.updateMatchStatus(matchId, userId, 'applied');
+      await storage.updateMatchStatus(matchId, 'applied');
       
       res.json({ success: true, type: 'internal' });
     } catch (error) {
@@ -1223,11 +1223,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const candidateProfile = {
             skills: candidate.skills || [],
             experience: candidate.experience || '',
-            industry: candidate.industry,
-            workType: candidate.workType,
-            salaryMin: candidate.salaryMin,
-            salaryMax: candidate.salaryMax,
-            location: candidate.location,
+            industry: candidate.industry || undefined,
+            workType: candidate.workType || undefined,
+            salaryMin: candidate.salaryMin || undefined,
+            salaryMax: candidate.salaryMax || undefined,
+            location: candidate.location || undefined,
           };
 
           const jobPosting = {
