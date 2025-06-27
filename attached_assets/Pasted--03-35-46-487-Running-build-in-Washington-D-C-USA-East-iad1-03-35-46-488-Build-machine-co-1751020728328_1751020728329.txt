@@ -1,0 +1,103 @@
+[03:35:46.487] Running build in Washington, D.C., USA (East) – iad1
+[03:35:46.488] Build machine configuration: 2 cores, 8 GB
+[03:35:46.504] Cloning github.com/abaskabato/recrutas (Branch: main, Commit: 73ad224)
+[03:35:46.606] Skipping build cache, deployment was triggered without cache.
+[03:35:46.999] Cloning completed: 495.000ms
+[03:35:47.322] Running "vercel build"
+[03:35:47.786] Vercel CLI 43.3.0
+[03:35:47.950] WARN! Due to `builds` existing in your configuration file, the Build and Development Settings defined in your Project Settings will not apply. Learn More: https://vercel.link/unused-build-settings
+[03:35:48.509] Installing dependencies...
+[03:35:54.421] npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+[03:35:54.425] npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+[03:36:08.269] 
+[03:36:08.269] added 704 packages in 20s
+[03:36:08.270] 
+[03:36:08.270] 86 packages are looking for funding
+[03:36:08.270]   run `npm fund` for details
+[03:36:08.570] Using TypeScript 5.6.3 (local user-provided)
+[03:36:15.698] server/routes.ts(1024,76): error TS2345: Argument of type '{ candidateId: any; skills: string[]; experience: string; location: string | null; salaryExpectation: number | null; workType: "remote" | "hybrid" | "onsite" | null; }' is not assignable to parameter of type 'AdvancedMatchCriteria'.
+[03:36:15.698]   Types of property 'location' are incompatible.
+[03:36:15.698]     Type 'string | null' is not assignable to type 'string | undefined'.
+[03:36:15.698]       Type 'null' is not assignable to type 'string | undefined'.
+[03:36:15.699] server/routes.ts(1065,56): error TS2554: Expected 2 arguments, but got 3.
+[03:36:15.699] server/routes.ts(1246,48): error TS2345: Argument of type '{ skills: string[]; experience: string; industry: string | null; workType: "remote" | "hybrid" | "onsite" | null; salaryMin: number | null; salaryMax: number | null; location: string | null; }' is not assignable to parameter of type 'CandidateProfile'.
+[03:36:15.699]   Types of property 'industry' are incompatible.
+[03:36:15.699]     Type 'string | null' is not assignable to type 'string | undefined'.
+[03:36:15.699]       Type 'null' is not assignable to type 'string | undefined'.
+[03:36:15.699] server/routes.ts(1732,35): error TS2339: Property 'hasExam' does not exist on type '{ source: string; hasExam: boolean; company: string; workType: "remote" | "hybrid" | "onsite"; id: number; createdAt: Date | null; updatedAt: Date | null; talentOwnerId: string; ... 20 more ...; maxChatCandidates: number | null; } | { ...; }'.
+[03:36:15.700]   Property 'hasExam' does not exist on type '{ id: string; title: string; company: string; location: string; salaryMin: number; salaryMax: number; workType: string; description: string; skills: string[]; source: string; }'.
+[03:36:15.700] server/routes.ts(1830,36): error TS2554: Expected 2 arguments, but got 1.
+[03:36:15.700] server/routes.ts(1851,38): error TS2554: Expected 2 arguments, but got 1.
+[03:36:15.700] server/routes.ts(2254,33): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ 'san francisco': string[]; seattle: string[]; 'new york': string[]; 'los angeles': string[]; chicago: string[]; austin: string[]; boston: string[]; denver: string[]; }'.
+[03:36:15.700]   No index signature with a parameter of type 'string' was found on type '{ 'san francisco': string[]; seattle: string[]; 'new york': string[]; 'los angeles': string[]; chicago: string[]; austin: string[]; boston: string[]; denver: string[]; }'.
+[03:36:15.700] server/routes.ts(2256,39): error TS7006: Parameter 'area' implicitly has an 'any' type.
+[03:36:15.702] server/routes.ts(2533,9): error TS2322: Type '{ candidateId: string; id: number; jobId: number; createdAt: Date | null; updatedAt: Date | null; status: "pending" | "viewed" | "interested" | "applied" | "rejected" | null; ... 8 more ...; appliedAt: Date | null; }' is not assignable to type '{ candidateId: string; id: number; jobId: number; createdAt: Date | null; updatedAt: Date | null; status: "pending" | "viewed" | "interested" | "applied" | "rejected" | null; ... 8 more ...; appliedAt: Date | null; } & { ...; }'.
+[03:36:15.703]   Type '{ candidateId: string; id: number; jobId: number; createdAt: Date | null; updatedAt: Date | null; status: "pending" | "viewed" | "interested" | "applied" | "rejected" | null; ... 8 more ...; appliedAt: Date | null; }' is missing the following properties from type '{ job: { id: number; createdAt: Date | null; updatedAt: Date | null; talentOwnerId: string; hiringManagerId: string | null; title: string; company: string; description: string; ... 20 more ...; maxChatCandidates: number | null; }; talentOwner: { ...; }; }': job, talentOwner
+[03:36:15.703] server/routes.ts(2568,9): error TS2322: Type '{ candidateId: string; id: number; jobId: number; createdAt: Date | null; updatedAt: Date | null; status: "pending" | "viewed" | "interested" | "applied" | "rejected" | null; ... 8 more ...; appliedAt: Date | null; }' is not assignable to type '{ candidateId: string; id: number; jobId: number; createdAt: Date | null; updatedAt: Date | null; status: "pending" | "viewed" | "interested" | "applied" | "rejected" | null; ... 8 more ...; appliedAt: Date | null; } & { ...; }'.
+[03:36:15.703]   Type '{ candidateId: string; id: number; jobId: number; createdAt: Date | null; updatedAt: Date | null; status: "pending" | "viewed" | "interested" | "applied" | "rejected" | null; ... 8 more ...; appliedAt: Date | null; }' is missing the following properties from type '{ job: { id: number; createdAt: Date | null; updatedAt: Date | null; talentOwnerId: string; hiringManagerId: string | null; title: string; company: string; description: string; ... 20 more ...; maxChatCandidates: number | null; }; talentOwner: { ...; }; }': job, talentOwner
+[03:36:15.703] server/routes.ts(2815,32): error TS2554: Expected 2 arguments, but got 1.
+[03:36:15.703] 
+[03:36:15.835] server/vite.ts(4,10): error TS2305: Module '"vite"' has no exported member 'createServer'.
+[03:36:15.836] server/vite.ts(4,44): error TS2303: Circular definition of import alias 'createLogger'.
+[03:36:15.836] server/vite.ts(4,44): error TS2459: Module '"vite"' declares 'createLogger' locally, but it is not exported.
+[03:36:15.836] server/vite.ts(34,15): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+[03:36:15.836] server/vite.ts(34,20): error TS7006: Parameter 'options' implicitly has an 'any' type.
+[03:36:15.836] server/vite.ts(49,9): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:15.836] server/vite.ts(71,33): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:15.836] 
+[03:36:16.616] server/storage.ts(233,11): error TS2769: No overload matches this call.
+[03:36:16.616]   Overload 1 of 2, '(value: { userId: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; email?: string | SQL<unknown> | Placeholder<...> | null | undefined; ... 24 more ...; profileViews?: number | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error.
+[03:36:16.616]     Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; }' is not assignable to type 'string[] | SQL<unknown> | Placeholder<string, any> | null | undefined'.
+[03:36:16.616]       Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; }' is not assignable to type 'string[]'.
+[03:36:16.617]         The types returned by 'pop()' are incompatible between these types.
+[03:36:16.617]           Type 'unknown' is not assignable to type 'string | undefined'.
+[03:36:16.617]   Overload 2 of 2, '(values: { userId: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; email?: string | SQL<unknown> | Placeholder<...> | null | undefined; ... 24 more ...; profileViews?: number | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error.
+[03:36:16.617]     Object literal may only specify known properties, and 'skills' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; email?: string | SQL<unknown> | Placeholder<...> | null | undefined; ... 24 more ...; profileViews?: number | ... 3 more ... | undefined; }[]'.
+[03:36:16.617] server/storage.ts(240,13): error TS2322: Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; }' is not assignable to type 'string[] | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | null | undefined'.
+[03:36:16.618]   Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; }' is not assignable to type 'string[]'.
+[03:36:16.618]     The types returned by 'pop()' are incompatible between these types.
+[03:36:16.618]       Type 'unknown' is not assignable to type 'string | undefined'.
+[03:36:16.618] server/storage.ts(266,9): error TS2769: No overload matches this call.
+[03:36:16.618]   Overload 2 of 2, '(values: { talentOwnerId: string | SQL<unknown> | Placeholder<string, any>; title: string | SQL<unknown> | Placeholder<string, any>; company: string | SQL<unknown> | Placeholder<...>; ... 25 more ...; maxChatCandidates?: number | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error.
+[03:36:16.618]     Object literal may only specify known properties, and 'skills' does not exist in type '{ talentOwnerId: string | SQL<unknown> | Placeholder<string, any>; title: string | SQL<unknown> | Placeholder<string, any>; company: string | SQL<unknown> | Placeholder<...>; ... 25 more ...; maxChatCandidates?: number | ... 3 more ... | undefined; }[]'.
+[03:36:16.619] server/storage.ts(308,14): error TS2345: Argument of type '{ updatedAt: Date; talentOwnerId?: string | undefined; title?: string | undefined; company?: string | undefined; description?: string | undefined; hiringManagerId?: string | null | undefined; ... 20 more ...; maxChatCandidates?: number | ... 1 more ... | undefined; }' is not assignable to parameter of type '{ talentOwnerId?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | undefined; title?: string | SQL<...> | PgColumn<...> | undefined; ... 26 more ...; maxChatCandidates?: number | ... 3 more ... | undefined; }'.
+[03:36:16.620]   Types of property 'requirements' are incompatible.
+[03:36:16.620]     Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; } | null | undefined' is not assignable to type 'string[] | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | null | undefined'.
+[03:36:16.620]       Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; }' is not assignable to type 'string[] | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | null | undefined'.
+[03:36:16.621]         Type '{ [x: number]: string; length: number; toString: () => string; toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }; ... 31 more ...; at: (index: number) => unknown; }' is not assignable to type 'string[]'.
+[03:36:16.621]           The types returned by 'pop()' are incompatible between these types.
+[03:36:16.621]             Type 'unknown' is not assignable to type 'string | undefined'.
+[03:36:16.621] server/storage.ts(373,9): error TS2769: No overload matches this call.
+[03:36:16.621]   Overload 2 of 2, '(values: { candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; matchScore: string | SQL<unknown> | Placeholder<...>; ... 11 more ...; appliedAt?: SQL<...> | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error.
+[03:36:16.621]     Object literal may only specify known properties, and 'matchReasons' does not exist in type '{ candidateId: string | SQL<unknown> | Placeholder<string, any>; jobId: number | SQL<unknown> | Placeholder<string, any>; matchScore: string | SQL<unknown> | Placeholder<...>; ... 11 more ...; appliedAt?: SQL<...> | ... 3 more ... | undefined; }[]'.
+[03:36:16.622] server/storage.ts(493,9): error TS2393: Duplicate function implementation.
+[03:36:16.622] server/storage.ts(838,9): error TS2393: Duplicate function implementation.
+[03:36:16.622] 
+[03:36:17.170] server/notifications.ts(73,17): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ viewed: string; interested: string; interview: string; offer: string; rejected: string; }'.
+[03:36:17.171] 
+[03:36:17.235] server/notification-service.ts(162,9): error TS2322: Type 'boolean | null' is not assignable to type 'boolean'.
+[03:36:17.235]   Type 'null' is not assignable to type 'boolean'.
+[03:36:17.235] server/notification-service.ts(165,9): error TS2322: Type 'boolean | null' is not assignable to type 'boolean'.
+[03:36:17.236]   Type 'null' is not assignable to type 'boolean'.
+[03:36:17.236] server/notification-service.ts(168,9): error TS2322: Type 'boolean | null' is not assignable to type 'boolean'.
+[03:36:17.236]   Type 'null' is not assignable to type 'boolean'.
+[03:36:17.236] server/notification-service.ts(170,9): error TS2322: Type 'boolean | null' is not assignable to type 'boolean'.
+[03:36:17.236]   Type 'null' is not assignable to type 'boolean'.
+[03:36:17.236] 
+[03:36:17.822] server/email-service.ts(32,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+[03:36:17.823]   Type 'undefined' is not assignable to type 'string'.
+[03:36:17.823] 
+[03:36:22.551] vite.config.ts(1,10): error TS2305: Module '"vite"' has no exported member 'defineConfig'.
+[03:36:22.551] vite.config.ts(21,25): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:22.551] vite.config.ts(22,31): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:22.551] vite.config.ts(23,31): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:22.551] vite.config.ts(26,22): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:22.551] vite.config.ts(28,26): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+[03:36:22.551] 
+[03:36:29.934] Build Completed in /vercel/output [41s]
+[03:36:30.289] Deploying outputs...
+[03:36:37.231] 
+[03:36:37.369] Deployment completed
+[03:36:54.895] Uploading build cache [115.43 MB]...
+[03:36:56.299] Build cache uploaded: 1.408s
+[03:36:58.520] Exiting build container
