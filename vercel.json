@@ -1,13 +1,26 @@
 {
   "version": 2,
-  "buildCommand": "vite build && node scripts/prepare-deploy.js",
   "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "server/public"
+      }
+    },
     {
       "src": "server/index.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server/index.ts"
+    },
+    {
+      "handle": "filesystem"
+    },
     {
       "src": "/(.*)",
       "dest": "server/index.ts"
