@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "vite build && node scripts/prepare-deploy.js",
   "builds": [
     {
       "src": "server/index.ts",
