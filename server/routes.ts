@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update user role in database
       await db.update(users)
-        .set({ role, updatedAt: new Date() })
+        .set({ role: role as any, updatedAt: new Date() })
         .where(eq(users.id, userId));
       
       // Get updated user
@@ -456,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber || null
-      });
+      } as any);
 
       res.json({ success: true, user: updatedUser });
     } catch (error) {
@@ -1827,7 +1827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const matchId = parseInt(req.params.matchId);
       const userId = req.user.id;
       
-      // Check if chat room already exists
+      // Check if chat room already exists  
       let chatRoom = await storage.getChatRoom(matchId, userId);
       
       if (!chatRoom) {

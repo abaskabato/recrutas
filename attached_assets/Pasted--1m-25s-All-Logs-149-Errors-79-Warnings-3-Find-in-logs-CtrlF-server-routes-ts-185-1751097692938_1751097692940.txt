@@ -1,0 +1,32 @@
+
+1m 25s
+
+All Logs (149)
+
+Errors (79)
+
+Warnings (3)
+Find in logs
+CtrlF
+server/routes.ts(185,16): error TS2353: Object literal may only specify known properties, and 'role' does not exist in type '{ id?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; name?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; email?: string | ... 1 more ... | PgColumn<...>; createdAt?: SQL<...> | ... 1 more ... | PgColumn<...>; updatedAt?: SQL<...> | ... 1 mo...'.
+server/routes.ts(455,9): error TS2353: Object literal may only specify known properties, and 'firstName' does not exist in type 'Partial<{ id: string; name: string; email: string; createdAt: Date; updatedAt: Date; }>'.
+server/routes.ts(1065,56): error TS2554: Expected 2 arguments, but got 3.
+server/routes.ts(1830,36): error TS2554: Expected 2 arguments, but got 1.
+server/routes.ts(1851,38): error TS2554: Expected 2 arguments, but got 1.
+server/routes.ts(2533,9): error TS2322: Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is not assignable to type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; } & { ...; }'.
+  Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is missing the following properties from type '{ job: { id: number; createdAt: Date; updatedAt: Date; talentOwnerId: string; hiringManagerId: string; title: string; company: string; description: string; requirements: string[]; skills: string[]; ... 18 more ...; maxChatCandidates: number; }; talentOwner: { ...; }; }': job, talentOwner
+server/routes.ts(2568,9): error TS2322: Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is not assignable to type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; } & { ...; }'.
+  Type '{ candidateId: string; id: number; jobId: number; createdAt: Date; updatedAt: Date; status: "pending" | "viewed" | "interested" | "applied" | "rejected"; matchScore: string; ... 7 more ...; appliedAt: Date; }' is missing the following properties from type '{ job: { id: number; createdAt: Date; updatedAt: Date; talentOwnerId: string; hiringManagerId: string; title: string; company: string; description: string; requirements: string[]; skills: string[]; ... 18 more ...; maxChatCandidates: number; }; talentOwner: { ...; }; }': job, talentOwner
+server/routes.ts(2815,32): error TS2554: Expected 2 arguments, but got 1.
+server/vite.ts(4,10): error TS2305: Module '"vite"' has no exported member 'createServer'.
+server/vite.ts(4,44): error TS2303: Circular definition of import alias 'createLogger'.
+server/vite.ts(4,44): error TS2459: Module '"vite"' declares 'createLogger' locally, but it is not exported.
+server/vite.ts(49,9): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+server/vite.ts(71,33): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', or 'nodenext'.
+server/storage.ts(189,16): error TS2353: Object literal may only specify known properties, and 'role' does not exist in type '{ id?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; name?: string | SQL<unknown> | PgColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}>; email?: string | ... 1 more ... | PgColumn<...>; createdAt?: SQL<...> | ... 1 more ... | PgColumn<...>; updatedAt?: SQL<...> | ... 1 mo...'.
+server/storage.ts(233,11): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(value: { userId: string | SQL<unknown> | Placeholder<string, any>; }): PgInsertBase<PgTableWithColumns<{ name: "candidate_profiles"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "candidate_profiles"; ... 12 more ...; generated: undefined; }, {}, {}>; ... 26 more ...; updatedAt: PgColumn<...>; }; dialect: "pg"; }>, ... 4 more ..., never>', gave the following error.
+    Object literal may only specify known properties, and 'skills' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; }'.
+  Overload 2 of 2, '(values: { userId: string | SQL<unknown> | Placeholder<string, any>; }[]): PgInsertBase<PgTableWithColumns<{ name: "candidate_profiles"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "candidate_profiles"; ... 12 more ...; generated: undefined; }, {}, {}>; ... 26 more ...; updatedAt: PgColumn<...>; }; dialect: "pg"; }>, ... 4 more ..., never>', gave the following error.
+    Object literal may only specify known properties, and 'skills' does not exist in type '{ userId: string | SQL<unknown> | Placeholder<string, any>; }[]'.
+server/storage.ts(233,27): error TS2339: Property 'skills' does not exist on type '{}'.
