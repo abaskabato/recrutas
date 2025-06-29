@@ -76,29 +76,9 @@ export class JobAggregator {
   }
 
   async fetchFromArbeitNow(): Promise<ExternalJob[]> {
-    try {
-      console.log('Fetching from ArbeitNow (free European jobs)...');
-      
-      const response = await fetch('https://www.arbeitnow.com/api/job-board-api', {
-        headers: {
-          'User-Agent': 'JobPlatform/1.0',
-          'Accept': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const jobs = this.transformArbeitNowJobs(data.data || []);
-        console.log(`Fetched ${jobs.length} real jobs from ArbeitNow`);
-        return jobs;
-      } else {
-        console.log(`ArbeitNow API returned ${response.status}`);
-        return [];
-      }
-    } catch (error) {
-      console.log('Error fetching from ArbeitNow:', error.message);
-      return [];
-    }
+    // Skipping ArbeitNow - focuses on German/European jobs, not US market
+    console.log('Skipping ArbeitNow (European focus) for US-only job search');
+    return [];
   }
 
   async fetchFromJoobleAPI(userSkills?: string[]): Promise<ExternalJob[]> {
@@ -746,7 +726,6 @@ export class JobAggregator {
       // Fetch from all sources including new ones
       const [
         jsearchJobs,
-        arbeitNowJobs,
         joobleJobs,
         indeedJobs,
         usaJobs,
@@ -757,7 +736,6 @@ export class JobAggregator {
         jsonJobs
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
-        this.fetchFromArbeitNow(),
         this.fetchFromJoobleAPI(userSkills),
         this.fetchFromIndeedRSS(userSkills),
         this.fetchFromUSAJobs(userSkills),
@@ -768,9 +746,8 @@ export class JobAggregator {
         this.generateRelevantJobs(userSkills)
       ]);
 
-      // Add jobs from successful fetches including new sources
+      // Add jobs from successful fetches - US-focused sources only
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
-      if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
       if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
       if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
       if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
@@ -826,7 +803,7 @@ export class JobAggregator {
     }
   }
 
-  // RemoteOK API - free, no authentication required
+  // RemoteOK API - free, no authentication required, filtered for US-friendly jobs
   async fetchRemoteOKJobs(): Promise<ExternalJob[]> {
     try {
       const response = await fetch('https://remoteok.io/api', {
@@ -839,9 +816,31 @@ export class JobAggregator {
         const data = await response.json();
         // Skip first item which is legal notice
         const jobs = data.slice(1);
-        const transformedJobs = this.transformRemoteOKJobs(jobs || []);
         
-        console.log(`Fetched ${transformedJobs.length} real jobs from RemoteOK`);
+        // Filter for US-friendly jobs (remote jobs that accept US applicants)
+        const usJobs = jobs.filter((job: any) => {
+          const location = (job.location || '').toLowerCase();
+          const company = (job.company || '').toLowerCase();
+          const description = (job.description || '').toLowerCase();
+          
+          // Include if: mentions US timezones, US-based companies, or explicitly allows US remote
+          return location.includes('us') || 
+                 location.includes('usa') || 
+                 location.includes('united states') ||
+                 location.includes('america') ||
+                 location.includes('pst') ||
+                 location.includes('est') ||
+                 location.includes('mst') ||
+                 location.includes('cst') ||
+                 description.includes('us time') ||
+                 description.includes('american') ||
+                 // Exclude European timezone requirements
+                 (!location.includes('cet') && !location.includes('gmt+1') && !location.includes('berlin') && !location.includes('europe'));
+        });
+        
+        const transformedJobs = this.transformRemoteOKJobs(usJobs || []);
+        
+        console.log(`Fetched ${transformedJobs.length} US-friendly remote jobs from RemoteOK`);
         return transformedJobs.slice(0, 15);
       }
     } catch (error) {
@@ -851,7 +850,7 @@ export class JobAggregator {
     return [];
   }
 
-  // The Muse API - Free tier with real job data
+  // The Muse API - Free tier with real job data, US-focused
   async fetchFromTheMuse(): Promise<ExternalJob[]> {
     try {
       const categories = ['Software Engineer', 'Data Science', 'Product Management'];
@@ -859,7 +858,8 @@ export class JobAggregator {
       
       for (const category of categories) {
         try {
-          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level`;
+          // Add location parameter to target US-based jobs
+          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&location=United%20States&page=0&level=Senior%20Level&level=Mid%20Level`;
           const response = await fetch(url, {
             headers: {
               'User-Agent': 'Recrutas-Platform/1.0'
@@ -869,7 +869,26 @@ export class JobAggregator {
           if (response.ok) {
             const data = await response.json();
             const jobs = this.transformMuseJobs(data.results || []);
-            allJobs.push(...jobs.slice(0, 5));
+            
+            // Additional filtering for US-based jobs
+            const usJobs = jobs.filter(job => {
+              const location = job.location.toLowerCase();
+              return location.includes('united states') || 
+                     location.includes('usa') || 
+                     location.includes('us') ||
+                     location.includes('remote') ||
+                     location.includes('new york') ||
+                     location.includes('california') ||
+                     location.includes('texas') ||
+                     location.includes('florida') ||
+                     location.includes('washington') ||
+                     !location.includes('germany') &&
+                     !location.includes('berlin') &&
+                     !location.includes('london') &&
+                     !location.includes('uk');
+            });
+            
+            allJobs.push(...usJobs.slice(0, 5));
           }
           
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -878,7 +897,7 @@ export class JobAggregator {
         }
       }
       
-      console.log(`Fetched ${allJobs.length} real jobs from The Muse`);
+      console.log(`Fetched ${allJobs.length} US-focused jobs from The Muse`);
       return allJobs;
     } catch (error) {
       console.error('Error fetching from The Muse:', error);
