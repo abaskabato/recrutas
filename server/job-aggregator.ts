@@ -77,30 +77,35 @@ export class JobAggregator {
 
   async fetchFromHiringCafe(): Promise<ExternalJob[]> {
     try {
-      console.log('Fetching from Hiring.cafe (recent US tech jobs)...');
+      console.log('Fetching from Hiring.cafe (US tech jobs via API)...');
       
-      // Use Hiring.cafe with recent jobs filter (past 2 days)
-      const searchParams = encodeURIComponent('{"dateFetchedPastNDays":2}');
-      const response = await fetch(`https://hiring.cafe/api/jobs?searchState=${searchParams}`, {
+      // Use correct Hiring.cafe API endpoint with POST request
+      const response = await fetch('https://hiring.cafe/api/search-jobs', {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'User-Agent': 'Recrutas-Platform/1.0',
-          'Accept': 'application/json',
-          'Referer': 'https://hiring.cafe/'
-        }
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          keywords: 'software developer engineer tech remote',
+          page: 1,
+          pageSize: 20
+        })
       });
 
       if (response.ok) {
         const data = await response.json();
-        const jobs = this.transformHiringCafeJobs(data.jobs || data || []);
-        console.log(`Fetched ${jobs.length} recent US tech jobs from Hiring.cafe`);
+        const jobs = this.transformHiringCafeJobs(data.results || []);
+        console.log(`Fetched ${jobs.length} real tech jobs from Hiring.cafe API`);
         return jobs;
       } else {
         console.log(`Hiring.cafe API returned ${response.status}`);
-        return this.getHiringCafeFallbackJobs();
+        return [];
       }
     } catch (error) {
-      console.log('Error fetching from Hiring.cafe:', error.message);
-      return this.getHiringCafeFallbackJobs();
+      console.log('Error fetching from Hiring.cafe API:', error.message);
+      return [];
     }
   }
 
@@ -304,21 +309,28 @@ export class JobAggregator {
   }
 
   private transformHiringCafeJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `hc_${job.id || index}`,
-      title: job.title || job.position || 'Untitled Position',
-      company: job.company || job.employer || 'Company Name',
-      location: job.location || job.city || 'Remote',
-      description: job.description || job.summary || '',
-      requirements: this.extractRequirements(job.description || job.requirements || ''),
-      skills: this.extractSkills(job.skills || job.tags || job.description || ''),
-      workType: this.normalizeWorkType(job.remote || job.work_type || job.location),
-      salaryMin: job.salary_min || job.min_salary,
-      salaryMax: job.salary_max || job.max_salary,
-      source: 'hiring.cafe',
-      externalUrl: job.url || job.link || `https://hiring.cafe/jobs/${job.id}`,
-      postedDate: job.posted_at || job.created_at || new Date().toISOString(),
-    }));
+    return jobs.map((job, index) => {
+      const jobInfo = job.job_information || {};
+      const processedData = job.v5_processed_job_data || {};
+      
+      return {
+        id: `hiring_cafe_${job.id || index}`,
+        title: jobInfo.title || 'Tech Position',
+        company: processedData.company_name || 'Tech Company',
+        location: processedData.formatted_workplace_location || 'Remote',
+        description: jobInfo.description || processedData.requirements_summary || '',
+        requirements: this.extractRequirements(processedData.requirements_summary || jobInfo.description || ''),
+        skills: processedData.role_activities || this.extractSkills(jobInfo.description || ''),
+        workType: this.normalizeWorkType(processedData.workplace_type || 'remote'),
+        salaryMin: processedData.yearly_min_compensation,
+        salaryMax: processedData.yearly_max_compensation,
+        source: 'hiring.cafe',
+        externalUrl: job.apply_url || `https://hiring.cafe/jobs/${job.id}`,
+        postedDate: processedData.estimated_publish_date_millis 
+          ? new Date(processedData.estimated_publish_date_millis).toISOString()
+          : new Date().toISOString(),
+      };
+    });
   }
 
   private extractRequirements(text: string): string[] {
