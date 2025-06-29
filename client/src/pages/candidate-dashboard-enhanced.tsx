@@ -23,6 +23,7 @@ import AdvancedNotificationCenter from "@/components/advanced-notification-cente
 import InstantJobSearch from "@/components/instant-job-search";
 import EnhancedProfileCompletion from "@/components/enhanced-profile-completion";
 import { ProfileCompletionModal } from "@/components/profile-completion-modal";
+import { JobExam } from "@/components/job-exam";
 import { 
   Briefcase, 
   MessageSquare, 
@@ -71,6 +72,10 @@ interface JobMatch {
     salaryMin: number;
     salaryMax: number;
     workType: string;
+    hasExam?: boolean;
+    source?: string;
+    externalUrl?: string;
+    careerPageUrl?: string;
   };
   recruiter: {
     id: string;
@@ -112,6 +117,11 @@ export default function CandidateDashboardEnhanced() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [continuationJob, setContinuationJob] = useState<any>(null);
+  
+  // Exam state
+  const [showExam, setShowExam] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+  const [selectedJobTitle, setSelectedJobTitle] = useState<string>('');
   
   // Profile preferences state
   const [profilePrefs, setProfilePrefs] = useState({
@@ -381,7 +391,28 @@ export default function CandidateDashboardEnhanced() {
     }
   });
 
+  // Handle exam taking
+  const handleTakeExam = (jobId: number, jobTitle: string) => {
+    setSelectedJobId(jobId);
+    setSelectedJobTitle(jobTitle);
+    setShowExam(true);
+  };
 
+  // Handle exam completion
+  const handleExamComplete = () => {
+    setShowExam(false);
+    setSelectedJobId(null);
+    setSelectedJobTitle('');
+    
+    toast({
+      title: "Exam Completed",
+      description: "Your exam has been submitted successfully!",
+    });
+    
+    // Refresh matches to update status
+    queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
@@ -765,10 +796,18 @@ export default function CandidateDashboardEnhanced() {
                                       {match.status === 'pending' && (
                                         <Button
                                           size="sm"
-                                          onClick={() => applyToJobMutation.mutate(match.jobId)}
+                                          onClick={() => {
+                                            // For jobs with exams, go directly to exam
+                                            if ((match.job as any)?.hasExam) {
+                                              handleTakeExam(match.jobId, match.job.title);
+                                            } else {
+                                              applyToJobMutation.mutate(match.jobId);
+                                            }
+                                          }}
                                           disabled={applyToJobMutation.isPending}
+                                          className={(match.job as any)?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}
                                         >
-                                          Apply Now
+                                          {(match.job as any)?.hasExam ? '📝 Take Exam' : 'Apply Now'}
                                         </Button>
                                       )}
                                       {match.status === 'applied' && (
@@ -1348,10 +1387,38 @@ export default function CandidateDashboardEnhanced() {
       {/* Profile Completion Modal */}
       {showProfileCompletion && (
         <ProfileCompletionModal
-          user={user}
           onComplete={handleProfileComplete}
           onCancel={() => setShowProfileCompletion(false)}
         />
+      )}
+
+      {/* Exam Modal */}
+      {showExam && selectedJobId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">
+                  Exam: {selectedJobTitle}
+                </h2>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowExam(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
+              <JobExam
+                jobId={selectedJobId}
+                onComplete={handleExamComplete}
+                onCancel={() => setShowExam(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
