@@ -1,9 +1,19 @@
 {
-  "functions": {
-    "api/index.js": {
-      "runtime": "@vercel/node@18"
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "vite build --outDir dist/public",
+        "outputDirectory": "dist/public"
+      }
+    },
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
