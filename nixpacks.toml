@@ -1,0 +1,8 @@
+[phases.build]
+cmd = "npm ci && npm run build"
+
+[phases.start]
+cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"
