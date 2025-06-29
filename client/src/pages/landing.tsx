@@ -404,21 +404,21 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <Badge className="mb-6 bg-blue-500/20 text-blue-300 border-blue-400/30 text-lg px-4 py-2">
-              🚀 DoorDash for Jobs - Now Live!
+            <Badge className="mb-6 bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 border-blue-400/30 text-lg px-6 py-3">
+              ✨ Built on AI. Backed by transparency. Focused on you.
             </Badge>
             
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-8 leading-tight">
               Skip the
               <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Recruiters</span>
               <br />
-              Find Your
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Dream Job</span>
+              Talk to
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Real People</span>
             </h1>
             
             <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-4xl mx-auto leading-relaxed">
-              AI-powered job matching that connects you directly with companies. 
-              Zero recruiter fees, zero hassle, just perfect matches delivered instantly.
+              Connect directly with hiring managers. No middlemen, no fees, no black holes. 
+              Just real conversations with the people who make hiring decisions.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">

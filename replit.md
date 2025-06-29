@@ -126,6 +126,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
+- June 29, 2025. **Human-centered messaging complete** - Updated all platform messaging to be conversational and human-focused with new tagline "Built on AI. Backed by transparency. Focused on you." Landing page hero section now emphasizes talking to real people instead of corporate jargon.
 - June 29, 2025. **OPEN SOURCE RELEASE READY** - Final preparation completed with comprehensive documentation (README.md, CONTRIBUTING.md, enhanced .env.example), security audit passed, all test data removed, and professional codebase organization. Ready for public GitHub release.
 - June 29, 2025. **Platform feature-complete and ready for launch** - Comprehensive job platform with AI matching, merit-based chat, exam system, real-time aggregation, and application intelligence. All core functionality validated and working.
 - June 29, 2025. **System cleanup completed** - Removed all test/demo data from candidate view, ensuring only hiring manager-created exams appear to users.
