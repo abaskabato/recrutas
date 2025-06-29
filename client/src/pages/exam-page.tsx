@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useSession } from "@/hooks/useAuth";
+import { useSession } from "@/lib/auth-client";
 import { JobExam } from "@/components/job-exam";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

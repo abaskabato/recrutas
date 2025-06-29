@@ -1,15 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { 
   Calendar, 
   Clock, 
   Eye, 
   MessageSquare, 
-  ExternalLink, 
   ChevronRight,
   TrendingUp,
   Users,
@@ -20,55 +18,208 @@ import {
   Info
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
 
-interface ApplicationIntelligence {
-  id: number;
-  status: string;
-  appliedAt: string;
-  viewedByEmployerAt?: string;
-  lastStatusUpdate: string;
-  interviewDate?: string;
-  job: {
-    id: number;
-    title: string;
-    company: string;
-    location: string;
-    salaryMin?: number;
-    salaryMax?: number;
-    workType: string;
-  };
-  match?: {
-    matchScore: string;
-    confidenceLevel: string;
-  };
-  // Revolutionary Intelligence Features
-  intelligence?: {
-    timeline: Array<{
-      timestamp: string;
-      type: string;
-      actor: string;
-      details: {
-        viewDuration?: number;
-        ranking?: number;
-        totalApplicants?: number;
-        feedback?: string;
-        humanReadable: string;
-      };
-    }>;
-    insights: {
-      strengthsIdentified: string[];
-      improvementAreas: string[];
-      recommendedActions: string[];
-    };
-    benchmarks: {
-      averageViewTime: number;
-      yourViewTime: number;
-      averageScore: number;
-      yourScore: number;
-    };
-  };
-}
+// Demo data showing revolutionary transparency features
+const demoApplications = [
+  {
+    id: 1,
+    status: 'viewed',
+    appliedAt: '2024-06-25T10:00:00Z',
+    viewedByEmployerAt: '2024-06-26T14:30:00Z',
+    lastStatusUpdate: '2024-06-26T14:30:00Z',
+    job: {
+      id: 1,
+      title: 'Senior Frontend Developer',
+      company: 'TechFlow Inc',
+      location: 'San Francisco, CA',
+      workType: 'remote',
+      salaryMin: 120000,
+      salaryMax: 160000
+    },
+    match: {
+      matchScore: '87',
+      confidenceLevel: 'high'
+    },
+    intelligence: {
+      timeline: [
+        {
+          timestamp: '2024-06-26T14:30:00Z',
+          type: 'viewed',
+          actor: 'Sarah Chen, Engineering Manager',
+          details: {
+            viewDuration: 142,
+            ranking: 3,
+            totalApplicants: 47,
+            feedback: 'Strong React experience and portfolio projects demonstrate solid frontend skills. Would like to see more TypeScript examples.',
+            humanReadable: 'Sarah Chen spent 142 seconds reviewing your profile - you\'re ranked #3 out of 47 applicants.'
+          }
+        },
+        {
+          timestamp: '2024-06-25T10:00:00Z',
+          type: 'submitted',
+          actor: 'System',
+          details: {
+            humanReadable: 'Your application was received and entered into our system.'
+          }
+        }
+      ],
+      insights: {
+        strengthsIdentified: [
+          'Strong React and JavaScript skills',
+          'Impressive portfolio with live demos',
+          'Good problem-solving approach in code examples'
+        ],
+        improvementAreas: [
+          'Add more TypeScript projects to profile',
+          'Highlight team collaboration experience',
+          'Include performance optimization examples'
+        ],
+        recommendedActions: [
+          'Update your portfolio with TypeScript examples',
+          'Add metrics to your project descriptions (e.g., "improved load time by 40%")',
+          'Consider highlighting your most complex technical challenges'
+        ]
+      },
+      benchmarks: {
+        averageViewTime: 45,
+        yourViewTime: 142,
+        averageScore: 65,
+        yourScore: 82
+      }
+    }
+  },
+  {
+    id: 2,
+    status: 'rejected',
+    appliedAt: '2024-06-20T09:15:00Z',
+    viewedByEmployerAt: '2024-06-22T11:20:00Z',
+    lastStatusUpdate: '2024-06-23T16:45:00Z',
+    job: {
+      id: 2,
+      title: 'Full Stack Engineer',
+      company: 'StartupXYZ',
+      location: 'Remote',
+      workType: 'remote',
+      salaryMin: 90000,
+      salaryMax: 130000
+    },
+    match: {
+      matchScore: '71',
+      confidenceLevel: 'medium'
+    },
+    intelligence: {
+      timeline: [
+        {
+          timestamp: '2024-06-23T16:45:00Z',
+          type: 'rejected',
+          actor: 'Mike Rodriguez, CTO',
+          details: {
+            viewDuration: 89,
+            ranking: 8,
+            totalApplicants: 23,
+            feedback: 'Great frontend skills, but we needed stronger backend/database experience for this full-stack role. Consider applying for our frontend-focused positions.',
+            humanReadable: 'Decision made: Great frontend skills, but we needed stronger backend experience for this role.'
+          }
+        },
+        {
+          timestamp: '2024-06-22T11:20:00Z',
+          type: 'viewed',
+          actor: 'Mike Rodriguez, CTO',
+          details: {
+            viewDuration: 89,
+            humanReadable: 'Mike Rodriguez reviewed your profile for 89 seconds.'
+          }
+        }
+      ],
+      insights: {
+        strengthsIdentified: [
+          'Excellent frontend development skills',
+          'Clean, well-structured code examples'
+        ],
+        improvementAreas: [
+          'Expand backend development experience',
+          'Add database design projects',
+          'Include API development examples'
+        ],
+        recommendedActions: [
+          'Build a full-stack project showcasing backend skills',
+          'Learn Node.js/Express or Python/Django',
+          'Add database projects (PostgreSQL, MongoDB) to portfolio'
+        ]
+      },
+      benchmarks: {
+        averageViewTime: 65,
+        yourViewTime: 89,
+        averageScore: 58,
+        yourScore: 71
+      }
+    }
+  },
+  {
+    id: 3,
+    status: 'interview_scheduled',
+    appliedAt: '2024-06-28T14:20:00Z',
+    viewedByEmployerAt: '2024-06-29T10:15:00Z',
+    lastStatusUpdate: '2024-06-29T15:30:00Z',
+    interviewDate: '2024-07-02T10:00:00Z',
+    job: {
+      id: 3,
+      title: 'React Developer',
+      company: 'DesignCorp',
+      location: 'Austin, TX',
+      workType: 'hybrid',
+      salaryMin: 85000,
+      salaryMax: 110000
+    },
+    match: {
+      matchScore: '94',
+      confidenceLevel: 'very high'
+    },
+    intelligence: {
+      timeline: [
+        {
+          timestamp: '2024-06-29T15:30:00Z',
+          type: 'interview_scheduled',
+          actor: 'Jessica Park, Lead Designer',
+          details: {
+            ranking: 2,
+            totalApplicants: 15,
+            feedback: 'Perfect match for our React position! Your design-focused approach and attention to UI/UX details impressed our team.',
+            humanReadable: 'Excellent! You\'ve progressed to interviews as one of the top 2 candidates. Your application really impressed the team.'
+          }
+        },
+        {
+          timestamp: '2024-06-29T10:15:00Z',
+          type: 'viewed',
+          actor: 'Jessica Park, Lead Designer',
+          details: {
+            viewDuration: 203,
+            humanReadable: 'Jessica Park spent 203 seconds reviewing your profile.'
+          }
+        }
+      ],
+      insights: {
+        strengthsIdentified: [
+          'Perfect React skills alignment',
+          'Strong UI/UX design sensibility',
+          'Excellent portfolio presentation'
+        ],
+        improvementAreas: [],
+        recommendedActions: [
+          'Prepare for technical interview questions about React hooks',
+          'Review component optimization and performance',
+          'Be ready to discuss your design process'
+        ]
+      },
+      benchmarks: {
+        averageViewTime: 78,
+        yourViewTime: 203,
+        averageScore: 72,
+        yourScore: 94
+      }
+    }
+  }
+];
 
 const statusConfig: Record<string, { label: string; color: string; progress: number; icon: any }> = {
   submitted: { label: "Submitted", color: "bg-blue-500", progress: 10, icon: CheckCircle },
@@ -81,14 +232,10 @@ const statusConfig: Record<string, { label: string; color: string; progress: num
   withdrawn: { label: "Withdrawn", color: "bg-gray-500", progress: 0, icon: Info }
 };
 
-export default function ApplicationIntelligenceTracker() {
+export default function ApplicationIntelligenceDemo() {
   const [expandedApplication, setExpandedApplication] = useState<number | null>(null);
-  
-  const { data: applications, isLoading } = useQuery<ApplicationIntelligence[]>({
-    queryKey: ["/api/applications/status"],
-  });
 
-  const getStatusBadge = (status: string, intelligence?: ApplicationIntelligence['intelligence']) => {
+  const getStatusBadge = (status: string) => {
     const config = statusConfig[status] || statusConfig.submitted;
     const IconComponent = config.icon;
     
@@ -105,7 +252,7 @@ export default function ApplicationIntelligenceTracker() {
     return statusConfig[status]?.progress || 0;
   };
 
-  const getBenchmarkComparison = (benchmarks: ApplicationIntelligence['intelligence']['benchmarks']) => {
+  const getBenchmarkComparison = (benchmarks: any) => {
     const viewTimePercentage = ((benchmarks.yourViewTime - benchmarks.averageViewTime) / benchmarks.averageViewTime * 100);
     const scorePercentage = ((benchmarks.yourScore - benchmarks.averageScore) / benchmarks.averageScore * 100);
     
@@ -127,61 +274,44 @@ export default function ApplicationIntelligenceTracker() {
     setExpandedApplication(expandedApplication === applicationId ? null : applicationId);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (!applications || applications.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <div className="text-gray-500">
-            <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
-            <p className="text-sm">Start applying to jobs to see revolutionary transparency here</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const activeApplications = applications.filter(app => 
+  const activeApplications = demoApplications.filter(app => 
     !['rejected', 'withdrawn'].includes(app.status)
   );
-  const closedApplications = applications.filter(app => 
+  const closedApplications = demoApplications.filter(app => 
     ['rejected', 'withdrawn'].includes(app.status)
   );
 
   return (
     <div className="space-y-6">
+      {/* Demo Header */}
+      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-2 mb-2">
+          <Eye className="h-4 w-4 text-slate-600" />
+          <span className="font-semibold text-slate-900">Application Intelligence</span>
+        </div>
+        <p className="text-sm text-slate-600">
+          See exactly who viewed your applications, for how long, your ranking among candidates, and detailed feedback. 
+          Complete transparency for your job search.
+        </p>
+      </div>
+
       {/* Active Applications */}
       {activeApplications.length > 0 && (
         <div>
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-600" />
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-900">
+            <TrendingUp className="h-4 w-4 text-green-600" />
             Active Applications ({activeApplications.length})
           </h3>
           <div className="space-y-4">
             {activeApplications.map((application) => (
-              <Card key={application.id} className="transition-all duration-200 hover:shadow-md">
+              <Card key={application.id} className="hover:shadow-md transition-all duration-200 border-slate-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg font-medium">
+                      <CardTitle className="text-lg font-semibold text-slate-900">
                         {application.job.title}
                       </CardTitle>
-                      <CardDescription className="text-sm text-gray-600">
+                      <CardDescription className="text-sm text-slate-600">
                         {application.job.company} • {application.job.location}
                       </CardDescription>
                     </div>
@@ -191,7 +321,7 @@ export default function ApplicationIntelligenceTracker() {
                           {application.match.matchScore}% match
                         </Badge>
                       )}
-                      {getStatusBadge(application.status, application.intelligence)}
+                      {getStatusBadge(application.status)}
                     </div>
                   </div>
                 </CardHeader>
@@ -208,16 +338,16 @@ export default function ApplicationIntelligenceTracker() {
 
                     {/* Revolutionary Intelligence Summary */}
                     {application.intelligence && (
-                      <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                         <div className="flex items-center gap-2 mb-2">
-                          <Eye className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium text-sm">Application Intelligence</span>
+                          <Eye className="h-4 w-4 text-slate-600" />
+                          <span className="font-medium text-sm text-slate-900">Application Intelligence</span>
                         </div>
                         
                         {/* Latest Update */}
                         {application.intelligence.timeline.length > 0 && (
                           <div className="text-sm mb-2">
-                            <p className="text-gray-700 dark:text-gray-300">
+                            <p className="text-slate-700">
                               {application.intelligence.timeline[0].details.humanReadable}
                             </p>
                           </div>
@@ -226,8 +356,8 @@ export default function ApplicationIntelligenceTracker() {
                         {/* Quick Benchmarks */}
                         {application.intelligence.benchmarks && (
                           <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                              <span className="text-gray-500">View Time:</span>
+                            <div className="bg-white p-2 rounded border border-slate-200">
+                              <span className="text-slate-500">View Time:</span>
                               <span className={`ml-1 font-medium ${
                                 getBenchmarkComparison(application.intelligence.benchmarks).viewTime.positive 
                                   ? 'text-green-600' : 'text-orange-600'
@@ -235,8 +365,8 @@ export default function ApplicationIntelligenceTracker() {
                                 {application.intelligence.benchmarks.yourViewTime}s
                               </span>
                             </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                              <span className="text-gray-500">Your Score:</span>
+                            <div className="bg-white p-2 rounded border border-slate-200">
+                              <span className="text-slate-500">Your Score:</span>
                               <span className={`ml-1 font-medium ${
                                 getBenchmarkComparison(application.intelligence.benchmarks).score.positive 
                                   ? 'text-green-600' : 'text-orange-600'
@@ -250,7 +380,7 @@ export default function ApplicationIntelligenceTracker() {
                     )}
 
                     {/* Timestamps */}
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         Applied {formatDistanceToNow(new Date(application.appliedAt), { addSuffix: true })}
@@ -398,8 +528,8 @@ export default function ApplicationIntelligenceTracker() {
       {/* Closed Applications with Learning Insights */}
       {closedApplications.length > 0 && (
         <div>
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <Heart className="h-5 w-5 text-gray-600" />
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-900">
+            <Heart className="h-4 w-4 text-slate-600" />
             Learning from Past Applications ({closedApplications.length})
           </h3>
           <div className="space-y-4">

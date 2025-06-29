@@ -48,8 +48,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
     queryFn: async () => {
       const params = new URLSearchParams({
         skills: skills.trim(),
-        limit: '8',
-        nocache: 'true' // Force fresh results for each search
+        limit: '8'
       });
       if (jobTitle.trim()) params.append('jobTitle', jobTitle.trim());
       if (location.trim()) params.append('location', location.trim());
@@ -116,7 +115,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const handleQuickApply = (jobId: number) => {
     // Find the job details and store them for continuation after auth
     const job = jobsToShow.find((j: any) => j.id === jobId);
-    if (job && job.job) {
+    if (job) {
       // Store job information in localStorage for continuation after login
       localStorage.setItem('continuationJob', JSON.stringify({
         id: job.id,
@@ -131,8 +130,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
       // Also store in session storage as backup
       sessionStorage.setItem('pendingJobApplication', JSON.stringify({
         jobId: job.id,
-        title: job.job?.title || 'Unknown Job',
-        company: job.job?.company || 'Unknown Company',
+        title: job.job.title,
+        company: job.job.company,
         action: 'apply'
       }));
     }

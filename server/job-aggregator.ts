@@ -9,7 +9,6 @@ interface ExternalJob {
   workType: string;
   salaryMin?: number;
   salaryMax?: number;
-  salary?: string;
   source: string;
   externalUrl: string;
   postedDate: string;
@@ -75,36 +74,28 @@ export class JobAggregator {
     }
   }
 
-  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
+  async fetchFromArbeitNow(): Promise<ExternalJob[]> {
     try {
-      console.log('Fetching from Hiring.cafe (US tech jobs via API)...');
+      console.log('Fetching from ArbeitNow (free European jobs)...');
       
-      // Use correct Hiring.cafe API endpoint with POST request
-      const response = await fetch('https://hiring.cafe/api/search-jobs', {
-        method: 'POST',
+      const response = await fetch('https://www.arbeitnow.com/api/job-board-api', {
         headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Recrutas-Platform/1.0',
+          'User-Agent': 'JobPlatform/1.0',
           'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          keywords: 'software developer engineer tech remote',
-          page: 1,
-          pageSize: 20
-        })
+        }
       });
 
       if (response.ok) {
         const data = await response.json();
-        const jobs = this.transformHiringCafeJobs(data.results || []);
-        console.log(`Fetched ${jobs.length} real tech jobs from Hiring.cafe API`);
+        const jobs = this.transformArbeitNowJobs(data.data || []);
+        console.log(`Fetched ${jobs.length} real jobs from ArbeitNow`);
         return jobs;
       } else {
-        console.log(`Hiring.cafe API returned ${response.status}`);
+        console.log(`ArbeitNow API returned ${response.status}`);
         return [];
       }
     } catch (error) {
-      console.log('Error fetching from Hiring.cafe API:', error.message);
+      console.log('Error fetching from ArbeitNow:', error.message);
       return [];
     }
   }
@@ -309,28 +300,21 @@ export class JobAggregator {
   }
 
   private transformHiringCafeJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => {
-      const jobInfo = job.job_information || {};
-      const processedData = job.v5_processed_job_data || {};
-      
-      return {
-        id: `hiring_cafe_${job.id || index}`,
-        title: jobInfo.title || 'Tech Position',
-        company: processedData.company_name || 'Tech Company',
-        location: processedData.formatted_workplace_location || 'Remote',
-        description: jobInfo.description || processedData.requirements_summary || '',
-        requirements: this.extractRequirements(processedData.requirements_summary || jobInfo.description || ''),
-        skills: processedData.role_activities || this.extractSkills(jobInfo.description || ''),
-        workType: this.normalizeWorkType(processedData.workplace_type || 'remote'),
-        salaryMin: processedData.yearly_min_compensation,
-        salaryMax: processedData.yearly_max_compensation,
-        source: 'hiring.cafe',
-        externalUrl: job.apply_url || `https://hiring.cafe/jobs/${job.id}`,
-        postedDate: processedData.estimated_publish_date_millis 
-          ? new Date(processedData.estimated_publish_date_millis).toISOString()
-          : new Date().toISOString(),
-      };
-    });
+    return jobs.map((job, index) => ({
+      id: `hc_${job.id || index}`,
+      title: job.title || job.position || 'Untitled Position',
+      company: job.company || job.employer || 'Company Name',
+      location: job.location || job.city || 'Remote',
+      description: job.description || job.summary || '',
+      requirements: this.extractRequirements(job.description || job.requirements || ''),
+      skills: this.extractSkills(job.skills || job.tags || job.description || ''),
+      workType: this.normalizeWorkType(job.remote || job.work_type || job.location),
+      salaryMin: job.salary_min || job.min_salary,
+      salaryMax: job.salary_max || job.max_salary,
+      source: 'hiring.cafe',
+      externalUrl: job.url || job.link || `https://hiring.cafe/jobs/${job.id}`,
+      postedDate: job.posted_at || job.created_at || new Date().toISOString(),
+    }));
   }
 
   private extractRequirements(text: string): string[] {
@@ -460,7 +444,45 @@ export class JobAggregator {
     }));
   }
 
-
+  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching hiring.cafe job data...');
+      
+      // Try to fetch HTML content with proper headers
+      const response = await fetch('https://hiring.cafe/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Connection': 'keep-alive',
+        },
+        // Remove timeout property as it's not supported in native fetch
+      });
+      
+      if (!response.ok) {
+        console.log(`Hiring.cafe returned ${response.status}, using curated jobs`);
+        return this.getHiringCafeFallbackJobs();
+      }
+      
+      const html = await response.text();
+      console.log(`Fetched ${html.length} characters from hiring.cafe`);
+      
+      // Parse HTML for job data patterns
+      const jobs = this.parseHiringCafeHTML(html);
+      
+      if (jobs.length === 0) {
+        console.log('No structured jobs found in HTML, using fallback jobs');
+        return this.getHiringCafeFallbackJobs();
+      }
+      
+      console.log(`Successfully extracted ${jobs.length} jobs from hiring.cafe HTML`);
+      return jobs;
+      
+    } catch (error) {
+      console.log('Fetch failed, using curated hiring.cafe jobs:', error instanceof Error ? error.message : 'Unknown error');
+      return this.getHiringCafeFallbackJobs();
+    }
+  }
 
   private getHiringCafeFallbackJobs(): ExternalJob[] {
     // Curated real tech jobs from hiring.cafe patterns
@@ -714,25 +736,6 @@ export class JobAggregator {
     ).slice(0, 8);
   }
 
-  private filterJobsBySkills(jobs: ExternalJob[], userSkills: string[]): ExternalJob[] {
-    const normalizedUserSkills = userSkills.map(skill => skill.toLowerCase());
-    
-    return jobs.filter(job => {
-      const jobText = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
-      
-      // Check if job matches any of the user skills
-      const hasSkillMatch = normalizedUserSkills.some(userSkill => 
-        jobText.includes(userSkill) || 
-        job.skills.some(jobSkill => 
-          jobSkill.toLowerCase().includes(userSkill) || 
-          userSkill.includes(jobSkill.toLowerCase())
-        )
-      );
-      
-      return hasSkillMatch;
-    });
-  }
-
   async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
     
@@ -742,7 +745,7 @@ export class JobAggregator {
       // Fetch from all sources including new ones
       const [
         jsearchJobs,
-        hiringCafeJobs,
+        arbeitNowJobs,
         joobleJobs,
         indeedJobs,
         usaJobs,
@@ -753,7 +756,7 @@ export class JobAggregator {
         jsonJobs
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
-        this.fetchFromHiringCafe(),
+        this.fetchFromArbeitNow(),
         this.fetchFromJoobleAPI(userSkills),
         this.fetchFromIndeedRSS(userSkills),
         this.fetchFromUSAJobs(userSkills),
@@ -764,9 +767,9 @@ export class JobAggregator {
         this.generateRelevantJobs(userSkills)
       ]);
 
-      // Add jobs from successful fetches - US-focused sources only
+      // Add jobs from successful fetches including new sources
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
-      if (hiringCafeJobs.status === 'fulfilled') allJobs.push(...hiringCafeJobs.value);
+      if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
       if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
       if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
       if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
@@ -784,15 +787,7 @@ export class JobAggregator {
       );
       
       console.log(`After deduplication: ${uniqueJobs.length} unique jobs`);
-      
-      // Apply search-based filtering if userSkills are provided
-      let filteredJobs = uniqueJobs;
-      if (userSkills && userSkills.length > 0 && userSkills[0] !== 'general') {
-        filteredJobs = this.filterJobsBySkills(uniqueJobs, userSkills);
-        console.log(`After skill filtering: ${filteredJobs.length} relevant jobs for skills: ${userSkills.join(', ')}`);
-      }
-      
-      return filteredJobs;
+      return uniqueJobs;
     } catch (error) {
       console.error('Error aggregating jobs:', error);
       return [];
@@ -830,7 +825,7 @@ export class JobAggregator {
     }
   }
 
-  // RemoteOK API - free, no authentication required, filtered for US-friendly jobs
+  // RemoteOK API - free, no authentication required
   async fetchRemoteOKJobs(): Promise<ExternalJob[]> {
     try {
       const response = await fetch('https://remoteok.io/api', {
@@ -843,30 +838,9 @@ export class JobAggregator {
         const data = await response.json();
         // Skip first item which is legal notice
         const jobs = data.slice(1);
+        const transformedJobs = this.transformRemoteOKJobs(jobs || []);
         
-        // Filter for US-friendly jobs (remote jobs that accept US applicants)
-        const usJobs = jobs.filter((job: any) => {
-          const location = (job.location || '').toLowerCase();
-          const company = (job.company || '').toLowerCase();
-          const description = (job.description || '').toLowerCase();
-          
-          // Exclude clearly European-only jobs
-          const isEuropeanOnly = location.includes('germany') || 
-                                  location.includes('berlin') || 
-                                  location.includes('munich') || 
-                                  location.includes('hamburg') ||
-                                  location.includes('cet only') ||
-                                  location.includes('gmt+1 only') ||
-                                  description.includes('europe only') ||
-                                  description.includes('eu timezone only');
-          
-          // Include if not European-only (more inclusive for remote jobs)
-          return !isEuropeanOnly;
-        });
-        
-        const transformedJobs = this.transformRemoteOKJobs(usJobs || []);
-        
-        console.log(`Fetched ${transformedJobs.length} US-friendly remote jobs from RemoteOK`);
+        console.log(`Fetched ${transformedJobs.length} real jobs from RemoteOK`);
         return transformedJobs.slice(0, 15);
       }
     } catch (error) {
@@ -876,7 +850,7 @@ export class JobAggregator {
     return [];
   }
 
-  // The Muse API - Free tier with real job data, US-focused
+  // The Muse API - Free tier with real job data
   async fetchFromTheMuse(): Promise<ExternalJob[]> {
     try {
       const categories = ['Software Engineer', 'Data Science', 'Product Management'];
@@ -884,8 +858,7 @@ export class JobAggregator {
       
       for (const category of categories) {
         try {
-          // Add location parameter to target US-based jobs
-          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&location=United%20States&page=0&level=Senior%20Level&level=Mid%20Level`;
+          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level`;
           const response = await fetch(url, {
             headers: {
               'User-Agent': 'Recrutas-Platform/1.0'
@@ -895,26 +868,7 @@ export class JobAggregator {
           if (response.ok) {
             const data = await response.json();
             const jobs = this.transformMuseJobs(data.results || []);
-            
-            // Additional filtering for US-based jobs
-            const usJobs = jobs.filter(job => {
-              const location = job.location.toLowerCase();
-              return location.includes('united states') || 
-                     location.includes('usa') || 
-                     location.includes('us') ||
-                     location.includes('remote') ||
-                     location.includes('new york') ||
-                     location.includes('california') ||
-                     location.includes('texas') ||
-                     location.includes('florida') ||
-                     location.includes('washington') ||
-                     !location.includes('germany') &&
-                     !location.includes('berlin') &&
-                     !location.includes('london') &&
-                     !location.includes('uk');
-            });
-            
-            allJobs.push(...usJobs.slice(0, 5));
+            allJobs.push(...jobs.slice(0, 5));
           }
           
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -923,7 +877,7 @@ export class JobAggregator {
         }
       }
       
-      console.log(`Fetched ${allJobs.length} US-focused jobs from The Muse`);
+      console.log(`Fetched ${allJobs.length} real jobs from The Muse`);
       return allJobs;
     } catch (error) {
       console.error('Error fetching from The Muse:', error);
@@ -1096,10 +1050,6 @@ export class JobAggregator {
         postedDate: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(),
       };
     });
-  }
-
-  async getExternalJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
-    return this.getAllJobs(userSkills, limit);
   }
 }
 

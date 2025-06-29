@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useAuth, signOut } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { signOut } from "@/lib/auth-client";
 import { 
   getStatusColor, 
   formatSalary, 
@@ -13,7 +14,7 @@ import {
   formatDate
 } from "@/lib/dashboard-utils";
 import RealTimeNotifications from "@/components/real-time-notifications";
-import ApplicationIntelligenceTracker from "@/components/application-intelligence-tracker";
+import TalentApplicationIntelligence from "@/components/talent-application-intelligence";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -187,7 +188,7 @@ export default function TalentDashboard() {
         location: "",
         salaryMin: "",
         salaryMax: "",
-        workType: "remote" as "remote",
+        workType: "remote" as "remote" | "hybrid" | "onsite",
         industry: "",
         urgency: "medium" as const,
         benefits: [],
@@ -711,16 +712,7 @@ export default function TalentDashboard() {
                                 location: job.location,
                                 salaryMin: job.salaryMin?.toString() || "",
                                 salaryMax: job.salaryMax?.toString() || "",
-                                workType: job.workType as "remote",
-                                industry: "",
-                                urgency: "medium",
-                                benefits: [],
-                                experienceLevel: "mid",
-                                contactEmail: "",
-                                applicationDeadline: "",
-                                isRemote: job.workType === "remote",
-                                companySize: "",
-                                companyDescription: ""
+                                workType: job.workType
                               });
                               setShowJobDialog(true);
                             }}
@@ -777,7 +769,7 @@ export default function TalentDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <ApplicationIntelligenceTracker 
+              <TalentApplicationIntelligence 
                 applications={filteredCandidates.map(candidate => ({
                   id: candidate.id,
                   candidateId: candidate.id,

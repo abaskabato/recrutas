@@ -6,10 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect, Link } from "wouter"
 import { Loader2, ArrowLeft } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { signIn, signUp, useSession } from "@/lib/auth-client"
 
 export default function AuthPage() {
-  const { user, isLoading } = useAuth()
+  const { data: session } = useSession()
   const { toast } = useToast()
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
@@ -29,7 +29,7 @@ export default function AuthPage() {
   })
 
   // Redirect if already authenticated
-  if (user) {
+  if (session?.user) {
     return <Redirect to="/" />
   }
 
@@ -37,25 +37,17 @@ export default function AuthPage() {
     e.preventDefault()
     setIsSigningIn(true)
     try {
-      const response = await fetch('/api/auth/sign-in/email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: signInData.email,
-          password: signInData.password,
-        }),
+      const { data, error } = await signIn.email({
+        email: signInData.email,
+        password: signInData.password,
       })
       
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Sign in failed')
+      if (error) {
+        throw new Error(error.message)
       }
       
       toast({ title: "Welcome back!", description: "Successfully signed in." })
-      window.location.href = '/' // Redirect to home
+      
       // Force refresh to load new session
       setTimeout(() => {
         window.location.href = '/'
@@ -84,22 +76,14 @@ export default function AuthPage() {
     
     setIsSigningUp(true)
     try {
-      const response = await fetch('/api/auth/sign-up/email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: signUpData.email,
-          password: signUpData.password,
-          name: signUpData.name,
-        }),
+      const { data, error } = await signUp.email({
+        email: signUpData.email,
+        password: signUpData.password,
+        name: signUpData.name,
       })
       
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Sign up failed')
+      if (error) {
+        throw new Error(error.message)
       }
       
       toast({ title: "Account created!", description: "Welcome to Recrutas!" })
@@ -121,8 +105,10 @@ export default function AuthPage() {
 
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'microsoft') => {
     try {
-      // Redirect to BetterAuth social provider endpoint
-      window.location.href = `/api/auth/sign-in/${provider}`
+      await signIn.social({ 
+        provider,
+        callbackURL: window.location.origin 
+      })
     } catch (error: any) {
       toast({
         title: "Social sign in failed",

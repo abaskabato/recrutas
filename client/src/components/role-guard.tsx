@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useSession } from '@/hooks/useAuth';
+import { useSession } from '@/lib/auth-client';
 import { useToast } from '@/hooks/use-toast';
 
 interface RoleGuardProps {
