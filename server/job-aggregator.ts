@@ -9,6 +9,7 @@ interface ExternalJob {
   workType: string;
   salaryMin?: number;
   salaryMax?: number;
+  salary?: string;
   source: string;
   externalUrl: string;
   postedDate: string;

@@ -105,7 +105,8 @@ function ApplicationIntelligenceTracker() {
     return statusConfig[status]?.progress || 0;
   };
 
-  const getBenchmarkComparison = (benchmarks: ApplicationIntelligence['intelligence']['benchmarks']) => {
+  const getBenchmarkComparison = (benchmarks: any) => {
+    if (!benchmarks) return null;
     const viewTimePercentage = ((benchmarks.yourViewTime - benchmarks.averageViewTime) / benchmarks.averageViewTime * 100);
     const scorePercentage = ((benchmarks.yourScore - benchmarks.averageScore) / benchmarks.averageScore * 100);
     

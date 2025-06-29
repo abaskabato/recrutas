@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, signOut } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -187,7 +187,7 @@ export default function TalentDashboard() {
         location: "",
         salaryMin: "",
         salaryMax: "",
-        workType: "remote" as "remote" | "hybrid" | "onsite",
+        workType: "remote" as "remote",
         industry: "",
         urgency: "medium" as const,
         benefits: [],
@@ -711,7 +711,7 @@ export default function TalentDashboard() {
                                 location: job.location,
                                 salaryMin: job.salaryMin?.toString() || "",
                                 salaryMax: job.salaryMax?.toString() || "",
-                                workType: job.workType
+                                workType: job.workType as "remote"
                               });
                               setShowJobDialog(true);
                             }}
@@ -768,7 +768,7 @@ export default function TalentDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <TalentApplicationIntelligence 
+              <ApplicationIntelligenceTracker 
                 applications={filteredCandidates.map(candidate => ({
                   id: candidate.id,
                   candidateId: candidate.id,

@@ -212,10 +212,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get external jobs
       console.log('Fetching external jobs for AI matching...');
-      const externalJobs = await jobAggregator.getExternalJobs({
-        skills: candidateProfile.skills,
-        limit: 50
-      });
+      const externalJobs = await jobAggregator.getExternalJobs(
+        candidateProfile.skills,
+        50
+      );
       console.log(`Fetched ${externalJobs.length} external jobs for matching`);
 
       // Get internal jobs
