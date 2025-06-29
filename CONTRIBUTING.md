@@ -1,165 +1,242 @@
 # Contributing to Recrutas
 
-Thank you for your interest in contributing to Recrutas! This document provides guidelines for contributing to our AI-powered talent acquisition platform.
+Thank you for your interest in contributing to Recrutas! This guide will help you get started with contributing to our AI-powered talent acquisition platform.
 
 ## 🚀 Quick Start
 
-1. **Fork the repository**
-2. **Clone your fork**: `git clone https://github.com/yourusername/recrutas.git`
-3. **Install dependencies**: `npm install`
-4. **Set up environment**: Copy `.env.example` to `.env` and configure
-5. **Run database migrations**: `npm run db:push`
-6. **Start development**: `npm run dev`
+1. **Fork and Clone**
+   ```bash
+   git clone https://github.com/yourusername/recrutas.git
+   cd recrutas
+   npm install
+   ```
 
-## 📋 Development Setup
+2. **Set Up Development Environment**
+   ```bash
+   cp .env.example .env
+   # Add your database URL and API keys
+   npm run db:push
+   npm run dev
+   ```
 
-### Prerequisites
-- Node.js 18 or higher
-- PostgreSQL database
-- Git
+3. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
-### Environment Variables
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/recrutas
-OPENAI_API_KEY=your-openai-api-key
-SESSION_SECRET=your-32-character-secret-key
-```
-
-### Code Structure
-```
-├── client/          # React frontend
-├── server/          # Express backend
-├── shared/          # Shared schemas and types
-├── uploads/         # File upload storage
-└── docs/           # Documentation
-```
-
-## 🛠 Development Guidelines
+## 🛠️ Development Guidelines
 
 ### Code Style
-- Use TypeScript for all new code
-- Follow existing code formatting
-- Use meaningful variable and function names
-- Add comments for complex logic
 
-### Commit Messages
-Follow conventional commits format:
-```
-feat: add AI-powered job matching
-fix: resolve database connection issue
-docs: update API documentation
-```
+- **TypeScript**: Use strict typing throughout the codebase
+- **ESLint**: Follow the configured ESLint rules
+- **Prettier**: Code formatting is handled automatically
+- **Naming**: Use descriptive variable and function names
+- **Components**: Create reusable, well-documented components
 
-### Pull Request Process
-1. Create a feature branch: `git checkout -b feature/amazing-feature`
-2. Make your changes and test thoroughly
-3. Update documentation if needed
-4. Submit a pull request with a clear description
+### Architecture Principles
 
-## 🧪 Testing
+- **Frontend**: React components should be functional with hooks
+- **Backend**: Keep API routes thin, business logic in services
+- **Database**: Use Drizzle ORM for all database operations
+- **Types**: Share types between frontend and backend via `shared/schema.ts`
 
-```bash
-# Run type checking
-npm run check
+### Testing
 
-# Build the application
-npm run build
+- Write unit tests for utility functions
+- Create integration tests for API endpoints
+- Test React components with React Testing Library
+- Maintain >80% code coverage
 
-# Test database connection
-npm run db:push
-```
-
-## 📚 Architecture Overview
-
-### Frontend (React + TypeScript)
-- Component-based architecture
-- TanStack Query for state management
-- Tailwind CSS for styling
-- Responsive design
-
-### Backend (Node.js + Express)
-- RESTful API design
-- Drizzle ORM for database operations
-- WebSocket for real-time features
-- Job aggregation system
-
-### Database (PostgreSQL)
-- User authentication and profiles
-- Job postings and applications
-- Real-time messaging
-- Analytics and notifications
-
-## 🎯 Contributing Areas
+## 📝 Areas for Contribution
 
 ### High Priority
-- [ ] Improve AI matching accuracy
-- [ ] Add more job board integrations
-- [ ] Enhance real-time features
-- [ ] Mobile app development
+- **AI Matching Improvements**: Enhance the semantic matching algorithm
+- **Job Scraper Optimization**: Add support for more job boards
+- **Real-time Features**: Improve WebSocket performance
+- **Mobile Responsiveness**: Enhance mobile experience
+- **Accessibility**: Improve WCAG compliance
 
 ### Medium Priority
-- [ ] Performance optimizations
-- [ ] Additional exam question types
-- [ ] Advanced analytics dashboard
-- [ ] API documentation
+- **Analytics Dashboard**: Advanced hiring insights
+- **Integration APIs**: Connect with popular ATS systems
+- **Email Templates**: Professional notification templates
+- **Internationalization**: Multi-language support
 
-### Good First Issues
-- [ ] UI/UX improvements
-- [ ] Documentation updates
-- [ ] Bug fixes
-- [ ] Test coverage
+### Documentation
+- API documentation improvements
+- Component documentation with Storybook
+- Deployment guides for various platforms
+- Video tutorials and examples
+
+## 🔧 Technical Stack
+
+### Frontend
+```typescript
+// Example component structure
+export function JobCard({ job }: { job: JobPosting }) {
+  const { mutate: applyToJob } = useApplyToJob();
+  
+  return (
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardHeader>
+        <CardTitle>{job.title}</CardTitle>
+        <CardDescription>{job.company}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button onClick={() => applyToJob(job.id)}>
+          Apply Now
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+### Backend
+```typescript
+// Example API route structure
+app.post('/api/jobs/:id/apply', isAuthenticated, async (req, res) => {
+  try {
+    const application = await storage.createApplication({
+      candidateId: req.user.id,
+      jobId: parseInt(req.params.id),
+      status: 'pending'
+    });
+    
+    res.json(application);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+```
+
+## 📋 Pull Request Process
+
+### Before Submitting
+
+1. **Run Quality Checks**
+   ```bash
+   npm run type-check    # TypeScript compilation
+   npm run lint         # ESLint checks
+   npm run test         # Unit tests
+   ```
+
+2. **Update Documentation**
+   - Update README.md for new features
+   - Add JSDoc comments for functions
+   - Update API documentation if needed
+
+3. **Test Thoroughly**
+   - Test on multiple browsers
+   - Verify mobile responsiveness
+   - Check database migrations work correctly
+
+### Pull Request Template
+
+```markdown
+## Description
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+## Screenshots (if applicable)
+
+## Checklist
+- [ ] Code follows style guidelines
+- [ ] Self-review completed
+- [ ] Documentation updated
+- [ ] No breaking changes
+```
 
 ## 🐛 Bug Reports
 
-When reporting bugs, please include:
-- Clear description of the issue
-- Steps to reproduce
-- Expected behavior
-- Actual behavior
-- Environment details (OS, browser, Node.js version)
+### Before Submitting
+1. Check existing issues
+2. Reproduce the bug consistently
+3. Test with latest version
+
+### Bug Report Template
+```markdown
+**Bug Description**
+Clear description of the bug
+
+**Steps to Reproduce**
+1. Go to '...'
+2. Click on '...'
+3. See error
+
+**Expected Behavior**
+What should happen
+
+**Environment**
+- OS: [e.g. macOS, Windows, Linux]
+- Browser: [e.g. Chrome, Firefox, Safari]
+- Version: [e.g. 1.0.0]
+```
 
 ## 💡 Feature Requests
 
-For new features:
-- Explain the use case
-- Describe the proposed solution
-- Consider backward compatibility
-- Include mockups if applicable
+We welcome feature requests! Please:
 
-## 📖 Documentation
+1. Check if the feature already exists
+2. Describe the problem it solves
+3. Provide detailed use cases
+4. Consider implementation complexity
 
-- Update README.md for user-facing changes
-- Add inline code comments
-- Update API documentation
-- Include examples in pull requests
+## 🚦 Development Workflow
 
-## 🤝 Code of Conduct
+### Git Workflow
+```bash
+# Update your fork
+git checkout main
+git pull upstream main
 
-### Our Standards
-- Be respectful and inclusive
-- Welcome diverse perspectives
-- Focus on constructive feedback
-- Help others learn and grow
+# Create feature branch
+git checkout -b feature/amazing-feature
 
-### Unacceptable Behavior
-- Harassment or discrimination
-- Trolling or inflammatory comments
-- Personal attacks
-- Sharing private information
+# Make changes and commit
+git add .
+git commit -m "feat: add amazing feature"
+
+# Push and create PR
+git push origin feature/amazing-feature
+```
+
+### Commit Message Convention
+```
+type(scope): description
+
+feat: add new job matching algorithm
+fix: resolve authentication bug
+docs: update API documentation
+style: format code with prettier
+refactor: simplify job aggregation logic
+test: add unit tests for matching engine
+```
+
+## 🌟 Recognition
+
+Contributors will be:
+- Listed in the README.md
+- Mentioned in release notes
+- Invited to contributor discussions
+- Eligible for contributor rewards
 
 ## 📞 Getting Help
 
-- **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: General questions and ideas
-- **Email**: [maintainers@recrutas.com] for sensitive issues
-
-## 🏆 Recognition
-
-Contributors will be:
-- Listed in our contributors section
-- Mentioned in release notes
-- Invited to contributor events
-- Eligible for swag and rewards
+- **Discord**: [Join our community](https://discord.gg/recrutas)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/recrutas/issues)
+- **Email**: dev@recrutas.com
 
 ## 📄 License
 
@@ -167,4 +244,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for making Recrutas better! 🚀
+**Thank you for helping make Recrutas the best open-source talent acquisition platform!** 🚀
