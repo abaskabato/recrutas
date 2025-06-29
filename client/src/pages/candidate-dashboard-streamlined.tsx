@@ -187,7 +187,7 @@ export default function CandidateDashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-slate-900 mb-2">
-            Welcome back, {user.name || user.email.split('@')[0]}!
+            Welcome back, {user?.name || (user?.email ? user.email.split('@')[0] : 'User')}!
           </h2>
           <p className="text-slate-600">
             Discover your next opportunity with AI-powered job matching

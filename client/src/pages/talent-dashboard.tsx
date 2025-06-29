@@ -711,7 +711,16 @@ export default function TalentDashboard() {
                                 location: job.location,
                                 salaryMin: job.salaryMin?.toString() || "",
                                 salaryMax: job.salaryMax?.toString() || "",
-                                workType: job.workType as "remote"
+                                workType: job.workType as "remote",
+                                industry: "",
+                                urgency: "medium",
+                                benefits: [],
+                                experienceLevel: "mid",
+                                contactEmail: "",
+                                applicationDeadline: "",
+                                isRemote: job.workType === "remote",
+                                companySize: "",
+                                companyDescription: ""
                               });
                               setShowJobDialog(true);
                             }}
