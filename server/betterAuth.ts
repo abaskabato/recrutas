@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { db } from "./db"
 import { users, sessions, accounts, verifications } from "../shared/schema"
+import { eq } from "drizzle-orm"
 import type { Express } from "express"
 
 export const auth = betterAuth({
@@ -74,6 +75,8 @@ export const auth = betterAuth({
       },
     },
   },
+  // Remove the hooks for now - we'll handle this in the middleware
+  plugins: [],
   session: {
     cookieCache: {
       enabled: true,
