@@ -1,6 +1,6 @@
 # Recrutas - Direct Company Connections
 
-> **DoorDash for Jobs** - Revolutionary hiring platform that connects you directly with companies. Skip the recruiters, talk straight to hiring managers.
+> Revolutionary hiring platform that connects you directly with companies. Skip the recruiters, talk straight to hiring managers.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)

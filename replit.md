@@ -2,7 +2,7 @@
 
 ## Overview
 
-Recrutas is a direct company connection platform that revolutionizes hiring by linking candidates straight to hiring managers. Skip the recruiters entirely. The platform features smart job matching, merit-based chat access through custom exams, and real-time job aggregation from 500+ companies. Built as a "DoorDash for Jobs," it delivers instant access to hiring decision-makers while eliminating the recruiting middleman.
+Recrutas is a direct company connection platform that revolutionizes hiring by linking candidates straight to hiring managers. Skip the recruiters entirely. The platform features smart job matching, merit-based chat access through custom exams, and real-time job aggregation from 500+ companies. It delivers instant access to hiring decision-makers while eliminating the recruiting middleman.
 
 ## System Architecture
 
