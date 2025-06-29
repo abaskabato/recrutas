@@ -1,7 +1,12 @@
 // Vercel serverless function entry point
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create Express app
 const app = express();
@@ -22,4 +27,4 @@ app.get('*', (req, res) => {
   }
 });
 
-module.exports = app;
+export default app;

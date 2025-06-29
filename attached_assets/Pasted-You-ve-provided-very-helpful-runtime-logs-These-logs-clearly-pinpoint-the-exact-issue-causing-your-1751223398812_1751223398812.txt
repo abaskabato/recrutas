@@ -1,0 +1,88 @@
+You've provided very helpful runtime logs\! These logs clearly pinpoint the exact issue causing your Vercel serverless function (specifically `/api/index.js`) to crash:
+
+-----
+
+## The Problem: `ReferenceError: require is not defined in ES module scope`
+
+This error means your Node.js serverless function is trying to use the CommonJS `require()` syntax, but it's being treated as an ES Module (ECMAScript Module).
+
+Node.js has two module systems:
+
+1.  **CommonJS (CJS):** Uses `require()` for importing modules and `module.exports` for exporting them. This has been the traditional system in Node.js for a long time.
+2.  **ES Modules (ESM):** Uses `import` for importing modules and `export` for exporting them. This is the standard module system in modern JavaScript (like what you'd see in browser-side code or modern React/Vue/Angular projects).
+
+The log explicitly states: "This file is being treated as an ES module because it has a '.js' file extension and `/var/task/package.json` contains `"type": "module"`."
+
+This means your `package.json` file has a top-level `"type": "module"` entry, which tells Node.js (and Vercel's runtime) to treat all `.js` files in your project as ES Modules by default. When it then encounters `require()` in `api/index.js`, it throws a `ReferenceError` because `require` isn't available in ESM scope.
+
+-----
+
+## How to Fix It
+
+You have two primary ways to resolve this, depending on your preference for CommonJS or ES Modules:
+
+### Option 1: Convert Your Serverless Function to Use ES Module Syntax (Recommended for modern Node.js)
+
+This is generally the preferred modern approach for Node.js projects, especially when already using frameworks that favor ESM.
+
+1.  **Replace `require()` with `import` statements:**
+
+      * Find all instances of `require('some-package')` in your `api/index.js` (and any other relevant serverless function files).
+      * Change them to `import somePackage from 'some-package';` or `import { namedExport } from 'some-package';`.
+      * **Example:**
+          * Before: `const express = require('express');`
+          * After: `import express from 'express';`
+      * **Example for named exports:**
+          * Before: `const { json } = require('body-parser');`
+          * After: `import { json } from 'body-parser';`
+
+2.  **Replace `module.exports` with `export default` (for the main handler):**
+
+      * If your Vercel function typically exports a handler like `module.exports = (req, res) => { ... };`, you'll need to change it to `export default (req, res) => { ... };`.
+
+    **Example `api/index.js` (simplified):**
+
+    ```javascript
+    // Before (CommonJS)
+    const express = require('express');
+    const app = express();
+
+    app.get('/api', (req, res) => {
+      res.send('Hello from CommonJS!');
+    });
+
+    module.exports = app; // Or module.exports = (req, res) => { ... };
+
+    // After (ES Module)
+    import express from 'express'; // Use import
+    const app = express();
+
+    app.get('/api', (req, res) => {
+      res.send('Hello from ES Module!');
+    });
+
+    export default app; // Use export default
+    ```
+
+### Option 2: Force Your Serverless Function to be Treated as CommonJS
+
+If you prefer to stick with CommonJS syntax for your serverless functions (e.g., if you have a lot of existing `require` calls and don't want to refactor), you can tell Node.js to treat specific files as CommonJS despite `"type": "module"` in `package.json`.
+
+1.  **Rename your serverless function file:**
+
+      * Rename `api/index.js` to `api/index.cjs`.
+      * Do this for any other `.js` serverless function files that are using `require()`.
+
+    The `.cjs` extension explicitly tells Node.js to interpret the file as CommonJS, regardless of the `type` field in `package.json`.
+
+-----
+
+### Next Steps:
+
+1.  **Choose one of the two options above.**
+2.  **Make the necessary code changes** in your `api/index.js` (or `.cjs`) file and any other affected serverless function files.
+3.  **Commit your changes** to your GitHub repository.
+4.  **Push the changes** to GitHub. Vercel will automatically trigger a new deployment.
+5.  **Monitor the Vercel logs** for the new deployment to confirm the `ReferenceError` is gone and your functions are executing successfully.
+
+This `ReferenceError` is a very common issue when migrating or mixing Node.js module syntaxes, but thankfully, it's quite straightforward to fix once you understand the cause\!
