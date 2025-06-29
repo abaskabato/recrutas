@@ -1,33 +1,40 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "noEmit": false,
-    "outDir": "../dist/server",
-    "rootDir": ".",
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "strict": true,
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+    "outDir": "../dist-server",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    },
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": [
-    "./**/*"
+    "**/*.ts",
+    "**/*.tsx"
   ],
   "exclude": [
-    "../node_modules",
-    "../dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
+    "node_modules",
+    "dist",
+    "dist-server",
+    "vite.ts",
+    "storage-backup.ts"
   ]
 }

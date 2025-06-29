@@ -1,18 +1,65 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
+import fs from "fs";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite-production";
-
-/**
- * Production Server Entry Point
- * Uses production-safe utilities that don't import Vite
- * Prevents esbuild bundling conflicts during deployment
- */
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Logging middleware
+// Production-safe logging function
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
+
+// Production static file serving
+function serveStatic(app: express.Express) {
+  const distPath = path.resolve(process.cwd(), "dist");
+  
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    
+    app.get("*", (req, res) => {
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send("Application not found");
+      }
+    });
+  } else {
+    // Fallback HTML for when dist doesn't exist
+    app.get("*", (req, res) => {
+      res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Recrutas - Loading</title>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: system-ui, sans-serif; text-align: center; padding: 50px; }
+            .loader { margin: 20px auto; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          </style>
+        </head>
+        <body>
+          <h1>Recrutas</h1>
+          <div class="loader"></div>
+          <p>Application is starting up...</p>
+        </body>
+        </html>
+      `);
+    });
+  }
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -43,51 +90,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint for production deployments
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV || 'production'
-  });
-});
-
 (async () => {
   const server = await registerRoutes(app);
 
-  // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    
-    log(`Error ${status}: ${message}`);
     res.status(status).json({ message });
-    
-    // Log error but don't throw in production
-    if (process.env.NODE_ENV !== "production") {
-      throw err;
-    }
+    throw err;
   });
 
-  // Static file serving - no Vite imports needed
-  log("Setting up static file serving for production");
+  // Production mode - only serve static files
   serveStatic(app);
 
-  // Server configuration
   const port = process.env.PORT || 5000;
-  const host = process.env.HOST || "0.0.0.0";
-  
-  server.listen({
-    port: Number(port),
-    host,
-    reusePort: true,
-  }, () => {
-    log(`Production server running on port ${port}`);
-    log(`Environment: ${process.env.NODE_ENV || 'production'}`);
-    log(`Health check available at: http://${host}:${port}/api/health`);
+  server.listen(port, () => {
+    log(`serving on port ${port}`);
   });
-})().catch(error => {
-  console.error("Failed to start production server:", error);
-  process.exit(1);
-});
+})();
