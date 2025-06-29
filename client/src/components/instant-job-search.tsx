@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
 import { 
   Search, 
   MapPin, 
@@ -107,6 +108,46 @@ export default function InstantJobSearch() {
     if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-yellow-600';
     return 'text-gray-600';
+  };
+
+  // Handle job application - save job for unauthenticated users
+  const handleJobApplication = (job: InstantJob) => {
+    // Check if user is authenticated by checking if session exists
+    const isAuthenticated = document.cookie.includes('better-auth.session_token');
+    
+    if (!isAuthenticated) {
+      // Store job information for continuation after login
+      localStorage.setItem('continuationJob', JSON.stringify({
+        id: job.id,
+        jobData: job.job,
+        source: job.source,
+        externalUrl: job.externalUrl,
+        matchScore: job.matchScore,
+        timestamp: Date.now(),
+        action: 'apply'
+      }));
+      
+      // Also store in session storage as backup
+      sessionStorage.setItem('pendingJobApplication', JSON.stringify({
+        jobId: job.id,
+        title: job.job.title,
+        company: job.job.company,
+        action: 'apply'
+      }));
+
+      // Show message and redirect to sign in
+      toast({
+        title: "Sign In Required",
+        description: "Sign in to apply to this job. We'll save your selection!",
+      });
+      
+      // Redirect to root which will show sign in
+      window.location.href = '/';
+      return;
+    }
+    
+    // If authenticated, open the job directly
+    window.open(job.externalUrl, '_blank');
   };
 
   return (
@@ -312,7 +353,7 @@ export default function InstantJobSearch() {
                       </Button>
                       <Button 
                         size="sm"
-                        onClick={() => window.open(job.externalUrl, '_blank')}
+                        onClick={() => handleJobApplication(job)}
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
                         Apply Now

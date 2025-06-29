@@ -118,6 +118,7 @@ export default function CandidateStreamlinedDashboard() {
   const [selectedJobId, setSelectedJobId] = useState<number | undefined>(undefined);
   const [selectedJobTitle, setSelectedJobTitle] = useState<string>("");
   const [appliedJobsSet, setAppliedJobsSet] = useState<Set<string>>(new Set());
+  const [continuationJob, setContinuationJob] = useState<any>(null);
 
   // Track applied external jobs in localStorage using stable identifiers
   const getAppliedJobs = (): Set<string> => {
@@ -150,12 +151,102 @@ export default function CandidateStreamlinedDashboard() {
     return appliedJobsSet.has(stableId);
   };
 
+  // Handle continuing a job application from localStorage
+  const handleContinueJobApplication = (jobData: any) => {
+    setContinuationJob(null);
+    localStorage.removeItem('continuationJob');
+    sessionStorage.removeItem('pendingJobApplication');
+    
+    // If it's an external job, open the external URL
+    if (jobData.externalUrl) {
+      window.open(jobData.externalUrl, '_blank');
+      
+      // Show success toast
+      toast({
+        title: "Continuing Application",
+        description: `Opening ${jobData.jobData.title} at ${jobData.jobData.company}`,
+      });
+    } else {
+      // For internal jobs, navigate to the job details
+      toast({
+        title: "Job Continued",
+        description: `Continuing with ${jobData.jobData.title} at ${jobData.jobData.company}`,
+      });
+    }
+  };
+
   // Initialize applied jobs set from localStorage when user loads
   useEffect(() => {
     if (user?.id) {
       setAppliedJobsSet(new Set<string>(getAppliedJobs()));
     }
   }, [user?.id]);
+
+  // Check for job continuation after user logs in
+  useEffect(() => {
+    if (user && !showProfileCompletion) {
+      const continuationJobData = localStorage.getItem('continuationJob');
+      const pendingApplication = sessionStorage.getItem('pendingJobApplication');
+      
+      if (continuationJobData) {
+        try {
+          const jobData = JSON.parse(continuationJobData);
+          // Check if the job data is recent (within last 30 minutes)
+          const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+          
+          if (jobData.timestamp > thirtyMinutesAgo) {
+            setContinuationJob(jobData);
+            
+            // Show a toast notification about continuing the job application
+            toast({
+              title: "Continue Job Application",
+              description: `Continue applying to ${jobData.jobData.title} at ${jobData.jobData.company}`,
+              action: (
+                <Button 
+                  size="sm" 
+                  onClick={() => handleContinueJobApplication(jobData)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Continue
+                </Button>
+              ),
+            });
+          } else {
+            // Clean up old continuation data
+            localStorage.removeItem('continuationJob');
+            sessionStorage.removeItem('pendingJobApplication');
+          }
+        } catch (error) {
+          console.error('Error parsing continuation job data:', error);
+          localStorage.removeItem('continuationJob');
+        }
+      } else if (pendingApplication) {
+        try {
+          const appData = JSON.parse(pendingApplication);
+          toast({
+            title: "Welcome back!",
+            description: `Ready to apply to ${appData.title} at ${appData.company}?`,
+            action: (
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  // Scroll to job matches section
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                View Jobs
+              </Button>
+            ),
+          });
+          sessionStorage.removeItem('pendingJobApplication');
+        } catch (error) {
+          console.error('Error parsing pending application:', error);
+          sessionStorage.removeItem('pendingJobApplication');
+        }
+      }
+    }
+  }, [user, showProfileCompletion, toast]);
 
   // Handle continuation from instant modal
   useEffect(() => {
