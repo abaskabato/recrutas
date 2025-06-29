@@ -80,7 +80,13 @@ app.use((req, res, next) => {
     
     // Add error handling for missing environment variables
     if (!process.env.DATABASE_URL) {
-      log("WARNING: DATABASE_URL not set, using fallback configuration");
+      log("ERROR: DATABASE_URL environment variable is required");
+      process.exit(1);
+    }
+    
+    if (!process.env.SESSION_SECRET) {
+      log("WARNING: SESSION_SECRET not set, using default");
+      process.env.SESSION_SECRET = 'production-secret-key-please-change';
     }
     
     const server = await registerRoutes(app);
