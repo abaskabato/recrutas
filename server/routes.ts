@@ -2210,11 +2210,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const combinedText = `${jobTitle} ${jobDescription} ${jobSkills.join(' ')}`;
             
             return skillsArray.some(skill => {
-              // Try partial matches for programming languages
+              // Sales and business skills
+              if (skill === 'sales') return combinedText.includes('sales') || combinedText.includes('business development') || combinedText.includes('account management') || combinedText.includes('revenue');
+              if (skill === 'marketing') return combinedText.includes('marketing') || combinedText.includes('digital marketing') || combinedText.includes('growth') || combinedText.includes('advertising');
+              if (skill === 'customer service') return combinedText.includes('customer') || combinedText.includes('support') || combinedText.includes('service');
+              
+              // Programming languages  
               if (skill === 'python') return combinedText.includes('python') || combinedText.includes('django') || combinedText.includes('flask');
               if (skill === 'javascript') return combinedText.includes('javascript') || combinedText.includes('js') || combinedText.includes('react') || combinedText.includes('node');
               if (skill === 'react') return combinedText.includes('react') || combinedText.includes('javascript');
               if (skill === 'java') return combinedText.includes('java') && !combinedText.includes('javascript');
+              
               return combinedText.includes(skill);
             });
           });
