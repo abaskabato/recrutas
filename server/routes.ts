@@ -31,6 +31,10 @@ import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
 
+// Simple in-memory cache for external jobs consistency
+const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Authentication middleware for Better Auth sessions
 async function requireAuth(req: any, res: any, next: any) {
   try {
@@ -850,9 +854,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const currentTime = Date.now();
           const rotationSeed = Math.floor(currentTime / (5 * 60 * 1000)); // Rotate every 5 minutes
           
-          // Get live jobs with variety
-          const liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 25);
-          console.log(`Fetched ${liveJobs.length} external jobs`);
+          // Get live jobs with variety - use instant modal endpoint for consistency
+          const externalJobsResponse = await fetch(`http://localhost:5000/api/external-jobs?skills=${candidateProfile.skills?.join(',')}&limit=25`);
+          const externalJobsData = await externalJobsResponse.json();
+          const liveJobs = externalJobsData.jobs || [];
+          console.log(`Fetched ${liveJobs.length} external jobs from instant modal endpoint`);
           
           // Shuffle jobs using time-based seed for variety
           const shuffledJobs = [...liveJobs].sort(() => Math.sin(rotationSeed) - 0.5);
@@ -2192,6 +2198,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const skillsArray = skills && typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : undefined;
       
+      // Create cache key for consistent job retrieval
+      const cacheKey = `${skillsArray?.join(',') || 'general'}_${jobTitle || ''}_${location || ''}`;
+      const currentTime = Date.now();
+      
+      // Check cache first
+      const cachedData = externalJobsCache.get(cacheKey);
+      if (cachedData && (currentTime - cachedData.timestamp < CACHE_DURATION)) {
+        console.log(`Returning ${cachedData.jobs.length} cached external jobs`);
+        return res.json({
+          jobs: cachedData.jobs.slice(0, parseInt(limit as string) || 10),
+          cached: true,
+          timestamp: cachedData.timestamp
+        });
+      }
+      
       // Check if this is a non-tech search - bypass tech company APIs
       const isNonTechSearch = skillsArray && skillsArray.some(skill => {
         const s = skill.toLowerCase();
@@ -2510,12 +2531,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         urgency: Math.random() > 0.7 ? 'high' : Math.random() > 0.4 ? 'medium' : 'low'
       }));
       
+      // Store in cache for consistency with dashboard
+      externalJobsCache.set(cacheKey, {
+        jobs: formattedJobs,
+        timestamp: currentTime
+      });
+      console.log(`Cached ${formattedJobs.length} jobs with key: ${cacheKey}`);
+      
       res.json({
         success: true,
         jobs: formattedJobs,
         totalFound: filteredJobs.length,
         source: 'external_aggregator',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        cached: false
       });
       
     } catch (error) {
