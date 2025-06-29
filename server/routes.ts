@@ -122,6 +122,11 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  // Health check endpoint for Railway
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
   // Session configuration
   const session = await import('express-session');
   app.use(session.default({
@@ -3412,7 +3417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Notify candidate about feedback
-      await notificationService.sendNotification({
+      await notificationService.createNotification({
         userId: applicationId, // This should be the candidate's user ID
         type: 'application_feedback',
         title: 'New Feedback on Your Application',

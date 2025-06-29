@@ -1,0 +1,93 @@
+../dist/public/assets/index-Ch4FA7fH.js   746.69 kB │ gzip: 218.60 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 5.30s
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.4.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.4.2
+npm notice To update run: npm install -g npm@11.4.2
+npm notice
+
+[builder 4/6] RUN echo "Building frontend..." && npx vite build  ✔ 6s
+
+[builder 5/6] RUN echo "Building backend..." && npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:vite --external:./vite.ts
+
+Building backend...
+
+
+  dist/production.js  280.5kb
+
+⚡ Done in 12ms
+
+[builder 5/6] RUN echo "Building backend..." && npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:vite --external:./vite.ts  ✔ 508ms
+
+[builder 6/6] RUN echo "Creating entry point..." && echo 'import("./production.js");' > dist/index.js
+
+Creating entry point...
+
+[builder 6/6] RUN echo "Creating entry point..." && echo 'import("./production.js");' > dist/index.js  ✔ 111ms
+
+[runner 2/6] RUN addgroup --system --gid 1001 nodejs  ✔ 0ms – CACHED
+
+[runner 3/6] RUN adduser --system --uid 1001 recrutas  ✔ 0ms – CACHED
+
+[runner 4/6] COPY --from=builder /app/dist ./dist  ✔ 0ms – CACHED
+
+[runner 5/6] COPY --from=builder /app/node_modules ./node_modules  ✔ 0ms – CACHED
+
+[runner 6/6] COPY --from=builder /app/package.json ./package.json  ✔ 0ms – CACHED
+
+exporting to docker image format
+
+exporting to image
+
+[auth] sharing credentials for production-us-east4-eqdc4a.railway-registry.com
+
+[auth] sharing credentials for production-us-east4-eqdc4a.railway-registry.com  ✔ 0ms
+
+importing to docker
+
+importing to docker  ✔ 7s
+
+Build time: 20.55 seconds
+
+ 
+
+====================
+
+Starting Healthcheck
+
+====================
+
+
+Path: /api/health
+
+Retry window: 1m40s
+
+ 
+
+Attempt #1 failed with service unavailable. Continuing to retry for 1m32s
+
+Attempt #2 failed with service unavailable. Continuing to retry for 1m21s
+
+Attempt #3 failed with service unavailable. Continuing to retry for 1m19s
+
+Attempt #4 failed with service unavailable. Continuing to retry for 1m15s
+
+Attempt #5 failed with service unavailable. Continuing to retry for 1m6s
+
+Attempt #6 failed with service unavailable. Continuing to retry for 50s
+
+Attempt #7 failed with service unavailable. Continuing to retry for 20s
+
+ 
+
+1/1 replicas never became healthy!
+
+Healthcheck failed!

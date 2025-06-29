@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,15 +19,24 @@ function log(message: string, source = "express") {
 }
 
 function serveStatic(app: express.Express) {
-  const distPath = path.join(__dirname, "../dist/public");
-  app.use(express.static(distPath));
+  const staticPath = path.join(__dirname, "../dist/public");
+  const indexPath = path.join(staticPath, "index.html");
   
-  // Handle client-side routing
+  // Serve static files
+  app.use(express.static(staticPath));
+  
+  // Handle client-side routing - serve index.html for all non-API routes
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) {
       return next();
     }
-    res.sendFile(path.join(distPath, "index.html"));
+    
+    // Check if index.html exists before serving
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send("Static files not found. Check build configuration.");
+    }
   });
 }
 
@@ -65,13 +75,32 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
-  
-  // Serve static files in production
-  serveStatic(app);
+  try {
+    log("Starting production server...");
+    
+    // Add error handling for missing environment variables
+    if (!process.env.DATABASE_URL) {
+      log("WARNING: DATABASE_URL not set, using fallback configuration");
+    }
+    
+    const server = await registerRoutes(app);
+    
+    // Serve static files in production
+    serveStatic(app);
 
-  const PORT = parseInt(process.env.PORT || "5000");
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
-  });
+    const PORT = parseInt(process.env.PORT || "5000");
+    
+    server.on('error', (error) => {
+      log(`Server error: ${error.message}`, "error");
+    });
+    
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`serving on port ${PORT}`);
+      log("Production server started successfully");
+    });
+    
+  } catch (error) {
+    log(`Failed to start server: ${error.message}`, "error");
+    process.exit(1);
+  }
 })();
