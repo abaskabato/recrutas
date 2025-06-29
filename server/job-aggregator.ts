@@ -21,9 +21,24 @@ export class JobAggregator {
     try {
       console.log('Fetching from JSearch API (free tier)...');
       
-      const query = userSkills && userSkills.length > 0 
-        ? userSkills.join(' ') + ' developer'
-        : 'software developer';
+      // Create appropriate queries based on skills (not just tech)
+      let query = 'jobs';
+      if (userSkills && userSkills.length > 0) {
+        const skill = userSkills[0].toLowerCase();
+        // Map skills to appropriate job search terms
+        if (skill.includes('sales')) query = 'sales representative';
+        else if (skill.includes('design')) query = 'designer';
+        else if (skill.includes('marketing')) query = 'marketing specialist';
+        else if (skill.includes('finance')) query = 'financial analyst';
+        else if (skill.includes('hr')) query = 'human resources';
+        else if (skill.includes('healthcare')) query = 'healthcare worker';
+        else if (skill.includes('education')) query = 'teacher';
+        else if (skill.includes('customer')) query = 'customer service';
+        else if (skill.includes('management')) query = 'manager';
+        else if (skill.includes('data')) query = 'data analyst';
+        else if (skill.includes('writing')) query = 'content writer';
+        else query = userSkills.join(' ') + ' jobs';
+      }
       
       const params = new URLSearchParams({
         query: query,
@@ -766,7 +781,7 @@ export class JobAggregator {
         this.fetchFromAdzunaDemo(userSkills),
         this.fetchGitHubJobs(),
         this.fetchRemoteOKJobs(),
-        this.fetchFromJSONPlaceholder()
+        this.generateRelevantJobs(userSkills)
       ]);
 
       // Add jobs from successful fetches including new sources
@@ -945,22 +960,74 @@ export class JobAggregator {
     }));
   }
 
-  // JSONPlaceholder-based job generation using external API structure
-  async fetchFromJSONPlaceholder(): Promise<ExternalJob[]> {
-    try {
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=50');
-      
-      if (response.ok) {
-        const posts = await response.json();
-        const jobs = this.transformJSONPlaceholderToJobs(posts);
-        console.log(`Generated ${jobs.length} job listings from external API structure`);
-        return jobs;
-      }
-    } catch (error) {
-      console.error('Error fetching from JSONPlaceholder:', error);
-    }
+  // Generate diverse job listings for any skill set
+  async generateRelevantJobs(userSkills?: string[]): Promise<ExternalJob[]> {
+    const skill = userSkills?.[0]?.toLowerCase() || 'general';
     
-    return [];
+    // Job templates for different skill categories
+    const jobTemplates = {
+      sales: [
+        { title: 'Sales Representative', company: 'TechSales Corp', description: 'Drive revenue growth through client acquisition and account management' },
+        { title: 'Business Development Manager', company: 'Growth Partners', description: 'Identify new business opportunities and build strategic partnerships' },
+        { title: 'Account Executive', company: 'SalesForce Solutions', description: 'Manage key accounts and exceed quarterly sales targets' },
+        { title: 'Inside Sales Specialist', company: 'Digital Commerce', description: 'Generate leads and close deals through phone and email outreach' }
+      ],
+      design: [
+        { title: 'UX/UI Designer', company: 'Creative Studio', description: 'Design intuitive user experiences for web and mobile applications' },
+        { title: 'Graphic Designer', company: 'Brand Agency', description: 'Create visual content for marketing campaigns and brand identity' },
+        { title: 'Product Designer', company: 'Innovation Lab', description: 'Lead product design from concept to implementation' },
+        { title: 'Visual Designer', company: 'Media House', description: 'Develop creative assets for digital and print media' }
+      ],
+      marketing: [
+        { title: 'Digital Marketing Specialist', company: 'Growth Marketing', description: 'Execute digital campaigns across social media and paid channels' },
+        { title: 'Content Marketing Manager', company: 'Content Co', description: 'Develop content strategy and create engaging marketing materials' },
+        { title: 'Marketing Coordinator', company: 'Brand Solutions', description: 'Support marketing initiatives and campaign execution' },
+        { title: 'Social Media Manager', company: 'Social First', description: 'Manage brand presence across social media platforms' }
+      ],
+      finance: [
+        { title: 'Financial Analyst', company: 'Finance Corp', description: 'Analyze financial data and prepare investment recommendations' },
+        { title: 'Accounting Specialist', company: 'Numbers Plus', description: 'Manage accounts payable, receivable, and financial reporting' },
+        { title: 'Budget Analyst', company: 'Strategic Finance', description: 'Develop and monitor organizational budgets and forecasts' },
+        { title: 'Financial Advisor', company: 'Wealth Management', description: 'Provide financial planning and investment advice to clients' }
+      ],
+      hr: [
+        { title: 'Human Resources Specialist', company: 'People First', description: 'Support talent acquisition and employee development programs' },
+        { title: 'Talent Acquisition Coordinator', company: 'Hiring Solutions', description: 'Source and screen candidates for various positions' },
+        { title: 'HR Business Partner', company: 'Strategic HR', description: 'Partner with business leaders on HR strategy and initiatives' },
+        { title: 'Employee Relations Specialist', company: 'Workplace Solutions', description: 'Handle employee concerns and maintain positive workplace culture' }
+      ],
+      healthcare: [
+        { title: 'Registered Nurse', company: 'Metro Hospital', description: 'Provide patient care and support medical treatment plans' },
+        { title: 'Medical Assistant', company: 'Family Practice', description: 'Assist physicians with patient care and administrative tasks' },
+        { title: 'Healthcare Coordinator', company: 'Care Network', description: 'Coordinate patient services and manage care transitions' },
+        { title: 'Clinical Specialist', company: 'Medical Center', description: 'Provide specialized clinical expertise and patient education' }
+      ]
+    };
+    
+    // Determine which template to use
+    let template = jobTemplates.sales; // default
+    if (skill.includes('design')) template = jobTemplates.design;
+    else if (skill.includes('marketing')) template = jobTemplates.marketing;
+    else if (skill.includes('finance')) template = jobTemplates.finance;
+    else if (skill.includes('hr')) template = jobTemplates.hr;
+    else if (skill.includes('healthcare') || skill.includes('medical')) template = jobTemplates.healthcare;
+    
+    // Generate jobs from template
+    return template.map((job, index) => ({
+      id: `generated_${skill}_${index}_${Date.now()}`,
+      title: job.title,
+      company: job.company,
+      location: ['New York, NY', 'Remote', 'San Francisco, CA', 'Chicago, IL', 'Austin, TX'][index % 5],
+      description: job.description,
+      requirements: [`Experience in ${skill}`, 'Strong communication skills', 'Team collaboration'],
+      skills: userSkills || [skill],
+      workType: index % 3 === 0 ? 'remote' : 'onsite',
+      salaryMin: 45000 + (index * 5000),
+      salaryMax: 75000 + (index * 8000),
+      source: 'Job Generator',
+      externalUrl: `https://careers.example.com/${job.title.toLowerCase().replace(/\s+/g, '-')}`,
+      postedDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
+    }));
   }
 
   private transformJSONPlaceholderToJobs(posts: any[]): ExternalJob[] {
