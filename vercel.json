@@ -21,5 +21,6 @@
       "src": "/(.*)",
       "dest": "/$1"
     }
-  ]
+  ],
+  "installCommand": "npm install && sed -i 's/&& esbuild server\\/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist//g' package.json"
 }
