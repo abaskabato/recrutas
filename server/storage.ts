@@ -1218,7 +1218,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(jobPostings.talentOwnerId, talentId));
 
       return results.map(({ application, candidate, job, user }) => ({
-        id: application.id,
+        id: application.id.toString(),
         candidateId: user?.id,
         jobId: job?.id,
         candidateName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email?.split('@')[0] || 'Unknown',
