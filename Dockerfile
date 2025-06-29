@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci --only=production
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -16,10 +16,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the application - direct commands to avoid cache issues
-RUN echo "Building frontend..." && npx vite build
-RUN echo "Building backend..." && npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:vite --external:./vite.ts
-RUN echo "Creating entry point..." && echo 'import("./production.js");' > dist/index.js
+# Build the application
+RUN npm run build
 
 # Production image, copy all the files and run the app
 FROM base AS runner
@@ -41,4 +39,4 @@ EXPOSE 5000
 
 ENV PORT=5000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server/index.js"]

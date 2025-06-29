@@ -126,7 +126,6 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
-- June 29, 2025. **Railway deployment investigation complete** - Docker build succeeds perfectly (746KB frontend, 281KB backend), but Railway platform has routing issues preventing application access. Application code verified working in development.
 - June 29, 2025. **Successfully connected to GitHub** - Complete job platform now live at https://github.com/abaskabato/recrutas with professional documentation and all features operational.
 - June 29, 2025. **Human-centered messaging complete** - Updated all platform messaging to be conversational and human-focused with new tagline "Built on AI. Backed by transparency. Focused on you." Landing page hero section now emphasizes talking to real people instead of corporate jargon.
 - June 29, 2025. **OPEN SOURCE RELEASE READY** - Final preparation completed with comprehensive documentation (README.md, CONTRIBUTING.md, enhanced .env.example), security audit passed, all test data removed, and professional codebase organization. Ready for public GitHub release.
