@@ -75,10 +75,33 @@ export class JobAggregator {
     }
   }
 
-  async fetchFromArbeitNow(): Promise<ExternalJob[]> {
-    // Skipping ArbeitNow - focuses on German/European jobs, not US market
-    console.log('Skipping ArbeitNow (European focus) for US-only job search');
-    return [];
+  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
+    try {
+      console.log('Fetching from Hiring.cafe (recent US tech jobs)...');
+      
+      // Use Hiring.cafe with recent jobs filter (past 2 days)
+      const searchParams = encodeURIComponent('{"dateFetchedPastNDays":2}');
+      const response = await fetch(`https://hiring.cafe/api/jobs?searchState=${searchParams}`, {
+        headers: {
+          'User-Agent': 'Recrutas-Platform/1.0',
+          'Accept': 'application/json',
+          'Referer': 'https://hiring.cafe/'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const jobs = this.transformHiringCafeJobs(data.jobs || data || []);
+        console.log(`Fetched ${jobs.length} recent US tech jobs from Hiring.cafe`);
+        return jobs;
+      } else {
+        console.log(`Hiring.cafe API returned ${response.status}`);
+        return this.getHiringCafeFallbackJobs();
+      }
+    } catch (error) {
+      console.log('Error fetching from Hiring.cafe:', error.message);
+      return this.getHiringCafeFallbackJobs();
+    }
   }
 
   async fetchFromJoobleAPI(userSkills?: string[]): Promise<ExternalJob[]> {
@@ -425,45 +448,7 @@ export class JobAggregator {
     }));
   }
 
-  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
-    try {
-      console.log('Fetching hiring.cafe job data...');
-      
-      // Try to fetch HTML content with proper headers
-      const response = await fetch('https://hiring.cafe/', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Connection': 'keep-alive',
-        },
-        // Remove timeout property as it's not supported in native fetch
-      });
-      
-      if (!response.ok) {
-        console.log(`Hiring.cafe returned ${response.status}, using curated jobs`);
-        return this.getHiringCafeFallbackJobs();
-      }
-      
-      const html = await response.text();
-      console.log(`Fetched ${html.length} characters from hiring.cafe`);
-      
-      // Parse HTML for job data patterns
-      const jobs = this.parseHiringCafeHTML(html);
-      
-      if (jobs.length === 0) {
-        console.log('No structured jobs found in HTML, using fallback jobs');
-        return this.getHiringCafeFallbackJobs();
-      }
-      
-      console.log(`Successfully extracted ${jobs.length} jobs from hiring.cafe HTML`);
-      return jobs;
-      
-    } catch (error) {
-      console.log('Fetch failed, using curated hiring.cafe jobs:', error instanceof Error ? error.message : 'Unknown error');
-      return this.getHiringCafeFallbackJobs();
-    }
-  }
+
 
   private getHiringCafeFallbackJobs(): ExternalJob[] {
     // Curated real tech jobs from hiring.cafe patterns
@@ -726,6 +711,7 @@ export class JobAggregator {
       // Fetch from all sources including new ones
       const [
         jsearchJobs,
+        hiringCafeJobs,
         joobleJobs,
         indeedJobs,
         usaJobs,
@@ -736,6 +722,7 @@ export class JobAggregator {
         jsonJobs
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
+        this.fetchFromHiringCafe(),
         this.fetchFromJoobleAPI(userSkills),
         this.fetchFromIndeedRSS(userSkills),
         this.fetchFromUSAJobs(userSkills),
@@ -748,6 +735,7 @@ export class JobAggregator {
 
       // Add jobs from successful fetches - US-focused sources only
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
+      if (hiringCafeJobs.status === 'fulfilled') allJobs.push(...hiringCafeJobs.value);
       if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
       if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
       if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
@@ -823,19 +811,18 @@ export class JobAggregator {
           const company = (job.company || '').toLowerCase();
           const description = (job.description || '').toLowerCase();
           
-          // Include if: mentions US timezones, US-based companies, or explicitly allows US remote
-          return location.includes('us') || 
-                 location.includes('usa') || 
-                 location.includes('united states') ||
-                 location.includes('america') ||
-                 location.includes('pst') ||
-                 location.includes('est') ||
-                 location.includes('mst') ||
-                 location.includes('cst') ||
-                 description.includes('us time') ||
-                 description.includes('american') ||
-                 // Exclude European timezone requirements
-                 (!location.includes('cet') && !location.includes('gmt+1') && !location.includes('berlin') && !location.includes('europe'));
+          // Exclude clearly European-only jobs
+          const isEuropeanOnly = location.includes('germany') || 
+                                  location.includes('berlin') || 
+                                  location.includes('munich') || 
+                                  location.includes('hamburg') ||
+                                  location.includes('cet only') ||
+                                  location.includes('gmt+1 only') ||
+                                  description.includes('europe only') ||
+                                  description.includes('eu timezone only');
+          
+          // Include if not European-only (more inclusive for remote jobs)
+          return !isEuropeanOnly;
         });
         
         const transformedJobs = this.transformRemoteOKJobs(usJobs || []);
