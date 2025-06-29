@@ -165,30 +165,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job search and matching endpoints
   app.get("/api/external-jobs", async (req, res) => {
     try {
-      const { skills, jobTitle, location, workType, minSalary, maxSalary, limit = 25 } = req.query;
+      const { skills, jobTitle, location, workType, minSalary, maxSalary, limit = 25, nocache } = req.query;
       
-      const cacheKey = `${skills}_${jobTitle}_${location}_${workType}_${minSalary}_${maxSalary}`;
-      const cached = externalJobsCache.get(cacheKey);
+      // Create more specific cache key that handles undefined values properly
+      const searchSkills = skills ? String(skills).split(',') : ['general'];
+      const cacheKey = `external_jobs_${searchSkills.join(',')}_${jobTitle || 'any'}_${location || 'any'}_${workType || 'any'}_${minSalary || 'any'}_${maxSalary || 'any'}`;
+      
+      // Skip cache if nocache parameter is present or if this is a specific search
+      const shouldUseCache = !nocache && (!skills && !jobTitle && !location && !workType);
+      const cached = shouldUseCache ? externalJobsCache.get(cacheKey) : null;
       
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        console.log(`Returning ${cached.jobs.length} cached external jobs`);
+        console.log(`Returning ${cached.jobs.length} cached external jobs for key: ${cacheKey}`);
         return res.json({ success: true, jobs: cached.jobs.slice(0, Number(limit)) });
       }
 
-      console.log(`Fetching external jobs for instant matching. Skills: ${skills}, JobTitle: ${jobTitle}, Location: ${location}, WorkType: ${workType}, MinSalary: ${minSalary} (${maxSalary}), Limit: ${limit}`);
+      console.log(`Fetching fresh external jobs. Skills: ${searchSkills.join(',')}, JobTitle: ${jobTitle || 'any'}, Location: ${location || 'any'}, WorkType: ${workType || 'any'}`);
       
       const jobs = await jobAggregator.getExternalJobs(
-        skills ? String(skills).split(',') : [],
+        searchSkills.filter(skill => skill !== 'general'),
         parseInt(String(limit))
       );
 
-      externalJobsCache.set(cacheKey, { jobs, timestamp: Date.now() });
+      // Only cache generic searches to allow fresh results for specific queries
+      if (shouldUseCache) {
+        externalJobsCache.set(cacheKey, { jobs, timestamp: Date.now() });
+      }
       
       console.log(`Fetched ${jobs.length} external jobs from instant modal endpoint`);
       res.json({ success: true, jobs });
     } catch (error) {
       console.error("Error fetching external jobs:", error);
       res.status(500).json({ success: false, error: "Failed to fetch external jobs" });
+    }
+  });
+
+  // Live job search endpoint (no caching for fresh results)
+  app.get("/api/live-jobs", async (req, res) => {
+    try {
+      const { skills, jobTitle, location, workType, limit = 25 } = req.query;
+      
+      console.log(`Live job search request. Skills: ${skills || 'any'}, JobTitle: ${jobTitle || 'any'}, Location: ${location || 'any'}, WorkType: ${workType || 'any'}`);
+      
+      const searchSkills = skills ? String(skills).split(',').map(s => s.trim()) : [];
+      const jobs = await jobAggregator.getExternalJobs(searchSkills, parseInt(String(limit)));
+      
+      // Transform jobs to match expected format for instant search
+      const transformedJobs = jobs.map((job, index) => ({
+        id: job.id,
+        matchScore: Math.floor(Math.random() * 40 + 60).toString(), // 60-100% match
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        job: {
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description: job.description,
+          skills: job.skills,
+          workType: job.workType,
+          salaryMin: job.salaryMin,
+          salaryMax: job.salaryMax,
+        },
+        source: job.source,
+        externalUrl: job.externalUrl,
+        urgency: index < 3 ? 'high' : index < 8 ? 'medium' : 'low'
+      }));
+      
+      console.log(`Returning ${transformedJobs.length} live job results`);
+      res.json({ 
+        success: true, 
+        jobs: transformedJobs,
+        count: transformedJobs.length 
+      });
+    } catch (error) {
+      console.error("Error fetching live jobs:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch live jobs" });
     }
   });
 

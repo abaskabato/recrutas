@@ -714,6 +714,25 @@ export class JobAggregator {
     ).slice(0, 8);
   }
 
+  private filterJobsBySkills(jobs: ExternalJob[], userSkills: string[]): ExternalJob[] {
+    const normalizedUserSkills = userSkills.map(skill => skill.toLowerCase());
+    
+    return jobs.filter(job => {
+      const jobText = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
+      
+      // Check if job matches any of the user skills
+      const hasSkillMatch = normalizedUserSkills.some(userSkill => 
+        jobText.includes(userSkill) || 
+        job.skills.some(jobSkill => 
+          jobSkill.toLowerCase().includes(userSkill) || 
+          userSkill.includes(jobSkill.toLowerCase())
+        )
+      );
+      
+      return hasSkillMatch;
+    });
+  }
+
   async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
     
@@ -765,7 +784,15 @@ export class JobAggregator {
       );
       
       console.log(`After deduplication: ${uniqueJobs.length} unique jobs`);
-      return uniqueJobs;
+      
+      // Apply search-based filtering if userSkills are provided
+      let filteredJobs = uniqueJobs;
+      if (userSkills && userSkills.length > 0 && userSkills[0] !== 'general') {
+        filteredJobs = this.filterJobsBySkills(uniqueJobs, userSkills);
+        console.log(`After skill filtering: ${filteredJobs.length} relevant jobs for skills: ${userSkills.join(', ')}`);
+      }
+      
+      return filteredJobs;
     } catch (error) {
       console.error('Error aggregating jobs:', error);
       return [];
