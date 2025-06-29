@@ -1,0 +1,76 @@
+ 2415 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                   1.13 kB │ gzip:   0.59 kB
+
+../dist/public/assets/index-BrovwWK3.css  127.76 kB │ gzip:  19.53 kB
+
+../dist/public/assets/index-Ch4FA7fH.js   746.69 kB │ gzip: 218.60 kB
+
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+✓ built in 5.46s
+
+▲ [WARNING] Duplicate member "storeExamResult" in class body [duplicate-class-member]
+
+    server/storage.ts:1275:8:
+      1275 │   async storeExamResult(result: any): Promise<any> {
+           ╵         ~~~~~~~~~~~~~~~
+
+  The original member "storeExamResult" is here:
+
+    server/storage.ts:503:8:
+      503 │   async storeExamResult(result: any): Promise<void> {
+          ╵         ~~~~~~~~~~~~~~~
+
+
+✘ [ERROR] No matching export in "server/vite.ts" for import "createServer"
+
+    server/vite.ts:4:9:
+      4 │ import { createServer as createViteServer, createLogger } from "vite";
+        ╵          ~~~~~~~~~~~~
+
+
+✘ [ERROR] No matching export in "server/vite.ts" for import "createLogger"
+
+    server/vite.ts:4:43:
+      4 │ import { createServer as createViteServer, createLogger } from "vite";
+        ╵                                            ~~~~~~~~~~~~
+
+
+1 warning and 2 errors
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.4.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.4.2
+npm notice To update run: npm install -g npm@11.4.2
+npm notice
+
+✕ [builder 4/4] RUN npm run build 
+process "/bin/sh -c npm run build" did not complete successfully: exit code: 1
+ 
+
+Dockerfile:20
+
+-------------------
+
+18 |
+
+19 |     # Build the application
+
+20 | >>> RUN npm run build
+
+21 |
+
+22 |     # Production image, copy all the files and run the app
+
+-------------------
+
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 1
