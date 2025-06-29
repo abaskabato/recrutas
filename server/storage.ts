@@ -160,6 +160,15 @@ export interface IStorage {
   getActivityForCandidate(candidateId: string): Promise<any[]>;
   createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<any>;
   updateUserInfo(userId: string, userInfo: any): Promise<any>;
+  
+  // Missing methods needed by routes
+  getPlatformStats(): Promise<any>;
+  getCurrentUser(userId: string): Promise<User | undefined>;
+  createCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile>;
+  updateCandidateProfile(userId: string, profileData: any): Promise<CandidateProfile>;
+  getJobsByTalentOwner(talentOwnerId: string): Promise<JobPosting[]>;
+  getAllJobs(): Promise<JobPosting[]>;
+  createJob(job: InsertJobPosting): Promise<JobPosting>;
 }
 
 /**
@@ -1347,6 +1356,63 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Missing method implementations
+  async getPlatformStats(): Promise<any> {
+    try {
+      const [totalUsers] = await db.select().from(users);
+      const [totalJobs] = await db.select().from(jobPostings);
+      const [totalMatches] = await db.select().from(jobMatches);
+      
+      return {
+        totalUsers: totalUsers?.length || 0,
+        totalJobs: totalJobs?.length || 0,
+        totalMatches: totalMatches?.length || 0,
+        activeConnections: 0 // WebSocket connections handled elsewhere
+      };
+    } catch (error) {
+      console.error('Error getting platform stats:', error);
+      return {
+        totalUsers: 0,
+        totalJobs: 0,
+        totalMatches: 0,
+        activeConnections: 0
+      };
+    }
+  }
+
+  async getCurrentUser(userId: string): Promise<User | undefined> {
+    return this.getUser(userId);
+  }
+
+  async createCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile> {
+    return this.upsertCandidateProfile(profile);
+  }
+
+  async updateCandidateProfile(userId: string, profileData: any): Promise<CandidateProfile> {
+    const updatedProfile = {
+      userId,
+      ...profileData,
+      updatedAt: new Date()
+    };
+    return this.upsertCandidateProfile(updatedProfile);
+  }
+
+  async getJobsByTalentOwner(talentOwnerId: string): Promise<JobPosting[]> {
+    return this.getJobPostings(talentOwnerId);
+  }
+
+  async getAllJobs(): Promise<JobPosting[]> {
+    try {
+      return await db.select().from(jobPostings).orderBy(desc(jobPostings.createdAt));
+    } catch (error) {
+      console.error('Error getting all jobs:', error);
+      return [];
+    }
+  }
+
+  async createJob(job: InsertJobPosting): Promise<JobPosting> {
+    return this.createJobPosting(job);
+  }
 
 }
 

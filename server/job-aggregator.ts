@@ -1051,6 +1051,10 @@ export class JobAggregator {
       };
     });
   }
+
+  async getExternalJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
+    return this.getAllJobs(userSkills, limit);
+  }
 }
 
 export const jobAggregator = new JobAggregator();
