@@ -1,42 +1,32 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "esnext",
-    "lib": ["ES2020"],
+    "noEmit": false,
     "outDir": "../dist/server",
     "rootDir": ".",
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "esModuleInterop": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
     "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["../shared/*"]
-    },
-    "types": ["node"],
-    "typeRoots": ["../node_modules/@types"],
-    "noEmit": false,
-    "declaration": false,
-    "removeComments": true,
-    "preserveConstEnums": false,
-    "sourceMap": false,
-    "composite": false
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": [
-    "**/*.ts"
+    "./**/*"
   ],
   "exclude": [
-    "node_modules",
+    "../node_modules",
     "../dist",
-    "../client",
-    "storage-backup.ts",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]
