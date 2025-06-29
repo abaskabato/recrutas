@@ -3412,17 +3412,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Notify candidate about feedback
-      await notificationService.sendNotification({
-        userId: applicationId, // This should be the candidate's user ID
-        type: 'application_feedback',
-        title: 'New Feedback on Your Application',
-        message: `You've received feedback on your application: "${feedback.substring(0, 100)}..."`,
-        data: {
-          applicationId,
-          rating,
-          nextSteps
-        }
-      });
+      // Note: Would use a notifyApplicationFeedback method if it existed
+      // For now, comment out until method is implemented
+      // await notificationService.notifyApplicationFeedback({
+      //   candidateId: applicationId, // This should be the candidate's user ID
+      //   type: 'application_feedback',
+      //   title: 'New Feedback on Your Application',
+      //   message: `You've received feedback on your application: "${feedback.substring(0, 100)}..."`,
+      //   data: {
+      //     applicationId,
+      //     rating,
+      //     nextSteps
+      //   }
+      // });
 
       res.json({ success: true });
     } catch (error) {
