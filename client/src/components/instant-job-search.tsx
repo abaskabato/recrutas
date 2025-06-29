@@ -112,19 +112,12 @@ export default function InstantJobSearch() {
 
   // Handle job application - save job for unauthenticated users
   const handleJobApplication = (job: InstantJob) => {
-    // More reliable authentication check
+    // Check if user is authenticated
     const isAuthenticated = document.cookie.includes('better-auth.session_token') || 
                            document.cookie.includes('session') ||
-                           localStorage.getItem('auth_token') ||
                            window.location.pathname.includes('/candidate');
     
-    console.log('Job application clicked:', job.job.title, 'at', job.job.company);
-    console.log('Authentication check:', isAuthenticated);
-    console.log('Cookies:', document.cookie);
-    
     if (!isAuthenticated) {
-      console.log('User not authenticated, saving job for continuation');
-      
       // Store job information for continuation after login
       const jobData = {
         id: job.id,
@@ -137,7 +130,6 @@ export default function InstantJobSearch() {
       };
       
       localStorage.setItem('continuationJob', JSON.stringify(jobData));
-      console.log('Saved to localStorage:', jobData);
       
       // Also store in session storage as backup
       const pendingData = {
@@ -148,7 +140,6 @@ export default function InstantJobSearch() {
       };
       
       sessionStorage.setItem('pendingJobApplication', JSON.stringify(pendingData));
-      console.log('Saved to sessionStorage:', pendingData);
 
       // Show message and redirect to sign in
       toast({
@@ -163,7 +154,6 @@ export default function InstantJobSearch() {
       return;
     }
     
-    console.log('User authenticated, opening job directly');
     // If authenticated, open the job directly
     window.open(job.externalUrl, '_blank');
   };

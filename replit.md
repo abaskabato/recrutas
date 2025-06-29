@@ -124,6 +124,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
+- June 29, 2025. **Job continuation workflow completed** - Fixed critical UX issue where job selections were lost during sign-in. Implemented localStorage/sessionStorage job saving with 30-minute expiration and toast notifications for seamless job application continuation.
 - June 29, 2025. **Revolutionary Application Intelligence system complete** - Full transparency system deployed with candidate and talent dashboard features that completely correspond, eliminating the "application black hole"
 - June 29, 2025. **Professional open source release ready** - Complete code cleanup, organized project structure, comprehensive documentation, eliminated clutter, ready to disrupt Indeed
 - June 29, 2025. **Open source package complete** - Removed all YC references, created comprehensive documentation, ready for public repository
