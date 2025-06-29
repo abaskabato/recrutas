@@ -184,17 +184,27 @@ export default function CandidateStreamlinedDashboard() {
 
   // Check for job continuation after user logs in
   useEffect(() => {
+    console.log('Checking for job continuation. User:', user?.name, 'showProfileCompletion:', showProfileCompletion);
+    
     if (user && !showProfileCompletion) {
       const continuationJobData = localStorage.getItem('continuationJob');
       const pendingApplication = sessionStorage.getItem('pendingJobApplication');
       
+      console.log('continuationJobData:', continuationJobData);
+      console.log('pendingApplication:', pendingApplication);
+      
       if (continuationJobData) {
+        console.log('Found continuation job data, parsing...');
         try {
           const jobData = JSON.parse(continuationJobData);
+          console.log('Parsed job data:', jobData);
+          
           // Check if the job data is recent (within last 30 minutes)
           const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+          console.log('Job timestamp:', jobData.timestamp, 'Thirty minutes ago:', thirtyMinutesAgo);
           
           if (jobData.timestamp > thirtyMinutesAgo) {
+            console.log('Job is recent, setting continuation job and showing toast');
             setContinuationJob(jobData);
             
             // Show a toast notification about continuing the job application
@@ -212,6 +222,7 @@ export default function CandidateStreamlinedDashboard() {
               ),
             });
           } else {
+            console.log('Job is too old, cleaning up');
             // Clean up old continuation data
             localStorage.removeItem('continuationJob');
             sessionStorage.removeItem('pendingJobApplication');

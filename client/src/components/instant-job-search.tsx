@@ -112,12 +112,21 @@ export default function InstantJobSearch() {
 
   // Handle job application - save job for unauthenticated users
   const handleJobApplication = (job: InstantJob) => {
-    // Check if user is authenticated by checking if session exists
-    const isAuthenticated = document.cookie.includes('better-auth.session_token');
+    // More reliable authentication check
+    const isAuthenticated = document.cookie.includes('better-auth.session_token') || 
+                           document.cookie.includes('session') ||
+                           localStorage.getItem('auth_token') ||
+                           window.location.pathname.includes('/candidate');
+    
+    console.log('Job application clicked:', job.job.title, 'at', job.job.company);
+    console.log('Authentication check:', isAuthenticated);
+    console.log('Cookies:', document.cookie);
     
     if (!isAuthenticated) {
+      console.log('User not authenticated, saving job for continuation');
+      
       // Store job information for continuation after login
-      localStorage.setItem('continuationJob', JSON.stringify({
+      const jobData = {
         id: job.id,
         jobData: job.job,
         source: job.source,
@@ -125,15 +134,21 @@ export default function InstantJobSearch() {
         matchScore: job.matchScore,
         timestamp: Date.now(),
         action: 'apply'
-      }));
+      };
+      
+      localStorage.setItem('continuationJob', JSON.stringify(jobData));
+      console.log('Saved to localStorage:', jobData);
       
       // Also store in session storage as backup
-      sessionStorage.setItem('pendingJobApplication', JSON.stringify({
+      const pendingData = {
         jobId: job.id,
         title: job.job.title,
         company: job.job.company,
         action: 'apply'
-      }));
+      };
+      
+      sessionStorage.setItem('pendingJobApplication', JSON.stringify(pendingData));
+      console.log('Saved to sessionStorage:', pendingData);
 
       // Show message and redirect to sign in
       toast({
@@ -142,10 +157,13 @@ export default function InstantJobSearch() {
       });
       
       // Redirect to root which will show sign in
-      window.location.href = '/';
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
       return;
     }
     
+    console.log('User authenticated, opening job directly');
     // If authenticated, open the job directly
     window.open(job.externalUrl, '_blank');
   };
