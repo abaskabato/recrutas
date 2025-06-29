@@ -2388,69 +2388,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`After all filters: ${filteredJobs.length} jobs matched`);
       
-      // Fallback: if no jobs match filters, return top jobs with ML-powered skill relevance scoring
-      if (filteredJobs.length === 0 && externalJobs.length > 0) {
-        console.log('No jobs passed filters, using ML-powered fallback with skill preference');
-        if (skills && typeof skills === 'string') {
-          const skillsArray = skills.toLowerCase().split(',').map(s => s.trim());
-          
-          // Use semantic similarity for scoring (simplified ML approach)
-          const scoredJobs = externalJobs.map(job => {
-            const jobSkills = job.skills.map(s => s.toLowerCase());
-            const jobTitle = job.title.toLowerCase();
-            const jobDescription = job.description.toLowerCase();
-            const combinedText = `${jobTitle} ${jobDescription} ${jobSkills.join(' ')}`;
-            
-            let skillScore = 0;
-            
-            // Apply semantic matching logic
-            skillsArray.forEach(skill => {
-              // Direct skill matches
-              if (jobSkills.some(js => js.includes(skill))) {
-                skillScore += 3;
-              }
-              // Title matches
-              if (jobTitle.includes(skill)) {
-                skillScore += 2;
-              }
-              // Description matches
-              if (jobDescription.includes(skill)) {
-                skillScore += 1;
-              }
-              // Related technology matches
-              if (skill === 'python' && (combinedText.includes('django') || combinedText.includes('flask') || combinedText.includes('fastapi'))) {
-                skillScore += 2;
-              }
-              if (skill === 'javascript' && (combinedText.includes('react') || combinedText.includes('node') || combinedText.includes('vue') || combinedText.includes('angular'))) {
-                skillScore += 2;
-              }
-              if (skill === 'react' && (combinedText.includes('javascript') || combinedText.includes('frontend') || combinedText.includes('ui'))) {
-                skillScore += 2;
-              }
-            });
-            
-            return { job, score: skillScore };
-          });
-          
-          // Sort by ML relevance score and take top matches
-          filteredJobs = scoredJobs
-            .filter(item => item.score > 0) // Only include jobs with some relevance
-            .sort((a, b) => b.score - a.score)
-            .slice(0, Math.min(parseInt(limit as string), 10))
-            .map(item => item.job);
-            
-          // If still no matches, include top jobs without score filter
-          if (filteredJobs.length === 0) {
-            filteredJobs = scoredJobs
-              .sort((a, b) => b.score - a.score)
-              .slice(0, Math.min(parseInt(limit as string), 5))
-              .map(item => item.job);
-          }
-        } else {
-          // No skills specified, return diverse selection
-          filteredJobs = externalJobs.slice(0, Math.min(parseInt(limit as string), 8));
-        }
-        console.log(`ML fallback returned ${filteredJobs.length} jobs`);
+      // Don't return unrelated jobs - let job generation handle empty results
+      if (filteredJobs.length === 0) {
+        console.log('No relevant jobs found after filtering');
       }
       
       console.log(`Final job count before formatting: ${filteredJobs.length}`);
