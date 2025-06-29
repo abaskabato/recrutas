@@ -1,4 +1,6 @@
 {
+  "version": 2,
+  "buildCommand": "vite build",
   "builds": [
     {
       "src": "api/index.js",
@@ -7,12 +9,11 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "api/index.js"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
