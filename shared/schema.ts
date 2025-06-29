@@ -293,6 +293,51 @@ export const applicationUpdates = pgTable("application_updates", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Application Intelligence Events - Revolutionary transparency feature
+export const applicationEvents = pgTable("application_events", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => jobApplications.id),
+  eventType: varchar("event_type", { 
+    enum: ["submitted", "viewed", "screened", "shortlisted", "rejected", "interview_scheduled", "interviewed", "decision_pending", "hired", "archived"] 
+  }).notNull(),
+  actorRole: varchar("actor_role", { enum: ["system", "recruiter", "hiring_manager", "team_member"] }).notNull(),
+  actorName: varchar("actor_name"),
+  actorTitle: varchar("actor_title"),
+  // Intelligence details
+  viewDuration: integer("view_duration"), // seconds spent viewing profile
+  candidateScore: integer("candidate_score"), // 0-100 scoring
+  candidateRanking: integer("candidate_ranking"), // position among applicants
+  totalApplicants: integer("total_applicants"),
+  feedback: text("feedback"), // why rejected/advanced
+  nextSteps: text("next_steps"), // what happens next
+  competitorProfile: text("competitor_profile"), // anonymized top candidate skills
+  visible: boolean("visible").default(true), // whether candidate can see this
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Application Intelligence Insights - Learning from applications
+export const applicationInsights = pgTable("application_insights", {
+  id: serial("id").primaryKey(),
+  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  applicationId: integer("application_id").notNull().references(() => jobApplications.id),
+  strengthsIdentified: jsonb("strengths_identified").$type<string[]>().default([]),
+  improvementAreas: jsonb("improvement_areas").$type<string[]>().default([]),
+  benchmarkViewTime: integer("benchmark_view_time"), // average for this role
+  actualViewTime: integer("actual_view_time"),
+  benchmarkScore: integer("benchmark_score"), // average score for this role  
+  actualScore: integer("actual_score"),
+  similarSuccessfulProfiles: jsonb("similar_successful_profiles").$type<{
+    skills: string[];
+    experience: string;
+    differentiatingFactor: string;
+  }[]>().default([]),
+  recommendedActions: jsonb("recommended_actions").$type<string[]>().default([]),
+  successProbability: integer("success_probability"), // 0-100
+  supportiveMessage: text("supportive_message"), // mental health support
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User feedback for match learning
 export const matchFeedback = pgTable("match_feedback", {
   id: serial("id").primaryKey(),
