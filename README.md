@@ -1,6 +1,6 @@
-# Recrutas - Direct Company Connections
+# Recrutas - Talk Directly to Companies
 
-> Revolutionary hiring platform that connects you directly with companies. Skip the recruiters, talk straight to hiring managers.
+> Skip the recruiters. Talk straight to the people who actually make hiring decisions.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -10,18 +10,18 @@
 ## 🚀 Key Features
 
 ### For Job Seekers
-- **Direct Company Access** - Connect straight to hiring managers, skip the middleman
-- **Merit-Based Communication** - Pass job-specific exams to unlock direct chat access
-- **Application Transparency** - See exactly what happens to your application in real-time
-- **Career Gap Support** - AI-powered comeback strategies for career transitions
-- **Instant Job Discovery** - Real-time aggregation from 500+ companies
+- **Talk to real people** - Chat directly with hiring managers, not recruiters
+- **Prove your skills first** - Take job-specific tests to unlock conversations
+- **See what's happening** - No more black hole applications - track everything in real-time
+- **Get help with career gaps** - Smart suggestions for getting back on track
+- **Find jobs instantly** - Fresh opportunities from 500+ companies
 
 ### For Hiring Managers
-- **Smart Candidate Filtering** - Custom exams with multiple question types
-- **Direct Communication** - No recruiters needed, talk directly to qualified candidates
-- **Third-Party Integrations** - HackerRank, Codility, and custom assessments
-- **Complete Visibility** - Track every candidate interaction and decision
-- **Automated Ranking** - AI-powered candidate scoring and recommendations
+- **Filter candidates your way** - Create custom tests that actually matter
+- **Skip the middleman** - Talk directly to people who passed your tests
+- **Use tools you trust** - Connect HackerRank, Codility, or build your own
+- **See the full picture** - Track every step of your hiring process
+- **Let AI help rank** - Smart scoring to find the best candidates faster
 
 ## 🛠️ Technology Stack
 
