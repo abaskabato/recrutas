@@ -759,7 +759,7 @@ export default function CandidateDashboardEnhanced() {
                               
                               <div className="flex flex-col items-end space-y-2">
                                 <div className="flex items-center space-x-2">
-                                  {match.job.source === 'internal' ? (
+                                  {(match.job as any).source === 'internal' ? (
                                     // Internal jobs: Apply first, then exam, then chat after AI ranking
                                     <>
                                       {match.status === 'pending' && (

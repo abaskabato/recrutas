@@ -427,20 +427,20 @@ export class JobAggregator {
   }
 
   private transformJSearchJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job: any) => ({
-      id: `jsearch_${job.job_id}`,
-      title: job.job_title,
-      company: job.employer_name,
-      location: job.job_city + ', ' + job.job_state,
-      description: job.job_description || '',
-      requirements: this.extractRequirements(job.job_description || ''),
-      skills: this.extractSkills(job.job_title + ' ' + (job.job_description || '')),
+    return jobs.map((job, index) => ({
+      id: `jsearch_${job.job_id || index}`,
+      title: job.job_title || 'Software Developer',
+      company: job.employer_name || 'Tech Company',
+      location: job.job_city && job.job_state ? `${job.job_city}, ${job.job_state}` : job.job_country || 'Remote',
+      description: job.job_description || job.job_highlights?.Qualifications?.join('. ') || 'Join our team',
+      requirements: job.job_highlights?.Responsibilities || [job.job_title],
+      skills: this.extractSkillsFromText(job.job_description || job.job_title),
       workType: job.job_is_remote ? 'remote' : 'onsite',
       salaryMin: job.job_min_salary,
       salaryMax: job.job_max_salary,
       source: 'JSearch',
-      externalUrl: job.job_apply_link,
-      postedDate: job.job_posted_at_datetime_utc,
+      externalUrl: job.job_apply_link || job.job_google_link || '#',
+      postedDate: job.job_posted_at_datetime_utc || new Date().toISOString()
     }));
   }
 
@@ -456,7 +456,7 @@ export class JobAggregator {
           'Accept-Language': 'en-US,en;q=0.5',
           'Connection': 'keep-alive',
         },
-        timeout: 5000 // 5 second timeout
+        // Remove timeout property as it's not supported in native fetch
       });
       
       if (!response.ok) {
@@ -471,8 +471,8 @@ export class JobAggregator {
       const jobs = this.parseHiringCafeHTML(html);
       
       if (jobs.length === 0) {
-        console.log('No structured jobs found in HTML, fetching from external API');
-        return this.fetchFromJSONPlaceholder();
+        console.log('No structured jobs found in HTML, using fallback jobs');
+        return this.getHiringCafeFallbackJobs();
       }
       
       console.log(`Successfully extracted ${jobs.length} jobs from hiring.cafe HTML`);
@@ -648,23 +648,6 @@ export class JobAggregator {
   }
 
   // Transformation methods for new job sources
-  private transformJSearchJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `jsearch_${job.job_id || index}`,
-      title: job.job_title || 'Software Developer',
-      company: job.employer_name || 'Tech Company',
-      location: job.job_city && job.job_state ? `${job.job_city}, ${job.job_state}` : job.job_country || 'Remote',
-      description: job.job_description || job.job_highlights?.Qualifications?.join('. ') || 'Join our team',
-      requirements: job.job_highlights?.Responsibilities || [job.job_title],
-      skills: this.extractSkillsFromText(job.job_description || job.job_title),
-      workType: job.job_is_remote ? 'remote' : 'onsite',
-      salaryMin: job.job_min_salary,
-      salaryMax: job.job_max_salary,
-      source: 'JSearch',
-      externalUrl: job.job_apply_link || job.job_google_link || '#',
-      postedDate: job.job_posted_at_datetime_utc || new Date().toISOString()
-    }));
-  }
 
   private transformArbeitNowJobs(jobs: any[]): ExternalJob[] {
     return jobs.map((job, index) => ({
@@ -924,7 +907,7 @@ export class JobAggregator {
           
           if (response.ok) {
             const data = await response.json();
-            const jobs = this.transformAdzunaJobs(data.results || []);
+            const jobs = this.transformUSAJobs(data.results || []);
             allJobs.push(...jobs.slice(0, 3));
           }
           
