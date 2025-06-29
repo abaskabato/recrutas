@@ -226,15 +226,15 @@ export default function LandingResponsive() {
             </Badge>
             
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-6 md:mb-8 leading-tight tracking-tight">
-              Skip the
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Recruiters</span>
+              Job Search.
               <br />
-              Talk to
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Real People</span>
+              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Reinvented.
+              </span>
             </h1>
             
             <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
-              Connect directly with hiring managers. No middlemen, no fees, no black holes.
+              AI-powered talent acquisition → Direct company connections → Skip the recruiters
             </p>
 
             {/* Skills Input Section */}
