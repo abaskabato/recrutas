@@ -1274,9 +1274,20 @@ export class DatabaseStorage implements IStorage {
 
   async storeExamResult(result: any): Promise<any> {
     try {
+      // First, get the examId for this job
+      const [jobExam] = await db
+        .select()
+        .from(jobExams)
+        .where(eq(jobExams.jobId, result.jobId));
+
+      if (!jobExam) {
+        throw new Error(`No exam found for job ${result.jobId}`);
+      }
+
       const [examResult] = await db
         .insert(examAttempts)
         .values({
+          examId: jobExam.id,
           candidateId: result.candidateId,
           jobId: result.jobId,
           score: result.score,
@@ -1284,6 +1295,8 @@ export class DatabaseStorage implements IStorage {
           correctAnswers: result.correctAnswers,
           timeSpent: result.timeSpent,
           answers: JSON.stringify(result.answers),
+          status: 'completed',
+          passedExam: result.score >= (result.passingScore || 70),
           completedAt: new Date()
         })
         .returning();
