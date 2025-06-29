@@ -79,8 +79,12 @@ app.use((req, res, next) => {
     log("Starting production server...");
     
     // Add error handling for missing environment variables
+    log("Environment check - DATABASE_URL present:", process.env.DATABASE_URL ? "YES" : "NO");
+    log("Environment check - PORT:", process.env.PORT || "not set");
+    
     if (!process.env.DATABASE_URL) {
       log("ERROR: DATABASE_URL environment variable is required");
+      log("Available environment variables: " + Object.keys(process.env).filter(key => !key.includes('SECRET')).join(", "));
       process.exit(1);
     }
     
