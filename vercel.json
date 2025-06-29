@@ -1,13 +1,6 @@
 {
   "builds": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { 
-        "distDir": "dist/public"
-      }
-    },
-    {
       "src": "api/index.js",
       "use": "@vercel/node"
     }
@@ -19,8 +12,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/index.html"
     }
-  ],
-  "installCommand": "npm install && node -e 'let pkg=require(\"./package.json\"); pkg.scripts.build=\"vite build\"; require(\"fs\").writeFileSync(\"./package.json\",JSON.stringify(pkg,null,2));' && cat package.json"
+  ]
 }

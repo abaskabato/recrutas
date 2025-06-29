@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recrutas - API Deployment</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 40px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            max-width: 600px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+        .status {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .api-link {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        .api-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Recrutas API</h1>
+        <p>Built on AI. Backed by transparency. Focused on you.</p>
+        
+        <div class="status">
+            <h3>✅ API Deployment Successful</h3>
+            <p>The Recrutas API is now live and ready to serve your job platform needs.</p>
+        </div>
+
+        <div>
+            <a href="/api/platform/stats" class="api-link">Platform Stats</a>
+            <a href="/api/jobs/search" class="api-link">Search Jobs</a>
+            <a href="/api/session" class="api-link">Session Info</a>
+        </div>
+
+        <p style="margin-top: 40px; font-size: 0.9rem; opacity: 0.7;">
+            This is an API-only deployment. Frontend deployment will be handled separately.
+        </p>
+    </div>
+</body>
+</html>
