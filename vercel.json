@@ -1,11 +1,11 @@
 {
+  "version": 2,
   "builds": [
     {
-      "src": "package.json",
+      "src": "client/package.json",
       "use": "@vercel/static-build",
       "config": { 
-        "distDir": "dist/public",
-        "buildCommand": "vite build"
+        "distDir": "dist/public"
       }
     },
     {
@@ -20,7 +20,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/client/$1"
     }
   ]
 }
