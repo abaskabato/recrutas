@@ -203,15 +203,20 @@ export default function CandidateStreamlinedDashboard() {
           if (jobData.timestamp > thirtyMinutesAgo) {
             setContinuationJob(jobData);
             
-            // Show a toast notification about continuing the job application
+            // Show a clickable toast notification about continuing the job application
             toast({
               title: "Continue Job Application",
-              description: `Continue applying to ${jobData.jobData.title} at ${jobData.jobData.company}`,
+              description: `Click here to continue applying to ${jobData.jobData.title} at ${jobData.jobData.company}`,
+              duration: 10000, // Keep visible longer
+              onClick: () => handleContinueJobApplication(jobData),
               action: (
                 <Button 
                   size="sm" 
-                  onClick={() => handleContinueJobApplication(jobData)}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleContinueJobApplication(jobData);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Continue
                 </Button>
@@ -552,6 +557,31 @@ export default function CandidateStreamlinedDashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Job Continuation Card */}
+            {continuationJob && (
+              <Card className="mb-6 border-blue-500 bg-blue-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <div>
+                        <h3 className="font-semibold text-blue-900">Continue Job Application</h3>
+                        <p className="text-sm text-blue-700">
+                          Complete your application to {continuationJob.jobData?.title} at {continuationJob.jobData?.company}
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => handleContinueJobApplication(continuationJob)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Continue Application
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Main Tabs */}
             <Tabs defaultValue="matches" className="space-y-6">
