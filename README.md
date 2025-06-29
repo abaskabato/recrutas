@@ -1,6 +1,6 @@
-# Recrutas - AI-Powered Talent Acquisition Platform
+# Recrutas - Direct Company Connections
 
-> **DoorDash for Jobs** - Revolutionary hiring platform that eliminates recruiters through intelligent matching and direct communication between candidates and hiring managers.
+> **DoorDash for Jobs** - Revolutionary hiring platform that connects you directly with companies. Skip the recruiters, talk straight to hiring managers.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -10,17 +10,17 @@
 ## 🚀 Key Features
 
 ### For Job Seekers
-- **AI-Powered Job Matching** - Semantic analysis with 87% accuracy
-- **Merit-Based Chat Access** - Pass job-specific exams to unlock direct hiring manager communication
-- **Application Intelligence** - Real-time transparency eliminating the "application black hole"
+- **Direct Company Access** - Connect straight to hiring managers, skip the middleman
+- **Merit-Based Communication** - Pass job-specific exams to unlock direct chat access
+- **Application Transparency** - See exactly what happens to your application in real-time
 - **Career Gap Support** - AI-powered comeback strategies for career transitions
 - **Instant Job Discovery** - Real-time aggregation from 500+ companies
 
 ### For Hiring Managers
 - **Smart Candidate Filtering** - Custom exams with multiple question types
-- **Direct Communication** - Skip recruiters, talk directly to qualified candidates
+- **Direct Communication** - No recruiters needed, talk directly to qualified candidates
 - **Third-Party Integrations** - HackerRank, Codility, and custom assessments
-- **Application Intelligence** - Complete candidate journey visibility
+- **Complete Visibility** - Track every candidate interaction and decision
 - **Automated Ranking** - AI-powered candidate scoring and recommendations
 
 ## 🛠️ Technology Stack
