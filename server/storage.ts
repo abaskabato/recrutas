@@ -1181,8 +1181,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Application Intelligence methods for talent dashboard transparency
-  async updateApplicationIntelligence(applicationId: string, updates: any): Promise<any> {
+  async updateApplicationIntelligence(applicationId: string | number, updates: any): Promise<any> {
     try {
+      // Ensure applicationId is a valid integer
+      const validApplicationId = typeof applicationId === 'string' ? parseInt(applicationId) : applicationId;
+      if (isNaN(validApplicationId)) {
+        throw new Error('Invalid application ID');
+      }
+
       // For demo purposes, using the jobApplications table to store intelligence data
       // In production, this would be a dedicated application_intelligence table
       const [result] = await db
@@ -1191,7 +1197,7 @@ export class DatabaseStorage implements IStorage {
           ...updates,
           updatedAt: new Date()
         })
-        .where(eq(jobApplications.id, parseInt(applicationId)))
+        .where(eq(jobApplications.id, validApplicationId))
         .returning();
       
       return result;

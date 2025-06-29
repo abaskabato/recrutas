@@ -529,6 +529,7 @@ function FeedbackForm({
 
 // Transparency Settings Form Component
 function TransparencySettingsForm() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState({
     defaultTransparencyLevel: 'partial',
     showViewTime: true,
@@ -536,6 +537,30 @@ function TransparencySettingsForm() {
     showFeedback: true,
     allowCandidateQuestions: true,
     anonymizeReviewer: false
+  });
+
+  // Save transparency settings mutation
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (settings: any) => {
+      const response = await apiRequest('POST', '/api/talent/transparency-settings', settings);
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Settings Saved",
+        description: "Your transparency settings have been updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
 
   return (
@@ -583,7 +608,12 @@ function TransparencySettingsForm() {
       </div>
 
       <div className="flex justify-end pt-4">
-        <Button>Save Settings</Button>
+        <Button 
+          onClick={() => saveSettingsMutation.mutate(settings)}
+          disabled={saveSettingsMutation.isPending}
+        >
+          {saveSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
+        </Button>
       </div>
     </div>
   );

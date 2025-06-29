@@ -3296,20 +3296,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { type, duration, timestamp, data } = req.body;
       const talentId = req.user.id;
 
+      // Validate applicationId is a valid integer
+      const validApplicationId = parseInt(applicationId);
+      if (isNaN(validApplicationId)) {
+        return res.status(400).json({ message: 'Invalid application ID' });
+      }
+
+      // Validate duration is a number
+      const validDuration = duration ? parseInt(duration) : 0;
+      if (isNaN(validDuration)) {
+        return res.status(400).json({ message: 'Invalid duration value' });
+      }
+
       // Store the tracking event in application intelligence
       const trackingEvent = {
-        applicationId,
+        applicationId: validApplicationId,
         talentId,
         type,
-        duration,
+        duration: validDuration,
         timestamp,
         data: data || {}
       };
 
       // For now, store in a simple way - in production this would be its own table
-      await storage.updateApplicationIntelligence(applicationId, {
+      await storage.updateApplicationIntelligence(validApplicationId, {
         [`${type}_at`]: timestamp,
-        [`${type}_duration`]: duration,
+        [`${type}_duration`]: validDuration,
         [`${type}_data`]: data
       });
 

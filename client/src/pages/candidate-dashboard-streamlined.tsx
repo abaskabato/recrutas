@@ -286,11 +286,10 @@ export default function CandidateStreamlinedDashboard() {
     }
   });
 
-  // Handle exam taking
+  // Handle exam taking - navigate to dedicated exam page
   const handleTakeExam = (jobId: number, jobTitle: string) => {
-    setSelectedJobId(jobId);
-    setSelectedJobTitle(jobTitle);
-    setShowExam(true);
+    const encodedTitle = encodeURIComponent(jobTitle);
+    window.location.href = `/exam/${jobId}/${encodedTitle}`;
   };
 
   // Handle exam completion
@@ -386,7 +385,7 @@ export default function CandidateStreamlinedDashboard() {
                 className="flex-shrink-0"
               >
                 <User className="w-4 h-4 mr-1" />
-                Complete Profile
+                Profile
               </Button>
               <Button 
                 variant="ghost" 
@@ -577,7 +576,7 @@ export default function CandidateStreamlinedDashboard() {
                                             }
                                           }}
                                           disabled={applyToJobMutation.isPending}
-                                          className={match.job?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white" : ""}
+                                          className={match.job?.hasExam ? "bg-blue-600 hover:bg-blue-700 text-white font-medium" : ""}
                                         >
                                           {match.job?.hasExam ? '📝 Take Exam' : 'Apply Now'}
                                         </Button>
@@ -585,7 +584,7 @@ export default function CandidateStreamlinedDashboard() {
                                       {match.status === 'applied' && match.job?.hasExam && (
                                         <Button
                                           size="sm"
-                                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                                          className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
                                           onClick={() => handleTakeExam(match.jobId, match.job.title)}
                                         >
                                           📝 Take Exam
