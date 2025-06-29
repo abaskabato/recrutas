@@ -1,4 +1,4 @@
-# Recrutas - YC Application Pitch Deck
+# Recrutas - Platform Overview
 
 ## Slide 1: Problem
 **Traditional recruiting is fundamentally broken**

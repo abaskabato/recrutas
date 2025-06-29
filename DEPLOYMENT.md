@@ -1,16 +1,16 @@
 # Deployment Guide
 
-This guide covers deploying Recrutas to various platforms for your YC application demo.
+This guide covers deploying Recrutas to various platforms for production and demo environments.
 
 ## Quick Deploy Options
 
-### 1. Vercel (Recommended for YC Demo)
+### 1. Vercel (Recommended for Demos)
 
 **Why Vercel:**
 - Zero-config deployment
 - Automatic HTTPS
 - Global CDN
-- Perfect for YC demo URLs
+- Perfect for demo URLs
 
 **Setup:**
 ```bash
@@ -125,7 +125,7 @@ STRIPE_SECRET_KEY=sk_live_your-key
 - [ ] Error handling implemented
 - [ ] Analytics tracking added (optional)
 
-## YC Demo Specific Setup
+## Demo Specific Setup
 
 ### Custom Domain (Optional but Recommended)
 ```bash

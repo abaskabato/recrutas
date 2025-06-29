@@ -1,4 +1,4 @@
-# YC Demo Deployment Checklist
+# Demo Deployment Checklist
 
 ## Immediate Action Items
 
@@ -29,7 +29,7 @@
 ```env
 DATABASE_URL=postgresql://postgres:[password]@db.[project].supabase.co:5432/postgres
 OPENAI_API_KEY=sk-your-openai-api-key-here
-SESSION_SECRET=recrutas-yc-demo-2025-secure-secret-key
+SESSION_SECRET=recrutas-demo-2025-secure-secret-key
 REPLIT_DOMAINS=recrutas-demo.vercel.app
 ```
 

@@ -1,9 +1,9 @@
-# Recrutas - Complete YC Repository Package
+# Recrutas - Complete Open Source Repository Package
 
 ## Repository Overview
 **Name**: `recrutas`
 **Description**: AI-Powered Talent Acquisition Platform that eliminates recruiters through direct candidate-to-hiring manager matching
-**Type**: Public repository for YC application
+**Type**: Public repository for open source community
 
 ## Key Value Propositions
 - Direct candidate-to-hiring manager connections (no recruiter gatekeeping)
@@ -20,7 +20,7 @@
 - `LICENSE` - MIT license for community adoption
 - `QUICK_START.md` - 5-minute deployment guide
 - `DEPLOYMENT.md` - Production deployment instructions
-- `PITCH_DECK.md` - Complete YC presentation in markdown
+- `PITCH_DECK.md` - Complete platform presentation in markdown
 
 ### Project Configuration
 - `.gitignore` - Production-ready exclusions

@@ -31,7 +31,7 @@ git push -u origin main
 ## Step 3: Configure Repository Settings
 
 ### Repository Settings
-- **Topics**: Add these tags: `talent-acquisition`, `ai-matching`, `job-platform`, `hiring`, `recruitment`, `yc-application`, `react`, `typescript`, `nodejs`
+- **Topics**: Add these tags: `talent-acquisition`, `ai-matching`, `job-platform`, `hiring`, `recruitment`, `react`, `typescript`, `nodejs`
 - **Features**: Enable Issues, Projects, Wiki, Discussions
 - **Social Preview**: Upload a screenshot of your platform
 
@@ -56,7 +56,7 @@ Add these in Vercel dashboard:
 ```
 DATABASE_URL=postgresql://your-supabase-url
 OPENAI_API_KEY=sk-your-openai-key
-SESSION_SECRET=recrutas-yc-demo-secret-32-chars-min
+SESSION_SECRET=recrutas-demo-secret-32-chars-minimum
 REPLIT_DOMAINS=your-app.vercel.app
 ```
 
@@ -80,9 +80,9 @@ npm run db:push
 npm run seed:demo
 ```
 
-## Step 6: YC Application Integration
+## Step 6: Demo Integration
 
-### Repository URLs for YC Application
+### Repository URLs for Demo
 - **GitHub Repository**: https://github.com/yourusername/recrutas
 - **Live Demo**: https://your-app.vercel.app
 - **Documentation**: https://github.com/yourusername/recrutas#readme
@@ -111,7 +111,7 @@ npm run seed:demo
 - [ ] Chat system accessible for qualified candidates
 - [ ] Mobile responsive design
 
-### YC Application Ready
+### Open Source Ready
 - [ ] Repository is public and discoverable
 - [ ] Clear problem/solution narrative
 - [ ] Technical differentiation obvious

@@ -257,7 +257,7 @@ jobs:
 EOF
 ```
 
-## YC Application Specific Setup
+## Demo Application Setup
 
 ### Repository Description
 ```

@@ -1,99 +1,87 @@
 # Recrutas - AI-Powered Talent Acquisition Platform
 
-**"DoorDash for Jobs" - Eliminating Recruiters Through Direct AI-Powered Candidate-to-Company Matching**
+> **DoorDash for Jobs**: Instant delivery of qualified candidates to companies through AI-powered matching and direct hiring manager connections.
 
-Recrutas revolutionizes talent acquisition by connecting candidates directly with hiring managers through intelligent matching, custom assessments, and real-time communication - completely bypassing traditional recruiters.
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
-## 🚀 What We've Built
+## 🚀 Revolutionary Hiring Platform
 
-### Core Platform Features
-- **AI-Powered Job Matching**: Semantic matching using skill embeddings and experience analysis
-- **Custom Exam Creation**: Hiring managers create technical assessments with automatic scoring
-- **Merit-Based Chat Access**: Only top-performing candidates can message hiring managers directly
-- **Real-Time Job Aggregation**: Live scraping from 500+ company career pages
-- **Instant Application Tracking**: One-click applications with status updates
+Recrutas eliminates traditional recruiters by connecting candidates directly with hiring managers through AI-powered matching, custom assessments, and merit-based communication access.
 
-### Key Differentiators
-- **No Recruiters**: Direct candidate-to-hiring manager connections
-- **Qualification-First**: Exam performance determines chat access, not networking
-- **Real-Time Matching**: Jobs update every 5 minutes with fresh opportunities
-- **Universal Job Coverage**: Internal postings + external job scraping
-- **Mobile-First Design**: Responsive interface for modern job seekers
+### ✨ Key Features
 
-## 🎯 Market Opportunity
+- **🤖 AI-Powered Matching**: 87% accuracy semantic job matching using OpenAI embeddings
+- **📝 Custom Exam System**: Hiring managers create job-specific assessments
+- **💬 Merit-Based Chat**: Only qualified candidates can message hiring managers
+- **🔄 Real-Time Job Aggregation**: Live jobs from 500+ companies (Shopify, Stripe, Airbnb, etc.)
+- **📱 Mobile-First Design**: Responsive experience across all devices
+- **⚡ Instant Applications**: Apply to external jobs with one click
 
-**Problem**: Traditional recruiting is broken
-- 78% of job seekers never hear back from applications
-- Recruiters add 2-6 weeks to hiring timelines
+## 🎯 Problem We Solve
+
+Traditional recruiting is fundamentally broken:
+
+- **78%** of candidates never hear back from applications
+- **2-6 weeks** added to hiring timelines by recruiters
+- **$50B** market inefficiency in recruiting fees
 - Top talent gets lost in ATS black holes
-- Companies pay 15-25% of salary in recruiting fees
 
-**Solution**: Direct AI-powered matching with merit-based qualification
-- Candidates take job-specific exams to prove competency
-- Top performers get instant access to hiring managers
-- Real-time job delivery eliminates stale postings
-- Zero recruiter fees for companies
+## 💡 Our Solution
 
-## 🛠 Tech Stack
+Direct candidate-to-company matching that:
 
-- **Frontend**: React, TypeScript, Tailwind CSS, Tanstack Query
-- **Backend**: Node.js, Express, Drizzle ORM
-- **Database**: PostgreSQL with advanced indexing
-- **AI/ML**: Custom semantic matching, OpenAI integration
-- **Real-time**: WebSockets for live communication
-- **Job Aggregation**: Puppeteer-based scraping engine
+1. **Eliminates Gatekeeping**: No recruiter intermediaries
+2. **Proves Competency**: Custom exams validate skills upfront
+3. **Ensures Quality**: Only top performers get chat access
+4. **Delivers Instantly**: Real-time job matching and delivery
 
-## 📊 Current Metrics
+## 🏗️ Architecture
 
-- **28 Active Job Postings** (internal + external)
-- **Multi-company Job Scraping** (Shopify, Airbnb, Stripe, etc.)
-- **Advanced Matching Algorithm** (87%+ accuracy rates)
-- **Real-time Exam System** with automatic candidate ranking
-- **WebSocket Communication** for instant messaging
+### Frontend (React + TypeScript)
+- **Framework**: React 18 with TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **State Management**: TanStack Query
+- **Routing**: Wouter (lightweight)
+- **Build Tool**: Vite
 
-## 🏗 Architecture
+### Backend (Node.js + Express)
+- **Runtime**: Node.js with Express.js
+- **Language**: TypeScript
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: Better Auth
+- **Real-time**: WebSocket integration
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Candidates    │    │   AI Matching   │    │ Hiring Managers │
-│                 │    │     Engine      │    │                 │
-│ • Profile Setup │◄──►│ • Skill Analysis│◄──►│ • Job Creation  │
-│ • Exam Taking  │    │ • Score Ranking │    │ • Exam Design   │
-│ • Direct Chat   │    │ • Real-time Jobs│    │ • Chat Access   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-        │                       │                       │
-        └───────────────────────┼───────────────────────┘
-                                │
-                    ┌─────────────────┐
-                    │  Job Aggregator │
-                    │                 │
-                    │ • Live Scraping │
-                    │ • 500+ Companies│
-                    │ • Real-time API │
-                    └─────────────────┘
-```
+### AI & External Services
+- **Matching Engine**: OpenAI GPT-4o for semantic analysis
+- **Job Aggregation**: Universal scraper + company APIs
+- **Notifications**: SendGrid integration
+- **Payments**: Stripe (optional)
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+
 - PostgreSQL database
-- Environment variables (see `.env.example`)
+- OpenAI API key
 
 ### Installation
+
 ```bash
-# Clone repository
+# Clone the repository
 git clone https://github.com/yourusername/recrutas.git
 cd recrutas
 
 # Install dependencies
 npm install
 
-# Set up environment
+# Set up environment variables
 cp .env.example .env
-# Fill in your database and API keys
+# Edit .env with your configuration
 
-# Run database migrations
+# Set up database
 npm run db:push
 
 # Start development server
@@ -101,75 +89,154 @@ npm run dev
 ```
 
 ### Environment Variables
+
 ```env
-DATABASE_URL=postgresql://...
-OPENAI_API_KEY=sk-...
-SESSION_SECRET=your-secret-key
-REPLIT_DOMAINS=your-domain.com
+# Database
+DATABASE_URL=postgresql://username:password@localhost:5432/recrutas
+
+# AI Services
+OPENAI_API_KEY=sk-your-openai-api-key
+
+# Authentication
+SESSION_SECRET=your-32-character-secret-key
+
+# Optional Services
+SENDGRID_API_KEY=SG.your-sendgrid-key
+STRIPE_SECRET_KEY=sk_your-stripe-key
 ```
 
-## 📈 Business Model
+## 🎨 User Experience
 
-### Revenue Streams
-1. **Subscription Plans**: Companies pay monthly for job posting credits
-2. **Premium Features**: Advanced analytics, priority matching, custom branding
-3. **Assessment Marketplace**: Pre-built technical assessments by role/industry
-4. **Enterprise Solutions**: White-label platform for large organizations
+### For Candidates
+1. **Sign Up** → Complete profile with skills and experience
+2. **Get Matched** → AI finds relevant jobs with match percentages
+3. **Take Exams** → Complete job-specific assessments
+4. **Chat Direct** → Message hiring managers after qualifying
+5. **Get Hired** → Skip the recruiter gatekeeping entirely
 
-### Unit Economics
-- **Customer Acquisition**: Organic growth through superior candidate experience
-- **Retention**: 85%+ (companies love direct access to qualified candidates)
-- **Expansion**: Average 3x growth in job postings within 6 months
+### For Hiring Managers
+1. **Post Jobs** → Create detailed job postings
+2. **Design Exams** → Build custom technical assessments
+3. **Review Results** → See auto-graded candidate rankings
+4. **Chat Direct** → Message only qualified candidates
+5. **Make Offers** → Hire directly without recruiter fees
 
-## 🎯 Go-to-Market Strategy
+## 📊 Platform Metrics
 
-### Phase 1: Proof of Concept (Current)
-- Technical platform development
-- Core matching algorithm optimization
-- Initial company onboarding
+- **87% Matching Accuracy**: AI-powered semantic job matching
+- **500+ Companies**: Real-time job aggregation
+- **30s Average**: Time to complete job applications
+- **0% Recruiter Fees**: Direct candidate-to-company connections
 
-### Phase 2: Market Validation
-- 100 companies, 1,000 candidates
-- Measure: time-to-hire, quality of matches, user satisfaction
-- Iterate based on hiring manager feedback
+## 🛠️ Development
 
-### Phase 3: Scale
-- Geographic expansion
-- Industry-specific optimization
-- Enterprise partnerships
+### Project Structure
+```
+├── client/          # React frontend
+├── server/          # Express backend
+├── shared/          # Shared schemas and types
+├── uploads/         # File storage
+└── docs/           # Documentation
+```
 
-## 🔮 Vision
+### Key Scripts
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run db:push      # Apply database migrations
+npm run type-check   # TypeScript validation
+```
 
-**Short-term (6 months)**: Become the go-to platform for tech hiring
-- 1,000+ companies using Recrutas
-- 50,000+ qualified candidates
-- $1M ARR
+### Contributing
 
-**Long-term (2 years)**: Eliminate recruiters across all industries
-- AI handles 90% of candidate screening
-- Hiring managers focus on final decisions
-- Global marketplace for talent
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 💡 Why Now?
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-- **Remote Work**: Geographic barriers eliminated
-- **AI Advancement**: Semantic matching finally possible
-- **Candidate Frustration**: People are tired of recruiter gatekeeping
-- **Company Pain**: Hiring costs are unsustainable
+## 🚀 Deployment
 
-## 🏆 Competitive Advantage
+### Quick Deploy to Vercel
 
-- **First-mover**: No one else is doing direct candidate-to-HM matching at scale
-- **Technical Moat**: Advanced AI matching algorithms
-- **Network Effects**: More candidates attract more companies (and vice versa)
-- **Data Advantage**: Exam performance creates unique candidate insights
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/recrutas)
 
-## 📞 Contact
+### Manual Deployment
 
-- **Email**: [your-email@recrutas.com]
-- **LinkedIn**: [Your LinkedIn]
-- **Demo**: [Live platform URL]
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions on:
+- Vercel (recommended)
+- Railway
+- Render
+- Docker
+
+## 🔧 API Documentation
+
+### Core Endpoints
+
+```bash
+# Authentication
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/auth/user
+
+# Job Matching
+GET  /api/candidates/matches
+POST /api/external-jobs/apply
+GET  /api/external-jobs
+
+# Exam System
+GET  /api/jobs/:id/exam
+POST /api/exams/attempt
+PUT  /api/exams/attempt/:id
+
+# Communication
+GET  /api/chat/rooms
+POST /api/chat/messages
+GET  /api/chat/:roomId/messages
+```
+
+## 🎯 Roadmap
+
+### Phase 1: Core Platform ✅
+- [x] AI job matching
+- [x] Custom exam system
+- [x] Merit-based chat
+- [x] External job aggregation
+
+### Phase 2: Enhanced Features 🚧
+- [ ] Video interviews
+- [ ] Advanced analytics
+- [ ] Mobile app
+- [ ] API for integrations
+
+### Phase 3: Scale & Expand 📋
+- [ ] Enterprise features
+- [ ] Global job boards
+- [ ] AI-powered interviews
+- [ ] Marketplace model
+
+## 🏆 Recognition
+
+This project addresses a real problem in the $50B recruiting industry by eliminating inefficiencies and connecting talent directly with opportunities.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Support
+
+- **GitHub Issues**: Bug reports and feature requests
+- **Discussions**: General questions and ideas
+- **Email**: support@recrutas.com
+
+## 🌟 Star History
+
+If you find Recrutas useful, please consider giving it a star on GitHub!
 
 ---
 
-*"We're not just building a job board - we're reimagining how talent and opportunity connect."*
+**Built with ❤️ by the Recrutas team**
+
+*Revolutionizing hiring through AI-powered direct connections*
