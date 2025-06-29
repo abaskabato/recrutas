@@ -107,6 +107,13 @@ export interface IStorage {
   updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any>;
   getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any>;
   createJobApplication(application: any): Promise<any>;
+  getApplicationById(applicationId: number): Promise<any>;
+  
+  // Application Intelligence operations (Revolutionary feedback system)
+  createApplicationEvent(event: any): Promise<any>;
+  getApplicationEvents(applicationId: number): Promise<any[]>;
+  getApplicationInsights(applicationId: number): Promise<any>;
+  createApplicationInsights(insights: any): Promise<any>;
   
   // Statistics
   getCandidateStats(candidateId: string): Promise<{
@@ -1061,6 +1068,112 @@ export class DatabaseStorage implements IStorage {
   async getAvailableNotificationUsers(): Promise<string[]> {
     const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
     return result.map(r => r.userId);
+  }
+
+  // Application Intelligence operations (Revolutionary feedback system)
+  async getApplicationById(applicationId: number): Promise<any> {
+    try {
+      const [application] = await db
+        .select()
+        .from(jobApplications)
+        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(eq(jobApplications.id, applicationId));
+      
+      return application ? {
+        ...application.job_applications,
+        job: application.job_postings
+      } : undefined;
+    } catch (error) {
+      console.error('Error fetching application by ID:', error);
+      throw error;
+    }
+  }
+
+  async createApplicationEvent(event: any): Promise<any> {
+    try {
+      // Import the applicationEvents table from schema
+      const { applicationEvents } = await import("@shared/schema");
+      
+      const [result] = await db.insert(applicationEvents).values({
+        applicationId: event.applicationId,
+        eventType: event.eventType,
+        actorRole: event.actorRole,
+        actorName: event.actorName,
+        actorTitle: event.actorTitle,
+        viewDuration: event.viewDuration,
+        candidateScore: event.candidateScore,
+        candidateRanking: event.candidateRanking,
+        totalApplicants: event.totalApplicants,
+        feedback: event.feedback,
+        nextSteps: event.nextSteps,
+        competitorProfile: event.competitorProfile,
+        visible: event.visible ?? true
+      }).returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error creating application event:', error);
+      throw error;
+    }
+  }
+
+  async getApplicationEvents(applicationId: number): Promise<any[]> {
+    try {
+      const { applicationEvents } = await import("@shared/schema");
+      
+      return await db
+        .select()
+        .from(applicationEvents)
+        .where(eq(applicationEvents.applicationId, applicationId))
+        .orderBy(desc(applicationEvents.createdAt));
+    } catch (error) {
+      console.error('Error fetching application events:', error);
+      return [];
+    }
+  }
+
+  async getApplicationInsights(applicationId: number): Promise<any> {
+    try {
+      const { applicationInsights } = await import("@shared/schema");
+      
+      const [insights] = await db
+        .select()
+        .from(applicationInsights)
+        .where(eq(applicationInsights.applicationId, applicationId))
+        .orderBy(desc(applicationInsights.createdAt))
+        .limit(1);
+        
+      return insights;
+    } catch (error) {
+      console.error('Error fetching application insights:', error);
+      return null;
+    }
+  }
+
+  async createApplicationInsights(insights: any): Promise<any> {
+    try {
+      const { applicationInsights } = await import("@shared/schema");
+      
+      const [result] = await db.insert(applicationInsights).values({
+        candidateId: insights.candidateId,
+        applicationId: insights.applicationId,
+        strengthsIdentified: insights.strengthsIdentified,
+        improvementAreas: insights.improvementAreas,
+        benchmarkViewTime: insights.benchmarkViewTime,
+        actualViewTime: insights.actualViewTime,
+        benchmarkScore: insights.benchmarkScore,
+        actualScore: insights.actualScore,
+        similarSuccessfulProfiles: insights.similarSuccessfulProfiles,
+        recommendedActions: insights.recommendedActions,
+        successProbability: insights.successProbability,
+        supportiveMessage: insights.supportiveMessage
+      }).returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error creating application insights:', error);
+      throw error;
+    }
   }
 }
 

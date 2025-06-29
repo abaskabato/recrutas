@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import AIJobFeed from "@/components/ai-job-feed";
 import ProfileUpload from "@/components/profile-upload";
-import ApplicationTracker from "@/components/application-tracker";
+import ApplicationIntelligenceDemo from "@/components/application-intelligence-demo";
 import RealTimeNotifications from "@/components/real-time-notifications";
 import JobMatchesModal from "@/components/job-matches-modal";
 
@@ -422,50 +422,9 @@ export default function CandidateDashboard() {
               </div>
             </TabsContent>
 
-            {/* Applications Tab */}
+            {/* Applications Tab - Revolutionary Transparency & Feedback */}
             <TabsContent value="applications" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(applications as any)?.length > 0 ? (applications as any).map((app: any) => (
-                  <Card key={app.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-base">{app.job?.title}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{app.job?.company}</p>
-                        </div>
-                        <Badge variant={app.status === 'pending' ? 'secondary' : 'default'}>
-                          {app.status}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          Applied {new Date(app.appliedAt).toLocaleDateString()}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {app.job?.location}
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm" className="w-full mt-3">
-                        View Details
-                        <ChevronRight className="h-3 w-3 ml-1" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )) : (
-                  <div className="col-span-full text-center py-12">
-                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Start applying to jobs from your AI-curated feed to see them here.
-                    </p>
-                    <Button>Browse Jobs</Button>
-                  </div>
-                )}
-              </div>
+              <ApplicationIntelligenceDemo />
             </TabsContent>
 
             {/* Profile Tab */}

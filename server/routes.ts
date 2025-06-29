@@ -35,6 +35,45 @@ import { advancedMatchingEngine } from "./advanced-matching-engine";
 const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Application Intelligence Helper Functions
+function generateDefaultFeedback(status: string): string {
+  const feedbackMap: Record<string, string> = {
+    'viewed': 'Your application has been reviewed by our hiring team.',
+    'screening': 'Your profile is being evaluated against our requirements.',
+    'rejected': 'After careful consideration, we decided to move forward with other candidates. Your skills were impressive but not the exact match for this specific role.',
+    'interview_scheduled': 'Congratulations! Your application stood out and we would like to interview you.',
+    'offer': 'We are excited to extend an offer! Your experience and skills are exactly what we need.'
+  };
+  return feedbackMap[status] || 'Your application status has been updated.';
+}
+
+async function generateIntelligenceNotification(applicationId: number, status: string, details: any) {
+  const humanReadableMessages: Record<string, string> = {
+    'viewed': `Great news! ${details.reviewerName || 'A hiring manager'} spent ${details.viewDuration || 45} seconds reviewing your profile${details.ranking ? ` - you're ranked #${details.ranking} out of ${details.totalApplicants} applicants` : ''}.`,
+    'rejected': `While this role wasn't a match, here's valuable feedback: ${details.feedback}. ${details.ranking ? `You were #${details.ranking} out of ${details.totalApplicants} - very competitive!` : ''}`,
+    'interview_scheduled': `Excellent! You've progressed to interviews${details.ranking ? ` as one of the top ${details.ranking} candidates` : ''}. Your application really impressed the team.`
+  };
+  
+  return {
+    message: humanReadableMessages[status] || generateDefaultFeedback(status),
+    actionable: status === 'rejected',
+    emotionalTone: status === 'rejected' ? 'constructive' : 'positive'
+  };
+}
+
+function generateHumanReadableUpdate(event: any): string {
+  const eventMessages: Record<string, string> = {
+    'submitted': 'Your application was received and entered into our system.',
+    'viewed': `${event.actorName || 'Hiring manager'} reviewed your profile${event.viewDuration ? ` for ${event.viewDuration} seconds` : ''}.`,
+    'screening': 'Your application is being evaluated against job requirements.',
+    'rejected': `Decision made: ${event.feedback || 'Moving forward with other candidates'}`,
+    'interview_scheduled': 'Congratulations! Interview has been scheduled.',
+    'hired': 'Amazing news - you got the job!'
+  };
+  
+  return eventMessages[event.eventType] || 'Application status updated.';
+}
+
 // Authentication middleware for Better Auth sessions
 async function requireAuth(req: any, res: any, next: any) {
   try {
@@ -2801,21 +2840,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/applications/:id/status', requireAuth, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
-      const { status, interviewDate, notes } = req.body;
+      const { status, interviewDate, notes, feedback, reviewerName, viewDuration, ranking, totalApplicants } = req.body;
       const userId = req.user.id;
       
-      const application = await storage.updateApplicationStatus(applicationId, status, { interviewDate, notes });
+      const application = await storage.updateApplicationStatus(applicationId, status, { 
+        interviewDate, 
+        notes,
+        viewedByEmployerAt: status === 'viewed' ? new Date() : undefined
+      });
       
-      // Send real-time notification
-      sendApplicationStatusUpdate(userId, application);
+      // Create application intelligence event for transparency
+      await storage.createApplicationEvent({
+        applicationId,
+        eventType: status,
+        actorRole: 'hiring_manager',
+        actorName: reviewerName,
+        viewDuration,
+        candidateRanking: ranking,
+        totalApplicants,
+        feedback: feedback || generateDefaultFeedback(status),
+        visible: true
+      });
+      
+      // Send real-time notification with transparency
+      const intelligenceUpdate = await generateIntelligenceNotification(applicationId, status, {
+        feedback,
+        ranking,
+        totalApplicants,
+        reviewerName
+      });
+      
+      sendApplicationStatusUpdate(userId, {
+        ...application,
+        intelligenceUpdate
+      });
       
       // Log activity
-      await storage.createActivityLog(userId, "application_status_updated", `Application status updated to ${status}`);
+      await storage.createActivityLog(userId, "application_status_updated", `Application status updated to ${status} with feedback`);
       
-      res.json(application);
+      res.json({ 
+        ...application, 
+        intelligenceUpdate 
+      });
     } catch (error) {
       console.error("Error updating application status:", error);
       res.status(500).json({ message: "Failed to update application status" });
+    }
+  });
+
+  // New endpoint: Get application intelligence for a specific application
+  app.get('/api/applications/:id/intelligence', requireAuth, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const userId = req.user.id;
+      
+      // Verify user owns this application
+      const application = await storage.getApplicationById(applicationId);
+      if (!application || application.candidateId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const events = await storage.getApplicationEvents(applicationId);
+      const insights = await storage.getApplicationInsights(applicationId);
+      
+      const intelligence = {
+        applicationId,
+        jobTitle: application.job?.title,
+        company: application.job?.company,
+        timeline: events.map(event => ({
+          timestamp: event.createdAt,
+          type: event.eventType,
+          actor: event.actorName || `${event.actorRole}`,
+          details: {
+            viewDuration: event.viewDuration,
+            ranking: event.candidateRanking,
+            totalApplicants: event.totalApplicants,
+            feedback: event.feedback,
+            humanReadable: generateHumanReadableUpdate(event)
+          }
+        })),
+        currentStatus: application.status,
+        insights: insights || {
+          strengthsIdentified: [],
+          improvementAreas: [],
+          recommendedActions: []
+        }
+      };
+      
+      res.json(intelligence);
+    } catch (error) {
+      console.error("Error fetching application intelligence:", error);
+      res.status(500).json({ message: "Failed to fetch application intelligence" });
     }
   });
 
