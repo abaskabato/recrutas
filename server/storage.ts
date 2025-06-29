@@ -114,6 +114,10 @@ export interface IStorage {
   getApplicationEvents(applicationId: number): Promise<any[]>;
   getApplicationInsights(applicationId: number): Promise<any>;
   createApplicationInsights(insights: any): Promise<any>;
+  updateApplicationIntelligence(applicationId: string, updates: any): Promise<any>;
+  getApplicationsForTalent(talentId: string): Promise<any[]>;
+  updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
+  storeExamResult(result: any): Promise<any>;
   
   // Statistics
   getCandidateStats(candidateId: string): Promise<{
@@ -1172,6 +1176,115 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error creating application insights:', error);
+      throw error;
+    }
+  }
+
+  // Application Intelligence methods for talent dashboard transparency
+  async updateApplicationIntelligence(applicationId: string, updates: any): Promise<any> {
+    try {
+      // For demo purposes, using the jobApplications table to store intelligence data
+      // In production, this would be a dedicated application_intelligence table
+      const [result] = await db
+        .update(jobApplications)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(jobApplications.id, parseInt(applicationId)))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error updating application intelligence:', error);
+      throw error;
+    }
+  }
+
+  async getApplicationsForTalent(talentId: string): Promise<any[]> {
+    try {
+      // Get all applications for jobs owned by this talent
+      const results = await db
+        .select({
+          application: jobApplications,
+          candidate: candidateProfiles,
+          job: jobPostings,
+          user: users
+        })
+        .from(jobApplications)
+        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
+        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .leftJoin(users, eq(candidateProfiles.userId, users.id))
+        .where(eq(jobPostings.talentOwnerId, talentId));
+
+      return results.map(({ application, candidate, job, user }) => ({
+        id: application.id,
+        candidateId: user?.id,
+        jobId: job?.id,
+        candidateName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email?.split('@')[0] || 'Unknown',
+        candidateEmail: user?.email,
+        jobTitle: job?.title,
+        appliedAt: application.appliedAt?.toISOString(),
+        status: application.status,
+        matchScore: candidate?.matchScore || 0,
+        skills: candidate?.skills || [],
+        experience: candidate?.experience || '',
+        location: candidate?.location || '',
+        resumeUrl: candidate?.resumeUrl,
+        // Intelligence data stored in application
+        viewedAt: application.viewedAt?.toISOString(),
+        viewDuration: application.viewDuration,
+        ranking: application.ranking,
+        totalApplicants: application.totalApplicants,
+        feedback: application.feedback,
+        rating: application.rating,
+        nextSteps: application.nextSteps,
+        transparencyLevel: application.transparencyLevel || 'partial'
+      }));
+    } catch (error) {
+      console.error('Error getting applications for talent:', error);
+      throw error;
+    }
+  }
+
+  async updateTalentTransparencySettings(talentId: string, settings: any): Promise<any> {
+    try {
+      // Store talent transparency preferences in user profile
+      const [result] = await db
+        .update(users)
+        .set({
+          transparencySettings: JSON.stringify(settings),
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, talentId))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error updating transparency settings:', error);
+      throw error;
+    }
+  }
+
+  async storeExamResult(result: any): Promise<any> {
+    try {
+      const [examResult] = await db
+        .insert(examAttempts)
+        .values({
+          candidateId: result.candidateId,
+          jobId: result.jobId,
+          score: result.score,
+          totalQuestions: result.totalQuestions,
+          correctAnswers: result.correctAnswers,
+          timeSpent: result.timeSpent,
+          answers: JSON.stringify(result.answers),
+          completedAt: new Date()
+        })
+        .returning();
+      
+      return examResult;
+    } catch (error) {
+      console.error('Error storing exam result:', error);
       throw error;
     }
   }

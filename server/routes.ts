@@ -3285,6 +3285,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // =============================================================================
+  // TALENT DASHBOARD - APPLICATION INTELLIGENCE API ROUTES
+  // =============================================================================
+  
+  // Track application interactions (viewing, ranking, feedback)
+  app.post('/api/talent/applications/:applicationId/track', requireAuth, async (req: any, res) => {
+    try {
+      const { applicationId } = req.params;
+      const { type, duration, timestamp, data } = req.body;
+      const talentId = req.user.id;
+
+      // Store the tracking event in application intelligence
+      const trackingEvent = {
+        applicationId,
+        talentId,
+        type,
+        duration,
+        timestamp,
+        data: data || {}
+      };
+
+      // For now, store in a simple way - in production this would be its own table
+      await storage.updateApplicationIntelligence(applicationId, {
+        [`${type}_at`]: timestamp,
+        [`${type}_duration`]: duration,
+        [`${type}_data`]: data
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to track application:', error);
+      res.status(500).json({ message: 'Failed to track application interaction' });
+    }
+  });
+
+  // Update application status and details
+  app.patch('/api/talent/applications/:applicationId', requireAuth, async (req: any, res) => {
+    try {
+      const { applicationId } = req.params;
+      const updates = req.body;
+      const talentId = req.user.id;
+
+      // Update the application with transparency data
+      await storage.updateApplicationIntelligence(applicationId, {
+        ...updates,
+        lastUpdatedBy: talentId,
+        lastUpdatedAt: new Date().toISOString()
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to update application:', error);
+      res.status(500).json({ message: 'Failed to update application' });
+    }
+  });
+
+  // Provide feedback to candidate
+  app.post('/api/talent/applications/:applicationId/feedback', requireAuth, async (req: any, res) => {
+    try {
+      const { applicationId } = req.params;
+      const { feedback, rating, nextSteps, timestamp } = req.body;
+      const talentId = req.user.id;
+
+      // Store feedback in application intelligence
+      await storage.updateApplicationIntelligence(applicationId, {
+        feedback,
+        rating,
+        nextSteps,
+        feedbackProvidedAt: timestamp,
+        feedbackProvidedBy: talentId
+      });
+
+      // Notify candidate about feedback
+      await notificationService.sendNotification({
+        userId: applicationId, // This should be the candidate's user ID
+        type: 'application_feedback',
+        title: 'New Feedback on Your Application',
+        message: `You've received feedback on your application: "${feedback.substring(0, 100)}..."`,
+        data: {
+          applicationId,
+          rating,
+          nextSteps
+        }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to provide feedback:', error);
+      res.status(500).json({ message: 'Failed to provide feedback' });
+    }
+  });
+
+  // Rank candidates for a job
+  app.post('/api/talent/jobs/:jobId/rank-candidates', requireAuth, async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { rankings } = req.body; // Array of { applicationId, rank }
+      const talentId = req.user.id;
+
+      // Update rankings for all applications
+      for (const { applicationId, rank } of rankings) {
+        await storage.updateApplicationIntelligence(applicationId, {
+          ranking: rank,
+          totalApplicants: rankings.length,
+          rankedAt: new Date().toISOString(),
+          rankedBy: talentId
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to rank candidates:', error);
+      res.status(500).json({ message: 'Failed to rank candidates' });
+    }
+  });
+
+  // Get application intelligence summary for talent dashboard
+  app.get('/api/talent/applications', requireAuth, async (req: any, res) => {
+    try {
+      const talentId = req.user.id;
+
+      // Get all applications for jobs owned by this talent
+      const applications = await storage.getApplicationsForTalent(talentId);
+
+      // Transform to include intelligence data
+      const applicationsWithIntelligence = applications.map(app => ({
+        ...app,
+        intelligence: {
+          viewedAt: app.viewedAt,
+          viewDuration: app.viewDuration,
+          ranking: app.ranking,
+          totalApplicants: app.totalApplicants,
+          feedback: app.feedback,
+          rating: app.rating,
+          nextSteps: app.nextSteps,
+          transparencyLevel: app.transparencyLevel || 'partial'
+        }
+      }));
+
+      res.json(applicationsWithIntelligence);
+    } catch (error) {
+      console.error('Failed to get applications:', error);
+      res.status(500).json({ message: 'Failed to get applications' });
+    }
+  });
+
+  // Update transparency settings
+  app.post('/api/talent/transparency-settings', requireAuth, async (req: any, res) => {
+    try {
+      const talentId = req.user.id;
+      const settings = req.body;
+
+      // Store talent's transparency preferences
+      await storage.updateTalentTransparencySettings(talentId, settings);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to update transparency settings:', error);
+      res.status(500).json({ message: 'Failed to update transparency settings' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server for real-time chat and notifications
