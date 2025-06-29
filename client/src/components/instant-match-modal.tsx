@@ -48,7 +48,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
     queryFn: async () => {
       const params = new URLSearchParams({
         skills: skills.trim(),
-        limit: '8'
+        limit: '8',
+        nocache: 'true' // Force fresh results for each search
       });
       if (jobTitle.trim()) params.append('jobTitle', jobTitle.trim());
       if (location.trim()) params.append('location', location.trim());

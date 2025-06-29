@@ -70,6 +70,7 @@ export default function InstantJobSearch() {
       if (jobTitle) params.append('jobTitle', jobTitle);
       if (location) params.append('location', location);
       if (workType) params.append('workType', workType);
+      params.append('t', Date.now().toString()); // Cache buster for unique results
 
       const response = await fetch(`/api/live-jobs?${params}`);
       const data = await response.json();
