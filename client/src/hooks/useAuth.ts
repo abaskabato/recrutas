@@ -9,11 +9,12 @@ export function useAuth() {
 
   // Handle both empty object {} and user data structure
   const user = (data as any)?.user || null;
+  const isEmptySession = data && typeof data === 'object' && Object.keys(data).length === 0;
 
   return {
     user,
     isLoading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !isEmptySession,
     error
   };
 }
