@@ -4,7 +4,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { signOut } from "@/lib/auth-client";
 import { 
   getStatusColor, 
   formatSalary, 
@@ -14,7 +13,7 @@ import {
   formatDate
 } from "@/lib/dashboard-utils";
 import RealTimeNotifications from "@/components/real-time-notifications";
-import TalentApplicationIntelligence from "@/components/talent-application-intelligence";
+import { ApplicationIntelligenceTracker } from "@/components/application-intelligence-tracker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { useSession } from "@/lib/auth-client";
+import { useAuth } from "@/hooks/useAuth";
 import { useRoleBasedAuth } from "@/hooks/useRoleBasedAuth";
 import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
@@ -18,7 +18,7 @@ import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { data, user, isLoading, isAuthenticated } = useSession();
+  const { user, isLoading, isAuthenticated } = useAuth();
 
 
 

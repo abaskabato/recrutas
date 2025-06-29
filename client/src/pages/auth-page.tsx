@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect, Link } from "wouter"
 import { Loader2, ArrowLeft } from "lucide-react"
-import { signIn, signUp, useSession } from "@/lib/auth-client"
+import { signIn, signUp, useSession } from "@/hooks/useAuth"
 
 export default function AuthPage() {
   const { data: session } = useSession()

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useSession } from '@/lib/auth-client';
+import { useSession } from '@/hooks/useAuth';
 
 export function useRoleBasedAuth() {
   const { user, isAuthenticated, isLoading } = useSession();
