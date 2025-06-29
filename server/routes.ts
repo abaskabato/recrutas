@@ -1703,21 +1703,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       
-      // Get candidate profile for matching (optional for external jobs)
+      // Get candidate profile for matching
       const candidateProfile = await storage.getCandidateProfile(userId);
+      if (!candidateProfile) {
+        return res.json([]);
+      }
 
       // Get fresh job data from multiple sources with rotation
       const currentTime = Date.now();
       const rotationSeed = Math.floor(currentTime / (5 * 60 * 1000)); // Rotate every 5 minutes
       
-      // Get live jobs with variety (use general skills if no profile)
-      const skills = candidateProfile?.skills || ['JavaScript', 'Python', 'React', 'Node.js'];
-      const liveJobs = await companyJobsAggregator.getAllCompanyJobs(skills, 50);
+      // Get live jobs with variety
+      const liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 50);
       
       // Shuffle jobs using time-based seed for variety
       const shuffledJobs = [...liveJobs].sort(() => Math.sin(rotationSeed) - 0.5);
       
-      // Get database matches as well (may be empty for users without complete profiles)
+      // Get database matches as well
       const dbMatches = await storage.getMatchesForCandidate(userId);
       console.log(`Found ${dbMatches.length} database matches`);
 
