@@ -16,8 +16,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the application
-RUN chmod +x build.sh && ./build.sh
+# Build the application - direct commands to avoid cache issues
+RUN echo "Building frontend..." && npx vite build
+RUN echo "Building backend..." && npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:vite --external:./vite.ts
+RUN echo "Creating entry point..." && echo 'import("./production.js");' > dist/index.js
 
 # Production image, copy all the files and run the app
 FROM base AS runner
