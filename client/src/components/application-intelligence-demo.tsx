@@ -284,34 +284,34 @@ export default function ApplicationIntelligenceDemo() {
   return (
     <div className="space-y-6">
       {/* Demo Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 to-purple-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
         <div className="flex items-center gap-2 mb-2">
-          <Eye className="h-5 w-5 text-blue-600" />
-          <span className="font-semibold text-blue-800 dark:text-blue-200">Revolutionary Application Intelligence</span>
+          <Eye className="h-4 w-4 text-slate-600" />
+          <span className="font-semibold text-slate-900">Application Intelligence</span>
         </div>
-        <p className="text-sm text-blue-700 dark:text-blue-300">
+        <p className="text-sm text-slate-600">
           See exactly who viewed your applications, for how long, your ranking among candidates, and detailed feedback. 
-          No more "application black holes" - complete transparency for your job search.
+          Complete transparency for your job search.
         </p>
       </div>
 
       {/* Active Applications */}
       {activeApplications.length > 0 && (
         <div>
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-green-600" />
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-900">
+            <TrendingUp className="h-4 w-4 text-green-600" />
             Active Applications ({activeApplications.length})
           </h3>
           <div className="space-y-4">
             {activeApplications.map((application) => (
-              <Card key={application.id} className="transition-all duration-200 hover:shadow-md">
+              <Card key={application.id} className="hover:shadow-md transition-all duration-200 border-slate-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg font-medium">
+                      <CardTitle className="text-lg font-semibold text-slate-900">
                         {application.job.title}
                       </CardTitle>
-                      <CardDescription className="text-sm text-gray-600">
+                      <CardDescription className="text-sm text-slate-600">
                         {application.job.company} • {application.job.location}
                       </CardDescription>
                     </div>
@@ -338,16 +338,16 @@ export default function ApplicationIntelligenceDemo() {
 
                     {/* Revolutionary Intelligence Summary */}
                     {application.intelligence && (
-                      <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                         <div className="flex items-center gap-2 mb-2">
-                          <Eye className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium text-sm">Application Intelligence</span>
+                          <Eye className="h-4 w-4 text-slate-600" />
+                          <span className="font-medium text-sm text-slate-900">Application Intelligence</span>
                         </div>
                         
                         {/* Latest Update */}
                         {application.intelligence.timeline.length > 0 && (
                           <div className="text-sm mb-2">
-                            <p className="text-gray-700 dark:text-gray-300">
+                            <p className="text-slate-700">
                               {application.intelligence.timeline[0].details.humanReadable}
                             </p>
                           </div>
@@ -356,8 +356,8 @@ export default function ApplicationIntelligenceDemo() {
                         {/* Quick Benchmarks */}
                         {application.intelligence.benchmarks && (
                           <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                              <span className="text-gray-500">View Time:</span>
+                            <div className="bg-white p-2 rounded border border-slate-200">
+                              <span className="text-slate-500">View Time:</span>
                               <span className={`ml-1 font-medium ${
                                 getBenchmarkComparison(application.intelligence.benchmarks).viewTime.positive 
                                   ? 'text-green-600' : 'text-orange-600'
@@ -365,8 +365,8 @@ export default function ApplicationIntelligenceDemo() {
                                 {application.intelligence.benchmarks.yourViewTime}s
                               </span>
                             </div>
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded">
-                              <span className="text-gray-500">Your Score:</span>
+                            <div className="bg-white p-2 rounded border border-slate-200">
+                              <span className="text-slate-500">Your Score:</span>
                               <span className={`ml-1 font-medium ${
                                 getBenchmarkComparison(application.intelligence.benchmarks).score.positive 
                                   ? 'text-green-600' : 'text-orange-600'
@@ -380,7 +380,7 @@ export default function ApplicationIntelligenceDemo() {
                     )}
 
                     {/* Timestamps */}
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         Applied {formatDistanceToNow(new Date(application.appliedAt), { addSuffix: true })}
@@ -528,8 +528,8 @@ export default function ApplicationIntelligenceDemo() {
       {/* Closed Applications with Learning Insights */}
       {closedApplications.length > 0 && (
         <div>
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <Heart className="h-5 w-5 text-gray-600" />
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-900">
+            <Heart className="h-4 w-4 text-slate-600" />
             Learning from Past Applications ({closedApplications.length})
           </h3>
           <div className="space-y-4">
