@@ -177,15 +177,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Fetching external jobs for instant matching. Skills: ${skills}, JobTitle: ${jobTitle}, Location: ${location}, WorkType: ${workType}, MinSalary: ${minSalary} (${maxSalary}), Limit: ${limit}`);
       
-      const jobs = await jobAggregator.getExternalJobs({
-        skills: skills ? String(skills).split(',') : [],
-        jobTitle: jobTitle as string,
-        location: location as string,
-        workType: workType as string,
-        minSalary: minSalary ? parseInt(String(minSalary)) : undefined,
-        maxSalary: maxSalary ? parseInt(String(maxSalary)) : undefined,
-        limit: parseInt(String(limit))
-      });
+      const jobs = await jobAggregator.getExternalJobs(
+        skills ? String(skills).split(',') : [],
+        parseInt(String(limit))
+      );
 
       externalJobsCache.set(cacheKey, { jobs, timestamp: Date.now() });
       
