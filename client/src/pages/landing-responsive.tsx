@@ -234,7 +234,7 @@ export default function LandingResponsive() {
             </h1>
             
             <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
-              AI-powered talent acquisition → Direct company connections → Skip the recruiters
+              Take a company test → Pass it → Unlock direct chat with hiring managers
             </p>
 
             {/* Skills Input Section */}
