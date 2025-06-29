@@ -44,6 +44,7 @@ import {
   EmptyState, 
   LoadingSkeleton 
 } from "@/components/candidate-dashboard-components";
+import ApplicationIntelligenceDemo from "@/components/application-intelligence-demo";
 
 interface CandidateStats {
   totalApplications: number;
@@ -654,36 +655,9 @@ export default function CandidateStreamlinedDashboard() {
                 </Card>
               </TabsContent>
 
-              {/* Applications Tab */}
+              {/* Applications Tab - Revolutionary Transparency & Feedback */}
               <TabsContent value="applications" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Your Applications</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {applicationsLoading ? (
-                      <LoadingSkeleton count={3} />
-                    ) : applications?.length > 0 ? (
-                      <div className="space-y-4">
-                        {applications.map((application) => (
-                          <ApplicationCard
-                            key={application.id}
-                            application={application}
-                            getStatusColor={getStatusColor}
-                            getStatusIcon={getStatusIcon}
-                            timeAgo={timeAgo}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState
-                        icon={Briefcase}
-                        title="No Applications Yet"
-                        description="Start applying to jobs to track your application status here"
-                      />
-                    )}
-                  </CardContent>
-                </Card>
+                <ApplicationIntelligenceDemo />
               </TabsContent>
 
               {/* Activity Tab */}
