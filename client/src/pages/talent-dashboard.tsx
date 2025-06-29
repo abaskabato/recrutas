@@ -746,10 +746,7 @@ export default function TalentDashboard() {
         {/* Candidates Tab - Application Intelligence */}
         {activeTab === 'candidates' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Application Intelligence</h2>
-              <p className="text-gray-600 dark:text-gray-400">Manage candidate transparency and provide detailed feedback</p>
-            </div>
+
 
             {candidatesLoading ? (
               <div className="space-y-4">

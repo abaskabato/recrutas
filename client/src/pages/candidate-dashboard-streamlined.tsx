@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -108,6 +109,7 @@ export default function CandidateStreamlinedDashboard() {
   const user = session?.user;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const [showChat, setShowChat] = useState(false);
   const [selectedChatRoom, setSelectedChatRoom] = useState<number | undefined>(undefined);
@@ -289,7 +291,7 @@ export default function CandidateStreamlinedDashboard() {
   // Handle exam taking - navigate to dedicated exam page
   const handleTakeExam = (jobId: number, jobTitle: string) => {
     const encodedTitle = encodeURIComponent(jobTitle);
-    window.location.href = `/exam/${jobId}/${encodedTitle}`;
+    setLocation(`/exam/${jobId}/${encodedTitle}`);
   };
 
   // Handle exam completion
@@ -576,7 +578,7 @@ export default function CandidateStreamlinedDashboard() {
                                             }
                                           }}
                                           disabled={applyToJobMutation.isPending}
-                                          className={match.job?.hasExam ? "bg-blue-600 hover:bg-blue-700 text-white font-medium" : ""}
+                                          className={match.job?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white font-medium" : ""}
                                         >
                                           {match.job?.hasExam ? '📝 Take Exam' : 'Apply Now'}
                                         </Button>
@@ -584,7 +586,7 @@ export default function CandidateStreamlinedDashboard() {
                                       {match.status === 'applied' && match.job?.hasExam && (
                                         <Button
                                           size="sm"
-                                          className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                                          className="bg-purple-600 hover:bg-purple-700 text-white font-medium"
                                           onClick={() => handleTakeExam(match.jobId, match.job.title)}
                                         >
                                           📝 Take Exam
