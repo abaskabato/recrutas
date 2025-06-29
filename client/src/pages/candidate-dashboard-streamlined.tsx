@@ -11,7 +11,7 @@ import {
   timeAgo 
 } from "@/lib/dashboard-utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -119,6 +119,7 @@ export default function CandidateStreamlinedDashboard() {
   const [selectedJobTitle, setSelectedJobTitle] = useState<string>("");
   const [appliedJobsSet, setAppliedJobsSet] = useState<Set<string>>(new Set());
   const [continuationJob, setContinuationJob] = useState<any>(null);
+  const [selectedMatch, setSelectedMatch] = useState<JobMatch | null>(null);
 
   // Track applied external jobs in localStorage using stable identifiers
   const getAppliedJobs = (): Set<string> => {
@@ -602,7 +603,7 @@ export default function CandidateStreamlinedDashboard() {
                       <LoadingSkeleton count={3} />
                     ) : matches?.length > 0 ? (
                       <div className="space-y-4">
-                        {matches.map((match) => {
+                        {matches.filter(match => match.status !== 'applied' && !isJobApplied(match)).map((match) => {
                           // Debug SDE job data
                           if (match.job?.title === 'SDE') {
                             console.log('DEBUG: SDE Job on frontend:', {
@@ -704,7 +705,7 @@ export default function CandidateStreamlinedDashboard() {
                                             }
                                           }}
                                           disabled={applyToJobMutation.isPending}
-                                          className={match.job?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white font-medium" : ""}
+                                          className={match.job?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg border-2 border-purple-500" : ""}
                                         >
                                           {match.job?.hasExam ? '📝 Take Exam' : 'Apply Now'}
                                         </Button>
@@ -712,7 +713,7 @@ export default function CandidateStreamlinedDashboard() {
                                       {match.status === 'applied' && match.job?.hasExam && (
                                         <Button
                                           size="sm"
-                                          className="bg-purple-600 hover:bg-purple-700 text-white font-medium"
+                                          className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg border-2 border-purple-500"
                                           onClick={() => handleTakeExam(match.jobId, match.job.title)}
                                         >
                                           📝 Take Exam
@@ -784,6 +785,74 @@ export default function CandidateStreamlinedDashboard() {
 
               {/* Applications Tab - Revolutionary Transparency & Feedback */}
               <TabsContent value="applications" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Applications</CardTitle>
+                    <CardDescription>Track your job applications and their status</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {matchesLoading ? (
+                      <LoadingSkeleton count={3} />
+                    ) : (() => {
+                      const appliedJobs = matches?.filter(match => match.status === 'applied' || isJobApplied(match)) || [];
+                      return appliedJobs.length > 0 ? (
+                        <div className="space-y-4">
+                          {appliedJobs.map((match) => (
+                            <div key={match.id} className="border rounded-lg p-6 bg-green-50 border-green-200">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h3 className="font-medium text-slate-900">
+                                      {match.job?.title || 'Job Title'}
+                                    </h3>
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                      Applied
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-slate-600 mb-1">
+                                    {match.job?.company || 'Company Name'} • {match.job?.location || 'Location'}
+                                  </p>
+                                  <p className="text-sm text-slate-500 mb-3">
+                                    {match.job?.workType || 'Work Type'} • 
+                                    {match.job?.salaryMin && match.job?.salaryMax && ` $${match.job.salaryMin.toLocaleString()} - $${match.job.salaryMax.toLocaleString()}`}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                                    <span className="font-medium text-purple-600">
+                                      {match.matchScore}% match
+                                    </span>
+                                    <span>•</span>
+                                    <span>Applied {new Date(match.createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  {match.job?.source === 'external' && match.job?.externalUrl && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => window.open(match.job.externalUrl, '_blank')}
+                                    >
+                                      <ExternalLink className="w-4 h-4 mr-1" />
+                                      View Original
+                                    </Button>
+                                  )}
+
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <EmptyState
+                          icon={Briefcase}
+                          title="No Applications Yet"
+                          description="Start applying to jobs from your matches to track them here"
+                        />
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+                
+                {/* Keep the Application Intelligence Demo for transparency showcase */}
                 <ApplicationIntelligenceDemo />
               </TabsContent>
 

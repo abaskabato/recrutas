@@ -100,6 +100,16 @@ export default function TalentApplicationIntelligence({ applications }: TalentAp
     };
   }, [selectedApplication, viewStartTime]);
 
+  // Handle feedback submission
+  const handleFeedbackSubmit = (feedbackData: { feedback: string; rating: number; nextSteps?: string }) => {
+    if (selectedApplication) {
+      provideFeedbackMutation.mutate({
+        applicationId: selectedApplication.id,
+        ...feedbackData
+      });
+    }
+  };
+
   // Track application interaction
   const trackApplicationAction = async (action: {
     applicationId: string;
@@ -199,11 +209,7 @@ export default function TalentApplicationIntelligence({ applications }: TalentAp
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900">Application Intelligence Dashboard</h3>
-          <p className="text-sm text-slate-600">Manage candidate transparency and provide feedback</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button 
           variant="outline" 
           onClick={() => setTransparencySettings(true)}
@@ -456,6 +462,101 @@ export default function TalentApplicationIntelligence({ applications }: TalentAp
           <TransparencySettingsForm />
         </DialogContent>
       </Dialog>
+
+      {/* Application Review Dialog */}
+      {selectedApplication && (
+        <Dialog open={!!selectedApplication} onOpenChange={() => setSelectedApplication(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Review Application - {selectedApplication.candidateName}</DialogTitle>
+              <p className="text-sm text-slate-600">
+                Applied for {selectedApplication.jobTitle} • Match Score: {selectedApplication.matchScore}%
+              </p>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* Candidate Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Candidate Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-slate-500" />
+                      <span className="text-sm">{selectedApplication.candidateEmail}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-slate-500" />
+                      <span className="text-sm">{selectedApplication.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-slate-500" />
+                      <span className="text-sm">{selectedApplication.experience}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-slate-500" />
+                      <span className="text-sm">Applied {formatDistanceToNow(new Date(selectedApplication.appliedAt))} ago</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Skills & Match</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <Badge variant="secondary" className="mb-2">
+                        {selectedApplication.matchScore}% Match
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedApplication.skills.map((skill, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Dialog open={feedbackDialog} onOpenChange={setFeedbackDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-green-600 hover:bg-green-700">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve & Provide Feedback
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Provide Feedback for {selectedApplication.candidateName}</DialogTitle>
+                    </DialogHeader>
+                    <FeedbackForm 
+                      application={selectedApplication}
+                      onSubmit={handleFeedbackSubmit}
+                      isLoading={provideFeedbackMutation.isPending}
+                    />
+                  </DialogContent>
+                </Dialog>
+
+                <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Decline Application
+                </Button>
+
+                <Button variant="outline">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Schedule Interview
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

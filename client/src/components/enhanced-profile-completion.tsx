@@ -490,7 +490,7 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
                 onClick={handleFinalSubmit}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Creating Profile..." : "Complete Profile"}
+                {isSubmitting ? "Creating Profile..." : "Create Profile"}
               </Button>
             </div>
           </div>
@@ -524,7 +524,7 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
           <CardTitle className="text-xl font-semibold">
             {step === 1 && "Basic Information"}
             {step === 2 && "Upload Resume"}
-            {step === 3 && "Complete Profile"}
+            {step === 3 && "Create Profile"}
           </CardTitle>
           <p className="text-sm text-gray-600 mt-2">
             {step === 1 && "Let's start with your basic details"}
