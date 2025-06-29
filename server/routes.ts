@@ -2210,28 +2210,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const combinedText = `${jobTitle} ${jobDescription} ${jobSkills.join(' ')}`;
             
             return skillsArray.some(skill => {
-              // Sales and business skills
-              if (skill === 'sales') return combinedText.includes('sales') || combinedText.includes('business development') || combinedText.includes('account management') || combinedText.includes('revenue');
-              if (skill === 'marketing') return combinedText.includes('marketing') || combinedText.includes('digital marketing') || combinedText.includes('growth') || combinedText.includes('advertising');
-              if (skill === 'customer service') return combinedText.includes('customer') || combinedText.includes('support') || combinedText.includes('service');
+              // Universal skill matching with variations and synonyms
+              const skillLower = skill.toLowerCase();
               
-              // Programming languages  
-              if (skill === 'python') return combinedText.includes('python') || combinedText.includes('django') || combinedText.includes('flask');
-              if (skill === 'javascript') return combinedText.includes('javascript') || combinedText.includes('js') || combinedText.includes('react') || combinedText.includes('node');
-              if (skill === 'react') return combinedText.includes('react') || combinedText.includes('javascript');
-              if (skill === 'java') return combinedText.includes('java') && !combinedText.includes('javascript');
+              // Check exact match first
+              if (combinedText.includes(skillLower)) return true;
               
-              return combinedText.includes(skill);
+              // Common skill variations and synonyms
+              const skillVariations = {
+                'sales': ['business development', 'account management', 'revenue', 'lead generation', 'client relations'],
+                'marketing': ['digital marketing', 'growth', 'advertising', 'promotion', 'brand management'],
+                'customer service': ['customer support', 'client service', 'help desk', 'customer care'],
+                'management': ['leadership', 'supervisor', 'director', 'manager', 'team lead'],
+                'design': ['graphic design', 'ui/ux', 'visual design', 'creative', 'designer'],
+                'finance': ['accounting', 'financial', 'bookkeeping', 'budget', 'analyst'],
+                'hr': ['human resources', 'people operations', 'talent acquisition', 'recruiting'],
+                'python': ['django', 'flask', 'pandas', 'numpy'],
+                'javascript': ['js', 'react', 'node', 'angular', 'vue'],
+                'react': ['frontend', 'ui development'],
+                'java': ['spring', 'hibernate'],
+                'data': ['analytics', 'analysis', 'insights', 'reporting', 'business intelligence'],
+                'project management': ['scrum', 'agile', 'coordination', 'planning'],
+                'writing': ['content', 'copywriting', 'technical writing', 'documentation'],
+                'healthcare': ['medical', 'nursing', 'clinical', 'patient care'],
+                'education': ['teaching', 'training', 'instruction', 'tutoring']
+              };
+              
+              // Check skill variations
+              const variations = skillVariations[skillLower] || [];
+              return variations.some(variation => combinedText.includes(variation));
             });
           });
           
           console.log(`Broader matching found ${filteredJobs.length} jobs`);
         }
         
-        // If still no matches, return all jobs to avoid empty results
-        if (filteredJobs.length === 0) {
-          console.log('Still no matches, returning all available jobs');
-          filteredJobs = externalJobs;
+        // If still no matches and we have specific skills, generate relevant jobs
+        if (filteredJobs.length === 0 && skillsArray.length > 0) {
+          console.log('No matches found, fetching jobs with broader criteria');
+          // Try fetching jobs specifically for these skills
+          try {
+            const broadJobs = await jobAggregator.getAllJobs(skillsArray, 20);
+            console.log(`Fetched ${broadJobs.length} jobs from broader job aggregator`);
+            if (broadJobs.length > 0) {
+              filteredJobs = broadJobs;
+            } else {
+              filteredJobs = externalJobs;
+            }
+          } catch (error) {
+            console.log('Broader job fetch failed, using available jobs');
+            filteredJobs = externalJobs;
+          }
         }
       }
 
