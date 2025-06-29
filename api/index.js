@@ -1,25 +1,29 @@
-// Vercel serverless function entry point
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
+// Vercel serverless function entry point for API routes
+const { createServer } = require('http');
 
-// Create Express app
-const app = express();
+// Import the built server
+let serverHandler;
 
-// Serve static files from the build directory
-const buildPath = path.join(__dirname, '..', 'dist', 'public');
-if (fs.existsSync(buildPath)) {
-  app.use(express.static(buildPath));
+try {
+  // Try to import the compiled server
+  const serverModule = require('../dist/server/index.js');
+  serverHandler = serverModule.default || serverModule;
+} catch (error) {
+  console.error('Failed to load server:', error);
+  
+  // Fallback handler
+  const express = require('express');
+  const app = express();
+  
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'Server not available', error: error.message });
+  });
+  
+  app.use('*', (req, res) => {
+    res.status(500).json({ error: 'Server compilation failed' });
+  });
+  
+  serverHandler = app;
 }
 
-// Fallback to serve index.html for client-side routing
-app.get('*', (req, res) => {
-  const indexPath = path.join(buildPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send('Frontend build not found');
-  }
-});
-
-module.exports = app;
+module.exports = serverHandler;
