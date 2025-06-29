@@ -24,18 +24,30 @@ import {
 } from "lucide-react";
 
 interface FilteringExam {
+  type: 'custom' | 'third-party' | 'template';
   questions: Question[];
   timeLimit: number; // in minutes
   passingScore: number; // percentage
+  thirdPartyUrl?: string; // For external testing platforms
+  thirdPartyInstructions?: string;
+  allowRetakes?: boolean;
+  showResultsImmediately?: boolean;
 }
 
 interface Question {
   id: string;
-  type: 'multiple-choice' | 'short-answer';
+  type: 'multiple-choice' | 'short-answer' | 'essay' | 'coding' | 'file-upload' | 'video-response';
   question: string;
+  description?: string; // Additional context or instructions
   options?: string[]; // for multiple choice
   correctAnswer?: number | string; // index for multiple choice, string for short answer
   points: number;
+  timeLimit?: number; // per question time limit
+  required?: boolean;
+  fileTypes?: string[]; // for file upload questions
+  maxFileSize?: number; // in MB
+  codeLanguage?: string; // for coding questions
+  videoMaxDuration?: number; // in seconds for video responses
 }
 
 interface JobPostingData {
@@ -96,9 +108,12 @@ export default function JobPostingWizard({
   const [currentQuestion, setCurrentQuestion] = useState<Partial<Question>>({
     type: 'multiple-choice',
     question: '',
+    description: '',
     options: ['', '', '', ''],
     correctAnswer: 0,
     points: 10,
+    required: true,
+    timeLimit: undefined,
   });
 
   const addRequirement = () => {
@@ -420,11 +435,12 @@ export default function JobPostingWizard({
                     ...prev, 
                     enableFiltering: !!checked,
                     filteringExam: checked ? {
-                      type: 'multiple-choice',
+                      type: 'custom',
                       questions: [],
                       timeLimit: 30,
                       passingScore: 70,
-                      autoReject: false
+                      allowRetakes: false,
+                      showResultsImmediately: true
                     } : undefined
                   }));
                 }}
@@ -434,26 +450,87 @@ export default function JobPostingWizard({
 
             {jobData.enableFiltering && (
               <div className="space-y-6 p-4 border rounded-lg">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>Exam Type</Label>
-                    <Select 
-                      value={jobData.filteringExam?.type || 'multiple-choice'} 
-                      onValueChange={(value: any) => setJobData(prev => ({
+                {/* Exam Type Selection */}
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">Assessment Type</Label>
+                  <RadioGroup 
+                    value={jobData.filteringExam?.type || 'custom'} 
+                    onValueChange={(value: 'custom' | 'third-party' | 'template') => 
+                      setJobData(prev => ({
                         ...prev,
                         filteringExam: { ...prev.filteringExam!, type: value }
+                      }))
+                    }
+                    className="grid grid-cols-1 gap-4"
+                  >
+                    <div className="flex items-center space-x-3 p-3 border rounded-lg">
+                      <RadioGroupItem value="custom" id="custom" />
+                      <div className="flex-1">
+                        <Label htmlFor="custom" className="font-medium">Custom Assessment</Label>
+                        <p className="text-sm text-gray-600">Create your own questions with multiple formats</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3 p-3 border rounded-lg">
+                      <RadioGroupItem value="third-party" id="third-party" />
+                      <div className="flex-1">
+                        <Label htmlFor="third-party" className="font-medium">Third-Party Testing Tool</Label>
+                        <p className="text-sm text-gray-600">Integrate with external platforms like HackerRank, Codility, etc.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3 p-3 border rounded-lg">
+                      <RadioGroupItem value="template" id="template" />
+                      <div className="flex-1">
+                        <Label htmlFor="template" className="font-medium">Pre-built Template</Label>
+                        <p className="text-sm text-gray-600">Use industry-standard assessment templates</p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Third-Party Integration */}
+                {jobData.filteringExam?.type === 'third-party' && (
+                  <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900">Third-Party Integration</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Assessment Platform URL</Label>
+                        <Input
+                          placeholder="https://platform.com/assessment-link"
+                          value={jobData.filteringExam?.thirdPartyUrl || ''}
+                          onChange={(e) => setJobData(prev => ({
+                            ...prev,
+                            filteringExam: { ...prev.filteringExam!, thirdPartyUrl: e.target.value }
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Instructions for Candidates</Label>
+                        <Textarea
+                          placeholder="Provide detailed instructions for accessing the external assessment..."
+                          value={jobData.filteringExam?.thirdPartyInstructions || ''}
+                          onChange={(e) => setJobData(prev => ({
+                            ...prev,
+                            filteringExam: { ...prev.filteringExam!, thirdPartyInstructions: e.target.value }
+                          }))}
+                          rows={4}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Basic Settings */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Time Limit (minutes)</Label>
+                    <Input
+                      type="number"
+                      value={jobData.filteringExam?.timeLimit || 30}
+                      onChange={(e) => setJobData(prev => ({
+                        ...prev,
+                        filteringExam: { ...prev.filteringExam!, timeLimit: parseInt(e.target.value) }
                       }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                        <SelectItem value="coding">Coding Challenge</SelectItem>
-                        <SelectItem value="situational">Situational</SelectItem>
-                        <SelectItem value="technical">Technical Essay</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                   <div>
                     <Label>Time Limit (minutes)</Label>
@@ -479,76 +556,226 @@ export default function JobPostingWizard({
                   </div>
                 </div>
 
+                {/* Advanced Settings */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="allowRetakes"
+                      checked={jobData.filteringExam?.allowRetakes || false}
+                      onCheckedChange={(checked) => setJobData(prev => ({
+                        ...prev,
+                        filteringExam: { ...prev.filteringExam!, allowRetakes: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="allowRetakes">Allow retakes</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="showResults"
+                      checked={jobData.filteringExam?.showResultsImmediately !== false}
+                      onCheckedChange={(checked) => setJobData(prev => ({
+                        ...prev,
+                        filteringExam: { ...prev.filteringExam!, showResultsImmediately: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="showResults">Show results immediately</Label>
+                  </div>
+                </div>
+
                 <Separator />
 
-                {/* Question Builder */}
-                <div className="space-y-4">
-                  <h4 className="font-medium">Add Questions</h4>
-                  
-                  <div>
-                    <Label>Question</Label>
-                    <Textarea
-                      value={currentQuestion.question || ''}
-                      onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question: e.target.value }))}
-                      placeholder="Enter your question here..."
-                      rows={3}
-                    />
-                  </div>
-
-                  {currentQuestion.type === 'multiple-choice' && (
-                    <div>
-                      <Label>Answer Options</Label>
-                      <div className="space-y-2 mt-2">
-                        {currentQuestion.options?.map((option, index) => (
-                          <div key={index} className="flex space-x-2">
-                            <Input
-                              value={option}
-                              onChange={(e) => {
-                                const newOptions = [...(currentQuestion.options || [])];
-                                newOptions[index] = e.target.value;
-                                setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
-                              }}
-                              placeholder={`Option ${index + 1}`}
-                            />
-                            <RadioGroup 
-                              value={currentQuestion.correctAnswer?.toString()}
-                              onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, correctAnswer: parseInt(value) }))}
-                            >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value={index.toString()} id={`option-${index}`} />
-                                <Label htmlFor={`option-${index}`} className="text-sm">Correct</Label>
-                              </div>
-                            </RadioGroup>
-                          </div>
-                        ))}
+                {/* Custom Question Builder */}
+                {jobData.filteringExam?.type === 'custom' && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Create Questions</h4>
+                    
+                    {/* Question Type and Points */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Question Type</Label>
+                        <Select 
+                          value={currentQuestion.type || 'multiple-choice'} 
+                          onValueChange={(value: any) => setCurrentQuestion(prev => ({ ...prev, type: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="multiple-choice">📋 Multiple Choice</SelectItem>
+                            <SelectItem value="short-answer">✏️ Short Answer</SelectItem>
+                            <SelectItem value="essay">📝 Essay/Long Form</SelectItem>
+                            <SelectItem value="coding">💻 Coding Challenge</SelectItem>
+                            <SelectItem value="file-upload">📎 File Upload</SelectItem>
+                            <SelectItem value="video-response">🎥 Video Response</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Points</Label>
+                        <Input
+                          type="number"
+                          value={currentQuestion.points || 10}
+                          onChange={(e) => setCurrentQuestion(prev => ({ ...prev, points: parseInt(e.target.value) }))}
+                          min="1"
+                          max="100"
+                        />
                       </div>
                     </div>
-                  )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                    {/* Question Text */}
                     <div>
-                      <Label>Points</Label>
-                      <Input
-                        type="number"
-                        value={currentQuestion.points || 10}
-                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, points: parseInt(e.target.value) }))}
+                      <Label>Question</Label>
+                      <Textarea
+                        value={currentQuestion.question || ''}
+                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question: e.target.value }))}
+                        placeholder="Enter your question here..."
+                        rows={3}
                       />
                     </div>
+
+                    {/* Question Description (Optional) */}
                     <div>
-                      <Label>Time Limit (minutes, optional)</Label>
-                      <Input
-                        type="number"
-                        value={currentQuestion.timeLimit || ''}
-                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, timeLimit: parseInt(e.target.value) || undefined }))}
+                      <Label>Additional Instructions (Optional)</Label>
+                      <Textarea
+                        value={currentQuestion.description || ''}
+                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Provide additional context or specific instructions for this question..."
+                        rows={2}
                       />
                     </div>
+
+                    {/* Question-specific settings */}
+                    {currentQuestion.type === 'coding' && (
+                      <div>
+                        <Label>Programming Language</Label>
+                        <Select 
+                          value={currentQuestion.codeLanguage || 'javascript'} 
+                          onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, codeLanguage: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="javascript">JavaScript</SelectItem>
+                            <SelectItem value="python">Python</SelectItem>
+                            <SelectItem value="java">Java</SelectItem>
+                            <SelectItem value="cpp">C++</SelectItem>
+                            <SelectItem value="go">Go</SelectItem>
+                            <SelectItem value="any">Any Language</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {currentQuestion.type === 'file-upload' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Allowed File Types</Label>
+                          <Input
+                            placeholder="pdf,doc,docx"
+                            value={currentQuestion.fileTypes?.join(',') || ''}
+                            onChange={(e) => setCurrentQuestion(prev => ({
+                              ...prev,
+                              fileTypes: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
+                            }))}
+                          />
+                        </div>
+                        <div>
+                          <Label>Max File Size (MB)</Label>
+                          <Input
+                            type="number"
+                            value={currentQuestion.maxFileSize || 10}
+                            onChange={(e) => setCurrentQuestion(prev => ({ 
+                              ...prev, 
+                              maxFileSize: parseInt(e.target.value) 
+                            }))}
+                            min="1"
+                            max="50"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {currentQuestion.type === 'video-response' && (
+                      <div>
+                        <Label>Maximum Video Duration (seconds)</Label>
+                        <Input
+                          type="number"
+                          value={currentQuestion.videoMaxDuration || 120}
+                          onChange={(e) => setCurrentQuestion(prev => ({ 
+                            ...prev, 
+                            videoMaxDuration: parseInt(e.target.value) 
+                          }))}
+                          min="30"
+                          max="600"
+                        />
+                      </div>
+                    )}
+
+                    {/* Time Limit per Question */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Time Limit per Question (minutes, optional)</Label>
+                        <Input
+                          type="number"
+                          value={currentQuestion.timeLimit || ''}
+                          onChange={(e) => setCurrentQuestion(prev => ({ 
+                            ...prev, 
+                            timeLimit: e.target.value ? parseInt(e.target.value) : undefined 
+                          }))}
+                          placeholder="No limit"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2 pt-6">
+                        <Checkbox
+                          id="required"
+                          checked={currentQuestion.required !== false}
+                          onCheckedChange={(checked) => setCurrentQuestion(prev => ({ 
+                            ...prev, 
+                            required: !!checked 
+                          }))}
+                        />
+                        <Label htmlFor="required">Required question</Label>
+                      </div>
+                    </div>
+
+                    {/* Multiple Choice Options */}
+                    {currentQuestion.type === 'multiple-choice' && (
+                      <div>
+                        <Label>Answer Options</Label>
+                        <div className="space-y-2 mt-2">
+                          {currentQuestion.options?.map((option, index) => (
+                            <div key={index} className="flex space-x-2">
+                              <Input
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...(currentQuestion.options || [])];
+                                  newOptions[index] = e.target.value;
+                                  setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
+                                }}
+                                placeholder={`Option ${index + 1}`}
+                              />
+                              <RadioGroup 
+                                value={currentQuestion.correctAnswer?.toString()}
+                                onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, correctAnswer: parseInt(value) }))}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value={index.toString()} id={`option-${index}`} />
+                                  <Label htmlFor={`option-${index}`} className="text-sm">Correct</Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button onClick={addQuestion} type="button" variant="outline">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Question
+                    </Button>
                   </div>
-
-                  <Button onClick={addQuestion} type="button" variant="outline">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Question
-                  </Button>
-                </div>
+                )}
 
                 {/* Questions List */}
                 {jobData.filteringExam?.questions && jobData.filteringExam.questions.length > 0 && (
