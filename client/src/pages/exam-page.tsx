@@ -23,6 +23,8 @@ export default function ExamPage() {
   const jobId = params.jobId ? parseInt(params.jobId) : undefined;
   const jobTitle = params.jobTitle || "Job Assessment";
   
+
+  
   const [examStarted, setExamStarted] = useState(false);
   const [examCompleted, setExamCompleted] = useState(false);
   const [examResult, setExamResult] = useState<{ score: number; passed: boolean } | null>(null);

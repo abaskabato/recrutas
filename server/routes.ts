@@ -3189,10 +3189,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/jobs/:jobId/exam", async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
-      const exam = await storage.getJobExam(jobId);
+      let exam = await storage.getJobExam(jobId);
       
       if (!exam) {
-        return res.status(404).json({ message: "Exam not found for this job" });
+        // Check if this job has hasExam=true but no exam created yet
+        const job = await storage.getJobPosting(jobId);
+        if (job && job.hasExam) {
+          // Create a default exam for this job
+          const defaultExam = {
+            jobId: jobId,
+            title: `${job.title} Assessment`,
+            description: `Technical assessment for the ${job.title} position at ${job.company}`,
+            timeLimit: 30, // 30 minutes
+            passingScore: 70,
+            questions: [
+              {
+                id: "q1",
+                type: "multiple-choice",
+                question: "What programming languages are you most comfortable with?",
+                options: ["JavaScript/TypeScript", "Python", "Java", "C++", "Go"],
+                points: 10,
+                correctAnswer: 0
+              },
+              {
+                id: "q2", 
+                type: "short-answer",
+                question: "Describe your experience with software development and what motivates you to work in this field.",
+                points: 20
+              },
+              {
+                id: "q3",
+                type: "multiple-choice", 
+                question: "How do you approach debugging complex issues in your code?",
+                options: ["Use debugger tools", "Add console logs", "Review code systematically", "Ask for help from teammates"],
+                points: 15,
+                correctAnswer: 2
+              }
+            ],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          exam = await storage.createJobExam(defaultExam);
+          console.log(`Created default exam for job ${jobId}`);
+        } else {
+          return res.status(404).json({ message: "Exam not found for this job" });
+        }
       }
 
       res.json(exam);
