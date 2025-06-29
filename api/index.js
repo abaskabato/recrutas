@@ -1,29 +1,17 @@
-// Vercel serverless function entry point
-import express from 'express';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create Express app
-const app = express();
-
-// Serve static files from the build directory
-const buildPath = path.join(__dirname, '..', 'dist', 'public');
-if (fs.existsSync(buildPath)) {
-  app.use(express.static(buildPath));
-}
-
-// Fallback to serve index.html for client-side routing
-app.get('*', (req, res) => {
-  const indexPath = path.join(buildPath, 'index.html');
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
+// Vercel serverless function - API only
+export default function handler(req, res) {
+  // Simple API endpoint
+  if (req.url.startsWith('/api/')) {
+    res.status(200).json({ 
+      message: 'Recrutas API is operational',
+      timestamp: new Date().toISOString(),
+      path: req.url
+    });
   } else {
-    res.status(404).send('Frontend build not found');
+    // Redirect non-API routes to frontend
+    res.status(404).json({ 
+      error: 'API endpoint not found',
+      message: 'Use /api/ routes for API access'
+    });
   }
-});
-
-export default app;
+}
