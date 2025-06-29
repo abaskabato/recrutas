@@ -111,6 +111,7 @@ export default function CandidateDashboardEnhanced() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [continuationJob, setContinuationJob] = useState<any>(null);
   
   // Profile preferences state
   const [profilePrefs, setProfilePrefs] = useState({
@@ -197,6 +198,115 @@ export default function CandidateDashboardEnhanced() {
       setShowProfileCompletion(needsProfileCompletion);
     }
   }, [user]);
+
+  // Check for job continuation after user logs in
+  useEffect(() => {
+    if (user && !showProfileCompletion) {
+      const continuationJobData = localStorage.getItem('continuationJob');
+      const pendingApplication = sessionStorage.getItem('pendingJobApplication');
+      
+      if (continuationJobData) {
+        try {
+          const jobData = JSON.parse(continuationJobData);
+          // Check if the job data is recent (within last 30 minutes)
+          const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+          
+          if (jobData.timestamp > thirtyMinutesAgo) {
+            setContinuationJob(jobData);
+            
+            // Show a toast notification about continuing the job application
+            toast({
+              title: "Continue Job Application",
+              description: `Continue applying to ${jobData.jobData.title} at ${jobData.jobData.company}`,
+              action: (
+                <Button 
+                  size="sm" 
+                  onClick={() => handleContinueJobApplication(jobData)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Continue
+                </Button>
+              ),
+            });
+            
+            // Auto-switch to job matches tab
+            setActiveTab('matches');
+          } else {
+            // Clean up old continuation data
+            localStorage.removeItem('continuationJob');
+            sessionStorage.removeItem('pendingJobApplication');
+          }
+        } catch (error) {
+          console.error('Error parsing continuation job data:', error);
+          localStorage.removeItem('continuationJob');
+        }
+      } else if (pendingApplication) {
+        try {
+          const appData = JSON.parse(pendingApplication);
+          toast({
+            title: "Welcome back!",
+            description: `Ready to apply to ${appData.title} at ${appData.company}?`,
+            action: (
+              <Button 
+                size="sm" 
+                onClick={() => setActiveTab('matches')}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                View Jobs
+              </Button>
+            ),
+          });
+          sessionStorage.removeItem('pendingJobApplication');
+        } catch (error) {
+          console.error('Error parsing pending application:', error);
+          sessionStorage.removeItem('pendingJobApplication');
+        }
+      }
+    }
+  }, [user, showProfileCompletion, toast]);
+
+  // Apply to external job mutation
+  const applyToExternalJobMutation = useMutation({
+    mutationFn: async (jobData: any) => {
+      const response = await apiRequest("POST", '/api/candidates/apply-external', {
+        jobData: jobData.jobData,
+        source: jobData.source,
+        externalUrl: jobData.externalUrl,
+        matchScore: jobData.matchScore
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Application Submitted",
+        description: "Successfully applied to the external job position",
+      });
+      // Refresh applications data
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Application Failed",
+        description: error.message || "Failed to submit application",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle continuing job application from instant modal
+  const handleContinueJobApplication = (jobData: any) => {
+    // Clear continuation data
+    localStorage.removeItem('continuationJob');
+    sessionStorage.removeItem('pendingJobApplication');
+    setContinuationJob(null);
+    
+    // Submit the application to the backend
+    applyToExternalJobMutation.mutate(jobData);
+    
+    // Navigate to applications tab
+    setActiveTab('applications');
+  };
 
   const handleProfileComplete = () => {
     setShowProfileCompletion(false);

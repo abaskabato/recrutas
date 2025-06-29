@@ -113,7 +113,30 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   };
 
   const handleQuickApply = (jobId: number) => {
-    // Redirect to signup for premium feature
+    // Find the job details and store them for continuation after auth
+    const job = jobsToShow.find((j: any) => j.id === jobId);
+    if (job) {
+      // Store job information in localStorage for continuation after login
+      localStorage.setItem('continuationJob', JSON.stringify({
+        id: job.id,
+        jobData: job.job,
+        source: job.source,
+        externalUrl: job.externalUrl,
+        matchScore: job.matchScore,
+        timestamp: Date.now(),
+        action: 'apply' // What the user wanted to do
+      }));
+      
+      // Also store in session storage as backup
+      sessionStorage.setItem('pendingJobApplication', JSON.stringify({
+        jobId: job.id,
+        title: job.job.title,
+        company: job.job.company,
+        action: 'apply'
+      }));
+    }
+    
+    // Redirect to signup/login
     onStartMatching();
     onClose();
   };

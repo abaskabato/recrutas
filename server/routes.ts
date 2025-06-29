@@ -1810,6 +1810,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Apply to external job (from instant modal)
+  app.post('/api/candidates/apply-external', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { jobData, source, externalUrl, matchScore } = req.body;
+
+      if (!jobData || !jobData.title || !jobData.company) {
+        return res.status(400).json({ message: 'Invalid job data' });
+      }
+
+      // Create external job application record
+      const application = await storage.createJobApplication({
+        candidateId: userId,
+        externalJobId: jobData.id,
+        title: jobData.title,
+        company: jobData.company,
+        location: jobData.location,
+        source: source || 'External',
+        externalUrl: externalUrl,
+        matchScore: matchScore,
+        status: 'applied',
+        appliedAt: new Date(),
+      });
+
+      // Log activity
+      await storage.createActivityLog(
+        userId,
+        'external_job_application',
+        `Applied to external job: ${jobData.title} at ${jobData.company}`,
+        { 
+          externalJobId: jobData.id,
+          source,
+          externalUrl,
+          applicationId: application.id 
+        }
+      );
+
+      res.json({ success: true, application });
+    } catch (error) {
+      console.error('Error applying to external job:', error);
+      res.status(500).json({ message: 'Failed to apply to external job' });
+    }
+  });
+
   // Chat endpoints
   app.get('/api/chat/rooms', requireAuth, async (req: any, res) => {
     try {
