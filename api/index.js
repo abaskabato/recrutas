@@ -37,7 +37,7 @@ app.get('/api/health', (req, res) => {
 await registerRoutes(app);
 
 // Serve static files from the build directory
-const buildPath = path.join(__dirname, '..', 'dist');
+const buildPath = path.join(__dirname, '..', 'dist', 'public');
 
 // Serve static assets for non-API routes
 app.use((req, res, next) => {
