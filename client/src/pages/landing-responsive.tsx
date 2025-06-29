@@ -221,21 +221,20 @@ export default function LandingResponsive() {
       <section className="relative py-12 md:py-20 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-5xl mx-auto">
-            <Badge variant="secondary" className="mb-6 md:mb-8 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium bg-gradient-to-r from-red-500/20 to-orange-500/20 text-red-300 border border-red-500/30">
-              <Zap className="w-3 h-3 md:w-4 md:h-4 mr-1.5 animate-pulse" />
-              Zero Recruiters • Direct Access
+            <Badge variant="secondary" className="mb-6 md:mb-8 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 border border-blue-400/30">
+              ✨ Built on AI. Backed by transparency. Focused on you.
             </Badge>
             
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-6 md:mb-8 leading-tight tracking-tight">
-              Job Search.
+              Skip the
+              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Recruiters</span>
               <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Reinvented.
-              </span>
+              Talk to
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Real People</span>
             </h1>
             
             <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
-              AI-powered talent acquisition → Direct company connections → Skip the recruiters
+              Connect directly with hiring managers. No middlemen, no fees, no black holes.
             </p>
 
             {/* Skills Input Section */}
