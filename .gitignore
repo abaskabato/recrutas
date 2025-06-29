@@ -93,3 +93,20 @@ docs/.vitepress/cache
 *.tgz
 *.tar.gz
 .nyc_output
+
+# Development files
+DEVELOPMENT_TICKETS.md
+GITHUB_RELEASE_SUMMARY.md
+OPEN_SOURCE_PREPARATION.md
+OPEN_SOURCE_PREP.md
+SECURITY_AUDIT.md
+test-application-intelligence.md
+test-*.js
+typescript-fixes.patch
+cleanup-project.sh
+
+# Extra deployment configs (keep docker-compose.yml and vercel.json)
+railway.json
+render.yaml
+netlify.toml
+app.json
