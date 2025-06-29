@@ -1,16 +1,26 @@
 {
   "version": 2,
-  "buildCommand": "node build-deploy.js",
   "builds": [
     {
-      "src": "api/index.js",
-      "use": "@vercel/node"
+      "src": "server/index-production.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "dist/**",
+          "server/**",
+          "shared/**"
+        ]
+      }
     }
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/server/index-production.ts"
+    },
+    {
       "src": "/(.*)",
-      "dest": "api/index.js"
+      "dest": "/dist/$1"
     }
   ],
   "env": {
