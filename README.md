@@ -1,6 +1,8 @@
 # Recrutas - Talk Directly to Companies
 
-> Skip the recruiters. Talk straight to the people who actually make hiring decisions.
+> Built on AI. Backed by transparency. Focused on you.
+
+Skip the recruiters. Talk straight to the people who actually make hiring decisions.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
