@@ -153,12 +153,16 @@ export default function CandidateStreamlinedDashboard() {
 
   // Handle continuing a job application from localStorage
   const handleContinueJobApplication = (jobData: any) => {
+    console.log('Continue button clicked! Job data:', jobData);
+    console.log('External URL:', jobData.externalUrl);
+    
     setContinuationJob(null);
     localStorage.removeItem('continuationJob');
     sessionStorage.removeItem('pendingJobApplication');
     
     // If it's an external job, open the external URL
     if (jobData.externalUrl) {
+      console.log('Opening external URL:', jobData.externalUrl);
       window.open(jobData.externalUrl, '_blank');
       
       // Show success toast
@@ -167,6 +171,7 @@ export default function CandidateStreamlinedDashboard() {
         description: `Opening ${jobData.jobData.title} at ${jobData.jobData.company}`,
       });
     } else {
+      console.log('No external URL found in job data');
       // For internal jobs, navigate to the job details
       toast({
         title: "Job Continued",
