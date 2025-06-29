@@ -18,7 +18,7 @@ function log(message: string, source = "express") {
 }
 
 function serveStatic(app: express.Express) {
-  const distPath = path.join(__dirname, "../dist");
+  const distPath = path.join(__dirname, "../dist/public");
   app.use(express.static(distPath));
   
   // Handle client-side routing
