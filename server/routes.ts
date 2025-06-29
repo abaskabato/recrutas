@@ -286,7 +286,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Resume upload endpoint
   app.post("/api/resume/upload", upload.single('resume'), async (req, res) => {
     try {
-      const currentUser = await storage.getCurrentUser(req);
+      const sessionData = req.session as any;
+      if (!sessionData?.user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const currentUser = await storage.getCurrentUser(sessionData.user.id);
       if (!currentUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -350,7 +354,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job management endpoints
   app.get("/api/jobs", async (req, res) => {
     try {
-      const currentUser = await storage.getCurrentUser(req);
+      const sessionData = req.session as any;
+      if (!sessionData?.user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const currentUser = await storage.getCurrentUser(sessionData.user.id);
       if (!currentUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -370,7 +378,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/jobs", async (req, res) => {
     try {
-      const currentUser = await storage.getCurrentUser(req);
+      const sessionData = req.session as any;
+      if (!sessionData?.user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const currentUser = await storage.getCurrentUser(sessionData.user.id);
       if (!currentUser || currentUser.role !== 'talent_owner') {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -391,7 +403,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification endpoints
   app.get("/api/notifications", async (req, res) => {
     try {
-      const currentUser = await storage.getCurrentUser(req);
+      const sessionData = req.session as any;
+      if (!sessionData?.user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const currentUser = await storage.getCurrentUser(sessionData.user.id);
       if (!currentUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }

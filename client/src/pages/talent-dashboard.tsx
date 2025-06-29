@@ -13,7 +13,7 @@ import {
   formatDate
 } from "@/lib/dashboard-utils";
 import RealTimeNotifications from "@/components/real-time-notifications";
-import { ApplicationIntelligenceTracker } from "@/components/application-intelligence-tracker";
+import ApplicationIntelligenceTracker from "@/components/application-intelligence-tracker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

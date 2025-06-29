@@ -81,7 +81,7 @@ const statusConfig: Record<string, { label: string; color: string; progress: num
   withdrawn: { label: "Withdrawn", color: "bg-gray-500", progress: 0, icon: Info }
 };
 
-export default function ApplicationIntelligenceTracker() {
+function ApplicationIntelligenceTracker() {
   const [expandedApplication, setExpandedApplication] = useState<number | null>(null);
   
   const { data: applications, isLoading } = useQuery<ApplicationIntelligence[]>({
@@ -456,3 +456,5 @@ export default function ApplicationIntelligenceTracker() {
     </div>
   );
 }
+
+export default ApplicationIntelligenceTracker;
