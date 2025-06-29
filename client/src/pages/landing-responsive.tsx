@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ export default function LandingResponsive() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
 
   // Auto-open instant match modal after 3 seconds for non-authenticated users
   useEffect(() => {
@@ -76,7 +78,7 @@ export default function LandingResponsive() {
   const handleStartMatching = () => {
     setShowInstantMatch(false);
     if (isAuthenticated && user?.role === 'candidate') {
-      window.location.href = "/candidate-dashboard";
+      setLocation("/candidate-dashboard");
     } else {
       handleLogin();
     }

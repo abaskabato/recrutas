@@ -1387,8 +1387,14 @@ export default function CandidateDashboardEnhanced() {
       {/* Profile Completion Modal */}
       {showProfileCompletion && (
         <ProfileCompletionModal
-          onComplete={handleProfileComplete}
-          onCancel={() => setShowProfileCompletion(false)}
+          open={showProfileCompletion}
+          onOpenChange={(open) => {
+            setShowProfileCompletion(open);
+            if (!open) {
+              handleProfileComplete();
+            }
+          }}
+          currentProfile={null}
         />
       )}
 

@@ -117,10 +117,10 @@ export default function CandidateStreamlinedDashboard() {
   const [appliedJobsSet, setAppliedJobsSet] = useState<Set<string>>(new Set());
 
   // Track applied external jobs in localStorage using stable identifiers
-  const getAppliedJobs = () => {
-    if (typeof window === 'undefined') return new Set();
+  const getAppliedJobs = (): Set<string> => {
+    if (typeof window === 'undefined') return new Set<string>();
     const stored = localStorage.getItem(`appliedJobs_${user?.id}`);
-    return new Set(stored ? JSON.parse(stored) : []);
+    return new Set<string>(stored ? JSON.parse(stored) : []);
   };
 
   const getJobStableId = (match: any) => {
@@ -139,7 +139,7 @@ export default function CandidateStreamlinedDashboard() {
     appliedJobs.add(stableId);
     localStorage.setItem(`appliedJobs_${user?.id}`, JSON.stringify(Array.from(appliedJobs)));
     // Update state to trigger re-render
-    setAppliedJobsSet(new Set(appliedJobs));
+    setAppliedJobsSet(new Set<string>(appliedJobs));
   };
 
   const isJobApplied = (match: any) => {
@@ -150,9 +150,51 @@ export default function CandidateStreamlinedDashboard() {
   // Initialize applied jobs set from localStorage when user loads
   useEffect(() => {
     if (user?.id) {
-      setAppliedJobsSet(getAppliedJobs());
+      setAppliedJobsSet(new Set<string>(getAppliedJobs()));
     }
   }, [user?.id]);
+
+  // Handle continuation from instant modal
+  useEffect(() => {
+    if (user?.id) {
+      // Check for pending job application from instant modal
+      const pendingJob = sessionStorage.getItem('pendingJobApplication');
+      const continuationJob = localStorage.getItem('continuationJob');
+      
+      if (pendingJob) {
+        try {
+          const jobData = JSON.parse(pendingJob);
+          sessionStorage.removeItem('pendingJobApplication');
+          
+          toast({
+            title: "Welcome back!",
+            description: `Ready to continue with your application to ${jobData.title} at ${jobData.company}?`,
+            duration: 5000,
+          });
+        } catch (error) {
+          console.error('Error parsing pending job data:', error);
+        }
+      }
+      
+      if (continuationJob) {
+        try {
+          const jobData = JSON.parse(continuationJob);
+          // Check if job is recent (within 1 hour)
+          if (Date.now() - jobData.timestamp < 3600000) {
+            localStorage.removeItem('continuationJob');
+            
+            toast({
+              title: "Let's continue where you left off",
+              description: `You were interested in ${jobData.jobData?.title} at ${jobData.jobData?.company}. Check your matches to apply!`,
+              duration: 6000,
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing continuation job data:', error);
+        }
+      }
+    }
+  }, [user?.id, toast]);
 
   // Fetch candidate stats
   const { data: stats } = useQuery<CandidateStats>({
