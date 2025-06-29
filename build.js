@@ -8,7 +8,7 @@ import path from 'path';
 console.log('Starting Vercel build process...');
 
 try {
-  // Build the frontend
+  // Build only the frontend for Vercel (no server bundling needed)
   console.log('Building frontend with Vite...');
   execSync('vite build', { stdio: 'inherit' });
   
