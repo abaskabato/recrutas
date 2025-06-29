@@ -17,7 +17,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application
-RUN npx vite build && npx esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && echo 'import("./production.js");' > dist/index.js
+RUN chmod +x build.sh && ./build.sh
 
 # Production image, copy all the files and run the app
 FROM base AS runner
