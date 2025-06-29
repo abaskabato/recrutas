@@ -116,7 +116,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const handleQuickApply = (jobId: number) => {
     // Find the job details and store them for continuation after auth
     const job = jobsToShow.find((j: any) => j.id === jobId);
-    if (job) {
+    if (job && job.job) {
       // Store job information in localStorage for continuation after login
       localStorage.setItem('continuationJob', JSON.stringify({
         id: job.id,
@@ -131,8 +131,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
       // Also store in session storage as backup
       sessionStorage.setItem('pendingJobApplication', JSON.stringify({
         jobId: job.id,
-        title: job.job.title,
-        company: job.job.company,
+        title: job.job?.title || 'Unknown Job',
+        company: job.job?.company || 'Unknown Company',
         action: 'apply'
       }));
     }
