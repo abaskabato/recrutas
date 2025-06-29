@@ -2,15 +2,18 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["/api/session"],
     retry: false,
   });
 
+  // Handle both empty object {} and user data structure
+  const user = (data as any)?.user || null;
+
   return {
-    user: user?.user || null,
+    user,
     isLoading,
-    isAuthenticated: !!user?.user,
+    isAuthenticated: !!user,
     error
   };
 }

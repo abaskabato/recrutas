@@ -145,9 +145,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User session endpoint
   app.get("/api/session", async (req, res) => {
     try {
-      const user = await storage.getCurrentUser(req);
-      if (user) {
-        res.json({ user });
+      const sessionData = req.session as any;
+      if (sessionData?.user?.id) {
+        const user = await storage.getCurrentUser(sessionData.user.id);
+        if (user) {
+          res.json({ user });
+        } else {
+          res.json({});
+        }
       } else {
         res.json({});
       }
@@ -195,7 +200,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Candidate profile and matching
   app.get("/api/candidates/matches", async (req, res) => {
     try {
-      const currentUser = await storage.getCurrentUser(req);
+      const sessionData = req.session as any;
+      if (!sessionData?.user?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const currentUser = await storage.getCurrentUser(sessionData.user.id);
       if (!currentUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
