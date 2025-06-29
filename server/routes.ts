@@ -2390,8 +2390,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Final job count before formatting: ${filteredJobs.length}`);
       
+      // Shuffle jobs for variety - different order each time
+      const shuffledJobs = filteredJobs
+        .map(job => ({ job, sortKey: Math.random() }))
+        .sort((a, b) => a.sortKey - b.sortKey)
+        .map(item => item.job);
+      
       // Format to match recent matches component structure
-      const formattedJobs = filteredJobs.slice(0, parseInt(limit as string)).map((job, index) => ({
+      const formattedJobs = shuffledJobs.slice(0, parseInt(limit as string)).map((job, index) => ({
         id: `instant_${job.id}_${Date.now()}_${index}`,
         matchScore: `${Math.floor(Math.random() * 15) + 85}%`,
         status: index === 0 ? "pending" : Math.random() > 0.8 ? "viewed" : "not_applied",

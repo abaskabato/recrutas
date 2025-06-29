@@ -6,7 +6,7 @@ interface CachedJobData {
 
 class JobCache {
   private cache: Map<string, CachedJobData> = new Map();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private readonly CACHE_DURATION = 30 * 1000; // 30 seconds for more variety
 
   generateKey(skills?: string[], limit?: number): string {
     const skillsKey = skills ? skills.sort().join(',') : 'general';

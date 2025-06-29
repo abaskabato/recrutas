@@ -21,7 +21,7 @@ interface CachedJobData {
 
 export class CompanyJobsAggregator {
   private cache: Map<string, CachedJobData> = new Map();
-  private readonly CACHE_DURATION = 3 * 60 * 1000; // 3 minutes cache
+  private readonly CACHE_DURATION = 45 * 1000; // 45 seconds for fresh results
   
   private companyCareerPages = [
     {

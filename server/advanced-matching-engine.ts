@@ -29,7 +29,7 @@ interface EnhancedJobMatch {
 
 export class AdvancedMatchingEngine {
   private matchCache: Map<string, EnhancedJobMatch[]> = new Map();
-  private readonly CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+  private readonly CACHE_DURATION = 60 * 1000; // 1 minute for fresh matches
 
   async generateAdvancedMatches(criteria: AdvancedMatchCriteria): Promise<EnhancedJobMatch[]> {
     const cacheKey = this.generateCacheKey(criteria);
