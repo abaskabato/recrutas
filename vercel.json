@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "vite build",
+  "buildCommand": "node build-deploy.js",
   "builds": [
     {
       "src": "api/index.js",

@@ -21,10 +21,16 @@ try {
   process.exit(1);
 }
 
-// Build server (TypeScript compilation)
+// Build server (TypeScript compilation with proper environment)
 console.log('🔧 Building Express server...');
 try {
-  execSync('tsc -p server/tsconfig.json', { stdio: 'inherit', cwd: process.cwd() });
+  // Set NODE_ENV to production to ensure proper build
+  process.env.NODE_ENV = 'production';
+  execSync('tsc -p server/tsconfig.json', { 
+    stdio: 'inherit', 
+    cwd: process.cwd(),
+    env: { ...process.env, NODE_ENV: 'production' }
+  });
 } catch (error) {
   console.error('❌ Server build failed');
   process.exit(1);
@@ -45,11 +51,14 @@ const prodPackageJson = {
   },
   dependencies: Object.fromEntries(
     Object.entries(packageJson.dependencies || {}).filter(([key]) => {
-      // Include only runtime dependencies
-      return ![
+      // Exclude development-only dependencies that shouldn't be in production
+      const devOnlyDeps = [
         '@replit/vite-plugin-cartographer',
-        '@replit/vite-plugin-runtime-error-modal'
-      ].includes(key);
+        '@replit/vite-plugin-runtime-error-modal',
+        '@vitejs/plugin-react',
+        'vite'  // Exclude vite from production dependencies
+      ];
+      return !devOnlyDeps.includes(key);
     })
   ),
   engines: packageJson.engines
