@@ -5,14 +5,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "npm run build:frontend && npm run build:server",
+    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push",
-    "build:frontend": "vite build",
-    "build:server": "npx tsc -p server/tsconfig.production.json || echo 'TypeScript compilation skipped'",
-    "build:production": "node build-production-comprehensive.js",
-    "start:production": "NODE_ENV=production tsx server/index-production.ts"
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@better-auth/expo": "^1.2.10",

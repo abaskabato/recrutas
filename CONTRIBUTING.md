@@ -1,206 +1,300 @@
 # Contributing to Recrutas
 
-Thank you for your interest in contributing to Recrutas! This guide will help you get started with contributing to our AI-powered talent platform.
+Thank you for your interest in contributing to Recrutas! This guide will help you get started with contributing to our AI-powered talent acquisition platform.
 
-## 🚀 Getting Started
+## 🚀 Quick Start for Contributors
 
 ### Prerequisites
-- Node.js 18 or higher
+- Node.js 18+ and npm
 - PostgreSQL database
-- Git
-- OpenAI API key for AI features
+- Git and GitHub account
+- Basic knowledge of React, TypeScript, and Node.js
 
-### Development Setup
+### Setup Development Environment
 
-1. **Fork and clone the repository**
-```bash
-git clone https://github.com/yourusername/recrutas.git
-cd recrutas
-```
+1. **Fork and Clone**
+   ```bash
+   git clone https://github.com/yourusername/recrutas.git
+   cd recrutas
+   npm install
+   ```
 
-2. **Install dependencies**
-```bash
-npm install
-```
+2. **Environment Configuration**
+   ```bash
+   cp .env.example .env
+   # Fill in your environment variables (see .env.example for guidance)
+   ```
 
-3. **Set up environment variables**
-```bash
-cp .env.example .env
-```
+3. **Database Setup**
+   ```bash
+   npm run db:push
+   ```
 
-4. **Initialize database**
-```bash
-npm run db:push
-```
+4. **Start Development**
+   ```bash
+   npm run dev
+   ```
 
-5. **Start development server**
-```bash
-npm run dev
-```
+## 📋 How to Contribute
 
-## 🏗 Project Structure
+### 1. Find an Issue
+- Check our [Issues page](https://github.com/yourusername/recrutas/issues)
+- Look for `good first issue` or `help wanted` labels
+- Comment on the issue to claim it
 
-```
-recrutas/
-├── client/           # React frontend
-│   ├── src/
-│   │   ├── components/   # Reusable UI components
-│   │   ├── pages/        # Page components
-│   │   ├── hooks/        # Custom React hooks
-│   │   └── lib/          # Utilities and configurations
-├── server/           # Express backend
-│   ├── routes.ts     # API routes
-│   ├── storage.ts    # Database operations
-│   └── *.ts          # Various server modules
-├── shared/           # Shared types and schemas
-│   └── schema.ts     # Database schema and types
-└── scripts/          # Build and deployment scripts
-```
-
-## 🛠 Development Guidelines
-
-### Code Style
-- Use TypeScript for type safety
-- Follow existing ESLint and Prettier configurations
-- Use meaningful variable and function names
-- Add comments for complex logic
-
-### Database Changes
-- All database changes must go through Drizzle schema
-- Use `npm run db:push` to apply schema changes
-- Never write raw SQL migrations
-
-### API Development
-- Keep routes thin - business logic belongs in storage or services
-- Validate inputs using Zod schemas
-- Return consistent JSON responses
-- Use proper HTTP status codes
-
-### Frontend Development
-- Use shadcn/ui components when possible
-- Follow existing patterns for forms and data fetching
-- Use TanStack Query for server state management
-- Ensure responsive design
-
-## 🧪 Testing
-
-### Running Tests
-```bash
-npm test
-```
-
-### Adding Tests
-- Write unit tests for new utilities and services
-- Add integration tests for API endpoints
-- Test UI components with realistic data
-
-## 📝 Pull Request Process
-
-1. **Create a feature branch**
+### 2. Create a Branch
 ```bash
 git checkout -b feature/your-feature-name
+# or
+git checkout -b fix/your-bug-fix
 ```
 
-2. **Make your changes**
-- Follow the coding standards
-- Add tests if applicable
-- Update documentation
+### 3. Make Your Changes
+- Follow our code style guidelines
+- Write tests for new features
+- Update documentation if needed
+- Ensure TypeScript compilation passes
 
-3. **Commit your changes**
+### 4. Test Your Changes
 ```bash
-git add .
-git commit -m "feat: add your feature description"
+# Run type checking
+npm run type-check
+
+# Run tests
+npm test
+
+# Test specific features
+node test-ai-matching.js
+node test-exam-workflow.js
 ```
 
-Use conventional commit format:
-- `feat:` for new features
-- `fix:` for bug fixes
-- `docs:` for documentation changes
-- `refactor:` for code refactoring
-- `test:` for adding tests
+### 5. Submit a Pull Request
+- Push your branch to your fork
+- Create a pull request with a clear description
+- Link to the related issue
+- Wait for review and feedback
 
-4. **Push and create PR**
-```bash
-git push origin feature/your-feature-name
+## 🏗️ Project Architecture
+
+### Frontend Structure
+```
+client/src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── forms/          # Form components
+│   └── features/       # Feature-specific components
+├── pages/              # Application pages
+├── hooks/              # Custom React hooks
+├── lib/                # Utilities and configurations
+└── assets/             # Static assets
 ```
 
-Then create a pull request on GitHub.
+### Backend Structure
+```
+server/
+├── routes.ts           # API endpoints
+├── storage.ts          # Database operations
+├── auth.ts            # Authentication setup
+├── services/          # Business logic
+└── utils/             # Helper functions
+```
 
-## 🔍 What We're Looking For
+### Shared Types
+```
+shared/
+└── schema.ts          # Database schema and TypeScript types
+```
 
-### High Priority Areas
-- **AI Matching Improvements**: Enhanced algorithms for job-candidate matching
-- **Performance Optimization**: Faster job scraping and search
-- **User Experience**: Better UI/UX for both candidates and hiring managers
-- **Testing**: Comprehensive test coverage
-- **Documentation**: Clear guides and API documentation
+## 🎨 Code Style Guidelines
 
-### Feature Ideas
-- Advanced filtering options
-- Mobile app development
-- Integration with more job boards
-- Enhanced communication features
-- Analytics and reporting
+### TypeScript
+- Use TypeScript for all new code
+- Define proper interfaces and types
+- Use strict type checking
+- Prefer explicit types over `any`
 
-## 🚨 Bug Reports
+### React Components
+- Use functional components with hooks
+- Follow React best practices
+- Use descriptive component and prop names
+- Implement proper error boundaries
 
-### Before Reporting
-- Check existing issues to avoid duplicates
-- Verify the bug exists in the latest version
-- Test with a clean database if possible
+### Database
+- Use Drizzle ORM for database operations
+- Follow the existing schema patterns
+- Use migrations for schema changes
+- Implement proper data validation
+
+### API Design
+- Follow RESTful conventions
+- Use proper HTTP status codes
+- Implement input validation
+- Add comprehensive error handling
+
+## 🧪 Testing Guidelines
+
+### Frontend Testing
+- Write tests for complex components
+- Test user interactions
+- Mock external API calls
+- Use React Testing Library
+
+### Backend Testing
+- Test API endpoints
+- Mock database operations
+- Test business logic
+- Use proper test data
+
+### Integration Testing
+- Test complete user workflows
+- Verify database operations
+- Test authentication flows
+- Validate real-time features
+
+## 📝 Documentation
+
+### Code Documentation
+- Add JSDoc comments for functions
+- Document complex algorithms
+- Explain business logic
+- Update type definitions
+
+### User Documentation
+- Update README.md for new features
+- Add setup instructions
+- Document configuration options
+- Provide examples
+
+## 🐛 Bug Reports
+
+When reporting bugs, please include:
+
+1. **Clear Description**: What happened vs. what you expected
+2. **Steps to Reproduce**: Detailed steps to recreate the issue
+3. **Environment**: OS, Node.js version, browser
+4. **Screenshots**: If applicable
+5. **Error Messages**: Full error messages and stack traces
 
 ### Bug Report Template
 ```markdown
-**Describe the bug**
+## Bug Description
 A clear description of what the bug is.
 
-**To Reproduce**
-Steps to reproduce the behavior:
+## Steps to Reproduce
 1. Go to '...'
-2. Click on '...'
-3. See error
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
 
-**Expected behavior**
+## Expected Behavior
 What you expected to happen.
 
-**Screenshots**
+## Screenshots
 If applicable, add screenshots.
 
-**Environment:**
-- OS: [e.g. macOS]
-- Browser: [e.g. Chrome]
-- Node.js version: [e.g. 18.17.0]
+## Environment
+- OS: [e.g. macOS, Windows, Linux]
+- Node.js Version: [e.g. 18.17.0]
+- Browser: [e.g. Chrome 91.0]
 ```
 
 ## 💡 Feature Requests
 
-We welcome feature requests! Please:
-- Check if the feature already exists
-- Describe the problem it solves
-- Explain how it would work
-- Consider implementation challenges
+For feature requests, please include:
 
-## 📚 Resources
+1. **Problem Statement**: What problem does this solve?
+2. **Proposed Solution**: How should it work?
+3. **Alternative Solutions**: Other ways to solve the problem
+4. **Use Cases**: Who would benefit from this feature?
 
-- [Drizzle ORM Documentation](https://orm.drizzle.team/)
-- [TanStack Query Guide](https://tanstack.com/query)
-- [shadcn/ui Components](https://ui.shadcn.com/)
-- [Better Auth Documentation](https://www.better-auth.com/)
+## 🏷️ Issue Labels
 
-## 🤝 Community
+- `bug`: Something isn't working
+- `enhancement`: New feature or request
+- `good first issue`: Good for newcomers
+- `help wanted`: Extra attention is needed
+- `documentation`: Improvements to documentation
+- `frontend`: Frontend-related changes
+- `backend`: Backend-related changes
+- `ai`: AI/ML related features
 
-- **Discord**: [Join our community] (Coming soon)
-- **GitHub Discussions**: Ask questions and share ideas
-- **Twitter**: Follow [@RecrutasAI] for updates
+## 📚 Development Resources
 
-## 📄 License
+### Key Technologies
+- [React Documentation](https://reactjs.org/docs/)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+- [Drizzle ORM](https://orm.drizzle.team/)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [shadcn/ui](https://ui.shadcn.com/)
 
-By contributing to Recrutas, you agree that your contributions will be licensed under the MIT License.
+### Platform-Specific
+- [Better Auth](https://www.better-auth.com/docs)
+- [OpenAI API](https://platform.openai.com/docs)
+- [WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
 
-## 🙏 Recognition
+## 🤝 Community Guidelines
 
-Contributors will be recognized in our README and release notes. We appreciate every contribution, no matter how small!
+### Be Respectful
+- Use welcoming and inclusive language
+- Respect differing viewpoints and experiences
+- Accept constructive criticism gracefully
+- Focus on what's best for the community
+
+### Be Collaborative
+- Help others learn and grow
+- Share knowledge and resources
+- Provide constructive feedback
+- Celebrate others' contributions
+
+### Be Professional
+- Keep discussions on-topic
+- Avoid controversial topics unrelated to the project
+- Use appropriate language
+- Maintain a professional tone
+
+## 🎯 Contribution Areas
+
+### High Priority
+- AI matching algorithm improvements
+- Real-time chat enhancements
+- Mobile responsiveness
+- Performance optimizations
+- Security improvements
+
+### Medium Priority
+- Additional OAuth providers
+- Enhanced notification system
+- Analytics dashboard
+- API documentation
+- Accessibility improvements
+
+### Documentation Needs
+- API documentation
+- Component documentation
+- Deployment guides
+- Troubleshooting guides
+- Video tutorials
+
+## 📞 Getting Help
+
+- **GitHub Issues**: For bugs and feature requests
+- **GitHub Discussions**: For questions and general discussion
+- **Documentation**: Check our docs folder
+- **Code Comments**: Look for inline documentation
+
+## 🎉 Recognition
+
+Contributors are recognized in several ways:
+
+- Listed in our README.md contributors section
+- Mentioned in release notes for significant contributions
+- Invited to join our contributor Discord
+- Eligible for contributor swag (coming soon!)
+
+## 📜 Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). By participating, you agree to uphold this code.
 
 ---
 
-**Questions?** Feel free to open an issue or start a discussion. We're here to help!
+Thank you for contributing to Recrutas! Together, we're revolutionizing the hiring industry. 🚀

@@ -40,7 +40,7 @@ import { relations } from "drizzle-orm";
 // Users table (Better Auth compatible)
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
-  name: text("name").notNull().default(""),
+  name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),

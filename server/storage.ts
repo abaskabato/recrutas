@@ -74,15 +74,6 @@ export interface IStorage {
   getJobPosting(id: number): Promise<JobPosting | undefined>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
   deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
-  searchJobs(criteria: {
-    skills?: string[];
-    location?: string;
-    jobTitle?: string;
-    workType?: string;
-    minSalary?: number;
-    maxSalary?: number;
-    limit?: number;
-  }): Promise<JobPosting[]>;
   
   // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
@@ -126,7 +117,7 @@ export interface IStorage {
   updateApplicationIntelligence(applicationId: string, updates: any): Promise<any>;
   getApplicationsForTalent(talentId: string): Promise<any[]>;
   updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
-  storeExamResult(result: any): Promise<void>;
+  storeExamResult(result: any): Promise<any>;
   
   // Statistics
   getCandidateStats(candidateId: string): Promise<{
@@ -367,72 +358,6 @@ export class DatabaseStorage implements IStorage {
         .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
     } catch (error) {
       console.error('Error deleting job posting:', error);
-      throw error;
-    }
-  }
-
-  async searchJobs(criteria: {
-    skills?: string[];
-    location?: string;
-    jobTitle?: string;
-    workType?: string;
-    minSalary?: number;
-    maxSalary?: number;
-    limit?: number;
-  }): Promise<JobPosting[]> {
-    try {
-      // Get all jobs and filter in memory for simplicity
-      let jobs = await db.select().from(jobPostings);
-      
-      // Apply filters
-      if (criteria.jobTitle) {
-        jobs = jobs.filter(job => 
-          job.title.toLowerCase().includes(criteria.jobTitle!.toLowerCase())
-        );
-      }
-      
-      if (criteria.location) {
-        jobs = jobs.filter(job => 
-          job.location?.toLowerCase().includes(criteria.location!.toLowerCase())
-        );
-      }
-      
-      if (criteria.workType) {
-        jobs = jobs.filter(job => job.workType === criteria.workType);
-      }
-      
-      if (criteria.minSalary) {
-        jobs = jobs.filter(job => 
-          job.salaryMin && job.salaryMin >= criteria.minSalary!
-        );
-      }
-      
-      if (criteria.maxSalary) {
-        jobs = jobs.filter(job => 
-          job.salaryMax && job.salaryMax <= criteria.maxSalary!
-        );
-      }
-      
-      // Filter by skills if provided
-      if (criteria.skills && criteria.skills.length > 0) {
-        jobs = jobs.filter(job => {
-          if (!job.skills || job.skills.length === 0) return false;
-          return criteria.skills!.some(skill => 
-            job.skills.some(jobSkill => 
-              jobSkill.toLowerCase().includes(skill.toLowerCase())
-            )
-          );
-        });
-      }
-      
-      // Apply limit
-      if (criteria.limit && criteria.limit > 0) {
-        jobs = jobs.slice(0, criteria.limit);
-      }
-      
-      return jobs;
-    } catch (error) {
-      console.error('Error searching jobs:', error);
       throw error;
     }
   }
@@ -1347,7 +1272,41 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async storeExamResult(result: any): Promise<any> {
+    try {
+      // First, get the examId for this job
+      const [jobExam] = await db
+        .select()
+        .from(jobExams)
+        .where(eq(jobExams.jobId, result.jobId));
 
+      if (!jobExam) {
+        throw new Error(`No exam found for job ${result.jobId}`);
+      }
+
+      const [examResult] = await db
+        .insert(examAttempts)
+        .values({
+          examId: jobExam.id,
+          candidateId: result.candidateId,
+          jobId: result.jobId,
+          score: result.score,
+          totalQuestions: result.totalQuestions,
+          correctAnswers: result.correctAnswers,
+          timeSpent: result.timeSpent,
+          answers: JSON.stringify(result.answers),
+          status: 'completed',
+          passedExam: result.score >= (result.passingScore || 70),
+          completedAt: new Date()
+        })
+        .returning();
+      
+      return examResult;
+    } catch (error) {
+      console.error('Error storing exam result:', error);
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

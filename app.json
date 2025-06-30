@@ -1,0 +1,58 @@
+{
+  "name": "Recrutas",
+  "description": "AI-Powered Talent Acquisition Platform - Direct candidate-to-hiring manager matching",
+  "repository": "https://github.com/yourusername/recrutas",
+  "logo": "https://avatars.githubusercontent.com/u/yourusername",
+  "keywords": [
+    "talent-acquisition",
+    "ai-matching", 
+    "job-platform",
+    "hiring",
+    "recruitment",
+    "react",
+    "nodejs",
+    "typescript"
+  ],
+  "stack": "heroku-20",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    },
+    "DATABASE_URL": {
+      "description": "PostgreSQL database URL",
+      "required": true
+    },
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for AI matching",
+      "required": true
+    },
+    "SESSION_SECRET": {
+      "description": "32-character secret for session encryption",
+      "generator": "secret"
+    },
+    "REPLIT_DOMAINS": {
+      "description": "Comma-separated list of allowed domains",
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "hobby"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:hobby-dev"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "npm run db:push && npm run seed:demo"
+  }
+}

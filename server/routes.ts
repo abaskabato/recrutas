@@ -134,15 +134,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupBetterAuth(app);
 
-  // Health check endpoint
-  app.get('/api/health', (req, res) => {
-    res.json({ 
-      status: 'healthy', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
-  });
-
   // Custom session endpoint to handle Better Auth session issues
   app.get("/api/session", async (req, res) => {
     try {
@@ -1493,39 +1484,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching job matches:", error);
       res.status(500).json({ message: "Failed to fetch job matches" });
-    }
-  });
-
-  // Job search endpoint - PUBLIC for candidate search
-  app.get('/api/jobs/search', async (req, res) => {
-    try {
-      const { skills, location, jobTitle, workType, minSalary, maxSalary, limit = 10 } = req.query;
-      
-      // Search internal jobs first
-      const internalJobs = await storage.searchJobs({
-        skills: skills ? skills.toString().split(',') : [],
-        location: location?.toString(),
-        jobTitle: jobTitle?.toString(),
-        workType: workType?.toString(),
-        minSalary: minSalary ? parseInt(minSalary.toString()) : undefined,
-        maxSalary: maxSalary ? parseInt(maxSalary.toString()) : undefined,
-        limit: parseInt(limit.toString())
-      });
-
-      res.json({
-        success: true,
-        jobs: internalJobs,
-        source: 'internal',
-        totalFound: internalJobs.length,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error("Error searching jobs:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Failed to search jobs",
-        error: error.message 
-      });
     }
   });
 
@@ -3454,19 +3412,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Notify candidate about feedback
-      // Note: Would use a notifyApplicationFeedback method if it existed
-      // For now, comment out until method is implemented
-      // await notificationService.notifyApplicationFeedback({
-      //   candidateId: applicationId, // This should be the candidate's user ID
-      //   type: 'application_feedback',
-      //   title: 'New Feedback on Your Application',
-      //   message: `You've received feedback on your application: "${feedback.substring(0, 100)}..."`,
-      //   data: {
-      //     applicationId,
-      //     rating,
-      //     nextSteps
-      //   }
-      // });
+      await notificationService.sendNotification({
+        userId: applicationId, // This should be the candidate's user ID
+        type: 'application_feedback',
+        title: 'New Feedback on Your Application',
+        message: `You've received feedback on your application: "${feedback.substring(0, 100)}..."`,
+        data: {
+          applicationId,
+          rating,
+          nextSteps
+        }
+      });
 
       res.json({ success: true });
     } catch (error) {

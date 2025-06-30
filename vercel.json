@@ -1,26 +1,16 @@
 {
   "version": 2,
+  "buildCommand": "vite build",
   "builds": [
     {
-      "src": "server/index-production.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "dist/**",
-          "server/**",
-          "shared/**"
-        ]
-      }
+      "src": "api/index.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server/index-production.ts"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/dist/$1"
+      "dest": "api/index.js"
     }
   ],
   "env": {
