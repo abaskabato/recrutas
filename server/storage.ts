@@ -325,46 +325,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // First, get all chat rooms for this job
-      const chatRoomsForJob = await db
-        .select()
-        .from(chatRooms)
-        .where(eq(chatRooms.jobId, id));
+      // Delete in order to respect foreign key constraints
       
-      // Delete in correct order to respect foreign key constraints
-      for (const room of chatRoomsForJob) {
-        // 1. Delete chat messages first (they reference chat rooms)
-        await db
-          .delete(chatMessages)
-          .where(eq(chatMessages.chatRoomId, room.id));
-      }
-      
-      // 2. Delete chat rooms (they reference job directly)
-      await db
-        .delete(chatRooms)
-        .where(eq(chatRooms.jobId, id));
-      
-      // 3. Delete job applications for this job
+      // 1. Delete job applications
       await db
         .delete(jobApplications)
         .where(eq(jobApplications.jobId, id));
       
-      // 4. Delete exam attempts for this job
+      // 2. Delete exam attempts
       await db
         .delete(examAttempts)
         .where(eq(examAttempts.jobId, id));
       
-      // 5. Delete job exams
+      // 3. Delete job exams
       await db
         .delete(jobExams)
         .where(eq(jobExams.jobId, id));
       
-      // 6. Delete job matches
+      // 4. Delete job matches
       await db
         .delete(jobMatches)
         .where(eq(jobMatches.jobId, id));
       
-      // 7. Finally delete the job posting
+      // 5. Finally delete the job posting
       await db
         .delete(jobPostings)
         .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
