@@ -306,18 +306,9 @@ English (Native), Spanish (Conversational)`;
         languages: extractedData.languages || []
       };
     } catch (error) {
-      console.error('OpenAI API error, falling back to pattern matching:', error);
-      // Fallback to pattern matching if OpenAI fails
-      return {
-        personalInfo: this.extractPersonalInfo(text),
-        summary: this.extractSummary(text),
-        skills: this.extractSkillsAI(text),
-        experience: this.extractExperienceAI(text),
-        education: this.extractEducation(text),
-        certifications: this.extractCertifications(text),
-        projects: this.extractProjects(text),
-        languages: this.extractLanguages(text)
-      };
+      console.error('OpenAI API error:', error);
+      // Don't use fallback patterns - only authentic data
+      throw new Error(`Resume parsing requires valid OpenAI API key: ${error.message}`);
     }
   }
 

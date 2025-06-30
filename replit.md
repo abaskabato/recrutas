@@ -126,6 +126,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
+- June 30, 2025. **Data integrity enforced** - Disabled pattern matching fallback in resume parsing to ensure only authentic data extraction via OpenAI API. System now requires valid API key rather than using inferred data.
 - June 29, 2025. **Platform made deployment-agnostic** - Added standalone server, Docker configurations, and deployment guides for Vercel, Railway, Heroku, and other platforms. Removed Replit dependencies to enable hosting anywhere.
 - June 29, 2025. **Successfully connected to GitHub** - Complete job platform now live at https://github.com/abaskabato/recrutas with professional documentation and all features operational.
 - June 29, 2025. **Human-centered messaging complete** - Updated all platform messaging to be conversational and human-focused with new tagline "Built on AI. Backed by transparency. Focused on you." Landing page hero section now emphasizes talking to real people instead of corporate jargon.

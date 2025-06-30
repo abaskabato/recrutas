@@ -807,6 +807,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Resume parsing error:", error);
+      
+      // Check if it's an OpenAI API issue
+      if (error.message.includes('OpenAI API key') || error.message.includes('quota') || error.message.includes('insufficient_quota')) {
+        return res.status(402).json({ 
+          success: false,
+          message: "Resume parsing requires a valid OpenAI API key with available credits",
+          error: "OpenAI API key needed for authentic data extraction",
+          requiresApiKey: true
+        });
+      }
+      
       res.status(500).json({ 
         success: false,
         message: "Failed to parse resume",
