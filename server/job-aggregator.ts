@@ -300,21 +300,26 @@ export class JobAggregator {
   }
 
   private transformHiringCafeJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `hc_${job.id || index}`,
-      title: job.title || job.position || 'Untitled Position',
-      company: job.company || job.employer || 'Company Name',
-      location: job.location || job.city || 'Remote',
-      description: job.description || job.summary || '',
-      requirements: this.extractRequirements(job.description || job.requirements || ''),
-      skills: this.extractSkills(job.skills || job.tags || job.description || ''),
-      workType: this.normalizeWorkType(job.remote || job.work_type || job.location),
-      salaryMin: job.salary_min || job.min_salary,
-      salaryMax: job.salary_max || job.max_salary,
-      source: 'hiring.cafe',
-      externalUrl: job.url || job.link || `https://hiring.cafe/jobs/${job.id}`,
-      postedDate: job.posted_at || job.created_at || new Date().toISOString(),
-    }));
+    return jobs
+      .filter(job => {
+        const url = job.url || job.link;
+        return url && url !== '#' && this.isValidURL(url) && !url.includes('recrutas.ai');
+      })
+      .map((job, index) => ({
+        id: `hc_${job.id || index}`,
+        title: job.title || job.position || 'Untitled Position',
+        company: job.company || job.employer || 'Company Name',
+        location: job.location || job.city || 'Remote',
+        description: job.description || job.summary || '',
+        requirements: this.extractRequirements(job.description || job.requirements || ''),
+        skills: this.extractSkills(job.skills || job.tags || job.description || ''),
+        workType: this.normalizeWorkType(job.remote || job.work_type || job.location),
+        salaryMin: job.salary_min || job.min_salary,
+        salaryMax: job.salary_max || job.max_salary,
+        source: 'hiring.cafe',
+        externalUrl: job.url || job.link,
+        postedDate: job.posted_at || job.created_at || new Date().toISOString(),
+      }));
   }
 
   private extractRequirements(text: string): string[] {
@@ -427,21 +432,26 @@ export class JobAggregator {
   }
 
   private transformJSearchJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `jsearch_${job.job_id || index}`,
-      title: job.job_title || 'Software Developer',
-      company: job.employer_name || 'Tech Company',
-      location: job.job_city && job.job_state ? `${job.job_city}, ${job.job_state}` : job.job_country || 'Remote',
-      description: job.job_description || job.job_highlights?.Qualifications?.join('. ') || 'Join our team',
-      requirements: job.job_highlights?.Responsibilities || [job.job_title],
-      skills: this.extractSkillsFromText(job.job_description || job.job_title),
-      workType: job.job_is_remote ? 'remote' : 'onsite',
-      salaryMin: job.job_min_salary,
-      salaryMax: job.job_max_salary,
-      source: 'JSearch',
-      externalUrl: job.job_apply_link || job.job_google_link || '#',
-      postedDate: job.job_posted_at_datetime_utc || new Date().toISOString()
-    }));
+    return jobs
+      .filter(job => {
+        const url = job.job_apply_link || job.job_google_link;
+        return url && url !== '#' && this.isValidURL(url);
+      })
+      .map((job, index) => ({
+        id: `jsearch_${job.job_id || index}`,
+        title: job.job_title || 'Software Developer',
+        company: job.employer_name || 'Tech Company',
+        location: job.job_city && job.job_state ? `${job.job_city}, ${job.job_state}` : job.job_country || 'Remote',
+        description: job.job_description || job.job_highlights?.Qualifications?.join('. ') || 'Join our team',
+        requirements: job.job_highlights?.Responsibilities || [job.job_title],
+        skills: this.extractSkillsFromText(job.job_description || job.job_title),
+        workType: job.job_is_remote ? 'remote' : 'onsite',
+        salaryMin: job.job_min_salary,
+        salaryMax: job.job_max_salary,
+        source: 'JSearch',
+        externalUrl: job.job_apply_link || job.job_google_link,
+        postedDate: job.job_posted_at_datetime_utc || new Date().toISOString()
+      }));
   }
 
   async fetchFromHiringCafe(): Promise<ExternalJob[]> {
@@ -650,36 +660,40 @@ export class JobAggregator {
   // Transformation methods for new job sources
 
   private transformArbeitNowJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `arbeitnow_${job.slug || index}`,
-      title: job.title || 'Developer Position',
-      company: job.company_name || 'European Company',
-      location: job.location || 'Europe',
-      description: job.description || job.title,
-      requirements: job.tags || [job.title],
-      skills: job.tags || this.extractSkillsFromText(job.title),
-      workType: job.remote ? 'remote' : 'onsite',
-      source: 'ArbeitNow',
-      externalUrl: job.url || '#',
-      postedDate: job.created_at || new Date().toISOString()
-    }));
+    return jobs
+      .filter(job => job.url && job.url !== '#' && this.isValidURL(job.url))
+      .map((job, index) => ({
+        id: `arbeitnow_${job.slug || index}`,
+        title: job.title || 'Developer Position',
+        company: job.company_name || 'European Company',
+        location: job.location || 'Europe',
+        description: job.description || job.title,
+        requirements: job.tags || [job.title],
+        skills: job.tags || this.extractSkillsFromText(job.title),
+        workType: job.remote ? 'remote' : 'onsite',
+        source: 'ArbeitNow',
+        externalUrl: job.url,
+        postedDate: job.created_at || new Date().toISOString()
+      }));
   }
 
   private transformJoobleJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `jooble_${index}`,
-      title: job.title || 'Position Available',
-      company: job.company || 'Company',
-      location: job.location || 'USA',
-      description: job.snippet || job.title,
-      requirements: this.extractRequirements(job.snippet || job.title),
-      skills: this.extractSkillsFromText(job.snippet || job.title),
-      workType: job.type === 'remote' ? 'remote' : 'onsite',
-      salaryMin: job.salary ? parseInt(job.salary.replace(/[^0-9]/g, '')) : undefined,
-      source: 'Jooble',
-      externalUrl: job.link || '#',
-      postedDate: job.updated || new Date().toISOString()
-    }));
+    return jobs
+      .filter(job => job.link && job.link !== '#' && this.isValidURL(job.link))
+      .map((job, index) => ({
+        id: `jooble_${index}`,
+        title: job.title || 'Position Available',
+        company: job.company || 'Company',
+        location: job.location || 'USA',
+        description: job.snippet || job.title,
+        requirements: this.extractRequirements(job.snippet || job.title),
+        skills: this.extractSkillsFromText(job.snippet || job.title),
+        workType: job.type === 'remote' ? 'remote' : 'onsite',
+        salaryMin: job.salary ? parseInt(job.salary.replace(/[^0-9]/g, '')) : undefined,
+        source: 'Jooble',
+        externalUrl: job.link,
+        postedDate: job.updated || new Date().toISOString()
+      }));
   }
 
   private parseIndeedRSS(xmlText: string): ExternalJob[] {
@@ -1050,6 +1064,50 @@ export class JobAggregator {
         postedDate: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(),
       };
     });
+  }
+
+  // URL validation method to ensure only real, working URLs are included
+  private isValidURL(urlString: string): boolean {
+    try {
+      const url = new URL(urlString);
+      
+      // Check for valid protocols
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        return false;
+      }
+      
+      // Block common placeholder URLs
+      const invalidPatterns = [
+        '#',
+        'javascript:',
+        'mailto:',
+        'example.com',
+        'localhost',
+        '127.0.0.1',
+        'recrutas.ai', // Our own domain placeholders
+        'undefined',
+        'null'
+      ];
+      
+      const lowerUrl = urlString.toLowerCase();
+      if (invalidPatterns.some(pattern => lowerUrl.includes(pattern))) {
+        return false;
+      }
+      
+      // Ensure hostname exists and is not empty
+      if (!url.hostname || url.hostname.length < 3) {
+        return false;
+      }
+      
+      // Must have a valid TLD
+      if (!url.hostname.includes('.')) {
+        return false;
+      }
+      
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
