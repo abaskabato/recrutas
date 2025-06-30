@@ -12,7 +12,7 @@ export interface ExtendedUser {
   firstName?: string | null;
   lastName?: string | null;
   phoneNumber?: string | null;
-  role?: string | null;
+  role?: "candidate" | "talent_owner" | null;
   profileComplete?: boolean | null;
 }
 
@@ -70,7 +70,7 @@ export function useSession() {
   // Return format compatible with existing components
   return {
     data: betterAuthSession.data,
-    user: betterAuthSession.data?.user || null,
+    user: (betterAuthSession.data?.user as ExtendedUser) || null,
     isLoading: betterAuthSession.isPending,
     isAuthenticated: !!betterAuthSession.data?.user,
     isPending: betterAuthSession.isPending,
