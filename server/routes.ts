@@ -1095,6 +1095,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const profileData = req.body;
       
+      console.log('Profile creation request for user:', userId);
+      console.log('Profile data keys:', Object.keys(profileData));
+      
       // Create or update candidate profile with comprehensive data
       const profile = await storage.createOrUpdateCandidateProfile(userId, {
         title: profileData.title,
@@ -1109,6 +1112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parsedResumeData: profileData.parsedResumeData,
       });
 
+      console.log('Profile created/updated successfully');
+
       // Update user information
       await storage.updateUserInfo(userId, {
         firstName: profileData.firstName,
@@ -1117,10 +1122,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber: profileData.phoneNumber,
       });
 
+      console.log('User info updated successfully');
+
       res.json({ success: true, profile });
     } catch (error) {
-      console.error('Error completing profile:', error);
-      res.status(500).json({ message: 'Failed to complete profile' });
+      console.error('Error completing profile - detailed:', {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user?.id,
+        profileData: Object.keys(req.body || {})
+      });
+      res.status(500).json({ 
+        message: 'Failed to complete profile',
+        error: error.message 
+      });
     }
   });
 
@@ -1146,15 +1161,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const matches = await advancedMatchingEngine.generateAdvancedMatches(matchCriteria);
       
-      // Store matches in database
-      for (const match of matches.slice(0, 10)) { // Store top 10 matches
-        await storage.createJobMatch({
-          candidateId: userId,
-          jobId: match.jobId,
-          matchScore: match.matchScore.toString(),
-          status: 'pending',
-          aiExplanation: match.aiExplanation,
-        });
+      // Store matches in database (only for internal jobs with numeric IDs)
+      for (const match of matches.slice(0, 10)) {
+        // Only store internal job matches (external jobs have string IDs)
+        if (typeof match.jobId === 'number' && match.jobId > 0) {
+          try {
+            await storage.createJobMatch({
+              candidateId: userId,
+              jobId: match.jobId,
+              matchScore: match.matchScore.toString(),
+              status: 'pending',
+              aiExplanation: match.aiExplanation,
+            });
+          } catch (error) {
+            console.log(`Skipping match for job ${match.jobId}:`, error.message);
+          }
+        }
       }
 
       res.json({ success: true, matchesGenerated: matches.length });
