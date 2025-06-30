@@ -2477,73 +2477,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Broader matching found ${filteredJobs.length} jobs`);
         }
         
-        // Generate relevant jobs for non-tech searches or when no matches found
-        if (filteredJobs.length === 0 && skillsArray && skillsArray.length > 0) {
-          console.log('No matches found, generating relevant jobs for skills:', skillsArray);
-          // Generate jobs specifically for these skills
-          const skill = skillsArray[0].toLowerCase();
-          const relevantJobs = [];
-          
-          // Job templates for different skill categories
-          if (skill.includes('sales')) {
-            relevantJobs.push(
-              { title: 'Sales Representative', company: 'SalesForce Solutions', description: 'Drive revenue growth through client acquisition and relationship management. Lead generation and closing deals.', skills: ['Sales', 'Business Development', 'CRM', 'Lead Generation'] },
-              { title: 'Business Development Manager', company: 'Growth Partners Inc', description: 'Identify new business opportunities and build strategic partnerships to expand market reach.', skills: ['Sales', 'Account Management', 'Strategy', 'Partnerships'] },
-              { title: 'Account Executive', company: 'Revenue Systems', description: 'Manage key accounts and exceed quarterly sales targets through consultative selling approach.', skills: ['Sales', 'Account Management', 'Negotiation', 'Customer Relations'] },
-              { title: 'Inside Sales Specialist', company: 'Digital Commerce Co', description: 'Generate leads and close deals through phone and email outreach. Build prospect pipeline.', skills: ['Sales', 'Lead Generation', 'Cold Calling', 'Email Marketing'] }
-            );
-          } else if (skill.includes('design')) {
-            relevantJobs.push(
-              { title: 'UX/UI Designer', company: 'Creative Studio Design', description: 'Design intuitive user experiences for web and mobile applications. Create wireframes, prototypes, and user flows.', skills: ['Design', 'UI/UX', 'Figma', 'User Research', 'Prototyping'] },
-              { title: 'Graphic Designer', company: 'Brand Agency Creative', description: 'Create visual content for marketing campaigns and brand identity. Design logos, brochures, and digital assets.', skills: ['Design', 'Graphics', 'Adobe Creative Suite', 'Branding', 'Typography'] },
-              { title: 'Product Designer', company: 'Innovation Design Lab', description: 'Lead product design from concept to implementation. Work with cross-functional teams to deliver user-centered solutions.', skills: ['Design', 'Product Development', 'User Research', 'Design Systems', 'Collaboration'] },
-              { title: 'Visual Designer', company: 'Media Design House', description: 'Develop creative assets for digital and print media. Ensure brand consistency across all visual communications.', skills: ['Design', 'Visual Communication', 'Creative Direction', 'Brand Guidelines', 'Digital Media'] }
-            );
-          } else if (skill.includes('marketing')) {
-            relevantJobs.push(
-              { title: 'Digital Marketing Specialist', company: 'Growth Marketing Agency', description: 'Execute digital campaigns across social media, Google Ads, and email marketing channels to drive customer acquisition.', skills: ['Marketing', 'Digital Marketing', 'Google Ads', 'Social Media', 'Analytics'] },
-              { title: 'Content Marketing Manager', company: 'Content Strategy Co', description: 'Develop content strategy and create engaging marketing materials including blogs, videos, and social posts.', skills: ['Marketing', 'Content Strategy', 'Content Creation', 'SEO', 'Copywriting'] },
-              { title: 'Social Media Manager', company: 'Social Media First', description: 'Manage brand presence across social media platforms. Create content calendars and engage with community.', skills: ['Marketing', 'Social Media', 'Community Management', 'Content Creation', 'Brand Management'] },
-              { title: 'Marketing Coordinator', company: 'Brand Solutions Inc', description: 'Support marketing initiatives and campaign execution. Coordinate events, manage vendors, and track campaign performance.', skills: ['Marketing', 'Campaign Management', 'Event Planning', 'Project Coordination', 'Analytics'] }
-            );
-          } else if (skill.includes('finance')) {
-            relevantJobs.push(
-              { title: 'Financial Analyst', company: 'Finance Corp', description: 'Analyze financial data and prepare investment recommendations. Build financial models and conduct market research.', skills: ['Finance', 'Financial Analysis', 'Excel', 'Financial Modeling', 'Investment Analysis'] },
-              { title: 'Accounting Specialist', company: 'Numbers Plus Accounting', description: 'Manage accounts payable, receivable, and financial reporting. Ensure compliance with accounting standards.', skills: ['Finance', 'Accounting', 'QuickBooks', 'Financial Reporting', 'Bookkeeping'] },
-              { title: 'Budget Analyst', company: 'Strategic Finance Group', description: 'Develop and monitor organizational budgets and forecasts. Provide variance analysis and recommendations.', skills: ['Finance', 'Budget Analysis', 'Forecasting', 'Financial Planning', 'Cost Analysis'] }
-            );
-          } else if (skill.includes('hr') || skill.includes('human resources')) {
-            relevantJobs.push(
-              { title: 'Human Resources Specialist', company: 'People First HR', description: 'Support talent acquisition and employee development programs. Handle benefits administration and compliance.', skills: ['HR', 'Talent Acquisition', 'Employee Relations', 'Benefits Administration', 'Compliance'] },
-              { title: 'Talent Acquisition Coordinator', company: 'Hiring Solutions Group', description: 'Source and screen candidates for various positions. Coordinate interviews and manage recruitment pipeline.', skills: ['HR', 'Recruiting', 'Talent Sourcing', 'Interview Coordination', 'Candidate Management'] },
-              { title: 'HR Business Partner', company: 'Strategic HR Solutions', description: 'Partner with business leaders on HR strategy and initiatives. Support organizational development and change management.', skills: ['HR', 'Business Partnership', 'Organizational Development', 'Strategy', 'Change Management'] }
-            );
-          } else {
-            // Default to general positions for other skills
-            relevantJobs.push(
-              { title: `${skill.charAt(0).toUpperCase() + skill.slice(1)} Specialist`, company: 'Professional Services Inc', description: `Apply your ${skill} expertise to drive business results and client satisfaction.`, skills: [skill.charAt(0).toUpperCase() + skill.slice(1), 'Communication', 'Problem Solving'] },
-              { title: `Senior ${skill.charAt(0).toUpperCase() + skill.slice(1)} Coordinator`, company: 'Excellence Partners', description: `Lead ${skill}-focused initiatives and coordinate cross-functional projects.`, skills: [skill.charAt(0).toUpperCase() + skill.slice(1), 'Project Management', 'Leadership'] }
-            );
-          }
-          
-          // Convert to external job format
-          filteredJobs = relevantJobs.map((job, index) => ({
-            id: `generated_${skill}_${index}_${Date.now()}`,
-            title: job.title,
-            company: job.company,
-            location: ['New York, NY', 'Remote', 'San Francisco, CA', 'Chicago, IL', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Denver, CO'][index % 8],
-            description: job.description,
-            requirements: [`2+ years experience in ${skill}`, 'Strong communication skills', 'Team collaboration', 'Problem-solving abilities'],
-            skills: job.skills,
-            workType: index % 3 === 0 ? 'remote' : index % 3 === 1 ? 'hybrid' : 'onsite',
-            salaryMin: 50000 + (index * 5000),
-            salaryMax: 80000 + (index * 10000),
-            source: 'Relevant Opportunities',
-            externalUrl: `https://careers.${job.company.toLowerCase().replace(/\s+/g, '')}.com/jobs/${job.title.toLowerCase().replace(/\s+/g, '-')}-${index + 1}`,
-            postedDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
-          }));
-          
-          console.log(`Generated ${filteredJobs.length} relevant ${skill} jobs`);
+        // DISABLED: No synthetic job generation - maintaining data integrity
+        // Only show authentic jobs from real sources
+        if (filteredJobs.length === 0) {
+          console.log('No authentic jobs found for search criteria - maintaining data integrity');
         }
       }
 
