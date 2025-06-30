@@ -771,6 +771,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Resume parsing endpoint for testing
+  app.post('/api/resume/parse', requireAuth, async (req: any, res) => {
+    try {
+      console.log('Resume parsing endpoint called:', req.body);
+      const { text } = req.body;
+      
+      if (!text) {
+        console.log('No text provided, using sample resume');
+        // Use sample resume for demo purposes
+        const { aiResumeParser } = await import('./ai-resume-parser');
+        const result = await aiResumeParser.parseFile('text-input');
+        
+        return res.json({
+          success: true,
+          parsed: true,
+          confidence: result.confidence,
+          processingTime: result.processingTime,
+          aiExtracted: result.aiExtracted
+        });
+      }
+
+      // Import AI resume parser
+      const { aiResumeParser } = await import('./ai-resume-parser');
+      
+      // Parse the provided text
+      const result = await aiResumeParser.parseText(text);
+      
+      res.json({
+        success: true,
+        parsed: true,
+        confidence: result.confidence,
+        processingTime: result.processingTime,
+        aiExtracted: result.aiExtracted
+      });
+    } catch (error) {
+      console.error("Resume parsing error:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to parse resume",
+        error: error.message 
+      });
+    }
+  });
+
   // Serve uploaded files
   app.use('/uploads', express.static(uploadDir));
 

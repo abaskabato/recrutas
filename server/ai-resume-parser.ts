@@ -94,8 +94,8 @@ export class AIResumeParser {
     const startTime = Date.now();
     
     try {
-      // Extract text from file
-      const text = await this.extractText(filePath);
+      // Extract text from file or use sample for demo
+      const text = filePath === 'text-input' ? this.getSampleResumeText() : await this.extractText(filePath);
       
       // Use AI-powered extraction
       const aiExtracted = await this.extractWithAI(text);
@@ -114,6 +114,30 @@ export class AIResumeParser {
     } catch (error) {
       console.error('AI Resume parsing error:', error);
       throw new Error('Failed to parse resume with AI');
+    }
+  }
+
+  async parseText(resumeText: string): Promise<ParsedResume> {
+    const startTime = Date.now();
+    
+    try {
+      // Use AI-powered extraction on provided text
+      const aiExtracted = await this.extractWithAI(resumeText);
+      
+      // Calculate confidence based on extracted data completeness
+      const confidence = this.calculateConfidence(aiExtracted);
+      
+      const processingTime = Date.now() - startTime;
+      
+      return {
+        text: resumeText,
+        aiExtracted,
+        confidence,
+        processingTime
+      };
+    } catch (error) {
+      console.error('AI Resume parsing error:', error);
+      throw new Error('Failed to parse resume text with AI');
     }
   }
 
