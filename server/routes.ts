@@ -983,12 +983,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const usedJobIds = new Set();
           
           for (const job of shuffledJobs) {
-            // Skip if we've already added this job
-            const jobKey = `${job.company}_${job.title}`;
+            // Skip if we've already added this job (more lenient deduplication)
+            const jobKey = `${job.company}_${job.title}`.toLowerCase().replace(/\s+/g, '');
             if (usedJobIds.has(jobKey)) continue;
             usedJobIds.add(jobKey);
             
-            if (externalMatches.length >= 10) break; // Limit external matches
+            if (externalMatches.length >= 15) break; // Increased limit for more matches
             
             const matchScore = Math.floor(Math.random() * 30) + 70; // 70-99% match
             const uniqueId = parseInt(`${currentTime}${Math.floor(Math.random() * 1000)}`);
@@ -1030,6 +1030,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Error fetching external jobs:', error);
         }
       }
+      
+      console.log(`DEBUG: Created ${externalMatches.length} external matches from ${liveJobs?.length || 0} available jobs`);
       
       // Combine internal and external matches
       const allMatches = [...internalMatches, ...externalMatches];
