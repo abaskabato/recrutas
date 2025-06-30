@@ -603,7 +603,10 @@ export default function CandidateStreamlinedDashboard() {
                       <LoadingSkeleton count={3} />
                     ) : matches?.length > 0 ? (
                       <div className="space-y-4">
-                        {matches.filter(match => match.status !== 'applied' && !isJobApplied(match)).map((match) => {
+                        {matches.filter(match => match.status !== 'applied' && !isJobApplied(match) && match.job).map((match) => {
+                          // Only render if match.job exists
+                          if (!match.job) return null;
+                          
                           // Debug SDE job data
                           if (match.job?.title === 'SDE') {
                             console.log('DEBUG: SDE Job on frontend:', {
@@ -794,10 +797,13 @@ export default function CandidateStreamlinedDashboard() {
                     {matchesLoading ? (
                       <LoadingSkeleton count={3} />
                     ) : (() => {
-                      const appliedJobs = matches?.filter(match => match.status === 'applied' || isJobApplied(match)) || [];
+                      const appliedJobs = matches?.filter(match => (match.status === 'applied' || isJobApplied(match)) && match.job) || [];
                       return appliedJobs.length > 0 ? (
                         <div className="space-y-4">
-                          {appliedJobs.map((match) => (
+                          {appliedJobs.map((match) => {
+                            // Only render if match.job exists
+                            if (!match.job) return null;
+                            return (
                             <div key={match.id} className="border rounded-lg p-6 bg-green-50 border-green-200">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
@@ -839,7 +845,8 @@ export default function CandidateStreamlinedDashboard() {
                                 </div>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <EmptyState
