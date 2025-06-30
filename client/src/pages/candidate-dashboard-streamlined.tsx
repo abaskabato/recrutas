@@ -859,7 +859,7 @@ export default function CandidateStreamlinedDashboard() {
                   </CardContent>
                 </Card>
                 
-                {/* Keep the Application Intelligence Demo for transparency showcase */}
+                {/* Application Intelligence - shows authentic transparency data */}
                 <ApplicationIntelligenceDemo />
               </TabsContent>
 
