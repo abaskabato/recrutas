@@ -983,10 +983,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const usedJobIds = new Set();
           
           console.log(`Processing ${shuffledJobs.length} shuffled jobs for matching`);
+          console.log('Sample job data:', JSON.stringify(shuffledJobs[0], null, 2));
           
-          for (const job of shuffledJobs) {
-            // Temporarily disable deduplication to maximize matches
-            console.log(`Processing job: ${job.title} at ${job.company}`);
+          for (const externalJobItem of shuffledJobs) {
+            // External jobs API returns nested structure: { id, job: { title, company, ... } }
+            const jobData = externalJobItem.job || externalJobItem;
+            console.log(`Processing job: ${jobData.title} at ${jobData.company}`);
             
             if (externalMatches.length >= 15) {
               console.log(`Reached match limit of 15, stopping`);
@@ -998,33 +1000,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             externalMatches.push({
               id: uniqueId,
-              jobId: `external_${job.id}_${currentTime}`,
+              jobId: `external_${externalJobItem.id}_${currentTime}`,
               candidateId: userId,
               matchScore: `${matchScore}%`,
               status: 'pending',
               createdAt: new Date(currentTime - Math.random() * 86400000).toISOString(),
               skillMatches: candidateProfile.skills?.filter(skill => 
-                job.skills?.some(jobSkill => 
+                jobData.skills?.some(jobSkill => 
                   jobSkill.toLowerCase().includes(skill.toLowerCase()) ||
                   skill.toLowerCase().includes(jobSkill.toLowerCase())
                 )
               ) || [],
-              aiExplanation: `Strong match based on ${job.skills?.slice(0, 3).join(', ')} skills alignment`,
+              aiExplanation: `Strong match based on ${jobData.skills?.slice(0, 3).join(', ')} skills alignment`,
               job: {
-                id: job.id,
-                title: job.title,
-                company: job.company,
-                location: job.location,
-                workType: job.workType || 'remote',
-                salaryMin: job.salaryMin,
-                salaryMax: job.salaryMax,
-                description: job.description,
-                requirements: job.requirements || [],
-                skills: job.skills || [],
+                id: jobData.id,
+                title: jobData.title,
+                company: jobData.company,
+                location: jobData.location,
+                workType: jobData.workType || 'remote',
+                salaryMin: jobData.salaryMin,
+                salaryMax: jobData.salaryMax,
+                description: jobData.description,
+                requirements: jobData.requirements || [],
+                skills: jobData.skills || [],
                 hasExam: false, // External jobs don't have exams
-                source: job.source,
-                externalUrl: job.externalUrl,
-                postedDate: job.postedDate
+                source: jobData.source || 'external',
+                externalUrl: jobData.externalUrl || externalJobItem.externalUrl,
+                postedDate: jobData.postedDate
               },
               recruiter: null // External jobs don't have internal recruiters
             });
@@ -2345,17 +2347,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentTime = Date.now();
       const cacheKey = `${skillsArray?.join(',') || 'general'}_${jobTitle || ''}_${location || ''}_${Math.floor(currentTime / 60000)}`;
       
-      // Skip cache to force fresh data and debug matching
-      console.log(`Bypassing cache to debug matching issues`);
-      // const cachedData = externalJobsCache.get(cacheKey);
-      // if (cachedData && (currentTime - cachedData.timestamp < CACHE_DURATION)) {
-      //   console.log(`Returning ${cachedData.jobs.length} cached external jobs`);
-      //   return res.json({
-      //     jobs: cachedData.jobs.slice(0, parseInt(limit as string) || 10),
-      //     cached: true,
-      //     timestamp: cachedData.timestamp
-      //   });
-      // }
+      // Check cache first
+      const cachedData = externalJobsCache.get(cacheKey);
+      if (cachedData && (currentTime - cachedData.timestamp < CACHE_DURATION)) {
+        console.log(`Returning ${cachedData.jobs.length} cached external jobs`);
+        return res.json({
+          jobs: cachedData.jobs.slice(0, parseInt(limit as string) || 10),
+          cached: true,
+          timestamp: cachedData.timestamp
+        });
+      }
       
       // Check if this is a non-tech search - bypass tech company APIs
       const isNonTechSearch = skillsArray && skillsArray.some(skill => {
