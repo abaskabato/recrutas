@@ -51,6 +51,12 @@ export default function InstantJobSearch() {
   const [searching, setSearching] = useState(false);
   const { toast } = useToast();
 
+  // Add error boundary protection
+  if (!toast) {
+    console.error('Toast hook not available');
+    return <div>Loading search...</div>;
+  }
+
   const handleInstantSearch = async () => {
     if (!skills.trim() && !jobTitle.trim()) {
       toast({
@@ -280,41 +286,50 @@ export default function InstantJobSearch() {
           </div>
           
           <div className="grid gap-4">
-            {jobs.map((job) => (
-              <Card key={job.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {job.job.title}
-                        </h3>
-                        <Badge className={getUrgencyColor(job.urgency)}>
-                          {job.urgency} priority
-                        </Badge>
-                        <Badge variant="outline" className={getMatchScoreColor(parseInt(job.matchScore))}>
-                          {job.matchScore} match
-                        </Badge>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                        <div className="flex items-center gap-1">
-                          <Building className="w-4 h-4" />
-                          <span className="font-medium">{job.job.company}</span>
+            {jobs.map((job) => {
+              // Safely access job properties with fallbacks
+              const jobData = job.job || job;
+              const title = jobData.title || 'Unknown Position';
+              const company = jobData.company || 'Unknown Company';
+              const location = jobData.location || 'Location TBD';
+              const urgency = job.urgency || 'medium';
+              const matchScore = job.matchScore || '0%';
+              
+              return (
+                <Card key={job.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {title}
+                          </h3>
+                          <Badge className={getUrgencyColor(urgency)}>
+                            {urgency} priority
+                          </Badge>
+                          <Badge variant="outline" className={getMatchScoreColor(parseInt(matchScore))}>
+                            {matchScore} match
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          <span>{job.job.location}</span>
-                        </div>
-                        {(job.job.salaryMin || job.job.salaryMax) && (
+                        
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                          <div className="flex items-center gap-1">
+                            <Building className="w-4 h-4" />
+                            <span className="font-medium">{company}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            <span>{location}</span>
+                          </div>
+                        {(jobData.salaryMin || jobData.salaryMax) && (
                           <div className="flex items-center gap-1">
                             <DollarSign className="w-4 h-4" />
                             <span>
-                              {job.job.salaryMin && job.job.salaryMax 
-                                ? `$${job.job.salaryMin.toLocaleString()} - $${job.job.salaryMax.toLocaleString()}`
-                                : job.job.salaryMin 
-                                ? `$${job.job.salaryMin.toLocaleString()}+`
-                                : `Up to $${job.job.salaryMax?.toLocaleString()}`
+                              {jobData.salaryMin && jobData.salaryMax 
+                                ? `$${jobData.salaryMin.toLocaleString()} - $${jobData.salaryMax.toLocaleString()}`
+                                : jobData.salaryMin 
+                                ? `$${jobData.salaryMin.toLocaleString()}+`
+                                : `Up to $${jobData.salaryMax?.toLocaleString()}`
                               }
                             </span>
                           </div>
@@ -370,7 +385,8 @@ export default function InstantJobSearch() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
