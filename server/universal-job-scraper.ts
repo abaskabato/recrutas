@@ -44,7 +44,7 @@ export class UniversalJobScraper {
       return jobs;
     } catch (error) {
       console.error(`Failed to scrape ${companyUrl}:`, error);
-      return this.getFallbackJobs(companyUrl, companyName);
+      return []; // Only return authentic scraped data
     }
   }
 

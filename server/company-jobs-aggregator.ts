@@ -190,11 +190,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Amazon Jobs API returned ${response.status}`);
-        return this.getAmazonFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Amazon Jobs:', (error as Error).message);
-      return this.getAmazonFallbackJobs();
+      return [];
     }
   }
 
@@ -239,11 +239,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Apple Jobs API returned ${response.status}`);
-        return this.getAppleFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Apple Jobs:', (error as Error).message);
-      return this.getAppleFallbackJobs();
+      return [];
     }
   }
 
@@ -274,11 +274,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Meta Careers API returned ${response.status}`);
-        return this.getMetaFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Meta Careers:', (error as Error).message);
-      return this.getMetaFallbackJobs();
+      return [];
     }
   }
 
@@ -706,17 +706,8 @@ export class CompanyJobsAggregator {
     const allJobs: CompanyJob[] = [];
     const targetLimit = Math.min(limit || 20, 50);
     
-    // Start with FAANG+ fallback jobs for instant response
-    const faangJobs = [
-      ...this.getGoogleFallbackJobs(),
-      ...this.getAmazonFallbackJobs(),
-      ...this.getMetaFallbackJobs(),
-      ...this.getMicrosoftFallbackJobs(),
-      ...this.getTeslaFallbackJobs(),
-      ...this.getNetflixFallbackJobs()
-    ];
-    
-    allJobs.push(...faangJobs);
+    // Only use authentic scraped data - no fallback/mock jobs
+    console.log('Fetching only authentic job data from real company APIs...');
 
     // If we need more jobs, add universal scraping from additional companies
     if (allJobs.length < targetLimit) {
@@ -762,38 +753,8 @@ export class CompanyJobsAggregator {
       } catch (error) {
         console.log('Universal scraping failed, using additional fallback jobs:', error);
         
-        // Add more fallback jobs if scraping fails
-        const additionalFallback = [
-          {
-            id: 'universal_shopify_1',
-            title: 'Senior Full Stack Developer',
-            company: 'Shopify',
-            location: 'Remote',
-            description: 'Build the future of commerce with Shopify\'s platform',
-            requirements: ['5+ years full stack experience', 'React and Ruby expertise'],
-            skills: ['React', 'Ruby', 'GraphQL', 'TypeScript'],
-            workType: 'remote' as const,
-            source: 'Universal-Shopify',
-            externalUrl: 'https://www.shopify.com/careers',
-            postedDate: new Date().toISOString()
-          },
-          {
-            id: 'universal_stripe_1',
-            title: 'Software Engineer, Infrastructure',
-            company: 'Stripe',
-            location: 'San Francisco, CA',
-            description: 'Scale payment infrastructure for the internet economy',
-            requirements: ['Backend systems experience', 'Distributed systems knowledge'],
-            skills: ['Go', 'Ruby', 'Kubernetes', 'AWS'],
-            workType: 'hybrid' as const,
-            source: 'Universal-Stripe',
-            externalUrl: 'https://stripe.com/jobs',
-            postedDate: new Date().toISOString()
-          }
-        ];
-        
-        allJobs.push(...additionalFallback);
-        console.log(`Added ${additionalFallback.length} additional fallback jobs`);
+        // Only use authentic scraped data - no synthetic job generation
+        console.log(`Using only authentic scraped data from universal scraper`);
       }
     }
 
