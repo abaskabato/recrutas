@@ -1,5 +1,4 @@
 import { createAuthClient } from "better-auth/react"
-import { useQuery } from "@tanstack/react-query"
 
 // Define the extended user type with our custom fields
 export interface ExtendedUser {
@@ -64,74 +63,17 @@ export const signOut = async () => {
   }
 }
 
-// Custom hook to use our session endpoint
-function useCustomSession() {
-  return useQuery({
-    queryKey: ['/api/session'],
-    queryFn: async () => {
-      const response = await fetch('/api/session', {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        return null;
-      }
-      return response.json();
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-}
-
-// Create a wrapper for useSession that provides compatibility with existing components
+// Use Better Auth's native session hook
 export function useSession() {
-  const customSession = useCustomSession();
+  const betterAuthSession = useSessionRaw();
   
-  // Session data handling
-  
-  // Handle loading states
-  if (customSession.isLoading) {
-    return {
-      data: null,
-      user: null,
-      isLoading: true,
-      isAuthenticated: false,
-      isPending: true,
-      error: null
-    };
-  }
-  
-  // Check if we have session data with user
-  if (customSession.data?.user) {
-    const user = customSession.data.user as any;
-    
-    const extendedUser = {
-      ...user,
-      // Ensure all properties are available for backward compatibility
-      firstName: user.firstName || user.name?.split(' ')[0] || '',
-      lastName: user.lastName || user.name?.split(' ')[1] || '',
-      phoneNumber: user.phoneNumber || null,
-      role: user.role || null,
-      profileComplete: user.profileComplete || false,
-    } as ExtendedUser;
-    
-    return {
-      data: {
-        user: extendedUser
-      },
-      user: extendedUser,
-      isLoading: false,
-      isAuthenticated: true,
-      isPending: false,
-      error: customSession.error
-    };
-  }
-  
+  // Return format compatible with existing components
   return {
-    data: null,
-    user: null,
-    isLoading: false,
-    isAuthenticated: false,
-    isPending: false,
-    error: customSession.error
+    data: betterAuthSession.data,
+    user: betterAuthSession.data?.user || null,
+    isLoading: betterAuthSession.isPending,
+    isAuthenticated: !!betterAuthSession.data?.user,
+    isPending: betterAuthSession.isPending,
+    error: betterAuthSession.error
   };
 }

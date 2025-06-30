@@ -139,21 +139,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup Better Auth routes with proper Express integration
   app.all("/api/auth/*", async (req, res) => {
     try {
-      const request = new Request(
-        new URL(req.url, `${req.protocol}://${req.get('host')}`),
-        {
-          method: req.method,
-          headers: new Headers(req.headers as HeadersInit),
-          body: req.method !== 'GET' && req.method !== 'HEAD' 
-            ? JSON.stringify(req.body) 
-            : undefined,
+      // Build proper URL
+      const protocol = req.protocol || 'http';
+      const host = req.get('host') || 'localhost:5000';
+      const url = new URL(req.url, `${protocol}://${host}`);
+      
+      // Convert Express headers to Web API Headers
+      const headers = new Headers();
+      Object.entries(req.headers).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          headers.set(key, value);
+        } else if (Array.isArray(value)) {
+          headers.set(key, value.join(', '));
         }
-      );
+      });
+
+      // Handle request body for POST/PUT/PATCH requests
+      let body: string | undefined;
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        if (req.body && Object.keys(req.body).length > 0) {
+          body = JSON.stringify(req.body);
+          headers.set('Content-Type', 'application/json');
+        }
+      }
+
+      const webRequest = new Request(url.toString(), {
+        method: req.method,
+        headers,
+        body,
+      });
       
-      const response = await auth.handler(request);
+      const response = await auth.handler(webRequest);
       
-      // Set response status and headers
+      // Set response status
       res.status(response.status);
+      
+      // Copy all headers from Better Auth response
       response.headers.forEach((value, key) => {
         res.setHeader(key, value);
       });
@@ -171,35 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Custom session endpoint using Better Auth
-  app.get("/api/session", async (req, res) => {
-    try {
-      const headers = new Headers();
-      Object.entries(req.headers).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-          headers.set(key, value);
-        } else if (Array.isArray(value)) {
-          headers.set(key, value.join(', '));
-        }
-      });
-
-      const session = await auth.api.getSession({
-        headers: headers,
-      });
-      
-      if (session?.user) {
-        return res.json({
-          user: session.user,
-          session: session.session
-        });
-      }
-      
-      res.json(null);
-    } catch (error) {
-      console.error('Session endpoint error:', error);
-      res.json(null);
-    }
-  });
+  // Better Auth handles its own session management at /api/auth/get-session
 
   // Custom logout endpoint to force clear all session data
   app.get("/api/logout", async (req, res) => {
