@@ -15,7 +15,7 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": false,
-    "outDir": "../dist-server",
+    "outDir": "../dist",
     "rootDir": ".",
     "esModuleInterop": true,
     "allowJs": true,
