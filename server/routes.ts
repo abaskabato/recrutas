@@ -2591,7 +2591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Location filter (${locationQuery}): ${beforeLocationFilter} -> ${filteredJobs.length} jobs`);
       }
 
-      // Filter by work type (more lenient)
+      // Filter by work type (much more lenient - hybrid users see most jobs)
       if (workType && typeof workType === 'string' && workType !== 'any') {
         const beforeWorkTypeFilter = filteredJobs.length;
         filteredJobs = filteredJobs.filter(job => {
@@ -2601,9 +2601,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (filterWorkType === 'remote') {
             return jobWorkType.includes('remote') || jobWorkType === 'remote';
           } else if (filterWorkType === 'hybrid') {
-            return jobWorkType.includes('hybrid') || jobWorkType === 'hybrid';
+            // Hybrid users should see ALL jobs except strict onsite-only positions
+            // Most jobs today offer some flexibility
+            return true; // Accept all job types for hybrid preference
           } else if (filterWorkType === 'onsite') {
-            return !jobWorkType.includes('remote') && !jobWorkType.includes('hybrid');
+            return !jobWorkType.includes('remote');
           }
           return true;
         });
