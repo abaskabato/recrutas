@@ -976,19 +976,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const liveJobs = externalJobsData.jobs || [];
           console.log(`Fetched ${liveJobs.length} external jobs from instant modal endpoint`);
           
-          // Shuffle jobs using time-based seed for variety
-          const shuffledJobs = [...liveJobs].sort(() => Math.sin(rotationSeed) - 0.5);
+          // Don't shuffle - process all jobs in order to maximize matches
+          const shuffledJobs = [...liveJobs];
           
           // Transform external jobs into match format
           const usedJobIds = new Set();
           
+          console.log(`Processing ${shuffledJobs.length} shuffled jobs for matching`);
+          
           for (const job of shuffledJobs) {
-            // Skip if we've already added this job (more lenient deduplication)
-            const jobKey = `${job.company}_${job.title}`.toLowerCase().replace(/\s+/g, '');
-            if (usedJobIds.has(jobKey)) continue;
-            usedJobIds.add(jobKey);
+            // Temporarily disable deduplication to maximize matches
+            console.log(`Processing job: ${job.title} at ${job.company}`);
             
-            if (externalMatches.length >= 15) break; // Increased limit for more matches
+            if (externalMatches.length >= 15) {
+              console.log(`Reached match limit of 15, stopping`);
+              break;
+            }
             
             const matchScore = Math.floor(Math.random() * 30) + 70; // 70-99% match
             const uniqueId = parseInt(`${currentTime}${Math.floor(Math.random() * 1000)}`);
@@ -2339,19 +2342,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const skillsArray = skills && typeof skills === 'string' ? skills.split(',').map(s => s.trim()) : undefined;
       
       // Create cache key for consistent job retrieval
-      const cacheKey = `${skillsArray?.join(',') || 'general'}_${jobTitle || ''}_${location || ''}`;
       const currentTime = Date.now();
+      const cacheKey = `${skillsArray?.join(',') || 'general'}_${jobTitle || ''}_${location || ''}_${Math.floor(currentTime / 60000)}`;
       
-      // Check cache first
-      const cachedData = externalJobsCache.get(cacheKey);
-      if (cachedData && (currentTime - cachedData.timestamp < CACHE_DURATION)) {
-        console.log(`Returning ${cachedData.jobs.length} cached external jobs`);
-        return res.json({
-          jobs: cachedData.jobs.slice(0, parseInt(limit as string) || 10),
-          cached: true,
-          timestamp: cachedData.timestamp
-        });
-      }
+      // Skip cache to force fresh data and debug matching
+      console.log(`Bypassing cache to debug matching issues`);
+      // const cachedData = externalJobsCache.get(cacheKey);
+      // if (cachedData && (currentTime - cachedData.timestamp < CACHE_DURATION)) {
+      //   console.log(`Returning ${cachedData.jobs.length} cached external jobs`);
+      //   return res.json({
+      //     jobs: cachedData.jobs.slice(0, parseInt(limit as string) || 10),
+      //     cached: true,
+      //     timestamp: cachedData.timestamp
+      //   });
+      // }
       
       // Check if this is a non-tech search - bypass tech company APIs
       const isNonTechSearch = skillsArray && skillsArray.some(skill => {
