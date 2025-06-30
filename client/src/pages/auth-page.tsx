@@ -48,10 +48,10 @@ export default function AuthPage() {
       
       toast({ title: "Welcome back!", description: "Successfully signed in." })
       
-      // Force a hard reload to ensure session is properly loaded
+      // Force refresh to load new session
       setTimeout(() => {
-        window.location.reload();
-      }, 500)
+        window.location.href = '/'
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Sign in failed",
@@ -88,8 +88,10 @@ export default function AuthPage() {
       
       toast({ title: "Account created!", description: "Welcome to Recrutas!" })
       
-      // Redirect immediately without timeout - Better Auth handles session state
-      window.location.href = '/'
+      // Force refresh to load new session
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 1000)
     } catch (error: any) {
       toast({
         title: "Sign up failed",

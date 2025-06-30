@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { auth } from "./betterAuth";
+import { setupBetterAuth } from "./betterAuth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
@@ -74,25 +74,21 @@ function generateHumanReadableUpdate(event: any): string {
   return eventMessages[event.eventType] || 'Application status updated.';
 }
 
-// Authentication middleware using Better Auth
+// Authentication middleware for Better Auth sessions
 async function requireAuth(req: any, res: any, next: any) {
   try {
-    const headers = new Headers();
-    Object.entries(req.headers).forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        headers.set(key, value);
-      } else if (Array.isArray(value)) {
-        headers.set(key, value.join(', '));
-      }
-    });
-
-    const session = await auth.api.getSession({
-      headers: headers,
-    });
+    const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
     
-    if (session?.user) {
-      req.user = session.user;
-      return next();
+    if (sessionCookie) {
+      try {
+        const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+        if (decodedSession.session?.user) {
+          req.user = decodedSession.session.user;
+          return next();
+        }
+      } catch (e) {
+        console.log('Auth middleware decode error:', e);
+      }
     }
     
     res.status(401).json({ message: "Unauthorized" });
@@ -136,63 +132,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Auth middleware
-  // Setup Better Auth routes with proper Express integration
-  app.all("/api/auth/*", async (req, res) => {
+  setupBetterAuth(app);
+
+  // Custom session endpoint to handle Better Auth session issues
+  app.get("/api/session", async (req, res) => {
     try {
-      // Build proper URL
-      const protocol = req.protocol || 'http';
-      const host = req.get('host') || 'localhost:5000';
-      const url = new URL(req.url, `${protocol}://${host}`);
+      const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
       
-      // Convert Express headers to Web API Headers
-      const headers = new Headers();
-      Object.entries(req.headers).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-          headers.set(key, value);
-        } else if (Array.isArray(value)) {
-          headers.set(key, value.join(', '));
-        }
-      });
-
-      // Handle request body for POST/PUT/PATCH requests
-      let body: string | undefined;
-      if (req.method !== 'GET' && req.method !== 'HEAD') {
-        if (req.body && Object.keys(req.body).length > 0) {
-          body = JSON.stringify(req.body);
-          headers.set('Content-Type', 'application/json');
+      if (sessionCookie) {
+        try {
+          const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+          if (decodedSession.session?.user) {
+            return res.json({
+              user: decodedSession.session.user,
+              session: decodedSession.session.session
+            });
+          }
+        } catch (e) {
+          console.log('Session decode error:', e);
         }
       }
-
-      const webRequest = new Request(url.toString(), {
-        method: req.method,
-        headers,
-        body,
-      });
       
-      const response = await auth.handler(webRequest);
-      
-      // Set response status
-      res.status(response.status);
-      
-      // Copy all headers from Better Auth response
-      response.headers.forEach((value, key) => {
-        res.setHeader(key, value);
-      });
-      
-      // Send response body
-      if (response.body) {
-        const text = await response.text();
-        res.send(text);
-      } else {
-        res.end();
-      }
+      res.json(null);
     } catch (error) {
-      console.error('Better Auth error:', error);
-      res.status(500).json({ error: 'Authentication error' });
+      console.error('Session endpoint error:', error);
+      res.json(null);
     }
   });
-
-  // Better Auth handles its own session management at /api/auth/get-session
 
   // Custom logout endpoint to force clear all session data
   app.get("/api/logout", async (req, res) => {
@@ -3446,7 +3412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Notify candidate about feedback
-      await notificationService.createNotification({
+      await notificationService.sendNotification({
         userId: applicationId, // This should be the candidate's user ID
         type: 'application_feedback',
         title: 'New Feedback on Your Application',

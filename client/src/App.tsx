@@ -20,8 +20,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { data, user, isLoading, isAuthenticated } = useSession();
 
-  // Debug logging for session state
-  console.log('Session state:', { data, user, isLoading, isAuthenticated });
+
 
   if (isLoading) {
     return (
