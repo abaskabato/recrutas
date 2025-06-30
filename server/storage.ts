@@ -325,32 +325,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // Delete in order to respect foreign key constraints
-      
-      // 1. Delete job applications
-      await db
-        .delete(jobApplications)
-        .where(eq(jobApplications.jobId, id));
-      
-      // 2. Delete exam attempts
-      await db
-        .delete(examAttempts)
-        .where(eq(examAttempts.jobId, id));
-      
-      // 3. Delete job exams
-      await db
-        .delete(jobExams)
-        .where(eq(jobExams.jobId, id));
-      
-      // 4. Delete job matches
-      await db
-        .delete(jobMatches)
-        .where(eq(jobMatches.jobId, id));
-      
-      // 5. Finally delete the job posting
-      await db
-        .delete(jobPostings)
-        .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
+      // Use raw SQL to avoid any import/schema issues
+      await db.execute(`DELETE FROM job_applications WHERE job_id = ${id}`);
+      await db.execute(`DELETE FROM exam_attempts WHERE job_id = ${id}`);
+      await db.execute(`DELETE FROM job_exams WHERE job_id = ${id}`);
+      await db.execute(`DELETE FROM job_matches WHERE job_id = ${id}`);
+      await db.execute(`DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = '${talentOwnerId}'`);
     } catch (error) {
       console.error('Error deleting job posting:', error);
       throw error;
