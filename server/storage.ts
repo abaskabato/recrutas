@@ -325,12 +325,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // Use raw SQL to avoid any import/schema issues
-      await db.execute(`DELETE FROM job_applications WHERE job_id = ${id}`);
-      await db.execute(`DELETE FROM exam_attempts WHERE job_id = ${id}`);
-      await db.execute(`DELETE FROM job_exams WHERE job_id = ${id}`);
-      await db.execute(`DELETE FROM job_matches WHERE job_id = ${id}`);
-      await db.execute(`DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = '${talentOwnerId}'`);
+      // Use the Neon client directly for raw SQL
+      const client = db;
+      
+      // Delete in sequence to respect foreign keys
+      await client.execute(`DELETE FROM job_applications WHERE job_id = $1`, [id]);
+      await client.execute(`DELETE FROM exam_attempts WHERE job_id = $1`, [id]);
+      await client.execute(`DELETE FROM job_exams WHERE job_id = $1`, [id]);
+      await client.execute(`DELETE FROM job_matches WHERE job_id = $1`, [id]);
+      await client.execute(`DELETE FROM job_postings WHERE id = $1 AND talent_owner_id = $2`, [id, talentOwnerId]);
     } catch (error) {
       console.error('Error deleting job posting:', error);
       throw error;
