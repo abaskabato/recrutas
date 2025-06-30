@@ -844,56 +844,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dbMatches = await storage.getMatchesForCandidate(userId);
       console.log(`Found ${dbMatches.length} database matches`);
       
-      // If no database matches and user has a resume, generate some based on available jobs
-      if (dbMatches.length === 0 && candidateProfile?.resumeUrl) {
-        console.log('No existing matches found - generating matches for user with resume');
-        try {
-          // Get available internal jobs
-          const availableJobs = await storage.getJobPostings('');
-          
-          // Generate matches for a few top jobs (software engineering roles)
-          console.log(`Found ${availableJobs.length} total available jobs`);
-          const relevantJobs = availableJobs.filter(job => {
-            const title = job.title.toLowerCase();
-            const isRelevant = title.includes('software') || 
-              title.includes('engineer') ||
-              title.includes('developer') ||
-              title.includes('full stack') ||
-              title.includes('backend') ||
-              title.includes('frontend');
-            if (isRelevant) {
-              console.log(`Relevant job found: ${job.title} at ${job.company}`);
-            }
-            return isRelevant;
-          }).slice(0, 4);
-          console.log(`Filtered to ${relevantJobs.length} relevant jobs`);
-          
-          // Create matches for relevant jobs
-          for (const job of relevantJobs) {
-            const matchScore = Math.floor(Math.random() * 25) + 75; // 75-99% match
-            await storage.createJobMatch({
-              jobId: job.id,
-              candidateId: userId,
-              matchScore: `${matchScore}%`,
-              confidenceLevel: matchScore >= 85 ? 'high' : 'medium',
-              skillMatches: [{ skill: 'Software Development', matched: true }],
-              aiExplanation: `Good match based on software engineering background and uploaded resume`,
-              status: 'pending'
-            });
-          }
-          
-          console.log(`Generated ${relevantJobs.length} new matches for user with resume`);
-        } catch (matchGenError) {
-          console.error('Error generating matches for resume holder:', matchGenError);
-        }
-      }
-      
-      // Re-fetch database matches after potential generation
-      const finalDbMatches = await storage.getMatchesForCandidate(userId);
-      console.log(`Using ${finalDbMatches.length} database matches for response`);
+
       
       // Transform database matches to include exam information  
-      const internalMatches = finalDbMatches.map(match => {
+      const internalMatches = dbMatches.map(match => {
         const isSDEJob = match.job?.title === 'SDE';
         if (isSDEJob) {
           console.log(`DEBUG: SDE Job found in database matches:`, {

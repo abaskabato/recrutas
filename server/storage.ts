@@ -287,6 +287,15 @@ export class DatabaseStorage implements IStorage {
 
   async getJobPostings(talentOwnerId: string): Promise<JobPosting[]> {
     try {
+      if (!talentOwnerId) {
+        // Return all job postings if no specific owner requested
+        return await db
+          .select()
+          .from(jobPostings)
+          .orderBy(desc(jobPostings.createdAt))
+          .limit(50);
+      }
+      
       return await db
         .select()
         .from(jobPostings)
