@@ -190,17 +190,111 @@ English (Native), Spanish (Conversational)`;
   }
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
-    // AI-powered extraction using pattern recognition and NLP techniques
-    return {
-      personalInfo: this.extractPersonalInfo(text),
-      summary: this.extractSummary(text),
-      skills: this.extractSkillsAI(text),
-      experience: this.extractExperienceAI(text),
-      education: this.extractEducation(text),
-      certifications: this.extractCertifications(text),
-      projects: this.extractProjects(text),
-      languages: this.extractLanguages(text)
-    };
+    try {
+      // Use OpenAI API for proper AI extraction
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert resume parser. Extract structured data from resumes and return it as JSON. Be thorough and accurate."
+          },
+          {
+            role: "user",
+            content: `Extract the following information from this resume text and return as JSON:
+            
+            {
+              "personalInfo": {
+                "name": "extracted name",
+                "email": "extracted email",
+                "phone": "extracted phone",
+                "location": "extracted location",
+                "linkedin": "linkedin url",
+                "github": "github url",
+                "portfolio": "portfolio url"
+              },
+              "summary": "professional summary text",
+              "skills": {
+                "technical": ["list of technical skills"],
+                "soft": ["list of soft skills"],
+                "tools": ["list of tools and technologies"]
+              },
+              "experience": {
+                "totalYears": number,
+                "level": "entry|mid|senior|executive",
+                "positions": [
+                  {
+                    "title": "job title",
+                    "company": "company name",
+                    "duration": "time period",
+                    "responsibilities": ["list of responsibilities"]
+                  }
+                ]
+              },
+              "education": [
+                {
+                  "degree": "degree name",
+                  "institution": "school name",
+                  "year": "graduation year",
+                  "gpa": "gpa if mentioned"
+                }
+              ],
+              "certifications": ["list of certifications"],
+              "projects": [
+                {
+                  "name": "project name",
+                  "description": "project description",
+                  "technologies": ["technologies used"]
+                }
+              ],
+              "languages": ["spoken languages"]
+            }
+            
+            Resume text:
+            ${text}`
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      const extractedData = JSON.parse(response.choices[0].message.content || '{}');
+      
+      // Ensure all required fields are present with defaults
+      return {
+        personalInfo: extractedData.personalInfo || {},
+        summary: extractedData.summary || '',
+        skills: {
+          technical: extractedData.skills?.technical || [],
+          soft: extractedData.skills?.soft || [],
+          tools: extractedData.skills?.tools || []
+        },
+        experience: {
+          totalYears: extractedData.experience?.totalYears || 0,
+          level: extractedData.experience?.level || 'entry',
+          positions: extractedData.experience?.positions || []
+        },
+        education: extractedData.education || [],
+        certifications: extractedData.certifications || [],
+        projects: extractedData.projects || [],
+        languages: extractedData.languages || []
+      };
+    } catch (error) {
+      console.error('OpenAI API error, falling back to pattern matching:', error);
+      // Fallback to pattern matching if OpenAI fails
+      return {
+        personalInfo: this.extractPersonalInfo(text),
+        summary: this.extractSummary(text),
+        skills: this.extractSkillsAI(text),
+        experience: this.extractExperienceAI(text),
+        education: this.extractEducation(text),
+        certifications: this.extractCertifications(text),
+        projects: this.extractProjects(text),
+        languages: this.extractLanguages(text)
+      };
+    }
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {
