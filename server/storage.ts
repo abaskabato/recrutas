@@ -325,34 +325,46 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
-      // First delete all related data in order of dependencies
+      // First, get all job matches for this job
+      const matches = await db
+        .select()
+        .from(jobMatches)
+        .where(eq(jobMatches.jobId, id));
       
-      // Delete chat messages and chat rooms through job matches
-      // Delete related chat messages (simplified for build)
-      // TODO: Replace with proper cascading deletes
+      // Delete in correct order to respect foreign key constraints
+      for (const match of matches) {
+        // 1. Delete chat messages first (they reference chat rooms)
+        await db
+          .delete(chatMessages)
+          .where(eq(chatMessages.roomId, match.id));
+        
+        // 2. Delete chat rooms (they reference job matches)
+        await db
+          .delete(chatRooms)
+          .where(eq(chatRooms.matchId, match.id));
+      }
       
-      // Delete chat rooms for this job (simplified for build)
-      // TODO: Replace with proper cascading deletes
-      
-      // Delete job applications for this job
+      // 3. Delete job applications for this job
       await db
         .delete(jobApplications)
         .where(eq(jobApplications.jobId, id));
       
-      // Delete job matches
-      await this.clearJobMatches(id);
-      
-      // Delete exam attempts for this job
+      // 4. Delete exam attempts for this job
       await db
         .delete(examAttempts)
         .where(eq(examAttempts.jobId, id));
       
-      // Delete job exams
+      // 5. Delete job exams
       await db
         .delete(jobExams)
         .where(eq(jobExams.jobId, id));
       
-      // Finally delete the job posting
+      // 6. Delete job matches (now safe to delete)
+      await db
+        .delete(jobMatches)
+        .where(eq(jobMatches.jobId, id));
+      
+      // 7. Finally delete the job posting
       await db
         .delete(jobPostings)
         .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
