@@ -4,7 +4,7 @@ import { db } from "./db"
 import { users, sessions, accounts, verifications } from "../shared/schema"
 import type { Express } from "express"
 
-export const auth = betterAuth({
+const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -95,6 +95,8 @@ export const auth = betterAuth({
     process.env.REPLIT_DEV_DOMAIN || "",
   ].filter(Boolean),
 })
+
+export { auth };
 
 export function setupBetterAuth(app: Express) {
   app.all("/api/auth/*", async (req, res) => {

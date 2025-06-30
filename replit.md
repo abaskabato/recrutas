@@ -20,7 +20,7 @@ Recrutas connects job seekers directly with hiring managers. No recruiters, no m
 - **Language**: TypeScript for type safety across the stack
 - **API Design**: RESTful API with structured error handling
 - **Real-time**: WebSocket integration for live notifications and chat
-- **Authentication**: Better Auth for session management and OAuth integration
+- **Authentication**: Better Auth for simple email/password and OAuth integration
 
 ### Database Layer
 - **Primary Database**: PostgreSQL with Neon serverless hosting
@@ -126,6 +126,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
+- June 30, 2025. **Authentication simplified to Better Auth only** - Removed complex Replit Auth and Passport dependencies that were causing deployment failures. Platform now uses only Better Auth for email/password and OAuth authentication, making it deployment-ready for any platform.
 - June 29, 2025. **Successfully connected to GitHub** - Complete job platform now live at https://github.com/abaskabato/recrutas with professional documentation and all features operational.
 - June 29, 2025. **Human-centered messaging complete** - Updated all platform messaging to be conversational and human-focused with new tagline "Built on AI. Backed by transparency. Focused on you." Landing page hero section now emphasizes talking to real people instead of corporate jargon.
 - June 29, 2025. **OPEN SOURCE RELEASE READY** - Final preparation completed with comprehensive documentation (README.md, CONTRIBUTING.md, enhanced .env.example), security audit passed, all test data removed, and professional codebase organization. Ready for public GitHub release.
