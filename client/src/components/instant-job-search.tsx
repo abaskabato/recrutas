@@ -341,20 +341,20 @@ export default function InstantJobSearch() {
                       </div>
                       
                       <p className="text-gray-700 mb-4 line-clamp-2">
-                        {job.job.description}
+                        {jobData.description || 'No description available'}
                       </p>
                       
                       <div className="flex items-center gap-2 mb-4">
                         <span className="text-sm font-medium text-gray-700">Skills:</span>
                         <div className="flex flex-wrap gap-2">
-                          {job.job.skills.slice(0, 5).map((skill, index) => (
+                          {(jobData.skills || []).slice(0, 5).map((skill, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {skill}
                             </Badge>
                           ))}
-                          {job.job.skills.length > 5 && (
+                          {(jobData.skills || []).length > 5 && (
                             <Badge variant="secondary" className="text-xs">
-                              +{job.job.skills.length - 5} more
+                              +{(jobData.skills || []).length - 5} more
                             </Badge>
                           )}
                         </div>
@@ -366,7 +366,7 @@ export default function InstantJobSearch() {
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <span>Source: {job.source}</span>
                       <Badge variant="outline" className="text-xs">
-                        {job.job.workType}
+                        {jobData.workType || 'Not specified'}
                       </Badge>
                     </div>
                     

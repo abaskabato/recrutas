@@ -1031,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`DEBUG: Created ${externalMatches.length} external matches from ${liveJobs?.length || 0} available jobs`);
+      console.log(`DEBUG: Created ${externalMatches.length} external matches`);
       
       // Combine internal and external matches
       const allMatches = [...internalMatches, ...externalMatches];
