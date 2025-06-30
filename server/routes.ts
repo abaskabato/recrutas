@@ -906,8 +906,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const currentTime = Date.now();
           const rotationSeed = Math.floor(currentTime / (5 * 60 * 1000)); // Rotate every 5 minutes
           
-          // Get live jobs with variety - use instant modal endpoint for consistency
-          const externalJobsResponse = await fetch(`http://localhost:5000/api/external-jobs?skills=${candidateProfile.skills?.join(',')}&limit=25`);
+          // Get live jobs with variety - use complete profile for matching
+          const profileParams = new URLSearchParams({
+            skills: candidateProfile.skills?.join(',') || '',
+            location: candidateProfile.location || '',
+            workType: candidateProfile.workType || '',
+            minSalary: candidateProfile.salaryMin?.toString() || '',
+            salaryType: 'annual',
+            limit: '25'
+          });
+          
+          const externalJobsResponse = await fetch(`http://localhost:5000/api/external-jobs?${profileParams}`);
           const externalJobsData = await externalJobsResponse.json();
           const liveJobs = externalJobsData.jobs || [];
           console.log(`Fetched ${liveJobs.length} external jobs from instant modal endpoint`);
