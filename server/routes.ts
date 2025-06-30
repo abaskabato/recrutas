@@ -136,8 +136,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Auth middleware
-  // Setup Better Auth routes
-  app.all("/api/auth/*", auth.handler);
+  // Setup Better Auth routes with proper Express integration
+  app.all("/api/auth/*", async (req, res) => {
+    try {
+      const request = new Request(
+        new URL(req.url, `${req.protocol}://${req.get('host')}`),
+        {
+          method: req.method,
+          headers: new Headers(req.headers as HeadersInit),
+          body: req.method !== 'GET' && req.method !== 'HEAD' 
+            ? JSON.stringify(req.body) 
+            : undefined,
+        }
+      );
+      
+      const response = await auth.handler(request);
+      
+      // Set response status and headers
+      res.status(response.status);
+      response.headers.forEach((value, key) => {
+        res.setHeader(key, value);
+      });
+      
+      // Send response body
+      if (response.body) {
+        const text = await response.text();
+        res.send(text);
+      } else {
+        res.end();
+      }
+    } catch (error) {
+      console.error('Better Auth error:', error);
+      res.status(500).json({ error: 'Authentication error' });
+    }
+  });
 
   // Custom session endpoint using Better Auth
   app.get("/api/session", async (req, res) => {
