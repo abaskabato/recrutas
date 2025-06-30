@@ -709,54 +709,10 @@ export class CompanyJobsAggregator {
     // Only use authentic scraped data - no fallback/mock jobs
     console.log('Fetching only authentic job data from real company APIs...');
 
-    // If we need more jobs, add universal scraping from additional companies
-    if (allJobs.length < targetLimit) {
-      console.log(`Adding universal scraping to reach ${targetLimit} jobs...`);
-      
-      try {
-        // Import dynamically to avoid circular dependency
-        const { universalJobScraper } = await import('./universal-job-scraper');
-        
-        // High-growth tech companies to scrape
-        const additionalCompanies = [
-          { url: 'https://www.shopify.com/careers', name: 'Shopify' },
-          { url: 'https://careers.airbnb.com', name: 'Airbnb' },
-          { url: 'https://stripe.com/jobs', name: 'Stripe' },
-          { url: 'https://about.gitlab.com/jobs', name: 'GitLab' },
-          { url: 'https://www.figma.com/careers', name: 'Figma' }
-        ];
-
-        // Scrape from 2-3 companies for performance
-        const companiesToScrape = additionalCompanies.slice(0, 3);
-        const universalJobs = await universalJobScraper.scrapeMultipleCompanies(companiesToScrape);
-        
-        // Transform universal jobs to company job format
-        const transformedJobs: CompanyJob[] = universalJobs.map(job => ({
-          id: job.id,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          description: job.description,
-          requirements: job.requirements,
-          skills: job.skills,
-          workType: job.workType,
-          salaryMin: job.salaryMin,
-          salaryMax: job.salaryMax,
-          source: `Universal-${job.source}`,
-          externalUrl: job.externalUrl,
-          postedDate: job.postedDate
-        }));
-        
-        allJobs.push(...transformedJobs);
-        console.log(`Universal scraping added ${transformedJobs.length} jobs from ${companiesToScrape.length} companies`);
-        
-      } catch (error) {
-        console.log('Universal scraping failed, using additional fallback jobs:', error);
-        
-        // Only use authentic scraped data - no synthetic job generation
-        console.log(`Using only authentic scraped data from universal scraper`);
-      }
-    }
+    // Skip universal scraping - data integrity requires authentic direct application URLs
+    // Universal scraping provides generic career page URLs instead of specific job application links
+    console.log(`Skipping universal scraping - maintaining data integrity with direct application URLs only`);
+    console.log(`Available authentic jobs: ${allJobs.length} from verified API sources`);
 
     // Remove duplicates and apply limit
     const uniqueJobs = this.removeDuplicates(allJobs);

@@ -218,23 +218,96 @@ export class UniversalJobScraper {
         continue;
       }
       
-      jobs.push({
-        id: `html_${this.generateId(title, companyName)}_${index}`,
-        title: title,
-        company: companyName || new URL(sourceUrl).hostname.replace('www.', '').replace('.com', ''),
-        location: this.inferLocationFromHtml(html) || 'Remote',
-        description: `${title} position at ${companyName || new URL(sourceUrl).hostname}. Join our team and make an impact.`,
-        requirements: this.extractRequirements(title),
-        skills: this.extractSkills(title),
-        workType: this.inferWorkTypeFromHtml(html, title),
-        source: companyName || new URL(sourceUrl).hostname,
-        externalUrl: sourceUrl,
-        postedDate: new Date().toISOString(),
-      });
-      index++;
+      // Only include jobs with specific application URLs
+      const specificJobUrl = this.findSpecificJobUrl(html, title, sourceUrl);
+      if (specificJobUrl) {
+        jobs.push({
+          id: `html_${this.generateId(title, companyName)}_${index}`,
+          title: title,
+          company: companyName || new URL(sourceUrl).hostname.replace('www.', '').replace('.com', ''),
+          location: this.inferLocationFromHtml(html) || 'Remote',
+          description: `${title} position at ${companyName || new URL(sourceUrl).hostname}. Join our team and make an impact.`,
+          requirements: this.extractRequirements(title),
+          skills: this.extractSkills(title),
+          workType: this.inferWorkTypeFromHtml(html, title),
+          source: companyName || new URL(sourceUrl).hostname,
+          externalUrl: specificJobUrl,
+          postedDate: new Date().toISOString(),
+        });
+        index++;
+      }
     }
 
     return jobs;
+  }
+
+  private findSpecificJobUrl(html: string, jobTitle: string, sourceUrl: string): string | null {
+    const domain = new URL(sourceUrl).hostname;
+    
+    // Enhanced patterns for specific job URLs based on common company patterns
+    const jobUrlPatterns = [
+      // Shopify pattern: /careers/job-title_uuid
+      /href="([^"]*\/careers\/[^"]*[a-f0-9-]{36}[^"]*)"/gi,
+      // General UUID patterns: job IDs with UUIDs
+      /href="([^"]*\/(?:job|career|position|apply)\/[^"]*[a-f0-9-]{8,}[^"]*)"/gi,
+      // Numeric job IDs
+      /href="([^"]*\/(?:job|career|position|apply)\/[^"]*\d{4,}[^"]*)"/gi,
+      // Job slug patterns with hyphens
+      /href="([^"]*\/(?:job|career|position|apply)\/[a-z0-9-]{10,}[^"]*)"/gi,
+    ];
+    
+    // Try each pattern to find specific job URLs
+    for (const pattern of jobUrlPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const url = match[1];
+        
+        // Convert relative URLs to absolute
+        let absoluteUrl = url;
+        if (url.startsWith('/')) {
+          absoluteUrl = new URL(url, sourceUrl).href;
+        } else if (!url.startsWith('http')) {
+          continue; // Skip invalid URLs
+        }
+        
+        // Verify it's a job-specific URL (not just career page)
+        if (absoluteUrl !== sourceUrl && 
+            absoluteUrl.length > sourceUrl.length + 10 && // Must be significantly longer
+            (absoluteUrl.includes('job') || absoluteUrl.includes('career') || absoluteUrl.includes('position'))) {
+          return absoluteUrl;
+        }
+      }
+    }
+    
+    // Fallback: look for any link containing job title words
+    const titleWords = jobTitle.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+    const linkRegex = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)</gi;
+    let match;
+    
+    while ((match = linkRegex.exec(html)) !== null) {
+      const url = match[1];
+      const linkText = match[2].toLowerCase();
+      
+      // Check if link text contains job title and URL looks job-specific
+      if (titleWords.some(word => linkText.includes(word))) {
+        let absoluteUrl = url;
+        if (url.startsWith('/')) {
+          absoluteUrl = new URL(url, sourceUrl).href;
+        } else if (!url.startsWith('http')) {
+          continue;
+        }
+        
+        // Must be significantly longer than base URL and contain job indicators
+        if (absoluteUrl !== sourceUrl && 
+            absoluteUrl.length > sourceUrl.length + 15 &&
+            (absoluteUrl.includes('job') || absoluteUrl.includes('career') || absoluteUrl.includes('position'))) {
+          return absoluteUrl;
+        }
+      }
+    }
+    
+    // If no specific job URL found, return null
+    return null;
   }
 
   private inferLocationFromHtml(html: string): string | null {
