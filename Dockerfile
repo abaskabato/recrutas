@@ -28,15 +28,22 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 recrutas
 
-# Copy built application
+# Copy built application and standalone server
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/standalone-server.js ./standalone-server.js
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/shared ./shared
 
 USER recrutas
 
-EXPOSE 5000
+EXPOSE 3000
 
-ENV PORT=5000
+ENV PORT=3000
 
-CMD ["node", "dist/server/index.js"]
+# Health check for container orchestration
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+CMD ["node", "standalone-server.js"]
