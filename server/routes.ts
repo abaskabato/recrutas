@@ -2368,32 +2368,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let externalJobs = [];
       
-      if (isNonTechSearch) {
-        console.log('Non-tech search detected, skipping tech company APIs');
-        // Skip external job fetching for non-tech searches to avoid irrelevant results
-      } else {
-        // Only use external APIs for tech searches
-        const optimizedLimit = Math.min(parseInt(limit as string) || 10, 15);
-        externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, optimizedLimit);
-        console.log(`Retrieved ${externalJobs.length} external jobs from aggregator for skills: ${skillsArray?.join(', ') || 'general'}`);
-        
-        if (externalJobs.length > 0) {
-          console.log('Sample jobs available:', externalJobs.slice(0, 2).map(j => ({
-            title: j.title,
-            company: j.company,
-            skills: j.skills
-          })));
-        }
+      // Use authentic job APIs for all searches - no distinction between tech/non-tech
+      const optimizedLimit = Math.min(parseInt(limit as string) || 10, 15);
+      externalJobs = await companyJobsAggregator.getAllCompanyJobs(skillsArray, optimizedLimit);
+      console.log(`Retrieved ${externalJobs.length} external jobs from aggregator for skills: ${skillsArray?.join(', ') || 'general'}`);
+      
+      if (externalJobs.length > 0) {
+        console.log('Sample jobs available:', externalJobs.slice(0, 2).map(j => ({
+          title: j.title,
+          company: j.company,
+          skills: j.skills
+        })));
       }
       
       // Filter and format jobs for instant matching
       let filteredJobs = externalJobs;
       
-      // For non-tech searches with no external jobs, jump straight to job generation
-      if (isNonTechSearch && externalJobs.length === 0) {
-        console.log('Non-tech search with no external jobs, generating relevant positions');
-        filteredJobs = [];
-      }
+      // Apply authentic job filtering - no synthetic generation
       
       // Apply filters step by step
       

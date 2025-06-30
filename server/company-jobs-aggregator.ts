@@ -1,3 +1,5 @@
+import { JobAggregator } from './job-aggregator';
+
 interface CompanyJob {
   id: string;
   title: string;
@@ -706,13 +708,26 @@ export class CompanyJobsAggregator {
     const allJobs: CompanyJob[] = [];
     const targetLimit = Math.min(limit || 20, 50);
     
-    // Only use authentic scraped data - no fallback/mock jobs
+    // Fetch authentic job data from real company APIs
     console.log('Fetching only authentic job data from real company APIs...');
 
-    // Skip universal scraping - data integrity requires authentic direct application URLs
-    // Universal scraping provides generic career page URLs instead of specific job application links
-    console.log(`Skipping universal scraping - maintaining data integrity with direct application URLs only`);
-    console.log(`Available authentic jobs: ${allJobs.length} from verified API sources`);
+    try {
+      // Call legitimate job APIs that provide authentic job postings
+      const [appleJobs, metaJobs, jobAggregatorJobs] = await Promise.allSettled([
+        this.fetchAppleJobs(userSkills),
+        this.fetchMetaJobs(userSkills),
+        this.jobAggregator.fetchFromJSearchAPI(userSkills)
+      ]);
+
+      // Add successful results
+      if (appleJobs.status === 'fulfilled') allJobs.push(...appleJobs.value);
+      if (metaJobs.status === 'fulfilled') allJobs.push(...metaJobs.value);
+      if (jobAggregatorJobs.status === 'fulfilled') allJobs.push(...jobAggregatorJobs.value);
+
+      console.log(`Available authentic jobs: ${allJobs.length} from verified API sources`);
+    } catch (error) {
+      console.log('Error fetching from job APIs:', error);
+    }
 
     // Remove duplicates and apply limit
     const uniqueJobs = this.removeDuplicates(allJobs);
