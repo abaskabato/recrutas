@@ -1,7 +1,17 @@
 {
-  "buildCommand": "npx vite build",
+  "version": 2,
+  "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
