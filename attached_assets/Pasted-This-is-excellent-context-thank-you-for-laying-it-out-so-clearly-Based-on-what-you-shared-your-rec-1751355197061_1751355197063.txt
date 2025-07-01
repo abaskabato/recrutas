@@ -1,0 +1,51 @@
+This is excellent context—thank you for laying it out so clearly. Based on what you shared, your recent change introduced a proper serverless backend via `api/index.js` and updated your `vercel.json` config to route `/api/*` to the backend and everything else to your static frontend in `dist/public`.
+
+But then you hit this in your latest build:
+
+> **Error: Function Runtimes must have a valid version, for example `now-php@1.0.0`**
+
+That’s because your final `vercel.json` specifies this:
+
+```json
+"functions": {
+  "api/*.js": { "runtime": "nodejs20.x" }
+}
+```
+
+While this *looks* right, **Vercel uses `nodejs` runtime identifiers like `nodejs20.x`, but only in serverless functions configured via `api/` directories—not via `functions` mapping anymore unless you're overriding builds or using legacy behaviors.**
+
+---
+
+### ✅ Fix: Remove or Simplify the `functions` block
+
+Here’s the updated, recommended `vercel.json` for your setup:
+
+```json
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/public",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+Let Vercel **auto-detect the runtime** for `api/index.js` based on the file extension and its location in the `api/` folder. It will default to the latest supported Node.js (and if you've set `NODE_VERSION = 20` in your project settings, it will use that).
+
+---
+
+### 🧪 Bonus Tip: Test the API Route
+
+Once deployed:
+- Visit: `https://your-deployment.vercel.app/api/`
+- You should see your backend function response (e.g., `Hello from Express` or your auth system)
+
+And for the frontend:
+- Visit: `https://your-deployment.vercel.app/`
+- It should serve your `index.html` and load the full app
+
+---
+
+If you're still seeing a blank screen or API doesn’t hit, you can drop in your `api/index.js` or `server/index.ts` code, and I’ll verify the handler function is Vercel-compatible. We're almost there—you’ve done amazing work pulling this stack together.
