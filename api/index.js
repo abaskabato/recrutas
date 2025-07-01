@@ -59,8 +59,35 @@ export default async function handler(req, res) {
         status: 'ok', 
         timestamp: new Date().toISOString(),
         message: 'Recrutas API is running',
-        auth: 'Better Auth enabled'
+        auth: 'Better Auth enabled',
+        dbConfigured: !!process.env.DATABASE_URL
       });
+    });
+    
+    // Database connection test
+    app.get('/api/db-test', async (req, res) => {
+      try {
+        if (!process.env.DATABASE_URL) {
+          return res.json({ 
+            error: 'DATABASE_URL not found in environment variables',
+            envVars: Object.keys(process.env).filter(key => key.includes('DB') || key.includes('DATABASE'))
+          });
+        }
+        
+        const { db } = await import('../server/db.js');
+        const result = await db.execute('SELECT 1 as test');
+        res.json({ 
+          success: true, 
+          message: 'Database connection successful',
+          result: result.rows?.[0] || result[0]
+        });
+      } catch (error) {
+        res.json({ 
+          error: 'Database connection failed', 
+          message: error.message,
+          hasUrl: !!process.env.DATABASE_URL
+        });
+      }
     });
     
     // Platform stats
