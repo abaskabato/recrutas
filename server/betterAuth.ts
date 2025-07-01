@@ -80,17 +80,19 @@ export const auth = betterAuth({
       maxAge: 30 * 60, // 30 minutes
     },
     cookieOptions: {
-      httpOnly: false, // Set to false for development to allow JavaScript access
-      secure: false, // Set to false for development
+      httpOnly: false, // Allow JavaScript access for client-side auth
+      secure: process.env.NODE_ENV === 'production', // Secure in production
       sameSite: "lax",
       path: "/",
-      domain: undefined, // Don't set domain for localhost
+      domain: undefined, // Don't set domain for localhost/vercel
     },
   },
   trustedOrigins: [
     "http://localhost:5000",
     "https://*.replit.app", 
     "https://*.replit.dev",
+    "https://recrutas.vercel.app",
+    "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
     "https://e0f14cb7-13c7-49be-849b-00e0e677863c-00-13vuezjrrpu3a.picard.replit.dev",
     process.env.REPLIT_DEV_DOMAIN || "",
   ].filter(Boolean),

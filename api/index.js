@@ -35,10 +35,22 @@ export default async function handler(req, res) {
 
     // Import and setup the existing authentication
     try {
+      // First ensure database connection
+      const { db } = await import('../server/db.js');
+      console.log('Database connected for auth');
+      
       const { setupBetterAuth } = await import('../server/betterAuth.js');
       setupBetterAuth(app);
+      console.log('Better Auth setup complete');
     } catch (error) {
-      console.log('Auth setup failed, using basic endpoints:', error.message);
+      console.error('Auth setup failed:', error);
+      // Fallback auth endpoints
+      app.post('/api/auth/*', (req, res) => {
+        res.status(503).json({
+          error: 'Authentication temporarily unavailable',
+          message: 'Database connection required'
+        });
+      });
     }
     
     // Health check
