@@ -1,13 +1,10 @@
 {
+  "buildCommand": "npx vite build",
   "outputDirectory": "dist/public",
-  "buildCommand": "vite build",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
