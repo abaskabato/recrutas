@@ -1,0 +1,8 @@
+server/
+!api/
+node_modules/
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
