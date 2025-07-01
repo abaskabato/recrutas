@@ -126,6 +126,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Changelog
 
+- July 1, 2025. **Fixed critical deployment issues for production readiness** - Updated Node.js version to 20.x in Vercel configuration to resolve @simplewebauthn/server engine requirements. Converted api/index.js from CommonJS to ESM format, eliminating "require is not defined in ES module scope" runtime errors. Platform now fully compatible with modern serverless deployment environments.
 - June 30, 2025. **Complete data integrity enforcement across all platform components** - Eliminated all remaining synthetic/mock data generation including instant search job generation, application intelligence demo data, and placeholder content. Platform now shows 0 results when authentic data isn't available rather than generating synthetic content. Instant search properly requires valid API keys (RAPIDAPI_KEY, JOOBLE_API_KEY, USAJOBS_API_KEY) for authentic job sources. This maintains complete data integrity throughout the user experience.
 - June 30, 2025. **Data integrity enforced across all job sources** - Disabled all fallback/mock job generation throughout the platform. Removed FAANG+ synthetic jobs, company fallback data, and universal scraper mock jobs. System now shows only authentic job postings scraped from real company career pages.
 - June 30, 2025. **Data integrity enforced** - Disabled pattern matching fallback in resume parsing to ensure only authentic data extraction via OpenAI API. System now requires valid API key rather than using inferred data.
