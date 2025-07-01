@@ -36,19 +36,19 @@ export default async function handler(req, res) {
     // Import and setup the existing authentication
     try {
       // First ensure database connection
-      const { db } = await import('../server/db.js');
+      const { db } = await import('./server/db.js');
       console.log('Database connected for auth');
       
-      const { setupBetterAuth } = await import('../server/betterAuth.js');
+      const { setupBetterAuth } = await import('./server/betterAuth.js');
       setupBetterAuth(app);
       console.log('Better Auth setup complete');
     } catch (error) {
       console.error('Auth setup failed:', error);
       // Fallback auth endpoints
-      app.post('/api/auth/*', (req, res) => {
+      app.all('/api/auth/*', (req, res) => {
         res.status(503).json({
           error: 'Authentication temporarily unavailable',
-          message: 'Database connection required'
+          message: 'Import error: ' + error.message
         });
       });
     }
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
           });
         }
         
-        const { db } = await import('../server/db.js');
+        const { db } = await import('./server/db.js');
         const result = await db.execute('SELECT 1 as test');
         res.json({ 
           success: true, 
