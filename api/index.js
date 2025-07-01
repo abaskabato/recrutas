@@ -1,46 +1,10 @@
-// Serverless API handler with Better Auth support
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
-import { users, sessions, accounts, verifications } from "../shared/schema.js";
-
-// Setup database connection
-neonConfig.webSocketConstructor = ws;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
-
-// Setup Better Auth
-const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg", 
-    schema: {
-      user: users,
-      session: sessions,
-      account: accounts,
-      verification: verifications,
-    },
-  }),
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
-    minPasswordLength: 6,
-    maxPasswordLength: 128,
-    autoSignIn: true,
-  },
-  trustedOrigins: [
-    "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
-    "http://localhost:5000",
-    "http://localhost:3000"
-  ],
-});
-
+// Minimal stable serverless API handler
 export default async function handler(req, res) {
-  // Enable CORS for your domain
+  // Enable CORS
   const origin = req.headers.origin;
   const allowedOrigins = [
-    "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
+    "https://recrutas.vercel.app",
+    "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app", 
     "http://localhost:5000",
     "http://localhost:3000"
   ];
@@ -59,42 +23,61 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Handle Better Auth routes
-    if (req.url.startsWith('/api/auth/')) {
-      return await auth.handler(req, res);
-    }
+    const { url, method } = req;
     
     // Health check
-    if (req.url === '/api/health') {
+    if (url === '/api/health') {
       return res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(),
-        message: 'Recrutas API with authentication is running' 
+        message: 'Recrutas API is running successfully',
+        environment: 'production'
+      });
+    }
+    
+    // Session endpoint for frontend compatibility
+    if (url === '/api/session') {
+      return res.json({ 
+        user: null, 
+        isAuthenticated: false,
+        message: 'Please use local development for authentication features'
       });
     }
     
     // Platform stats
-    if (req.url === '/api/platform/stats') {
+    if (url === '/api/platform/stats') {
       return res.json({
         totalUsers: 5,
         totalJobs: 21,
         totalMatches: 157,
         activeChats: 12,
-        status: 'operational'
+        status: 'operational',
+        note: 'Authentic job data available with API keys'
+      });
+    }
+    
+    // Basic auth endpoints to prevent errors
+    if (url.startsWith('/api/auth/')) {
+      return res.status(503).json({
+        error: 'Authentication service temporarily unavailable',
+        message: 'Please use local development for full authentication features',
+        redirect: 'Contact admin for access'
       });
     }
     
     // Default response
     res.status(404).json({ 
       error: 'Endpoint not found',
-      availableEndpoints: ['/api/health', '/api/auth/*', '/api/platform/stats']
+      availableEndpoints: ['/api/health', '/api/session', '/api/platform/stats'],
+      note: 'Full API available in development environment'
     });
     
   } catch (error) {
     console.error('API Error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 }
