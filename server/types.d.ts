@@ -43,10 +43,7 @@ declare module 'drizzle-orm/neon-serverless' {
   export const drizzle: any;
 }
 
-declare module 'vite' {
-  export const createServer: any;
-  export const createLogger: any;
-}
+
 
 // Suppress all property errors
 interface Object {

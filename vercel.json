@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "vite build && NODE_ENV=production esbuild server/production.ts --platform=node --packages=external --bundle --format=esm --outdir=api --external:vite",
   "builds": [
     {
       "src": "package.json",
@@ -7,9 +8,17 @@
       "config": {
         "distDir": "dist/public"
       }
+    },
+    {
+      "src": "api/production.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/production.js"
+    },
     {
       "handle": "filesystem"
     },
