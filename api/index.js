@@ -115,9 +115,8 @@ export default async function handler(req, res) {
           throw new Error('DATABASE_URL environment variable is required');
         }
         
-        // Use standard pg Pool for Supabase compatibility
-        const { Pool: PgPool } = await import('pg');
-        const pool = new PgPool({ 
+        // Use standard pg Pool for Supabase compatibility  
+        const pool = new Pool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false },
           max: 1, // Single connection for serverless
@@ -354,8 +353,8 @@ export default async function handler(req, res) {
         }
         
         // Simple database test for Supabase
-        const { Pool: PgPool } = await import('pg');
-        const testPool = new PgPool({ 
+        const { Pool: TestPool } = await import('pg');
+        const testPool = new TestPool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false }
         });
