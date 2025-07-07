@@ -137,11 +137,11 @@ export default async function handler(req, res) {
           
           database: drizzleAdapter(db, {
             provider: "pg",
-            schema: { 
-              user: users, 
-              session: sessions, 
-              account: accounts, 
-              verification: verifications 
+            schema: {
+              user: users,
+              session: sessions,
+              account: accounts,
+              verification: verifications,
             },
           }),
           
@@ -240,7 +240,7 @@ export default async function handler(req, res) {
       console.error('Failed to pre-initialize Better Auth:', error);
     }
 
-    // Better Auth handler with comprehensive error handling - Auth config fixed
+    // Better Auth handler with Better Auth docs compliant configuration
     app.all('/api/auth/*', async (req, res) => {
       console.log('Auth endpoint hit:', req.method, req.url, 'hasAuth:', !!betterAuthInstance);
       
