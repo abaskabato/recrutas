@@ -354,10 +354,6 @@ export default async function handler(req, res) {
           });
         }
         
-        // Test basic connection first
-        const testQuery = await pool.query('SELECT 1 as test');
-        console.log('Basic connection test:', testQuery.rows);
-        
         // Simple database test for Supabase
         const { Pool } = await import('@neondatabase/serverless');
         const testPool = new Pool({ 
