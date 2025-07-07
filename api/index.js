@@ -117,11 +117,11 @@ export default async function handler(req, res) {
         const pool = new Pool({ connectionString: process.env.DATABASE_URL });
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
 
-        // Better Auth configuration
+        // Better Auth configuration - Fixed for Vercel serverless
         const auth = betterAuth({
-          // Core configuration
-          secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
-          baseURL: process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app',
+          secret: process.env.SESSION_SECRET || 'fallback-secret-for-development-only',
+          baseURL: 'https://recrutas.vercel.app',
+          basePath: '/api/auth',
           
           database: drizzleAdapter(db, {
             provider: "pg",
@@ -149,10 +149,6 @@ export default async function handler(req, res) {
           session: {
             expiresIn: 604800, // 7 days
             updateAge: 86400, // 1 day
-            cookieCache: { 
-              enabled: true, 
-              maxAge: 30 * 60 // 30 minutes
-            },
           },
           
           trustedOrigins: [
@@ -163,10 +159,10 @@ export default async function handler(req, res) {
           ],
           
           advanced: {
-            useSecureCookies: true,
+            useSecureCookies: process.env.NODE_ENV === 'production',
             defaultCookieAttributes: {
-              httpOnly: false, // Allow client-side access for auth client
-              secure: true,
+              httpOnly: false,
+              secure: process.env.NODE_ENV === 'production',
               sameSite: "lax",
               path: "/",
             },
@@ -238,13 +234,19 @@ export default async function handler(req, res) {
           console.log('Request body prepared:', !!body);
         }
 
-        // Create Web API Request object with proper configuration
-        const webRequest = new Request(fullUrl, {
+        // Create Web API Request object with proper configuration for Vercel
+        const requestInit = {
           method: req.method,
           headers,
-          body,
-          duplex: body ? 'half' : undefined,
-        });
+        };
+        
+        // Only add body for methods that support it
+        if (body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
+          requestInit.body = body;
+          requestInit.duplex = 'half';
+        }
+        
+        const webRequest = new Request(fullUrl, requestInit);
 
         // Process with Better Auth
         console.log('Calling Better Auth handler with URL:', fullUrl);
