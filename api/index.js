@@ -131,7 +131,7 @@ export default async function handler(req, res) {
 
         // Better Auth configuration - Fixed for Vercel serverless
         const auth = betterAuth({
-          secret: process.env.SESSION_SECRET || 'fallback-secret-for-development-only',
+          secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET || 'fallback-secret-for-development-only',
           baseURL: 'https://recrutas.vercel.app',
           basePath: '/api/auth',
           
