@@ -41,20 +41,16 @@ export default async function handler(req, res) {
       if (authInstance) return authInstance;
       
       try {
-        // Pre-load all dependencies to catch import errors early - Supabase compatible
-        const [
-          { betterAuth },
-          { drizzleAdapter },
-          pgModule,
-          { drizzle },
-          { pgTable, text, timestamp, boolean }
-        ] = await Promise.all([
-          import("better-auth"),
-          import("better-auth/adapters/drizzle"),
-          import('pg'),
-          import('drizzle-orm/node-postgres'),
-          import("drizzle-orm/pg-core")
-        ]);
+        console.log('Starting Better Auth initialization...');
+        
+        // Load dependencies sequentially to avoid timeout issues
+        const { betterAuth } = await import("better-auth");
+        const { drizzleAdapter } = await import("better-auth/adapters/drizzle");
+        const pgModule = await import('pg');
+        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const { pgTable, text, timestamp, boolean } = await import("drizzle-orm/pg-core");
+        
+        console.log('Dependencies loaded successfully');
         
         // Handle different export patterns for pg module in serverless environments
         const Pool = pgModule.Pool || pgModule.default?.Pool || pgModule.default;
@@ -118,16 +114,18 @@ export default async function handler(req, res) {
           throw new Error('DATABASE_URL environment variable is required');
         }
         
-        // Use standard pg Pool for Supabase compatibility  
+        // Create minimal pool for serverless
         const pool = new Pool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false },
-          max: 1, // Single connection for serverless
-          idleTimeoutMillis: 10000,
-          connectionTimeoutMillis: 5000,
+          max: 1,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
         });
         
+        console.log('Database pool created');
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
+        console.log('Drizzle instance created');
 
         // Better Auth configuration - Fixed for Vercel serverless
         const auth = betterAuth({
@@ -206,10 +204,10 @@ export default async function handler(req, res) {
           ],
           
           advanced: {
-            useSecureCookies: process.env.NODE_ENV === 'production',
+            useSecureCookies: true,
             defaultCookieAttributes: {
-              httpOnly: false,
-              secure: process.env.NODE_ENV === 'production',
+              httpOnly: true,
+              secure: true,
               sameSite: "lax",
               path: "/",
             },
