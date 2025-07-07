@@ -37,14 +37,26 @@ export default function AuthPage() {
     e.preventDefault()
     setIsSigningIn(true)
     try {
-      const result = await signIn.email({
-        email: signInData.email,
-        password: signInData.password,
-      })
+      // Direct API call for sign in
+      const response = await fetch('/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: signInData.email,
+          password: signInData.password,
+        }),
+        credentials: 'include',
+      });
       
-      if (result.error) {
-        throw new Error(result.error.message || "Sign in failed")
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Sign in failed: ${errorText}`);
       }
+      
+      const result = await response.json();
+      console.log('Sign in result:', result);
       
       toast({ title: "Welcome back!", description: "Successfully signed in." })
       
@@ -82,27 +94,38 @@ export default function AuthPage() {
         password: '***'
       });
       
-      const result = await signUp.email({
-        email: signUpData.email,
-        password: signUpData.password,
-        name: signUpData.name,
-      })
+      // Direct API call as fallback to Better Auth client
+      const response = await fetch('/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: signUpData.email,
+          password: signUpData.password,
+          name: signUpData.name,
+        }),
+        credentials: 'include',
+      });
       
-      console.log('Sign up result:', result);
+      console.log('Direct API response status:', response.status);
       
-      if (result?.error) {
-        console.error('Sign up error details:', result.error);
-        throw new Error(result.error.message || "Sign up failed")
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Direct API error:', errorText);
+        throw new Error(`Sign up failed: ${errorText}`);
       }
       
-      if (!result?.data && !result?.user) {
-        console.error('No user data returned from sign up');
+      const result = await response.json();
+      console.log('Direct API result:', result);
+      
+      if (!result.user && !result.token) {
         throw new Error("Account creation failed - no user data returned");
       }
       
       toast({ 
         title: "Account created!", 
-        description: `Welcome to Recrutas, ${result?.data?.user?.name || signUpData.name}!` 
+        description: `Welcome to Recrutas, ${result?.user?.name || signUpData.name}!` 
       })
       
       // Force refresh to load new session

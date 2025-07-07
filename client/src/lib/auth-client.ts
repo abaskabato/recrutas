@@ -24,18 +24,28 @@ export const authClient = createAuthClient({
   },
 })
 
-// Debug wrapper to log authentication calls
+// Enhanced debug wrapper with timeout handling
 const originalSignUp = authClient.signUp;
 authClient.signUp = {
   ...originalSignUp,
   email: async (data: any) => {
     console.log('🔐 Sign Up called with:', { email: data.email, name: data.name });
+    
+    // Add timeout wrapper
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Sign up request timed out after 30 seconds')), 30000);
+    });
+    
     try {
-      const result = await originalSignUp.email(data);
+      const result = await Promise.race([originalSignUp.email(data), timeoutPromise]);
       console.log('🔐 Sign Up result:', result);
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('🔐 Sign Up error caught:', error);
+      // Provide more helpful error message
+      if (error.message?.includes('timeout') || error.name === 'AbortError') {
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
       throw error;
     }
   }
