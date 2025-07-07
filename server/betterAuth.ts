@@ -14,6 +14,8 @@ export const auth = betterAuth({
       verification: verifications,
     },
   }),
+  basePath: "/api/auth",
+  baseURL: process.env.BETTER_AUTH_URL || "https://recrutas.vercel.app",
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -85,6 +87,12 @@ export const auth = betterAuth({
       sameSite: "lax",
       path: "/",
       domain: undefined, // Don't set domain for localhost/vercel
+    },
+  },
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: ".vercel.app",
     },
   },
   trustedOrigins: [

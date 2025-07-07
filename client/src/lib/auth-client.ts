@@ -18,7 +18,7 @@ export interface ExtendedUser {
 }
 
 export const authClient = createAuthClient({
-  baseURL: window.location.origin,
+  baseURL: window.location.origin + "/api/auth",
   fetchOptions: {
     credentials: 'include',
     onError(context) {
