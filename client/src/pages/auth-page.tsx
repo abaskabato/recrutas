@@ -46,19 +46,8 @@ export default function AuthPage() {
       onRequest: () => {
         console.log('Sign in request started')
       },
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast({ title: "Welcome back!", description: "Successfully signed in." })
-        // Redirect based on user's role
-        setTimeout(() => {
-          if (data?.user?.role === 'candidate') {
-            window.location.href = "/candidate-dashboard";
-          } else if (data?.user?.role === 'talent_owner') {
-            window.location.href = "/talent-dashboard";
-          } else {
-            // No role set, go to role selection
-            window.location.href = "/role-selection";
-          }
-        }, 1000);
       },
       onError: (ctx) => {
         toast({
@@ -100,10 +89,6 @@ export default function AuthPage() {
           title: "Account created!", 
           description: `Welcome to Recrutas, ${signUpData.name}!` 
         })
-        // New users need to select their role
-        setTimeout(() => {
-          window.location.href = "/role-selection";
-        }, 1000);
       },
       onError: (ctx) => {
         toast({
