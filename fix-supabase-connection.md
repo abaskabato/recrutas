@@ -20,8 +20,14 @@ The DATABASE_URL environment variable in Vercel production is incorrect or missi
 
 ### Step 2: Update Vercel Environment Variables
 1. Go to Vercel Dashboard → recrutas project → Settings → Environment Variables
-2. Update or add DATABASE_URL with the correct Supabase connection string
-3. Make sure to replace [YOUR-PASSWORD] with your actual database password
+2. Update or add DATABASE_URL with this connection string (replace [YOUR-PASSWORD] with your actual database password):
+   ```
+   DATABASE_URL="postgresql://postgres.hszttqfamgesltcxpzvc:[YOUR-PASSWORD]@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true"
+   ```
+3. Also add DIRECT_URL for migrations:
+   ```
+   DIRECT_URL="postgresql://postgres.hszttqfamgesltcxpzvc:[YOUR-PASSWORD]@aws-0-us-east-2.pooler.supabase.com:5432/postgres"
+   ```
 
 ### Step 3: Verify Configuration
 After updating the environment variable, Vercel will automatically redeploy.
