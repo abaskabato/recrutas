@@ -6,8 +6,22 @@ let authEnabled = false;
 export default async function handler(req, res) {
   if (!app) {
     app = express();
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: false }));
+    // Enhanced middleware with debugging for Vercel serverless
+    app.use((req, res, next) => {
+      console.log(`Request: ${req.method} ${req.url}`);
+      next();
+    });
+    
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    
+    // Log parsed body for debugging
+    app.use((req, res, next) => {
+      if (req.body && Object.keys(req.body).length > 0) {
+        console.log('Parsed body:', JSON.stringify(req.body));
+      }
+      next();
+    });
     
     // Enable CORS
     app.use((req, res, next) => {
@@ -55,7 +69,7 @@ export default async function handler(req, res) {
         // Handle different export patterns for pg module in serverless environments
         const Pool = pgModule.Pool || pgModule.default?.Pool || pgModule.default;
         
-        // Schema definition - Better Auth compatible with our existing fields
+        // Schema definition exactly matching shared/schema.ts
         const users = pgTable("users", {
           id: text("id").primaryKey(),
           name: text("name").notNull(),
@@ -64,24 +78,24 @@ export default async function handler(req, res) {
           image: text("image"),
           createdAt: timestamp("createdAt").notNull(),
           updatedAt: timestamp("updatedAt").notNull(),
-          // Custom fields matching our database
+          // Custom fields for our platform
           firstName: text("firstName"),
           lastName: text("lastName"),
           phoneNumber: text("phoneNumber"),
-          role: text("role"),
-          profileComplete: boolean("profileComplete").default(false),
           profileImageUrl: text("profileImageUrl"),
+          role: text("role").default("candidate"),
+          profileComplete: boolean("profileComplete").default(false),
         });
 
         const sessions = pgTable("sessions", {
           id: text("id").primaryKey(),
-          expiresAt: timestamp("expiresAt").notNull(),
+          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+          expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
           token: text("token").notNull().unique(),
-          createdAt: timestamp("createdAt").notNull(),
-          updatedAt: timestamp("updatedAt").notNull(),
+          createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+          updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
           ipAddress: text("ipAddress"),
           userAgent: text("userAgent"),
-          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
         });
 
         const accounts = pgTable("accounts", {
@@ -96,8 +110,8 @@ export default async function handler(req, res) {
           refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
           scope: text("scope"),
           password: text("password"),
-          createdAt: timestamp("createdAt").notNull(),
-          updatedAt: timestamp("updatedAt").notNull(),
+          createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+          updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
         });
 
         const verifications = pgTable("verifications", {
@@ -127,28 +141,15 @@ export default async function handler(req, res) {
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
         console.log('Drizzle instance created');
 
-        // Better Auth configuration - Fixed for Vercel serverless
+        // Better Auth configuration - Simplified for Vercel
         const auth = betterAuth({
-          secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET || 'fallback-secret-for-development-only',
-          baseURL: process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app',
-          basePath: '/api/auth',
-          
-          database: drizzleAdapter(db, {
-            provider: "pg",
-            schema: {
-              user: users,
-              session: sessions,
-              account: accounts,
-              verification: verifications,
-            },
-          }),
+          database: db,
+          secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
+          baseURL: 'https://recrutas.vercel.app',
+          trustedOrigins: ["https://recrutas.vercel.app", "http://localhost:5000"],
           
           emailAndPassword: {
             enabled: true,
-            requireEmailVerification: false,
-            minPasswordLength: 6,
-            maxPasswordLength: 128,
-            autoSignIn: true,
             sendResetPassword: async ({ user, url, token }) => {
               // Log for development - no email service required
               console.log(`Password reset requested for ${user.email}`);
@@ -246,8 +247,8 @@ export default async function handler(req, res) {
         const host = req.headers['x-forwarded-host'] || req.headers.host || 'recrutas.vercel.app';
         const fullUrl = `${protocol}://${host}${req.url}`;
         console.log('Processing auth request to:', fullUrl);
-        console.log('Request headers:', JSON.stringify(req.headers, null, 2));
-        console.log('Request body type:', typeof req.body, 'content:', JSON.stringify(req.body));
+        console.log('Request method:', req.method);
+        console.log('Request body:', JSON.stringify(req.body));
         
         // Create headers object properly
         const headers = new Headers();
@@ -286,12 +287,10 @@ export default async function handler(req, res) {
         const webRequest = new Request(fullUrl, requestInit);
 
         // Process with Better Auth
-        console.log('Calling Better Auth handler with URL:', fullUrl);
-        console.log('Auth instance type:', typeof auth, 'has handler:', typeof auth.handler);
+        console.log('Calling Better Auth handler...');
         
         const response = await auth.handler(webRequest);
-        console.log('Better Auth response received - status:', response.status, 'statusText:', response.statusText);
-        console.log('Response type:', typeof response, 'has text method:', typeof response.text);
+        console.log('Better Auth response status:', response.status);
         
         // Handle Better Auth response
         res.status(response.status);
@@ -305,11 +304,13 @@ export default async function handler(req, res) {
         
         // Get and send response body
         const responseText = await response.text();
+        console.log('Better Auth response text:', responseText.substring(0, 200));
         if (responseText) {
           res.send(responseText);
         } else {
           res.end();
         }
+
       } catch (error) {
         console.error('Better Auth handler error:', error.message);
         console.error('Handler error stack:', error.stack);
