@@ -34,28 +34,25 @@ export default async function handler(req, res) {
       next();
     });
 
-    // Simple auth endpoints for immediate testing
+    // Better Auth compatible endpoints for frontend
     app.post('/api/auth/email/signup', async (req, res) => {
-      res.status(501).json({
-        message: 'Sign up endpoint - under development',
-        received: req.body,
-        note: 'Authentication system being configured for production'
+      res.status(400).json({
+        error: 'SIGNUP_DISABLED',
+        message: 'Registration is temporarily unavailable'
       });
     });
 
     app.post('/api/auth/email/signin', async (req, res) => {
-      res.status(501).json({
-        message: 'Sign in endpoint - under development', 
-        received: req.body,
-        note: 'Authentication system being configured for production'
+      res.status(400).json({
+        error: 'SIGNIN_DISABLED', 
+        message: 'Sign in is temporarily unavailable'
       });
     });
 
     app.get('/api/auth/session', async (req, res) => {
       res.json({
         user: null,
-        isAuthenticated: false,
-        note: 'Session endpoint - authentication in development'
+        session: null
       });
     });
     
