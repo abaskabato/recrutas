@@ -55,7 +55,7 @@ export default async function handler(req, res) {
         // Handle different export patterns for pg module in serverless environments
         const Pool = pgModule.Pool || pgModule.default?.Pool || pgModule.default;
         
-        // Schema definition - matches the existing database structure
+        // Schema definition - Better Auth compatible with our existing fields
         const users = pgTable("users", {
           id: text("id").primaryKey(),
           name: text("name").notNull(),
@@ -64,13 +64,13 @@ export default async function handler(req, res) {
           image: text("image"),
           createdAt: timestamp("createdAt").notNull(),
           updatedAt: timestamp("updatedAt").notNull(),
-          // Custom fields from our platform schema
-          firstName: text("first_name"),
-          lastName: text("last_name"),
-          phoneNumber: text("phone_number"),
+          // Custom fields matching our database
+          firstName: text("firstName"),
+          lastName: text("lastName"),
+          phoneNumber: text("phoneNumber"),
           role: text("role"),
-          profileComplete: boolean("profile_complete").default(false),
-          profileImageUrl: text("profile_image_url"),
+          profileComplete: boolean("profileComplete").default(false),
+          profileImageUrl: text("profileImageUrl"),
         });
 
         const sessions = pgTable("sessions", {
@@ -242,10 +242,12 @@ export default async function handler(req, res) {
         const auth = betterAuthInstance;
         
         // Build proper URL for the request - CRITICAL: Use the exact URL structure Better Auth expects
-        const protocol = req.headers['x-forwarded-proto'] || (req.connection?.encrypted ? 'https' : 'http');
+        const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || 'recrutas.vercel.app';
         const fullUrl = `${protocol}://${host}${req.url}`;
         console.log('Processing auth request to:', fullUrl);
+        console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+        console.log('Request body type:', typeof req.body, 'content:', JSON.stringify(req.body));
         
         // Create headers object properly
         const headers = new Headers();
@@ -278,42 +280,35 @@ export default async function handler(req, res) {
         // Only add body for methods that support it
         if (body && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
           requestInit.body = body;
-          requestInit.duplex = 'half';
+          console.log('Adding body to request:', body.substring(0, 100));
         }
         
         const webRequest = new Request(fullUrl, requestInit);
 
         // Process with Better Auth
         console.log('Calling Better Auth handler with URL:', fullUrl);
-        const response = await auth.handler(webRequest);
-        console.log('Better Auth response status:', response.status, response.statusText);
+        console.log('Auth instance type:', typeof auth, 'has handler:', typeof auth.handler);
         
-        // Send response properly
+        const response = await auth.handler(webRequest);
+        console.log('Better Auth response received - status:', response.status, 'statusText:', response.statusText);
+        console.log('Response type:', typeof response, 'has text method:', typeof response.text);
+        
+        // Handle Better Auth response
         res.status(response.status);
         
-        // Set headers from Better Auth response
+        // Copy important headers
         response.headers.forEach((value, key) => {
-          res.setHeader(key, value);
+          if (!['content-length', 'transfer-encoding'].includes(key.toLowerCase())) {
+            res.setHeader(key, value);
+          }
         });
         
-        // Handle response body
-        const text = await response.text();
-        console.log('Response status:', response.status, 'body length:', text.length);
-        
-        if (text && text.length > 0) {
-          console.log('Response body preview:', text.substring(0, 200));
-          res.send(text);
+        // Get and send response body
+        const responseText = await response.text();
+        if (responseText) {
+          res.send(responseText);
         } else {
-          console.log('Empty response body for status:', response.status);
-          if (response.status >= 400) {
-            res.status(response.status).json({ 
-              error: 'AUTH_ERROR',
-              message: 'Authentication request failed',
-              status: response.status 
-            });
-          } else {
-            res.status(response.status).end();
-          }
+          res.end();
         }
       } catch (error) {
         console.error('Better Auth handler error:', error.message);
