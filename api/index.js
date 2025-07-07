@@ -305,13 +305,23 @@ export default async function handler(req, res) {
         });
         
         // Handle response body
-        if (response.body) {
-          const text = await response.text();
-          console.log('Response body length:', text.length, 'first 100 chars:', text.substring(0, 100));
+        const text = await response.text();
+        console.log('Response status:', response.status, 'body length:', text.length);
+        
+        if (text && text.length > 0) {
+          console.log('Response body preview:', text.substring(0, 200));
           res.send(text);
         } else {
-          console.log('No response body - sending empty response');
-          res.end();
+          console.log('Empty response body for status:', response.status);
+          if (response.status >= 400) {
+            res.status(response.status).json({ 
+              error: 'AUTH_ERROR',
+              message: 'Authentication request failed',
+              status: response.status 
+            });
+          } else {
+            res.status(response.status).end();
+          }
         }
       } catch (error) {
         console.error('Better Auth handler error:', error);
