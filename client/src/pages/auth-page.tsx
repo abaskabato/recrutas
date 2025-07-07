@@ -37,13 +37,13 @@ export default function AuthPage() {
     e.preventDefault()
     setIsSigningIn(true)
     try {
-      const { data, error } = await signIn.email({
+      const result = await signIn.email({
         email: signInData.email,
         password: signInData.password,
       })
       
-      if (error) {
-        throw new Error(error.message)
+      if (result.error) {
+        throw new Error(result.error.message || "Sign in failed")
       }
       
       toast({ title: "Welcome back!", description: "Successfully signed in." })
@@ -76,14 +76,14 @@ export default function AuthPage() {
     
     setIsSigningUp(true)
     try {
-      const { data, error } = await signUp.email({
+      const result = await signUp.email({
         email: signUpData.email,
         password: signUpData.password,
         name: signUpData.name,
       })
       
-      if (error) {
-        throw new Error(error.message)
+      if (result.error) {
+        throw new Error(result.error.message || "Sign up failed")
       }
       
       toast({ title: "Account created!", description: "Welcome to Recrutas!" })

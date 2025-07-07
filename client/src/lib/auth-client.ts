@@ -54,22 +54,15 @@ export const signOut = async () => {
   }
 }
 
-// Custom hook to use our session endpoint
+// Use Better Auth's built-in session hook
 function useCustomSession() {
-  return useQuery({
-    queryKey: ['/api/session'],
-    queryFn: async () => {
-      const response = await fetch('/api/session', {
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        return null;
-      }
-      return response.json();
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const betterAuthSession = useSessionRaw();
+  
+  return {
+    data: betterAuthSession.data,
+    isLoading: betterAuthSession.isPending,
+    error: betterAuthSession.error,
+  };
 }
 
 // Create a wrapper for useSession that provides compatibility with existing components
