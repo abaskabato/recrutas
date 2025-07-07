@@ -76,23 +76,41 @@ export default function AuthPage() {
     
     setIsSigningUp(true)
     try {
+      console.log('Attempting sign up with data:', {
+        email: signUpData.email,
+        name: signUpData.name,
+        password: '***'
+      });
+      
       const result = await signUp.email({
         email: signUpData.email,
         password: signUpData.password,
         name: signUpData.name,
       })
       
-      if (result.error) {
+      console.log('Sign up result:', result);
+      
+      if (result?.error) {
+        console.error('Sign up error details:', result.error);
         throw new Error(result.error.message || "Sign up failed")
       }
       
-      toast({ title: "Account created!", description: "Welcome to Recrutas!" })
+      if (!result?.data && !result?.user) {
+        console.error('No user data returned from sign up');
+        throw new Error("Account creation failed - no user data returned");
+      }
+      
+      toast({ 
+        title: "Account created!", 
+        description: `Welcome to Recrutas, ${result?.data?.user?.name || signUpData.name}!` 
+      })
       
       // Force refresh to load new session
       setTimeout(() => {
         window.location.href = '/'
       }, 1000)
     } catch (error: any) {
+      console.error('Sign up catch error:', error);
       toast({
         title: "Sign up failed",
         description: error.message || "Failed to create account",

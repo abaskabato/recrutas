@@ -111,6 +111,7 @@ export function setupBetterAuth(app: Express) {
   
   app.all("/api/auth/*", async (req, res) => {
     console.log('Better Auth request received:', req.method, req.url);
+    console.log('Request body:', req.body);
     try {
       const protocol = req.protocol || 'http'
       const host = req.get('host') || 'localhost:5000'

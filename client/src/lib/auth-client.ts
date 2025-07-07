@@ -24,6 +24,23 @@ export const authClient = createAuthClient({
   },
 })
 
+// Debug wrapper to log authentication calls
+const originalSignUp = authClient.signUp;
+authClient.signUp = {
+  ...originalSignUp,
+  email: async (data: any) => {
+    console.log('🔐 Sign Up called with:', { email: data.email, name: data.name });
+    try {
+      const result = await originalSignUp.email(data);
+      console.log('🔐 Sign Up result:', result);
+      return result;
+    } catch (error) {
+      console.error('🔐 Sign Up error caught:', error);
+      throw error;
+    }
+  }
+};
+
 export const {
   signIn,
   signUp,
