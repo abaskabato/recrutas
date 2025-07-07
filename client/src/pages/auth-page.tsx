@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect, Link } from "wouter"
 import { Loader2, ArrowLeft } from "lucide-react"
-import { authClient } from "@/lib/auth-client"
+import { authClient, signIn, signUp, signOut } from "@/lib/auth-client"
 
 export default function AuthPage() {
   const { data: session } = authClient.useSession()
@@ -37,27 +37,21 @@ export default function AuthPage() {
     e.preventDefault()
     setIsSigningIn(true)
     
-    const { data, error } = await authClient.signIn.email({
-      email: signInData.email,
-      password: signInData.password,
-      rememberMe,
-      callbackURL: "/"
-    }, {
-      onRequest: () => {
-        console.log('Sign in request started')
-      },
-      onSuccess: () => {
-        toast({ title: "Welcome back!", description: "Successfully signed in." })
-        // Session will automatically update, no need to force reload
-      },
-      onError: (ctx) => {
-        toast({
-          title: "Sign in failed",
-          description: ctx.error.message || "Invalid email or password",
-          variant: "destructive",
-        })
-      }
-    })
+    try {
+      console.log('Sign in request started')
+      const result = await signIn(signInData.email, signInData.password)
+      
+      toast({ title: "Welcome back!", description: "Successfully signed in." })
+      
+      // Refresh the page to reload the session
+      window.location.reload()
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error.message || "Invalid email or password",
+        variant: "destructive",
+      })
+    }
     
     setIsSigningIn(false)
   }
@@ -76,30 +70,24 @@ export default function AuthPage() {
     
     setIsSigningUp(true)
     
-    const { data, error } = await authClient.signUp.email({
-      email: signUpData.email,
-      password: signUpData.password,
-      name: signUpData.name,
-      callbackURL: "/"
-    }, {
-      onRequest: () => {
-        console.log('Sign up request started')
-      },
-      onSuccess: () => {
-        toast({ 
-          title: "Account created!", 
-          description: `Welcome to Recrutas, ${signUpData.name}!` 
-        })
-        // Session will automatically update, no need to force reload
-      },
-      onError: (ctx) => {
-        toast({
-          title: "Sign up failed",
-          description: ctx.error.message || "Failed to create account",
-          variant: "destructive",
-        })
-      }
-    })
+    try {
+      console.log('Sign up request started')
+      const result = await signUp(signUpData.email, signUpData.password, signUpData.name)
+      
+      toast({ 
+        title: "Account created!", 
+        description: `Welcome to Recrutas, ${signUpData.name}!` 
+      })
+      
+      // Refresh the page to reload the session
+      window.location.reload()
+    } catch (error: any) {
+      toast({
+        title: "Sign up failed",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      })
+    }
     
     setIsSigningUp(false)
   }

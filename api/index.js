@@ -141,12 +141,10 @@ export default async function handler(req, res) {
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
         console.log('Drizzle instance created');
 
-        // Better Auth configuration - Simplified for Vercel
+        // Ultra-minimal Better Auth for debugging (no database)
         const auth = betterAuth({
-          database: db,
           secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
           baseURL: 'https://recrutas.vercel.app',
-          trustedOrigins: ["https://recrutas.vercel.app", "http://localhost:5000"],
           
           emailAndPassword: {
             enabled: true,
@@ -286,11 +284,37 @@ export default async function handler(req, res) {
         
         const webRequest = new Request(fullUrl, requestInit);
 
-        // Process with Better Auth
+        // Process with Better Auth with detailed error catching
         console.log('Calling Better Auth handler...');
+        console.log('WebRequest details:', {
+          method: webRequest.method,
+          url: webRequest.url,
+          hasHeaders: !!webRequest.headers,
+          headerCount: webRequest.headers ? webRequest.headers.size : 0,
+          hasBody: !!webRequest.body
+        });
         
-        const response = await auth.handler(webRequest);
-        console.log('Better Auth response status:', response.status);
+        let response;
+        try {
+          response = await auth.handler(webRequest);
+          console.log('Better Auth handler succeeded with status:', response.status);
+        } catch (handlerError) {
+          console.error('Better Auth handler threw error:', handlerError);
+          console.error('Handler error type:', handlerError.constructor.name);
+          console.error('Handler error message:', handlerError.message);
+          console.error('Handler error stack:', handlerError.stack);
+          console.error('Handler error properties:', Object.getOwnPropertyNames(handlerError));
+          console.error('Handler error details:', JSON.stringify(handlerError, Object.getOwnPropertyNames(handlerError)));
+          
+          // Return specific error response instead of re-throwing
+          return res.status(500).json({
+            error: 'BETTER_AUTH_HANDLER_ERROR',
+            message: handlerError.message,
+            type: handlerError.constructor.name,
+            details: handlerError.stack?.split('\n').slice(0, 3).join('\n'),
+            timestamp: new Date().toISOString()
+          });
+        }
         
         // Handle Better Auth response
         res.status(response.status);
@@ -304,7 +328,10 @@ export default async function handler(req, res) {
         
         // Get and send response body
         const responseText = await response.text();
-        console.log('Better Auth response text:', responseText.substring(0, 200));
+        console.log('Better Auth response status:', response.status);
+        console.log('Better Auth response headers:', Object.fromEntries(response.headers.entries()));
+        console.log('Better Auth response text:', responseText.substring(0, 500));
+        
         if (responseText) {
           res.send(responseText);
         } else {
