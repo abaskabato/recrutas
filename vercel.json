@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/fallback-auth.js"
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",

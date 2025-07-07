@@ -119,10 +119,15 @@ export default async function handler(req, res) {
 
         // Better Auth configuration
         const auth = betterAuth({
+          // Core configuration
+          secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
+          baseURL: process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app',
+          
           database: drizzleAdapter(db, {
             provider: "pg",
             schema: { user: users, session: sessions, account: accounts, verification: verifications },
           }),
+          
           emailAndPassword: {
             enabled: true,
             requireEmailVerification: false,
@@ -130,6 +135,7 @@ export default async function handler(req, res) {
             maxPasswordLength: 128,
             autoSignIn: true,
           },
+          
           user: {
             additionalFields: {
               firstName: { type: "string", required: false },
@@ -139,25 +145,36 @@ export default async function handler(req, res) {
               profileComplete: { type: "boolean", required: false, defaultValue: false },
             },
           },
+          
           session: {
-            cookieCache: { enabled: true, maxAge: 30 * 60 },
-            cookieOptions: {
-              httpOnly: false,
-              secure: true,
-              sameSite: "lax",
-              path: "/",
+            expiresIn: 604800, // 7 days
+            updateAge: 86400, // 1 day
+            cookieCache: { 
+              enabled: true, 
+              maxAge: 30 * 60 // 30 minutes
             },
           },
+          
           trustedOrigins: [
             "http://localhost:5000",
             "https://recrutas.vercel.app",
             "https://recrutas-git-main-abas-kabatos-projects.vercel.app",
             "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
           ],
+          
+          advanced: {
+            useSecureCookies: true,
+            defaultCookieAttributes: {
+              httpOnly: false, // Allow client-side access for auth client
+              secure: true,
+              sameSite: "lax",
+              path: "/",
+            },
+          },
         });
 
         authInstance = auth;
-        console.log('Better Auth initialized successfully');
+        console.log('Better Auth initialized successfully with secret:', !!process.env.BETTER_AUTH_SECRET || !!process.env.SESSION_SECRET);
         
         // Test database connection
         const testUser = await db.select().from(users).limit(1).catch(err => {
@@ -165,6 +182,7 @@ export default async function handler(req, res) {
           return [];
         });
         console.log('Database connection test:', testUser.length > 0 ? 'SUCCESS' : 'NO_DATA');
+        console.log('Auth configuration - baseURL:', process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app');
         
         return auth;
       } catch (error) {
