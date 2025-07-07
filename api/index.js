@@ -58,18 +58,25 @@ export default async function handler(req, res) {
           import("ws")
         ]);
         
-        // Schema definition
-        const user = pgTable("user", {
+        // Schema definition - matches the existing database structure
+        const users = pgTable("users", {
           id: text("id").primaryKey(),
           name: text("name").notNull(),
           email: text("email").notNull().unique(),
           emailVerified: boolean("emailVerified").notNull().default(false),
           image: text("image"),
-          createdAt: timestamp("createdAt").notNull().defaultNow(),
-          updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+          createdAt: timestamp("createdAt").notNull(),
+          updatedAt: timestamp("updatedAt").notNull(),
+          // Custom fields from our platform schema
+          firstName: text("first_name"),
+          lastName: text("last_name"),
+          phoneNumber: text("phone_number"),
+          role: text("role"),
+          profileComplete: boolean("profile_complete").default(false),
+          profileImageUrl: text("profile_image_url"),
         });
 
-        const session = pgTable("session", {
+        const sessions = pgTable("sessions", {
           id: text("id").primaryKey(),
           expiresAt: timestamp("expiresAt").notNull(),
           token: text("token").notNull().unique(),
@@ -77,14 +84,14 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt").notNull(),
           ipAddress: text("ipAddress"),
           userAgent: text("userAgent"),
-          userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
+          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
         });
 
-        const account = pgTable("account", {
+        const accounts = pgTable("accounts", {
           id: text("id").primaryKey(),
           accountId: text("accountId").notNull(),
           providerId: text("providerId").notNull(),
-          userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
+          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
           accessToken: text("accessToken"),
           refreshToken: text("refreshToken"),
           idToken: text("idToken"),
@@ -96,7 +103,7 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt").notNull(),
         });
 
-        const verification = pgTable("verification", {
+        const verifications = pgTable("verifications", {
           id: text("id").primaryKey(),
           identifier: text("identifier").notNull(),
           value: text("value").notNull(),
@@ -108,19 +115,29 @@ export default async function handler(req, res) {
         // Database setup
         neonConfig.webSocketConstructor = ws.default;
         const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-        const db = drizzle({ client: pool, schema: { user, session, account, verification } });
+        const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
 
         // Better Auth configuration
         const auth = betterAuth({
           database: drizzleAdapter(db, {
             provider: "pg",
-            schema: { user, session, account, verification },
+            schema: { user: users, session: sessions, account: accounts, verification: verifications },
           }),
           emailAndPassword: {
             enabled: true,
             requireEmailVerification: false,
             minPasswordLength: 6,
+            maxPasswordLength: 128,
             autoSignIn: true,
+          },
+          user: {
+            additionalFields: {
+              firstName: { type: "string", required: false },
+              lastName: { type: "string", required: false },
+              phoneNumber: { type: "string", required: false },
+              role: { type: "string", required: false },
+              profileComplete: { type: "boolean", required: false, defaultValue: false },
+            },
           },
           session: {
             cookieCache: { enabled: true, maxAge: 30 * 60 },
