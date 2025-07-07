@@ -190,10 +190,6 @@ export default async function handler(req, res) {
           session: {
             expiresIn: 604800, // 7 days
             updateAge: 86400, // 1 day
-            cookieCache: {
-              enabled: true,
-              maxAge: 60 * 5 // 5 minutes
-            }
           },
           
           trustedOrigins: [
@@ -204,10 +200,10 @@ export default async function handler(req, res) {
           ],
           
           advanced: {
-            useSecureCookies: true,
+            useSecureCookies: process.env.NODE_ENV === 'production',
             defaultCookieAttributes: {
-              httpOnly: true,
-              secure: true,
+              httpOnly: false,
+              secure: process.env.NODE_ENV === 'production',
               sameSite: "lax",
               path: "/",
             },
@@ -218,34 +214,32 @@ export default async function handler(req, res) {
         console.log('Better Auth initialized successfully with secret:', !!process.env.BETTER_AUTH_SECRET || !!process.env.SESSION_SECRET);
         
         // Skip database test in serverless to reduce cold start time
+        console.log('Better Auth initialized successfully');
         console.log('Auth configuration - baseURL:', process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app');
-        console.log('Database configured - URL exists:', !!process.env.DATABASE_URL);
         
         return auth;
       } catch (error) {
-        console.error('Better Auth initialization failed:', error);
+        console.error('Better Auth initialization failed:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
         throw error;
       }
     };
 
-    // Initialize Better Auth once for the entire app instance
+    // Skip pre-initialization to avoid cold start timeout
     let betterAuthInstance = null;
-    
-    try {
-      betterAuthInstance = await initializeBetterAuth();
-      console.log('Better Auth pre-initialized for app instance');
-    } catch (error) {
-      console.error('Failed to pre-initialize Better Auth:', error);
-    }
 
-    // Better Auth handler with working Neon database connection
+    // Better Auth handler optimized for serverless
     app.all('/api/auth/*', async (req, res) => {
-      console.log('Auth endpoint hit:', req.method, req.url, 'hasAuth:', !!betterAuthInstance);
+      console.log('Auth endpoint:', req.method, req.url);
       
       try {
-        // Use pre-initialized instance or fallback to initialize
-        const auth = betterAuthInstance || await initializeBetterAuth();
-        console.log('Better Auth instance ready');
+        // Initialize on demand for better cold start performance
+        if (!betterAuthInstance) {
+          console.log('Initializing Better Auth...');
+          betterAuthInstance = await initializeBetterAuth();
+        }
+        const auth = betterAuthInstance;
         
         // Build proper URL for the request - CRITICAL: Use the exact URL structure Better Auth expects
         const protocol = req.headers['x-forwarded-proto'] || (req.connection?.encrypted ? 'https' : 'http');
@@ -322,15 +316,15 @@ export default async function handler(req, res) {
           }
         }
       } catch (error) {
-        console.error('Better Auth handler error:', error);
-        console.error('Error stack:', error.stack);
+        console.error('Better Auth handler error:', error.message);
+        console.error('Handler error stack:', error.stack);
+        console.error('Request details:', { url: req.url, method: req.method });
         res.status(500).json({
-          error: 'INTERNAL_ERROR',
-          message: 'Authentication service temporarily unavailable',
+          error: 'AUTH_HANDLER_ERROR',
+          message: 'Better Auth handler failed',
           details: error.message,
-          url: req.url,
-          method: req.method,
-          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          type: error.constructor.name,
+          timestamp: new Date().toISOString()
         });
       }
     });
