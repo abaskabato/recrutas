@@ -6,10 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect, Link } from "wouter"
 import { Loader2, ArrowLeft } from "lucide-react"
-import { signIn, signUp, useSession } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 export default function AuthPage() {
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   const { toast } = useToast()
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
@@ -36,47 +36,35 @@ export default function AuthPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSigningIn(true)
-    try {
-      // Direct API call for sign in
-      const response = await fetch('/api/auth/sign-in/email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: signInData.email,
-          password: signInData.password,
-        }),
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Sign in failed: ${errorText}`);
+    
+    const { data, error } = await authClient.signIn.email({
+      email: signInData.email,
+      password: signInData.password,
+      rememberMe,
+      callbackURL: "/"
+    }, {
+      onRequest: () => {
+        console.log('Sign in request started')
+      },
+      onSuccess: () => {
+        toast({ title: "Welcome back!", description: "Successfully signed in." })
+        // Session will automatically update, no need to force reload
+      },
+      onError: (ctx) => {
+        toast({
+          title: "Sign in failed",
+          description: ctx.error.message || "Invalid email or password",
+          variant: "destructive",
+        })
       }
-      
-      const result = await response.json();
-      console.log('Sign in result:', result);
-      
-      toast({ title: "Welcome back!", description: "Successfully signed in." })
-      
-      // Force refresh to load new session
-      setTimeout(() => {
-        window.location.href = '/'
-      }, 1000)
-    } catch (error: any) {
-      toast({
-        title: "Sign in failed",
-        description: error.message || "Invalid email or password",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSigningIn(false)
-    }
+    })
+    
+    setIsSigningIn(false)
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    
     if (signUpData.password !== signUpData.confirmPassword) {
       toast({
         title: "Password mismatch",
@@ -87,61 +75,33 @@ export default function AuthPage() {
     }
     
     setIsSigningUp(true)
-    try {
-      console.log('Attempting sign up with data:', {
-        email: signUpData.email,
-        name: signUpData.name,
-        password: '***'
-      });
-      
-      // Direct API call as fallback to Better Auth client
-      const response = await fetch('/api/auth/sign-up/email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: signUpData.email,
-          password: signUpData.password,
-          name: signUpData.name,
-        }),
-        credentials: 'include',
-      });
-      
-      console.log('Direct API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Direct API error:', errorText);
-        throw new Error(`Sign up failed: ${errorText}`);
+    
+    const { data, error } = await authClient.signUp.email({
+      email: signUpData.email,
+      password: signUpData.password,
+      name: signUpData.name,
+      callbackURL: "/"
+    }, {
+      onRequest: () => {
+        console.log('Sign up request started')
+      },
+      onSuccess: () => {
+        toast({ 
+          title: "Account created!", 
+          description: `Welcome to Recrutas, ${signUpData.name}!` 
+        })
+        // Session will automatically update, no need to force reload
+      },
+      onError: (ctx) => {
+        toast({
+          title: "Sign up failed",
+          description: ctx.error.message || "Failed to create account",
+          variant: "destructive",
+        })
       }
-      
-      const result = await response.json();
-      console.log('Direct API result:', result);
-      
-      if (!result.user && !result.token) {
-        throw new Error("Account creation failed - no user data returned");
-      }
-      
-      toast({ 
-        title: "Account created!", 
-        description: `Welcome to Recrutas, ${result?.user?.name || signUpData.name}!` 
-      })
-      
-      // Force refresh to load new session
-      setTimeout(() => {
-        window.location.href = '/'
-      }, 1000)
-    } catch (error: any) {
-      console.error('Sign up catch error:', error);
-      toast({
-        title: "Sign up failed",
-        description: error.message || "Failed to create account",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSigningUp(false)
-    }
+    })
+    
+    setIsSigningUp(false)
   }
 
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'microsoft') => {
