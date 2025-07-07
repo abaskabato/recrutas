@@ -158,6 +158,14 @@ export default async function handler(req, res) {
 
         authInstance = auth;
         console.log('Better Auth initialized successfully');
+        
+        // Test database connection
+        const testUser = await db.select().from(users).limit(1).catch(err => {
+          console.error('Database connection test failed:', err);
+          return [];
+        });
+        console.log('Database connection test:', testUser.length > 0 ? 'SUCCESS' : 'NO_DATA');
+        
         return auth;
       } catch (error) {
         console.error('Better Auth initialization failed:', error);
