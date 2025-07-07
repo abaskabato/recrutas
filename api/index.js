@@ -149,14 +149,18 @@ export default async function handler(req, res) {
       }
     };
 
-    // Handle all auth routes
+    // Handle all auth routes with debugging
     app.all('/api/auth/*', async (req, res) => {
+      console.log('Auth route hit:', req.method, req.url);
       try {
         const auth = await initializeBetterAuth();
+        console.log('Better Auth initialized successfully');
         
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host;
         const url = new URL(req.url, `${protocol}://${host}`);
+        
+        console.log('Processing auth request:', url.toString());
         
         const headers = new Headers();
         Object.entries(req.headers).forEach(([key, value]) => {
@@ -180,6 +184,7 @@ export default async function handler(req, res) {
         });
 
         const response = await auth.handler(webRequest);
+        console.log('Auth response:', response.status);
         
         res.status(response.status);
         response.headers.forEach((value, key) => {
@@ -196,9 +201,15 @@ export default async function handler(req, res) {
         console.error('Auth error:', error);
         res.status(500).json({
           error: 'INTERNAL_ERROR',
-          message: 'Authentication service unavailable'
+          message: 'Authentication service unavailable',
+          details: error.message
         });
       }
+    });
+
+    // Fallback test route to verify routing
+    app.get('/api/auth/test', (req, res) => {
+      res.json({ message: 'Auth routing works', url: req.url });
     });
     
     // Health check
