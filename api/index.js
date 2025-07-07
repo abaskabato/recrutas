@@ -112,9 +112,24 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt"),
         });
 
-        // Database setup
+        // Database setup - Fixed for Vercel serverless
+        if (!process.env.DATABASE_URL) {
+          throw new Error('DATABASE_URL environment variable is required');
+        }
+        
+        // Configure Neon for serverless environment
         neonConfig.webSocketConstructor = ws.default;
-        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        neonConfig.useSecureWebSocket = true;
+        neonConfig.pipelineConnect = false;
+        
+        const pool = new Pool({ 
+          connectionString: process.env.DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+          max: 1, // Limit connections for serverless
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 10000,
+        });
+        
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
 
         // Better Auth configuration - Fixed for Vercel serverless
@@ -342,6 +357,10 @@ export default async function handler(req, res) {
             envVars: Object.keys(process.env).filter(key => key.includes('DB') || key.includes('DATABASE'))
           });
         }
+        
+        // Test basic connection first
+        const testQuery = await pool.query('SELECT 1 as test');
+        console.log('Basic connection test:', testQuery.rows);
         
         // Simple database test without complex imports
         const { Pool } = await import('@neondatabase/serverless');
