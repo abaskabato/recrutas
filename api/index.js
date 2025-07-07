@@ -48,7 +48,7 @@ export default async function handler(req, res) {
           const { Pool, neonConfig } = await import('@neondatabase/serverless');
           const { drizzle } = await import('drizzle-orm/neon-serverless');
           const ws = await import("ws");
-          const schema = await import("../shared/schema.js");
+          const schema = await import("../shared/schema.ts");
 
           // Database setup
           neonConfig.webSocketConstructor = ws.default;
