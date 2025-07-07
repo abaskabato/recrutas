@@ -175,13 +175,17 @@ export default async function handler(req, res) {
 
     // Better Auth handler with comprehensive error handling
     app.all('/api/auth/*', async (req, res) => {
+      console.log('Auth endpoint hit:', req.method, req.url);
+      
       try {
         const auth = await initializeBetterAuth();
+        console.log('Better Auth instance obtained successfully');
         
         // Build proper URL for the request
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host;
         const url = new URL(req.url, `${protocol}://${host}`);
+        console.log('Processing auth request to:', url.toString());
         
         // Create headers object
         const headers = new Headers();
@@ -198,6 +202,7 @@ export default async function handler(req, res) {
         if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
           body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
           headers.set('Content-Type', 'application/json');
+          console.log('Request body:', body);
         }
 
         // Create Web API Request object
@@ -208,7 +213,9 @@ export default async function handler(req, res) {
         });
 
         // Process with Better Auth
+        console.log('Calling Better Auth handler...');
         const response = await auth.handler(webRequest);
+        console.log('Better Auth response status:', response.status);
         
         // Send response
         res.status(response.status);
@@ -218,16 +225,20 @@ export default async function handler(req, res) {
         
         if (response.body) {
           const text = await response.text();
+          console.log('Response body length:', text.length);
           res.send(text);
         } else {
+          console.log('No response body');
           res.end();
         }
       } catch (error) {
         console.error('Better Auth handler error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
           error: 'INTERNAL_ERROR',
           message: 'Authentication service temporarily unavailable',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+          details: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
     });
@@ -241,6 +252,44 @@ export default async function handler(req, res) {
         auth: 'Better Auth enabled',
         dbConfigured: !!process.env.DATABASE_URL
       });
+    });
+    
+    // Debug endpoint for troubleshooting
+    app.get('/api/debug', async (req, res) => {
+      try {
+        console.log('Debug endpoint accessed');
+        
+        const debugInfo = {
+          environment: {
+            nodeEnv: process.env.NODE_ENV,
+            hasDatabaseUrl: !!process.env.DATABASE_URL,
+            hasBetterAuthSecret: !!process.env.BETTER_AUTH_SECRET,
+            platform: 'vercel'
+          },
+          timestamp: new Date().toISOString(),
+          message: 'Debug information for authentication troubleshooting'
+        };
+        
+        // Test Better Auth initialization
+        try {
+          await initializeBetterAuth();
+          debugInfo.betterAuth = { status: 'initialized', error: null };
+        } catch (authError) {
+          debugInfo.betterAuth = { 
+            status: 'failed', 
+            error: authError.message,
+            stack: authError.stack 
+          };
+        }
+        
+        res.json(debugInfo);
+      } catch (error) {
+        console.error('Debug endpoint error:', error);
+        res.status(500).json({ 
+          error: 'Debug endpoint failed', 
+          message: error.message 
+        });
+      }
     });
     
     // Database connection test
