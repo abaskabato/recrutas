@@ -146,15 +146,41 @@ export default async function handler(req, res) {
             minPasswordLength: 6,
             maxPasswordLength: 128,
             autoSignIn: true,
+            sendResetPassword: async ({ user, url, token }) => {
+              // Log for development - no email service required
+              console.log(`Password reset requested for ${user.email}`);
+              console.log(`Reset URL: ${url}`);
+              console.log(`Reset Token: ${token}`);
+            },
           },
           
           user: {
             additionalFields: {
-              firstName: { type: "string", required: false },
-              lastName: { type: "string", required: false },
-              phoneNumber: { type: "string", required: false },
-              role: { type: "string", required: false },
-              profileComplete: { type: "boolean", required: false, defaultValue: false },
+              firstName: { 
+                type: "string", 
+                required: false,
+                defaultValue: null
+              },
+              lastName: { 
+                type: "string", 
+                required: false,
+                defaultValue: null
+              },
+              phoneNumber: { 
+                type: "string", 
+                required: false,
+                defaultValue: null
+              },
+              role: { 
+                type: "string", 
+                required: false,
+                defaultValue: "candidate"
+              },
+              profileComplete: { 
+                type: "boolean", 
+                required: false, 
+                defaultValue: false 
+              },
             },
           },
           
@@ -209,7 +235,7 @@ export default async function handler(req, res) {
       console.error('Failed to pre-initialize Better Auth:', error);
     }
 
-    // Better Auth handler with comprehensive error handling - Fixed deployment
+    // Better Auth handler with comprehensive error handling - Auth config fixed
     app.all('/api/auth/*', async (req, res) => {
       console.log('Auth endpoint hit:', req.method, req.url, 'hasAuth:', !!betterAuthInstance);
       
