@@ -56,7 +56,8 @@ export default async function handler(req, res) {
           import("drizzle-orm/pg-core")
         ]);
         
-        const { Pool } = pgModule;
+        // Handle different export patterns for pg module in serverless environments
+        const Pool = pgModule.Pool || pgModule.default?.Pool || pgModule.default;
         
         // Schema definition - matches the existing database structure
         const users = pgTable("users", {
@@ -356,7 +357,8 @@ export default async function handler(req, res) {
         
         // Simple database test for Supabase
         const pgTestModule = await import('pg');
-        const testPool = new pgTestModule.Pool({ 
+        const TestPool = pgTestModule.Pool || pgTestModule.default?.Pool || pgTestModule.default;
+        const testPool = new TestPool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false }
         });
