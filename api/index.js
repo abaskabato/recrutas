@@ -41,21 +41,19 @@ export default async function handler(req, res) {
       if (authInstance) return authInstance;
       
       try {
-        // Pre-load all dependencies to catch import errors early
+        // Pre-load all dependencies to catch import errors early - Supabase compatible
         const [
           { betterAuth },
           { drizzleAdapter },
-          { Pool, neonConfig },
+          { Pool },
           { drizzle },
-          { pgTable, text, timestamp, boolean },
-          ws
+          { pgTable, text, timestamp, boolean }
         ] = await Promise.all([
           import("better-auth"),
           import("better-auth/adapters/drizzle"),
-          import('@neondatabase/serverless'),
-          import('drizzle-orm/neon-serverless'),
-          import("drizzle-orm/pg-core"),
-          import("ws")
+          import('pg'),
+          import('drizzle-orm/node-postgres'),
+          import("drizzle-orm/pg-core")
         ]);
         
         // Schema definition - matches the existing database structure
@@ -112,13 +110,14 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt"),
         });
 
-        // Database setup - Supabase for serverless
+        // Database setup - Supabase with standard PostgreSQL
         if (!process.env.DATABASE_URL) {
           throw new Error('DATABASE_URL environment variable is required');
         }
         
-        // Supabase PostgreSQL connection optimized for serverless
-        const pool = new Pool({ 
+        // Use standard pg Pool for Supabase compatibility
+        const { Pool: PgPool } = await import('pg');
+        const pool = new PgPool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false },
           max: 1, // Single connection for serverless
@@ -355,8 +354,8 @@ export default async function handler(req, res) {
         }
         
         // Simple database test for Supabase
-        const { Pool } = await import('@neondatabase/serverless');
-        const testPool = new Pool({ 
+        const { Pool: PgPool } = await import('pg');
+        const testPool = new PgPool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false }
         });
