@@ -112,20 +112,16 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt"),
         });
 
-        // Database setup - Fixed for Vercel serverless
+        // Database setup - Supabase for serverless
         if (!process.env.DATABASE_URL) {
           throw new Error('DATABASE_URL environment variable is required');
         }
         
-        // Configure Neon for serverless environment
-        neonConfig.webSocketConstructor = ws.default;
-        neonConfig.useSecureWebSocket = true;
-        neonConfig.pipelineConnect = false;
-        
+        // Supabase PostgreSQL connection optimized for serverless
         const pool = new Pool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false },
-          max: 1, // Limit connections for serverless
+          max: 1, // Single connection for serverless
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 10000,
         });
@@ -362,11 +358,14 @@ export default async function handler(req, res) {
         const testQuery = await pool.query('SELECT 1 as test');
         console.log('Basic connection test:', testQuery.rows);
         
-        // Simple database test without complex imports
+        // Simple database test for Supabase
         const { Pool } = await import('@neondatabase/serverless');
-        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-        const result = await pool.query('SELECT 1 as test');
-        await pool.end();
+        const testPool = new Pool({ 
+          connectionString: process.env.DATABASE_URL,
+          ssl: { rejectUnauthorized: false }
+        });
+        const result = await testPool.query('SELECT 1 as test');
+        await testPool.end();
         
         res.json({ 
           success: true, 

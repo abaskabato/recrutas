@@ -23,9 +23,9 @@ Recrutas connects job seekers directly with hiring managers. No recruiters, no m
 - **Authentication**: Better Auth for session management and OAuth integration
 
 ### Database Layer
-- **Primary Database**: PostgreSQL with Neon serverless hosting
+- **Primary Database**: PostgreSQL with Supabase hosting
 - **ORM**: Drizzle ORM for type-safe database operations
-- **Connection Management**: Connection pooling with @neondatabase/serverless
+- **Connection Management**: Connection pooling optimized for serverless
 - **Schema Management**: Drizzle Kit for migrations and schema evolution
 
 ## Key Components
