@@ -60,6 +60,7 @@ export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
+  token: text("token").notNull().unique(),
   createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
   ipAddress: text("ipAddress"),

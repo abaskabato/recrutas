@@ -21,31 +21,6 @@ export const authClient = createAuthClient({
   baseURL: window.location.origin + "/api/auth",
   fetchOptions: {
     credentials: 'include',
-    onRequest(context) {
-      // Debug logging for auth requests
-      console.log('🔐 Auth Request:', context.request.method, context.request.url);
-    },
-    onResponse(context) {
-      // Debug logging for auth responses
-      console.log('🔐 Auth Response:', context.response.status, context.response.url);
-      if (context.response.status >= 400) {
-        console.error('🔐 Auth Error Response:', context.response.status, context.response.statusText);
-      }
-    },
-    onError(context) {
-      // Enhanced error logging for debugging
-      console.error('🔐 Auth Error:', {
-        error: context.error,
-        status: context.response?.status,
-        url: context.request.url,
-        method: context.request.method
-      });
-      
-      // Silently handle expected authentication errors
-      if (context.response?.status === 401 || context.response?.status === 403) {
-        return;
-      }
-    }
   },
 })
 
