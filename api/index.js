@@ -191,62 +191,81 @@ export default async function handler(req, res) {
       }
     };
 
+    // Initialize Better Auth once for the entire app instance
+    let betterAuthInstance = null;
+    
+    try {
+      betterAuthInstance = await initializeBetterAuth();
+      console.log('Better Auth pre-initialized for app instance');
+    } catch (error) {
+      console.error('Failed to pre-initialize Better Auth:', error);
+    }
+
     // Better Auth handler with comprehensive error handling
     app.all('/api/auth/*', async (req, res) => {
-      console.log('Auth endpoint hit:', req.method, req.url);
+      console.log('Auth endpoint hit:', req.method, req.url, 'hasAuth:', !!betterAuthInstance);
       
       try {
-        const auth = await initializeBetterAuth();
-        console.log('Better Auth instance obtained successfully');
+        // Use pre-initialized instance or fallback to initialize
+        const auth = betterAuthInstance || await initializeBetterAuth();
+        console.log('Better Auth instance ready');
         
-        // Build proper URL for the request
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
-        const host = req.headers['x-forwarded-host'] || req.headers.host;
-        const url = new URL(req.url, `${protocol}://${host}`);
-        console.log('Processing auth request to:', url.toString());
+        // Build proper URL for the request - CRITICAL: Use the exact URL structure Better Auth expects
+        const protocol = req.headers['x-forwarded-proto'] || (req.connection?.encrypted ? 'https' : 'http');
+        const host = req.headers['x-forwarded-host'] || req.headers.host || 'recrutas.vercel.app';
+        const fullUrl = `${protocol}://${host}${req.url}`;
+        console.log('Processing auth request to:', fullUrl);
         
-        // Create headers object
+        // Create headers object properly
         const headers = new Headers();
         Object.entries(req.headers).forEach(([key, value]) => {
           if (typeof value === 'string') {
             headers.set(key, value);
-          } else if (Array.isArray(value)) {
-            headers.set(key, value.join(', '));
+          } else if (Array.isArray(value) && value.length > 0) {
+            headers.set(key, value[0]);
           }
         });
 
-        // Handle request body
-        let body;
-        if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
-          body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-          headers.set('Content-Type', 'application/json');
-          console.log('Request body:', body);
+        // Handle request body properly
+        let body = null;
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          if (req.body && typeof req.body === 'object') {
+            body = JSON.stringify(req.body);
+            headers.set('Content-Type', 'application/json');
+          } else if (req.body && typeof req.body === 'string') {
+            body = req.body;
+          }
+          console.log('Request body prepared:', !!body);
         }
 
-        // Create Web API Request object
-        const webRequest = new Request(url.toString(), {
+        // Create Web API Request object with proper configuration
+        const webRequest = new Request(fullUrl, {
           method: req.method,
           headers,
           body,
+          duplex: body ? 'half' : undefined,
         });
 
         // Process with Better Auth
-        console.log('Calling Better Auth handler...');
+        console.log('Calling Better Auth handler with URL:', fullUrl);
         const response = await auth.handler(webRequest);
-        console.log('Better Auth response status:', response.status);
+        console.log('Better Auth response status:', response.status, response.statusText);
         
-        // Send response
+        // Send response properly
         res.status(response.status);
+        
+        // Set headers from Better Auth response
         response.headers.forEach((value, key) => {
           res.setHeader(key, value);
         });
         
+        // Handle response body
         if (response.body) {
           const text = await response.text();
-          console.log('Response body length:', text.length);
+          console.log('Response body length:', text.length, 'first 100 chars:', text.substring(0, 100));
           res.send(text);
         } else {
-          console.log('No response body');
+          console.log('No response body - sending empty response');
           res.end();
         }
       } catch (error) {
@@ -256,6 +275,8 @@ export default async function handler(req, res) {
           error: 'INTERNAL_ERROR',
           message: 'Authentication service temporarily unavailable',
           details: error.message,
+          url: req.url,
+          method: req.method,
           stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
