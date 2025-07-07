@@ -15,11 +15,17 @@ const connectionString = process.env.DATABASE_URL?.includes('aws-0-us-east-2.poo
 
 console.log('🔗 Using database connection:', connectionString.replace(/:[^:]*@/, ':***@'));
 
-// Create connection to Supabase
+// Create connection to Supabase with optimized settings
 const client = postgres(connectionString, {
   max: 1, // Use a single connection for serverless
   idle_timeout: 20,
   connect_timeout: 10,
+  statement_timeout: 30000, // 30 seconds
+  query_timeout: 15000, // 15 seconds
+  connection: {
+    application_name: 'recrutas-app',
+  },
+  debug: false, // Disable debug to reduce overhead
 });
 
 export const db = drizzle(client, { schema });

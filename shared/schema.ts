@@ -47,12 +47,12 @@ export const users = pgTable("users", {
   createdAt: timestamp("createdAt").notNull(),
   updatedAt: timestamp("updatedAt").notNull(),
   // Custom fields for our platform
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  phoneNumber: varchar("phone_number"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { enum: ["candidate", "talent_owner"] }),
-  profileComplete: boolean("profile_complete").default(false),
+  firstName: text("firstName"),
+  lastName: text("lastName"),
+  phoneNumber: text("phoneNumber"),
+  profileImageUrl: text("profileImageUrl"),
+  role: text("role").default("candidate"),
+  profileComplete: boolean("profileComplete").default(false),
 });
 
 // Sessions table (Better Auth compatible)
@@ -69,17 +69,19 @@ export const sessions = pgTable("sessions", {
 // Accounts table (Better Auth compatible)
 export const accounts = pgTable("accounts", {
   id: text("id").primaryKey(),
+  accountId: text("accountId").notNull(),
+  providerId: text("providerId").notNull(),
   userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  provider: text("provider").notNull(),
-  providerAccountId: text("providerAccountId").notNull(),
-  refresh_token: text("refresh_token"),
-  access_token: text("access_token"),
-  expires_at: integer("expires_at"),
-  token_type: text("token_type"),
+  type: text("type"),
+  accessToken: text("accessToken"),
+  refreshToken: text("refreshToken"),
+  idToken: text("idToken"),
+  accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
+  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
   scope: text("scope"),
-  id_token: text("id_token"),
-  session_state: text("session_state"),
+  password: text("password"),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
 });
 
 // Verification table (Better Auth compatible)

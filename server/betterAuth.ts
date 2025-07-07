@@ -107,11 +107,15 @@ export const auth = betterAuth({
 })
 
 export function setupBetterAuth(app: Express) {
+  console.log('Setting up Better Auth middleware...');
+  
   app.all("/api/auth/*", async (req, res) => {
+    console.log('Better Auth request received:', req.method, req.url);
     try {
       const protocol = req.protocol || 'http'
       const host = req.get('host') || 'localhost:5000'
       const url = new URL(req.url, `${protocol}://${host}`)
+      console.log('Constructed URL:', url.toString());
       
       // Debug logging for auth requests
       if (req.url.includes('sign-out')) {
@@ -152,8 +156,16 @@ export function setupBetterAuth(app: Express) {
 
       let response;
       try {
+        console.log('Calling auth.handler with request:', {
+          method: webRequest.method,
+          url: webRequest.url,
+          hasBody: !!body,
+          contentType: webRequest.headers.get('content-type')
+        });
         response = await auth.handler(webRequest);
+        console.log('Auth handler response:', response.status);
       } catch (error) {
+        console.error('Auth handler error details:', error.message, error.stack);
         // If auth handler completely fails for sign out, clear cookies anyway
         if (req.url.includes('sign-out')) {
           console.log('Auth handler failed for sign out, clearing cookies manually');
