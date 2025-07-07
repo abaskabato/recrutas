@@ -137,7 +137,12 @@ export default async function handler(req, res) {
           
           database: drizzleAdapter(db, {
             provider: "pg",
-            schema: { user: users, session: sessions, account: accounts, verification: verifications },
+            schema: { 
+              user: users, 
+              session: sessions, 
+              account: accounts, 
+              verification: verifications 
+            },
           }),
           
           emailAndPassword: {
