@@ -34,37 +34,42 @@ export default async function handler(req, res) {
       next();
     });
 
-    // Simplified authentication system for production reliability
-    let dbConnection = null;
+    // Better Auth implementation with error handling and fallback
+    let authInstance = null;
     
-    const getDbConnection = async () => {
-      if (dbConnection) return dbConnection;
+    const initializeBetterAuth = async () => {
+      if (authInstance) return authInstance;
       
       try {
-        const { Pool, neonConfig } = await import('@neondatabase/serverless');
-        const { drizzle } = await import('drizzle-orm/neon-serverless');
-        const { pgTable, text, timestamp, boolean } = await import("drizzle-orm/pg-core");
-        const { eq } = await import("drizzle-orm");
-        const ws = await import("ws");
-        const crypto = await import("crypto");
+        // Pre-load all dependencies to catch import errors early
+        const [
+          { betterAuth },
+          { drizzleAdapter },
+          { Pool, neonConfig },
+          { drizzle },
+          { pgTable, text, timestamp, boolean },
+          ws
+        ] = await Promise.all([
+          import("better-auth"),
+          import("better-auth/adapters/drizzle"),
+          import('@neondatabase/serverless'),
+          import('drizzle-orm/neon-serverless'),
+          import("drizzle-orm/pg-core"),
+          import("ws")
+        ]);
         
-        // Define schema inline
-        const users = pgTable("users", {
+        // Schema definition
+        const user = pgTable("user", {
           id: text("id").primaryKey(),
-          email: text("email").unique().notNull(),
-          emailVerified: timestamp("emailVerified"),
-          name: text("name"),
+          name: text("name").notNull(),
+          email: text("email").notNull().unique(),
+          emailVerified: boolean("emailVerified").notNull().default(false),
           image: text("image"),
-          firstName: text("firstName"),
-          lastName: text("lastName"),
-          phoneNumber: text("phoneNumber"),
-          role: text("role"),
-          profileComplete: boolean("profileComplete").default(false),
-          createdAt: timestamp("createdAt").defaultNow(),
-          updatedAt: timestamp("updatedAt").defaultNow(),
+          createdAt: timestamp("createdAt").notNull().defaultNow(),
+          updatedAt: timestamp("updatedAt").notNull().defaultNow(),
         });
 
-        const sessions = pgTable("sessions", {
+        const session = pgTable("session", {
           id: text("id").primaryKey(),
           expiresAt: timestamp("expiresAt").notNull(),
           token: text("token").notNull().unique(),
@@ -72,14 +77,14 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt").notNull(),
           ipAddress: text("ipAddress"),
           userAgent: text("userAgent"),
-          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+          userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
         });
 
-        const accounts = pgTable("accounts", {
+        const account = pgTable("account", {
           id: text("id").primaryKey(),
           accountId: text("accountId").notNull(),
           providerId: text("providerId").notNull(),
-          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+          userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
           accessToken: text("accessToken"),
           refreshToken: text("refreshToken"),
           idToken: text("idToken"),
@@ -91,172 +96,115 @@ export default async function handler(req, res) {
           updatedAt: timestamp("updatedAt").notNull(),
         });
 
+        const verification = pgTable("verification", {
+          id: text("id").primaryKey(),
+          identifier: text("identifier").notNull(),
+          value: text("value").notNull(),
+          expiresAt: timestamp("expiresAt").notNull(),
+          createdAt: timestamp("createdAt"),
+          updatedAt: timestamp("updatedAt"),
+        });
+
+        // Database setup
         neonConfig.webSocketConstructor = ws.default;
         const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-        const db = drizzle({ client: pool, schema: { users, sessions, accounts } });
+        const db = drizzle({ client: pool, schema: { user, session, account, verification } });
 
-        dbConnection = { db, users, sessions, accounts, eq, crypto };
-        return dbConnection;
+        // Better Auth configuration
+        const auth = betterAuth({
+          database: drizzleAdapter(db, {
+            provider: "pg",
+            schema: { user, session, account, verification },
+          }),
+          emailAndPassword: {
+            enabled: true,
+            requireEmailVerification: false,
+            minPasswordLength: 6,
+            autoSignIn: true,
+          },
+          session: {
+            cookieCache: { enabled: true, maxAge: 30 * 60 },
+            cookieOptions: {
+              httpOnly: false,
+              secure: true,
+              sameSite: "lax",
+              path: "/",
+            },
+          },
+          trustedOrigins: [
+            "http://localhost:5000",
+            "https://recrutas.vercel.app",
+            "https://recrutas-git-main-abas-kabatos-projects.vercel.app",
+            "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
+          ],
+        });
+
+        authInstance = auth;
+        console.log('Better Auth initialized successfully');
+        return auth;
       } catch (error) {
-        console.error('Database connection failed:', error);
+        console.error('Better Auth initialization failed:', error);
         throw error;
       }
     };
 
-    // Sign up endpoint
-    app.post('/api/auth/sign-up/email', async (req, res) => {
+    // Better Auth handler with comprehensive error handling
+    app.all('/api/auth/*', async (req, res) => {
       try {
-        const { db, users, crypto } = await getDbConnection();
-        const { email, password, name } = req.body;
+        const auth = await initializeBetterAuth();
         
-        if (!email || !password || !name) {
-          return res.status(400).json({
-            error: 'MISSING_FIELDS',
-            message: 'Email, password, and name are required'
-          });
-        }
-
-        // Check if user exists
-        const existingUser = await db.select().from(users).where(eq(users.email, email)).limit(1);
-        if (existingUser.length > 0) {
-          return res.status(400).json({
-            error: 'USER_EXISTS',
-            message: 'User with this email already exists'
-          });
-        }
-
-        // Hash password
-        const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+        // Build proper URL for the request
+        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        const url = new URL(req.url, `${protocol}://${host}`);
         
-        // Create user
-        const userId = crypto.randomUUID();
-        const newUser = await db.insert(users).values({
-          id: userId,
-          email,
-          name,
-          profileComplete: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }).returning();
-
-        // Create session
-        const sessionToken = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-        
-        res.cookie('better-auth.session_token', sessionToken, {
-          httpOnly: false,
-          secure: true,
-          sameSite: 'lax',
-          path: '/',
-          expires: expiresAt
-        });
-
-        res.json({
-          user: newUser[0],
-          session: {
-            token: sessionToken,
-            expiresAt: expiresAt.toISOString()
+        // Create headers object
+        const headers = new Headers();
+        Object.entries(req.headers).forEach(([key, value]) => {
+          if (typeof value === 'string') {
+            headers.set(key, value);
+          } else if (Array.isArray(value)) {
+            headers.set(key, value.join(', '));
           }
         });
+
+        // Handle request body
+        let body;
+        if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+          body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+          headers.set('Content-Type', 'application/json');
+        }
+
+        // Create Web API Request object
+        const webRequest = new Request(url.toString(), {
+          method: req.method,
+          headers,
+          body,
+        });
+
+        // Process with Better Auth
+        const response = await auth.handler(webRequest);
+        
+        // Send response
+        res.status(response.status);
+        response.headers.forEach((value, key) => {
+          res.setHeader(key, value);
+        });
+        
+        if (response.body) {
+          const text = await response.text();
+          res.send(text);
+        } else {
+          res.end();
+        }
       } catch (error) {
-        console.error('Sign up error:', error);
+        console.error('Better Auth handler error:', error);
         res.status(500).json({
           error: 'INTERNAL_ERROR',
-          message: 'Sign up failed'
+          message: 'Authentication service temporarily unavailable',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
       }
-    });
-
-    // Sign in endpoint
-    app.post('/api/auth/sign-in/email', async (req, res) => {
-      try {
-        const { db, users, crypto } = await getDbConnection();
-        const { email, password } = req.body;
-        
-        if (!email || !password) {
-          return res.status(400).json({
-            error: 'MISSING_FIELDS',
-            message: 'Email and password are required'
-          });
-        }
-
-        // Find user
-        const user = await db.select().from(users).where(eq(users.email, email)).limit(1);
-        if (user.length === 0) {
-          return res.status(400).json({
-            error: 'INVALID_CREDENTIALS',
-            message: 'Invalid email or password'
-          });
-        }
-
-        // Create session
-        const sessionToken = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-        
-        res.cookie('better-auth.session_token', sessionToken, {
-          httpOnly: false,
-          secure: true,
-          sameSite: 'lax',
-          path: '/',
-          expires: expiresAt
-        });
-
-        res.json({
-          user: user[0],
-          session: {
-            token: sessionToken,
-            expiresAt: expiresAt.toISOString()
-          }
-        });
-      } catch (error) {
-        console.error('Sign in error:', error);
-        res.status(500).json({
-          error: 'INTERNAL_ERROR',
-          message: 'Sign in failed'
-        });
-      }
-    });
-
-    // Session endpoint
-    app.get('/api/auth/session', async (req, res) => {
-      try {
-        const sessionToken = req.cookies?.['better-auth.session_token'];
-        
-        if (!sessionToken) {
-          return res.json({
-            user: null,
-            session: null
-          });
-        }
-
-        const { db, users } = await getDbConnection();
-        
-        // For simplicity, we'll just return a basic session
-        // In production, you'd validate the token against the sessions table
-        res.json({
-          user: {
-            id: 'demo-user',
-            email: 'demo@example.com',
-            name: 'Demo User'
-          },
-          session: {
-            token: sessionToken,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          }
-        });
-      } catch (error) {
-        console.error('Session error:', error);
-        res.json({
-          user: null,
-          session: null
-        });
-      }
-    });
-
-    // Logout endpoint
-    app.post('/api/auth/logout', async (req, res) => {
-      res.clearCookie('better-auth.session_token');
-      res.json({ success: true });
     });
     
     // Health check
