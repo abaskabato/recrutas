@@ -9,11 +9,19 @@ The DATABASE_URL environment variable in Vercel production is incorrect or missi
 
 ## Solution
 
-### Step 1: Get Correct Supabase URL
+### Step 1: Get Your Supabase Database Password
+Since you signed up with GitHub, you need to get your database password:
+
 1. Go to your Supabase project dashboard
-2. Navigate to: Settings → Database → Connection string
-3. Select "Transaction Mode" (not Session Mode)
-4. Copy the connection string, it should look like:
+2. Navigate to: Settings → Database 
+3. Look for "Database Password" section
+4. Click "Generate new password" or "Reset database password"
+5. Copy the generated password and save it securely
+
+### Step 2: Get Connection String
+1. Still in Settings → Database → Connection string
+2. Select "Transaction Mode" (not Session Mode)  
+3. Copy the connection string format:
    ```
    postgresql://postgres.[ref]:[YOUR-PASSWORD]@aws-0-[region].pooler.supabase.com:6543/postgres
    ```
