@@ -30,13 +30,59 @@ export default async function handler(req, res) {
     const { drizzle } = await import('drizzle-orm/neon-serverless');
     const ws = await import("ws");
     
-    // Import schema directly
-    const { 
-      users, 
-      sessions, 
-      accounts, 
-      verifications 
-    } = await import("../shared/schema.ts");
+    // Define schema inline to avoid import issues
+    const { pgTable, text, varchar, timestamp, jsonb, index, boolean } = await import("drizzle-orm/pg-core");
+    
+    const users = pgTable("users", {
+      id: text("id").primaryKey(),
+      email: text("email").unique().notNull(),
+      emailVerified: timestamp("emailVerified"),
+      name: text("name"),
+      image: text("image"),
+      firstName: text("firstName"),
+      lastName: text("lastName"),
+      phoneNumber: text("phoneNumber"),
+      role: text("role"),
+      profileComplete: boolean("profileComplete").default(false),
+      createdAt: timestamp("createdAt").defaultNow(),
+      updatedAt: timestamp("updatedAt").defaultNow(),
+    });
+
+    const sessions = pgTable("sessions", {
+      id: text("id").primaryKey(),
+      expiresAt: timestamp("expiresAt").notNull(),
+      token: text("token").notNull().unique(),
+      createdAt: timestamp("createdAt").notNull(),
+      updatedAt: timestamp("updatedAt").notNull(),
+      ipAddress: text("ipAddress"),
+      userAgent: text("userAgent"),
+      userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    });
+
+    const accounts = pgTable("accounts", {
+      id: text("id").primaryKey(),
+      accountId: text("accountId").notNull(),
+      providerId: text("providerId").notNull(),
+      userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+      accessToken: text("accessToken"),
+      refreshToken: text("refreshToken"),
+      idToken: text("idToken"),
+      accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
+      refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
+      scope: text("scope"),
+      password: text("password"),
+      createdAt: timestamp("createdAt").notNull(),
+      updatedAt: timestamp("updatedAt").notNull(),
+    });
+
+    const verifications = pgTable("verifications", {
+      id: text("id").primaryKey(),
+      identifier: text("identifier").notNull(),
+      value: text("value").notNull(),
+      expiresAt: timestamp("expiresAt").notNull(),
+      createdAt: timestamp("createdAt"),
+      updatedAt: timestamp("updatedAt"),
+    });
 
     // Database setup
     neonConfig.webSocketConstructor = ws.default;
