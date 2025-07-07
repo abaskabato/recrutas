@@ -46,8 +46,29 @@ export default function AuthPage() {
       onRequest: () => {
         console.log('Sign in request started')
       },
-      onSuccess: () => {
+      onSuccess: async () => {
         toast({ title: "Welcome back!", description: "Successfully signed in." })
+        // Give time for session to be established, then redirect
+        setTimeout(async () => {
+          try {
+            // Check user's current role
+            const response = await fetch('/api/auth/get-session');
+            const data = await response.json();
+            
+            if (data?.user?.role === 'candidate') {
+              window.location.href = "/candidate-dashboard";
+            } else if (data?.user?.role === 'talent_owner') {
+              window.location.href = "/talent-dashboard";
+            } else {
+              // No role set, go to role selection
+              window.location.href = "/role-selection";
+            }
+          } catch (error) {
+            console.error('Error checking user role:', error);
+            // Fallback to role selection if we can't determine role
+            window.location.href = "/role-selection";
+          }
+        }, 1000);
       },
       onError: (ctx) => {
         toast({
@@ -89,6 +110,10 @@ export default function AuthPage() {
           title: "Account created!", 
           description: `Welcome to Recrutas, ${signUpData.name}!` 
         })
+        // New users need to select their role
+        setTimeout(() => {
+          window.location.href = "/role-selection";
+        }, 1000);
       },
       onError: (ctx) => {
         toast({
