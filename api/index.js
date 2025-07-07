@@ -141,19 +141,17 @@ export default async function handler(req, res) {
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
         console.log('Drizzle instance created');
 
-        // Ultra-minimal Better Auth for debugging (no database)
+        // Better Auth configured for serverless environment with JWT sessions
         const auth = betterAuth({
           secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
-          baseURL: 'https://recrutas.vercel.app',
-          
+          session: {
+            strategy: "jwt",
+            expiresIn: 60 * 60 * 24 * 7, // 7 days
+            updateAge: 60 * 60 * 24, // 1 day
+          },
           emailAndPassword: {
             enabled: true,
-            sendResetPassword: async ({ user, url, token }) => {
-              // Log for development - no email service required
-              console.log(`Password reset requested for ${user.email}`);
-              console.log(`Reset URL: ${url}`);
-              console.log(`Reset Token: ${token}`);
-            },
+            requireEmailVerification: false,
           },
           
           user: {
@@ -306,12 +304,13 @@ export default async function handler(req, res) {
           console.error('Handler error properties:', Object.getOwnPropertyNames(handlerError));
           console.error('Handler error details:', JSON.stringify(handlerError, Object.getOwnPropertyNames(handlerError)));
           
-          // Return specific error response instead of re-throwing
+          // Return detailed error for debugging
           return res.status(500).json({
             error: 'BETTER_AUTH_HANDLER_ERROR',
             message: handlerError.message,
             type: handlerError.constructor.name,
-            details: handlerError.stack?.split('\n').slice(0, 3).join('\n'),
+            stack: handlerError.stack,
+            cause: handlerError.cause,
             timestamp: new Date().toISOString()
           });
         }
