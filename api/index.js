@@ -240,7 +240,7 @@ export default async function handler(req, res) {
       console.error('Failed to pre-initialize Better Auth:', error);
     }
 
-    // Better Auth handler with Better Auth docs compliant configuration - Schema updated
+    // Better Auth handler with Better Auth docs compliant configuration - Real email test
     app.all('/api/auth/*', async (req, res) => {
       console.log('Auth endpoint hit:', req.method, req.url, 'hasAuth:', !!betterAuthInstance);
       
