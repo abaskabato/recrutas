@@ -18,12 +18,8 @@ import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  // Use the existing role-based auth hook instead of manual logic
-  useRoleBasedAuth();
-  
-  const { data: session, isPending: isLoading } = authClient.useSession();
-  const user = session?.user;
-  const isAuthenticated = !!user;
+  // Use the existing role-based auth hook which handles all auth logic
+  const { user, isAuthenticated, isLoading } = useRoleBasedAuth();
 
 
 
