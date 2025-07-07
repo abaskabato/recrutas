@@ -240,7 +240,7 @@ export default async function handler(req, res) {
       console.error('Failed to pre-initialize Better Auth:', error);
     }
 
-    // Better Auth handler with production fixes: basePath, baseURL, trustedOrigins
+    // Better Auth handler with working Neon database connection
     app.all('/api/auth/*', async (req, res) => {
       console.log('Auth endpoint hit:', req.method, req.url, 'hasAuth:', !!betterAuthInstance);
       
