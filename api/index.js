@@ -45,7 +45,7 @@ export default async function handler(req, res) {
         const [
           { betterAuth },
           { drizzleAdapter },
-          { Pool },
+          pgModule,
           { drizzle },
           { pgTable, text, timestamp, boolean }
         ] = await Promise.all([
@@ -55,6 +55,8 @@ export default async function handler(req, res) {
           import('drizzle-orm/node-postgres'),
           import("drizzle-orm/pg-core")
         ]);
+        
+        const { Pool } = pgModule;
         
         // Schema definition - matches the existing database structure
         const users = pgTable("users", {
@@ -353,8 +355,8 @@ export default async function handler(req, res) {
         }
         
         // Simple database test for Supabase
-        const { Pool: TestPool } = await import('pg');
-        const testPool = new TestPool({ 
+        const pgTestModule = await import('pg');
+        const testPool = new pgTestModule.Pool({ 
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false }
         });
