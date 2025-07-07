@@ -123,8 +123,8 @@ export default async function handler(req, res) {
           connectionString: process.env.DATABASE_URL,
           ssl: { rejectUnauthorized: false },
           max: 1, // Single connection for serverless
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 10000,
+          connectionTimeoutMillis: 5000,
         });
         
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
         // Better Auth configuration - Fixed for Vercel serverless
         const auth = betterAuth({
           secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET || 'fallback-secret-for-development-only',
-          baseURL: 'https://recrutas.vercel.app',
+          baseURL: process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app',
           basePath: '/api/auth',
           
           database: drizzleAdapter(db, {
@@ -192,6 +192,10 @@ export default async function handler(req, res) {
           session: {
             expiresIn: 604800, // 7 days
             updateAge: 86400, // 1 day
+            cookieCache: {
+              enabled: true,
+              maxAge: 60 * 5 // 5 minutes
+            }
           },
           
           trustedOrigins: [
@@ -215,13 +219,9 @@ export default async function handler(req, res) {
         authInstance = auth;
         console.log('Better Auth initialized successfully with secret:', !!process.env.BETTER_AUTH_SECRET || !!process.env.SESSION_SECRET);
         
-        // Test database connection
-        const testUser = await db.select().from(users).limit(1).catch(err => {
-          console.error('Database connection test failed:', err);
-          return [];
-        });
-        console.log('Database connection test:', testUser.length > 0 ? 'SUCCESS' : 'NO_DATA');
+        // Skip database test in serverless to reduce cold start time
         console.log('Auth configuration - baseURL:', process.env.BETTER_AUTH_URL || 'https://recrutas.vercel.app');
+        console.log('Database configured - URL exists:', !!process.env.DATABASE_URL);
         
         return auth;
       } catch (error) {
