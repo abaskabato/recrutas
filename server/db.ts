@@ -8,14 +8,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Force correct Supabase connection to override environment variables
-const connectionString = process.env.DATABASE_URL?.includes('aws-0-us-east-2.pooler.supabase.com') 
-  ? process.env.DATABASE_URL 
-  : "postgresql://postgres.hszttqfamgesltcxpzvc:O2fglkDEoOrCtbqG@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true";
+// Use the correct Neon PostgreSQL database connection with SSL
+const connectionString = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}?sslmode=require`;
 
 console.log('🔗 Using database connection:', connectionString.replace(/:[^:]*@/, ':***@'));
 
-// Create connection to Supabase with optimized settings
+// Create connection to Neon PostgreSQL with optimized settings
 const client = postgres(connectionString, {
   max: 1, // Use a single connection for serverless
   idle_timeout: 20,
@@ -25,6 +23,7 @@ const client = postgres(connectionString, {
   connection: {
     application_name: 'recrutas-app',
   },
+  ssl: { rejectUnauthorized: false }, // Required for Neon
   debug: false, // Disable debug to reduce overhead
 });
 

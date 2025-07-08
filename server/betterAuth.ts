@@ -15,7 +15,7 @@ export const auth = betterAuth({
     },
   }),
   basePath: "/api/auth",
-  baseURL: process.env.BETTER_AUTH_URL || "https://recrutas.vercel.app",
+  baseURL: process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'development' ? `http://localhost:5000` : "https://recrutas.vercel.app"),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -101,8 +101,8 @@ export const auth = betterAuth({
     "https://*.replit.dev",
     "https://recrutas.vercel.app",
     "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
-    "https://e0f14cb7-13c7-49be-849b-00e0e677863c-00-13vuezjrrpu3a.picard.replit.dev",
     process.env.REPLIT_DEV_DOMAIN || "",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
   ].filter(Boolean),
 })
 
