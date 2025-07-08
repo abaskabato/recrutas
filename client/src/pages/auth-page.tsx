@@ -37,22 +37,19 @@ export default function AuthPage() {
     e.preventDefault()
     setIsSigningIn(true)
     
-    console.log('Attempting sign in with email:', signInData.email)
-    
     const { data, error } = await signIn.email({
       email: signInData.email,
       password: signInData.password,
-      rememberMe
+      rememberMe,
+      callbackURL: "/"
     }, {
       onRequest: () => {
         console.log('Sign in request started')
       },
       onSuccess: () => {
-        console.log('Sign in successful!')
         toast({ title: "Welcome back!", description: "Successfully signed in." })
       },
       onError: (ctx) => {
-        console.error('Sign in error:', ctx.error)
         toast({
           title: "Sign in failed",
           description: ctx.error.message || "Invalid email or password",
@@ -60,13 +57,6 @@ export default function AuthPage() {
         })
       }
     })
-    
-    if (error) {
-      console.error('Sign in returned error:', error)
-    }
-    if (data) {
-      console.log('Sign in returned data:', data)
-    }
     
     setIsSigningIn(false)
   }
@@ -85,29 +75,22 @@ export default function AuthPage() {
     
     setIsSigningUp(true)
     
-    console.log('Attempting sign up with data:', {
-      email: signUpData.email,
-      name: signUpData.name,
-      passwordLength: signUpData.password.length
-    })
-    
     const { data, error } = await signUp.email({
       email: signUpData.email,
       password: signUpData.password,
-      name: signUpData.name
+      name: signUpData.name,
+      callbackURL: "/"
     }, {
       onRequest: () => {
         console.log('Sign up request started')
       },
       onSuccess: () => {
-        console.log('Sign up successful!')
         toast({ 
           title: "Account created!", 
           description: `Welcome to Recrutas, ${signUpData.name}!` 
         })
       },
       onError: (ctx) => {
-        console.error('Sign up error:', ctx.error)
         toast({
           title: "Sign up failed",
           description: ctx.error.message || "Failed to create account",
@@ -115,13 +98,6 @@ export default function AuthPage() {
         })
       }
     })
-    
-    if (error) {
-      console.error('Sign up returned error:', error)
-    }
-    if (data) {
-      console.log('Sign up returned data:', data)
-    }
     
     setIsSigningUp(false)
   }
