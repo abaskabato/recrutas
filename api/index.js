@@ -141,15 +141,13 @@ export default async function handler(req, res) {
         const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
         console.log('Drizzle instance created');
 
-        // Better Auth with serverless-optimized configuration
+        // Better Auth configured for serverless environment with JWT sessions
         const auth = betterAuth({
           secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
-          trustedOrigins: ["https://recrutas.vercel.app", "http://localhost:5000"],
-          rateLimit: {
-            enabled: false, // Disable rate limiting for serverless
-          },
-          logger: {
-            level: "error", // Reduce logging overhead
+          session: {
+            strategy: "jwt",
+            expiresIn: 60 * 60 * 24 * 7, // 7 days
+            updateAge: 60 * 60 * 24, // 1 day
           },
           emailAndPassword: {
             enabled: true,
