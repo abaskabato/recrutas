@@ -51,7 +51,7 @@ export const users = pgTable("users", {
   lastName: text("lastName"),
   phoneNumber: text("phoneNumber"),
   profileImageUrl: text("profileImageUrl"),
-  role: text("role").default("candidate"),
+  role: text("role"),
   profileComplete: boolean("profileComplete").default(false),
 });
 
