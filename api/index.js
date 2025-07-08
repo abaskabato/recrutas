@@ -83,7 +83,7 @@ export default async function handler(req, res) {
           lastName: text("lastName"),
           phoneNumber: text("phoneNumber"),
           profileImageUrl: text("profileImageUrl"),
-          role: text("role").default("candidate"),
+          role: text("role"),
           profileComplete: boolean("profileComplete").default(false),
         });
 
@@ -174,7 +174,7 @@ export default async function handler(req, res) {
               role: { 
                 type: "string", 
                 required: false,
-                defaultValue: "candidate"
+                defaultValue: null
               },
               profileComplete: { 
                 type: "boolean", 
