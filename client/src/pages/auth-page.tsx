@@ -30,6 +30,11 @@ export default function AuthPage() {
 
   // Redirect if already authenticated
   if (session?.user) {
+    // If user has no role, redirect to role selection
+    if (!session.user.role) {
+      return <Redirect to="/role-selection" />
+    }
+    // If user has a role, redirect to dashboard
     return <Redirect to="/" />
   }
 
@@ -79,7 +84,7 @@ export default function AuthPage() {
       email: signUpData.email,
       password: signUpData.password,
       name: signUpData.name,
-      callbackURL: "/"
+      callbackURL: "/role-selection"
     }, {
       onRequest: () => {
         console.log('Sign up request started')
@@ -87,7 +92,7 @@ export default function AuthPage() {
       onSuccess: () => {
         toast({ 
           title: "Account created!", 
-          description: `Welcome to Recrutas, ${signUpData.name}!` 
+          description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
         })
       },
       onError: (ctx) => {
