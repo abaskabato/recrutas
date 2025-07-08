@@ -40,8 +40,7 @@ export default function AuthPage() {
     const { data, error } = await signIn.email({
       email: signInData.email,
       password: signInData.password,
-      rememberMe,
-      callbackURL: "/"
+      rememberMe
     }, {
       onRequest: () => {
         console.log('Sign in request started')
@@ -78,8 +77,7 @@ export default function AuthPage() {
     const { data, error } = await signUp.email({
       email: signUpData.email,
       password: signUpData.password,
-      name: signUpData.name,
-      callbackURL: "/"
+      name: signUpData.name
     }, {
       onRequest: () => {
         console.log('Sign up request started')
