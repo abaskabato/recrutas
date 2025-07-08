@@ -15,7 +15,9 @@ export const auth = betterAuth({
     },
   }),
   basePath: "/api/auth",
-  baseURL: process.env.BETTER_AUTH_URL || "https://recrutas.vercel.app",
+  baseURL: process.env.NODE_ENV === 'development' 
+    ? "http://localhost:5000" 
+    : (process.env.BETTER_AUTH_URL || "https://recrutas.vercel.app"),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
