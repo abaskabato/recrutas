@@ -20,6 +20,8 @@ function Router() {
   const { data: session, isPending: isLoading } = useSession();
   const user = session?.user;
   const isAuthenticated = !!user;
+  
+  console.log('Router state:', { session, user, isAuthenticated, isLoading });
 
 
 

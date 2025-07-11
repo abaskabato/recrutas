@@ -25,7 +25,15 @@ export const useSession = () => {
       });
       const data = await response.json();
       console.log('Custom session data:', data);
-      return data;
+      
+      // Transform the data to match expected Better Auth structure
+      if (data && data.user) {
+        return {
+          user: data.user,
+          session: data.session
+        };
+      }
+      return null;
     },
     refetchInterval: 5000, // Refetch every 5 seconds
     staleTime: 0, // Always consider stale
