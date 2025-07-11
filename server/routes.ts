@@ -74,6 +74,56 @@ function generateHumanReadableUpdate(event: any): string {
   return eventMessages[event.eventType] || 'Application status updated.';
 }
 
+// Custom session validation endpoint as fallback
+async function validateSession(req: express.Request, res: express.Response, next: express.NextFunction) {
+  try {
+    // First try Better Auth session
+    const authHeader = req.headers.authorization;
+    const sessionCookie = req.headers.cookie;
+    
+    if (sessionCookie && sessionCookie.includes('better-auth.session_data')) {
+      // Extract session data from cookie
+      const sessionMatch = sessionCookie.match(/better-auth\.session_data=([^;]+)/);
+      if (sessionMatch) {
+        try {
+          const sessionData = Buffer.from(sessionMatch[1], 'base64').toString();
+          const parsed = JSON.parse(sessionData);
+          
+          if (parsed.session && parsed.session.user) {
+            // Validate session is not expired
+            const expiresAt = new Date(parsed.expiresAt);
+            if (expiresAt > new Date()) {
+              // Check if session exists in database
+              const sessionToken = parsed.session.session.token;
+              const dbSession = await db
+                .select()
+                .from(sessions)
+                .where(eq(sessions.token, sessionToken))
+                .limit(1);
+              
+              if (dbSession.length > 0) {
+                // Session is valid, attach user to request
+                req.user = parsed.session.user;
+                return next();
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Session validation error:', e);
+        }
+      }
+    }
+    
+    // No valid session found
+    req.user = null;
+    next();
+  } catch (error) {
+    console.error('Session validation error:', error);
+    req.user = null;
+    next();
+  }
+}
+
 // Authentication middleware for Better Auth sessions
 async function requireAuth(req: any, res: any, next: any) {
   try {
