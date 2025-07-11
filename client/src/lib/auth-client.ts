@@ -21,7 +21,10 @@ export const useSession = () => {
     queryKey: ['/api/session'],
     queryFn: async () => {
       const response = await fetch('/api/session', {
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
       const data = await response.json();
       console.log('Custom session data:', data);
@@ -37,6 +40,7 @@ export const useSession = () => {
     },
     refetchInterval: 5000, // Refetch every 5 seconds
     staleTime: 0, // Always consider stale
+    retry: 3, // Retry failed requests
   });
 
   // Always use our custom session endpoint since Better Auth isn't working

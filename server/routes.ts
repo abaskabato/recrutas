@@ -198,22 +198,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Custom session endpoint to handle Better Auth session issues
   app.get("/api/session", async (req, res) => {
     try {
+      console.log('Session request headers:', req.headers.cookie);
       const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
       
       if (sessionCookie) {
         try {
           const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+          console.log('Decoded session:', decodedSession);
           if (decodedSession.session?.user) {
-            return res.json({
-              user: decodedSession.session.user,
-              session: decodedSession.session.session
-            });
+            // Get fresh user data from database to ensure we have the latest role
+            const [user] = await db.select().from(users).where(eq(users.id, decodedSession.session.user.id));
+            console.log('Fresh user data:', user);
+            
+            if (user) {
+              return res.json({
+                user: {
+                  ...decodedSession.session.user,
+                  role: user.role, // Use fresh role from database
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  profileComplete: user.profileComplete
+                },
+                session: decodedSession.session.session
+              });
+            }
           }
         } catch (e) {
           console.log('Session decode error:', e);
         }
       }
       
+      console.log('No valid session found');
       res.json(null);
     } catch (error) {
       console.error('Session endpoint error:', error);
