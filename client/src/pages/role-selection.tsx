@@ -28,7 +28,8 @@ export default function RoleSelection() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/get-session'] });
+      // Invalidate the correct query cache that our custom session hook uses
+      queryClient.invalidateQueries({ queryKey: ['/api/session'] });
       toast({
         title: 'Role Selected',
         description: `Welcome! Your account has been set up as a ${selectedRole === 'candidate' ? 'candidate' : 'talent owner'}.`,
