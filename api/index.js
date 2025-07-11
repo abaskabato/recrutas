@@ -79,12 +79,12 @@ export default async function handler(req, res) {
           createdAt: timestamp("createdAt").notNull(),
           updatedAt: timestamp("updatedAt").notNull(),
           // Custom fields for our platform
-          firstName: text("firstName"),
-          lastName: text("lastName"),
-          phoneNumber: text("phoneNumber"),
-          profileImageUrl: text("profileImageUrl"),
+          firstName: text("first_name"),
+          lastName: text("last_name"),
+          phoneNumber: text("phone_number"),
+          profileImageUrl: text("profile_image_url"),
           role: text("role"),
-          profileComplete: boolean("profileComplete").default(false),
+          profileComplete: boolean("profile_complete").default(false),
         });
 
         const sessions = pgTable("sessions", {
