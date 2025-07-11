@@ -84,7 +84,7 @@ export const auth = betterAuth({
     },
     cookieOptions: {
       httpOnly: false, // Allow JavaScript access for client-side auth
-      secure: process.env.NODE_ENV === 'production', // Secure in production
+      secure: false, // Disable secure for development
       sameSite: "lax",
       path: "/",
       domain: undefined, // Don't set domain for localhost/vercel
@@ -92,8 +92,7 @@ export const auth = betterAuth({
   },
   advanced: {
     crossSubDomainCookies: {
-      enabled: true,
-      domain: ".vercel.app",
+      enabled: false, // Disable for development
     },
   },
   trustedOrigins: [
