@@ -112,6 +112,7 @@ export function setupBetterAuth(app: Express) {
   app.all("/api/auth/*", async (req, res) => {
     console.log('Better Auth request received:', req.method, req.url);
     console.log('Request body:', req.body);
+    console.log('Request cookies:', req.headers.cookie);
     try {
       const protocol = req.protocol || 'http'
       const host = req.get('host') || 'localhost:5000'
@@ -165,8 +166,15 @@ export function setupBetterAuth(app: Express) {
         });
         response = await auth.handler(webRequest);
         console.log('Auth handler response:', response.status);
+        
+        // Debug session responses
+        if (req.url.includes('get-session')) {
+          const responseText = await response.clone().text();
+          console.log('Session response body:', responseText);
+        }
       } catch (error) {
         console.error('Auth handler error details:', error.message, error.stack);
+        console.log('Request headers:', req.headers);
         // If auth handler completely fails for sign out, clear cookies anyway
         if (req.url.includes('sign-out')) {
           console.log('Auth handler failed for sign out, clearing cookies manually');
