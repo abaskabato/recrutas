@@ -42,8 +42,6 @@ function Router() {
       <Route path="/role-selection" component={RoleSelection} />
       <Route path="/candidate-dashboard" component={CandidateDashboard} />
       <Route path="/talent-dashboard" component={TalentDashboard} />
-      <Route path="/dashboard/candidate" component={CandidateDashboard} />
-      <Route path="/dashboard/talent" component={TalentDashboard} />
       <Route path="/exam/:jobId/:jobTitle?" component={ExamPage} />
       <Route path="/chat/:roomId?" component={Chat} />
       

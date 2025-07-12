@@ -268,8 +268,7 @@ export default function TalentDashboard() {
   };
 
   const handleLogout = () => {
-    // Use our custom logout endpoint which clears both Better Auth and custom session
-    window.location.href = "/api/logout";
+    signOut();
   };
 
   const filteredJobs = jobs.filter(job => {
