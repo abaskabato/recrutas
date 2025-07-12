@@ -103,10 +103,7 @@ export default function TalentOwnerProfileCompletion({ user, onComplete, onCance
         profileComplete: true
       };
 
-      await apiRequest('/api/talent-owner/profile/complete', {
-        method: 'POST',
-        body: profileData
-      });
+      await apiRequest('POST', '/api/talent-owner/profile/complete', profileData);
 
       toast({
         title: "Profile Completed!",
