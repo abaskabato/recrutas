@@ -41,16 +41,11 @@
       "source": "/(.*)", 
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/auth/[...auth].js": { "runtime": "nodejs20.x" },
-    "api/session.js": { "runtime": "nodejs20.x" },
-    "api/user.js": { "runtime": "nodejs20.x" },
-    "api/jobs.js": { "runtime": "nodejs20.x" },
-    "api/stats.js": { "runtime": "nodejs20.x" }
-  }
+  ]
 }
 ```
+
+**Note**: Removed explicit function runtime specifications as Vercel automatically detects Node.js functions.
 
 ## Deployment Steps
 
