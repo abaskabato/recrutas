@@ -66,19 +66,42 @@
    - `BETTER_AUTH_SECRET` - Random secret for session encryption
    - `BETTER_AUTH_URL` - Your Vercel app URL (e.g., https://yourapp.vercel.app)
 
+## Build Issue Resolution
+
+### **Problem**: esbuild Configuration Error
+**Error**: `The entry point "server/index.ts" cannot be marked as external`
+**Cause**: Vercel doesn't need the server bundled - it handles API functions automatically
+
+### **Solution**: Custom Build Script
+Created `vercel-build.js` that only builds the frontend:
+```javascript
+// Only builds frontend - Vercel handles API functions automatically
+execSync('vite build', { stdio: 'inherit' });
+```
+
 ## Expected Results
 
-✅ **Build Success**: TypeScript compilation completes without errors  
+✅ **Build Success**: Frontend builds without esbuild errors  
 ✅ **Frontend Loads**: React app renders correctly on Vercel  
-✅ **API Functions**: All 5 serverless functions operational  
+✅ **API Functions**: All 5 serverless functions auto-deployed from `/api` directory  
 ✅ **SPA Routing**: Direct URL navigation works  
 ✅ **Error Handling**: No unhandled promise rejections  
 
+## Key Files for Vercel Deployment
+
+- `vercel.json` - Routing and build configuration
+- `vercel-build.js` - Custom build script (frontend only)
+- `/api/auth/[...auth].js` - Better Auth serverless function
+- `/api/session.js` - Session management API
+- `/api/jobs.js` - Job data API
+- `/api/stats.js` - Platform statistics API
+- `/api/user.js` - User management API
+
 ## If Issues Persist
 
-1. **Check Build Logs**: Look for specific TypeScript or build errors
-2. **Test API Endpoints**: Visit `/api/session` directly
+1. **Check Build Logs**: Look for frontend build errors
+2. **Test API Endpoints**: Visit `/api/session` directly  
 3. **Browser Console**: Check for JavaScript errors
 4. **Network Tab**: Verify static assets load correctly
 
-The root cause was the incorrect `createInsertSchema` syntax that worked in development but failed TypeScript compilation on Vercel's build environment.
+The solution eliminates server bundling since Vercel automatically converts `/api` files to serverless functions.
