@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useSession } from "@/lib/auth-client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -99,7 +99,9 @@ interface DashboardStats {
 }
 
 export default function TalentDashboard() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, isPending: isLoading } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!user;
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
   const [showJobDialog, setShowJobDialog] = useState(false);
@@ -141,7 +143,7 @@ export default function TalentDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/auth";
       }, 1000);
       return;
     }
