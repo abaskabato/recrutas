@@ -564,56 +564,56 @@ export const interviewsRelations = relations(interviews, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users, {
-  createdAt: false,
-  updatedAt: false,
+export const insertUserSchema = createInsertSchema(users).omit({
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertJobPostingSchema = createInsertSchema(jobPostings, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertJobPostingSchema = createInsertSchema(jobPostings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertJobMatchSchema = createInsertSchema(jobMatches, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertJobMatchSchema = createInsertSchema(jobMatches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertChatMessageSchema = createInsertSchema(chatMessages, {
-  id: false,
-  createdAt: false,
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
 });
 
-export const insertNotificationSchema = createInsertSchema(notifications, {
-  id: false,
-  createdAt: false,
-  readAt: false,
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+  readAt: true,
 });
 
-export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertInterviewSchema = createInsertSchema(interviews, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertInterviewSchema = createInsertSchema(interviews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-export const insertConnectionStatusSchema = createInsertSchema(connectionStatus, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertConnectionStatusSchema = createInsertSchema(connectionStatus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Types

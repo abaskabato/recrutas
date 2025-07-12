@@ -79,7 +79,10 @@ function App() {
   React.useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       console.warn('Unhandled promise rejection caught:', event.reason);
-      event.preventDefault(); // Prevent console error spam
+      // Only prevent default in development to avoid masking errors
+      if (import.meta.env.DEV) {
+        event.preventDefault();
+      }
     };
 
     const handleError = (event: ErrorEvent) => {

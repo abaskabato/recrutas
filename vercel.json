@@ -1,6 +1,7 @@
 {
-  "buildCommand": "vite build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist/public",
+  "framework": null,
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -10,5 +11,22 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/auth/[...auth].js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/session.js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/user.js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/jobs.js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/stats.js": {
+      "runtime": "nodejs20.x"
+    }
+  }
 }
