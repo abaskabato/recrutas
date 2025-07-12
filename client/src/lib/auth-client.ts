@@ -57,8 +57,8 @@ export const useSession = () => {
       }
       return null;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 5s)
-    staleTime: 10000, // Consider stale after 10 seconds
+    refetchInterval: 5000, // Refetch every 5 seconds for responsive updates
+    staleTime: 0, // Always consider stale for immediate updates
     retry: 2, // Retry failed requests twice
   });
 
