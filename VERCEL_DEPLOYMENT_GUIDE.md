@@ -20,7 +20,7 @@ NODE_ENV=production
 ### 3. Vercel Project Settings
 - Build Command: `npm run build`
 - Output Directory: `dist`
-- Framework: `Vite`
+- Framework: `Other`
 - Node.js Version: `18.x`
 
 ## Deployment Steps
