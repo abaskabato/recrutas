@@ -352,10 +352,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get updated user
       const [updatedUser] = await db.select().from(users).where(eq(users.id, userId));
       
+      // Clear the Better Auth session cookie to force fresh session creation
+      res.clearCookie('better-auth.session_data', { 
+        path: '/', 
+        httpOnly: false, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      
       res.json({ 
         success: true, 
         user: updatedUser,
-        message: `Role set to ${role}` 
+        message: `Role set to ${role}. Please refresh the page to see changes.` 
       });
     } catch (error) {
       console.error('Role selection error:', error);
