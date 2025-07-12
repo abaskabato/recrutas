@@ -201,7 +201,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link href="/" className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors">
+        <Link to="/" className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to home
         </Link>
