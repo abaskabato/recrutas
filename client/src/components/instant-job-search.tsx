@@ -53,7 +53,6 @@ export default function InstantJobSearch() {
 
   // Add error boundary protection
   if (!toast) {
-    console.error('Toast hook not available');
     return <div>Loading search...</div>;
   }
 

@@ -121,7 +121,7 @@ export default function TalentApplicationIntelligence({ applications }: TalentAp
     try {
       await apiRequest('POST', `/api/talent/applications/${action.applicationId}/track`, action);
     } catch (error) {
-      console.error('Failed to track application action:', error);
+      // Silent fail for tracking actions
     }
   };
 

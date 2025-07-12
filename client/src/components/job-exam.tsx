@@ -64,20 +64,20 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
 
   // Timer countdown
   useEffect(() => {
-    if (timeRemaining > 0) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            handleSubmitExam();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (timeRemaining <= 0) return;
+    
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          handleSubmitExam();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining]);
+    return () => clearInterval(timer);
+  }, [timeRemaining > 0]);
 
   const submitExamMutation = useMutation({
     mutationFn: async (examAnswers: Record<string, string>) => {

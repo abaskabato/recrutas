@@ -140,7 +140,6 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
       setIsConnected(false);
     };
 
@@ -149,7 +148,7 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
         ws.close();
       }
     };
-  }, [roomId, user, queryClient]);
+  }, [roomId, user?.id]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

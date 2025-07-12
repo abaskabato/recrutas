@@ -51,8 +51,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
 
   const matchesArray = (matches as AIJobMatch[]) || [];
   
-  console.log('Modal state:', { isOpen, isLoading, error, matchesCount: matchesArray.length });
-  console.log('Modal render - isOpen prop:', isOpen);
+
 
   const handleQuickApply = (match: AIJobMatch) => {
     setAppliedJobs(prev => [...prev, match.id]);

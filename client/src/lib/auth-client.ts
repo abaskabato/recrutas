@@ -27,8 +27,7 @@ export const useSession = () => {
         }
       });
       const data = await response.json();
-      console.log('Custom session data:', data);
-      
+
       // Transform the data to match expected Better Auth structure
       if (data && data.user) {
         return {

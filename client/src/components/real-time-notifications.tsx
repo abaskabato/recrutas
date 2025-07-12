@@ -33,7 +33,6 @@ export default function RealTimeNotifications() {
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
-      console.log('WebSocket connected, joining user:', user.id);
       socket.send(JSON.stringify({
         type: 'join',
         userId: user.id,
@@ -41,7 +40,6 @@ export default function RealTimeNotifications() {
     };
 
     socket.onmessage = (event) => {
-      console.log('WebSocket message received:', event.data);
       const data = JSON.parse(event.data);
       
       if (data.type === 'test') {
@@ -93,7 +91,7 @@ export default function RealTimeNotifications() {
     return () => {
       socket.close();
     };
-  }, [user, toast]);
+  }, [user?.id]);
 
   const markAsRead = (id: string) => {
     setNotifications(prev => 
