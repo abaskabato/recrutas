@@ -1,0 +1,57 @@
+[04:25:56.034] Running build in Washington, D.C., USA (East) – iad1
+[04:25:56.042] Build machine configuration: 2 cores, 8 GB
+[04:25:56.079] Cloning github.com/abaskabato/recrutas (Branch: main, Commit: f388b72)
+[04:25:56.677] Cloning completed: 597.000ms
+[04:25:56.789] Found .vercelignore
+[04:25:56.815] Removed 36 ignored files defined in .vercelignore
+[04:25:56.815]   /server/advanced-matching-engine.ts
+[04:25:56.816]   /server/ai-resume-parser.ts
+[04:25:56.816]   /server/ai-service.ts
+[04:25:56.816]   /server/application-intelligence.ts
+[04:25:56.816]   /server/behavioral-matching.ts
+[04:25:56.816]   /server/betterAuth.ts
+[04:25:56.816]   /server/career-comeback-engine.ts
+[04:25:56.816]   /server/career-intelligence.ts
+[04:25:56.816]   /server/company-intelligence.ts
+[04:25:56.816]   /server/company-jobs-aggregator.ts
+[04:25:57.689] Restored build cache from previous deployment (DZ78mXrWYenbhaJroQQjeciif6dn)
+[04:25:58.321] Running "vercel build"
+[04:25:58.780] Vercel CLI 44.3.0
+[04:25:59.532] Installing dependencies...
+[04:26:01.721] npm warn EBADENGINE Unsupported engine {
+[04:26:01.722] npm warn EBADENGINE   package: '@simplewebauthn/server@13.1.1',
+[04:26:01.722] npm warn EBADENGINE   required: { node: '>=20.0.0' },
+[04:26:01.722] npm warn EBADENGINE   current: { node: 'v18.20.6', npm: '10.8.2' }
+[04:26:01.722] npm warn EBADENGINE }
+[04:26:02.280] 
+[04:26:02.281] up to date in 2s
+[04:26:02.281] 
+[04:26:02.282] 90 packages are looking for funding
+[04:26:02.282]   run `npm fund` for details
+[04:26:02.410] 
+[04:26:02.410] > rest-express@1.0.0 build
+[04:26:02.411] > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+[04:26:02.411] 
+[04:26:02.671] [36mvite v5.4.19 [32mbuilding for production...[36m[39m
+[04:26:03.021] transforming...
+[04:26:03.060] Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+[04:26:03.061]   npx update-browserslist-db@latest
+[04:26:03.061]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[04:26:09.557] [32m✓[39m 2416 modules transformed.
+[04:26:10.079] rendering chunks...
+[04:26:10.097] computing gzip size...
+[04:26:10.130] [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  1.13 kB[22m[1m[22m[2m │ gzip:   0.59 kB[22m
+[04:26:10.131] [2m../dist/public/[22m[2massets/[22m[35mindex-nEHzZwQz.css  [39m[1m[2m127.80 kB[22m[1m[22m[2m │ gzip:  19.54 kB[22m
+[04:26:10.131] [2m../dist/public/[22m[2massets/[22m[36mindex-CBSVX3ro.js   [39m[1m[33m741.55 kB[39m[22m[2m │ gzip: 216.82 kB[22m
+[04:26:10.131] [33m
+[04:26:10.132] (!) Some chunks are larger than 500 kB after minification. Consider:
+[04:26:10.132] - Using dynamic import() to code-split the application
+[04:26:10.132] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[04:26:10.132] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[04:26:10.132] [32m✓ built in 7.14s[39m
+[04:26:10.191] ✘ [ERROR] The entry point "server/index.ts" cannot be marked as external
+[04:26:10.191] 
+[04:26:10.193] 1 error
+[04:26:10.203] Error: Command "npm run build" exited with 1
+[04:26:10.503] 
+[04:26:14.168] Exiting build container

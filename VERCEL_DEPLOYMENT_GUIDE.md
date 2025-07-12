@@ -18,10 +18,10 @@ NODE_ENV=production
 - Test connection with `npm run db:push`
 
 ### 3. Vercel Project Settings
-- Build Command: `npm run build`
-- Output Directory: `dist`
+- Build Command: `vite build`
+- Output Directory: `dist/public`
 - Framework: `Other`
-- Node.js Version: `18.x`
+- Node.js Version: `20.x` (Required for @simplewebauthn/server)
 
 ## Deployment Steps
 
