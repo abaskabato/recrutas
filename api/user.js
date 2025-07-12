@@ -1,6 +1,6 @@
-import { auth } from '../../server/auth.js';
-import { db } from '../../server/db.js';
-import { users } from '../../shared/schema.js';
+import { auth } from '../server/auth.js';
+import { db } from '../server/db.js';
+import { users } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
 
 export default async function handler(req, res) {
@@ -34,7 +34,32 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    if (req.method === 'PUT') {
+    const { action } = req.query;
+
+    if (action === 'select-role' && req.method === 'POST') {
+      const { role } = req.body;
+
+      if (!role || !['candidate', 'talent_owner'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+
+      // Map frontend role to database role
+      const dbRole = role === 'talent_owner' ? 'recruiter' : 'candidate';
+
+      // Update user role in database
+      await db
+        .update(users)
+        .set({ role: dbRole })
+        .where(eq(users.id, sessionData.user.id));
+
+      return res.status(200).json({ 
+        success: true, 
+        role: dbRole,
+        message: 'Role updated successfully' 
+      });
+    }
+
+    if (action === 'profile' && req.method === 'PUT') {
       // Update user profile
       const profileData = req.body;
       
@@ -50,10 +75,10 @@ export default async function handler(req, res) {
       return res.status(200).json(updatedUser);
     }
 
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(400).json({ error: 'Invalid action or method' });
 
   } catch (error) {
-    console.error('Profile API error:', error);
+    console.error('User API error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

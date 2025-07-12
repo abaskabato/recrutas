@@ -6,3 +6,9 @@ node_modules/
 *.log
 dist/
 build/
+api/auth-direct.js
+api/auth-working.js
+api/auth.js
+api/fallback-auth.js
+api/index.js
+api/test-minimal-auth.js
