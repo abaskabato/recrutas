@@ -60,7 +60,8 @@ export default function CandidateDashboard() {
   }
 
   const handleLogout = () => {
-    signOut();
+    // Use our custom logout endpoint which clears both Better Auth and custom session
+    window.location.href = "/api/logout";
   };
 
   return (

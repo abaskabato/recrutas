@@ -39,7 +39,7 @@ export default function RoleSelection() {
       
       // Force navigation with full page reload to ensure fresh session
       setTimeout(() => {
-        window.location.href = selectedRole === 'candidate' ? '/candidate-dashboard' : '/talent-dashboard';
+        window.location.href = selectedRole === 'candidate' ? '/dashboard/candidate' : '/dashboard/talent';
       }, 500);
     },
     onError: (error) => {
