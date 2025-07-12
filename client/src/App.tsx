@@ -21,7 +21,7 @@ function Router() {
   const user = session?.user;
   const isAuthenticated = !!user;
   
-  console.log('Router state:', { session, user, isAuthenticated, isLoading });
+  console.log('Router state:', { session, user, isAuthenticated, isLoading, userRole: user?.role });
 
 
 
@@ -53,6 +53,7 @@ function Router() {
           
           // Authenticated but no role - show role selection
           if (!user?.role) {
+            console.log('User has no role, showing role selection');
             return <RoleSelection />;
           }
           

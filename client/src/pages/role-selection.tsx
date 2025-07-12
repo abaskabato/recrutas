@@ -12,15 +12,35 @@ import {
   TrendingUp, 
   Building,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  LogOut
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useLocation } from 'wouter';
+import { signOut } from '@/lib/auth-client';
 
 export default function RoleSelection() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+
+  // Add sign out option in header
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: 'Signed Out',
+        description: 'You have been successfully signed out.',
+      });
+      setLocation('/');
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to sign out. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const selectRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'talent_owner') => {
@@ -35,12 +55,15 @@ export default function RoleSelection() {
         description: `Welcome! Your account has been set up as a ${selectedRole === 'candidate' ? 'candidate' : 'talent owner'}.`,
       });
       
-      // Redirect based on role
-      if (selectedRole === 'candidate') {
-        setLocation('/candidate-dashboard');
-      } else {
-        setLocation('/talent-dashboard');
-      }
+      // Add a delay to ensure session is updated before redirect
+      setTimeout(() => {
+        // Redirect based on role
+        if (selectedRole === 'candidate') {
+          setLocation('/candidate-dashboard');
+        } else {
+          setLocation('/talent-dashboard');
+        }
+      }, 1000);
     },
     onError: (error) => {
       toast({
@@ -60,8 +83,17 @@ export default function RoleSelection() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
+        {/* Header with Sign Out Option */}
+        <div className="text-center space-y-4 relative">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSignOut}
+            className="absolute top-0 right-0 flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </Button>
           <h1 className="text-4xl font-bold text-slate-900">Choose Your Role</h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
             Select how you'd like to use the platform. You can change this later in your settings.
