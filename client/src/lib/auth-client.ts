@@ -62,8 +62,8 @@ export const useSession = () => {
       }
       return null;
     },
-    staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds
+    staleTime: 10 * 60 * 1000, // Data is fresh for 10 minutes
+    refetchInterval: false, // Disable automatic refetching
     retry: 1, // Retry failed requests once
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
