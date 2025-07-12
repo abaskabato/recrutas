@@ -12,8 +12,27 @@ export const authClient = createAuthClient({
 export const {
   signIn,
   signUp,
-  signOut,
+  signOut: betterAuthSignOut,
 } = authClient
+
+// Enhanced signOut function with proper session cleanup and redirection
+export const signOut = async () => {
+  try {
+    // Call Better Auth signOut
+    await betterAuthSignOut();
+    
+    // Clear any localStorage items
+    localStorage.removeItem('continuationJob');
+    sessionStorage.removeItem('pendingJobApplication');
+    
+    // Force reload to clear session state
+    window.location.href = '/';
+  } catch (error) {
+    console.error('Sign out error:', error);
+    // Force redirect even if signOut fails
+    window.location.href = '/';
+  }
+}
 
 // Custom session hook that uses our fallback endpoint
 export const useSession = () => {
