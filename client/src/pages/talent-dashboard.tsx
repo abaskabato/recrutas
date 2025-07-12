@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
 import JobPostingWizard from "@/components/job-posting-wizard";
+import TalentOwnerProfileCompletion from "@/components/talent-owner-profile-completion";
 
 interface JobPosting {
   id: number;
@@ -294,6 +295,31 @@ export default function TalentDashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Show profile completion if profile is not complete
+  if (!user.profileComplete) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <TalentOwnerProfileCompletion
+          user={user}
+          onComplete={() => {
+            // Invalidate session to refresh user data
+            queryClient.invalidateQueries({ queryKey: ['/api/session'] });
+            toast({
+              title: "Profile Completed",
+              description: "Welcome to your talent dashboard!",
+            });
+          }}
+          onCancel={() => {
+            // Allow them to sign out if they don't want to complete profile
+            signOut().then(() => {
+              window.location.href = "/";
+            });
+          }}
+        />
       </div>
     );
   }

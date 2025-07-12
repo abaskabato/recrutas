@@ -1504,6 +1504,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Talent owner profile completion endpoint
+  app.post('/api/talent-owner/profile/complete', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const profileData = req.body;
+      
+      // Update user basic info and store company information
+      await db.update(users)
+        .set({ 
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          email: profileData.email,
+          phoneNumber: profileData.phoneNumber,
+          profileComplete: true,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+      
+      // Create activity log
+      await storage.createActivityLog(userId, "profile_completed", "Talent owner profile completed");
+      
+      res.json({ success: true, message: "Profile completed successfully" });
+    } catch (error) {
+      console.error("Error completing talent owner profile:", error);
+      res.status(500).json({ message: "Failed to complete profile" });
+    }
+  });
+
   // Exam endpoints for candidate assessment
   app.get('/api/jobs/:id/exam', requireAuth, async (req: any, res) => {
     try {
