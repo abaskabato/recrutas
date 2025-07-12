@@ -45,11 +45,6 @@ export const useSession = () => {
           'Content-Type': 'application/json',
         }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch session');
-      }
-      
       const data = await response.json();
       console.log('Custom session data:', data);
       
@@ -62,18 +57,9 @@ export const useSession = () => {
       }
       return null;
     },
-    staleTime: Infinity, // Never consider data stale
-    refetchInterval: false, // Disable automatic refetching
-    retry: false, // Don't retry failed requests
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
-  });
-
-  console.log('Session hook state:', {
-    data: customSession.data,
-    isPending: customSession.isPending,
-    isLoading: customSession.isLoading,
-    error: customSession.error
+    refetchInterval: 5000, // Refetch every 5 seconds for responsive updates
+    staleTime: 0, // Always consider stale for immediate updates
+    retry: 2, // Retry failed requests twice
   });
 
   // Always use our custom session endpoint since Better Auth isn't working

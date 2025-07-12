@@ -18,19 +18,11 @@ import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { data: session, isPending: isLoading, error } = useSession();
+  const { data: session, isPending: isLoading } = useSession();
   const user = session?.user;
   const isAuthenticated = !!user;
   
-  console.log('Router state:', { 
-    session, 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    error,
-    sessionUser: session?.user,
-    userRole: user?.role
-  });
+  console.log('Router state:', { session, user, isAuthenticated, isLoading });
 
 
 
