@@ -207,18 +207,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('Decoded session:', decodedSession);
           if (decodedSession.session?.user) {
             // Get fresh user data from database to ensure we have the latest role
-            const [user] = await db.select().from(users).where(eq(users.id, decodedSession.session.user.id));
-            console.log('Fresh user data:', user);
-            
-            if (user) {
+            try {
+              const [user] = await db.select().from(users).where(eq(users.id, decodedSession.session.user.id));
+              console.log('Fresh user data:', user);
+              
+              if (user) {
+                return res.json({
+                  user: {
+                    ...decodedSession.session.user,
+                    role: user.role, // Use fresh role from database
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    profileComplete: user.profileComplete
+                  },
+                  session: decodedSession.session.session
+                });
+              }
+            } catch (dbError) {
+              console.error('Database query error:', dbError);
+              // Fallback to session data if database fails
               return res.json({
-                user: {
-                  ...decodedSession.session.user,
-                  role: user.role, // Use fresh role from database
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  profileComplete: user.profileComplete
-                },
+                user: decodedSession.session.user,
                 session: decodedSession.session.session
               });
             }

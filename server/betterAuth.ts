@@ -17,6 +17,18 @@ export const auth = betterAuth({
   basePath: "/api/auth",
   baseURL: process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'development' ? `http://localhost:5000` : "https://recrutas.vercel.app"),
   secret: process.env.BETTER_AUTH_SECRET || "dev-secret-key-please-change-in-production",
+  trustedOrigins: ["http://localhost:5000", "https://recrutas.vercel.app"],
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 60 * 24 * 7 // 7 days
+    },
+    cookieSecure: process.env.NODE_ENV === 'production',
+    cookieSameSite: 'lax',
+    cookieHttpOnly: false,
+    cookieDomain: undefined,
+    cookiePath: '/',
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -76,19 +88,6 @@ export const auth = betterAuth({
         required: false,
         defaultValue: false,
       },
-    },
-  },
-  session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 30 * 60, // 30 minutes
-    },
-    cookieOptions: {
-      httpOnly: false, // Allow JavaScript access for client-side auth
-      secure: false, // Disable secure for development
-      sameSite: "lax",
-      path: "/",
-      domain: undefined, // Don't set domain for localhost/vercel
     },
   },
   advanced: {
