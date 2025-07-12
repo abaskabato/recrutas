@@ -1023,8 +1023,8 @@ export default function TalentDashboard() {
               <Briefcase className="h-5 w-5 mr-2" />
               Post New Job - Advanced Job Posting
             </DialogTitle>
+            <p className="text-sm text-gray-600">Create a comprehensive job posting to attract the right candidates</p>
           </DialogHeader>
-          <p className="text-sm text-gray-600 mb-4">Create a comprehensive job posting to attract the right candidates</p>
           
           <div className="space-y-8 py-4">
             {/* Basic Information Section */}
