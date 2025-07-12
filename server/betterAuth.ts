@@ -66,15 +66,19 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
-      first_name: {
+      firstName: {
         type: "string",
         required: false,
       },
-      last_name: {
+      lastName: {
         type: "string",
         required: false,
       },
-      phone_number: {
+      phoneNumber: {
+        type: "string",
+        required: false,
+      },
+      profileImageUrl: {
         type: "string",
         required: false,
       },
@@ -83,7 +87,7 @@ export const auth = betterAuth({
         required: false,
         defaultValue: null,
       },
-      profile_complete: {
+      profileComplete: {
         type: "boolean",
         required: false,
         defaultValue: false,

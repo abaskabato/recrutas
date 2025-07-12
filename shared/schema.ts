@@ -47,12 +47,12 @@ export const users = pgTable("users", {
   createdAt: timestamp("createdAt").notNull(),
   updatedAt: timestamp("updatedAt").notNull(),
   // Custom fields for our platform
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  phoneNumber: text("phone_number"),
-  profileImageUrl: text("profile_image_url"),
+  firstName: text("firstName"),
+  lastName: text("lastName"),
+  phoneNumber: text("phoneNumber"),
+  profileImageUrl: text("profileImageUrl"),
   role: text("role"),
-  profileComplete: boolean("profile_complete").default(false),
+  profileComplete: boolean("profileComplete").default(false),
 });
 
 // Sessions table (Better Auth compatible)
