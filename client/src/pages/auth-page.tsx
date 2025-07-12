@@ -157,6 +157,8 @@ export default function AuthPage() {
             title: "Account created!", 
             description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
           })
+          // Manually redirect to role selection
+          window.location.href = "/role-selection"
         },
         onError: (ctx) => {
           toast({

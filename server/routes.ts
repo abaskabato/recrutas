@@ -317,6 +317,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset user role endpoint for testing
+  app.post("/api/user/reset-role", async (req: any, res) => {
+    try {
+      // Get session using Better Auth
+      const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
+      
+      if (!sessionCookie) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      let userId;
+      try {
+        const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+        userId = decodedSession.session?.user?.id;
+        if (!userId) {
+          return res.status(401).json({ message: "Invalid session" });
+        }
+      } catch (e) {
+        return res.status(401).json({ message: "Invalid session data" });
+      }
+      
+      // Reset user role to null
+      await db.update(users)
+        .set({ role: null, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      
+      // Get updated user
+      const [updatedUser] = await db.select().from(users).where(eq(users.id, userId));
+      
+      res.json({ 
+        success: true, 
+        user: updatedUser,
+        message: "Role reset to null" 
+      });
+    } catch (error) {
+      console.error('Role reset error:', error);
+      res.status(500).json({ message: "Failed to reset role" });
+    }
+  });
+
   // Role selection endpoint - uses Better Auth session
   app.post("/api/user/select-role", async (req: any, res) => {
     try {
