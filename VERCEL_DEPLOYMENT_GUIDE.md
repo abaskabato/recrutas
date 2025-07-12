@@ -140,6 +140,39 @@ vercel logs
 - No wildcard origins in production
 - Secure cookie settings
 
+## Troubleshooting Frontend Loading Issues
+
+### If Frontend Doesn't Load:
+
+1. **Check Build Output**
+   - Verify `dist/public/` contains `index.html`
+   - Check if CSS/JS assets are generated
+
+2. **Verify Routing Configuration**
+   - Ensure `rewrites` in vercel.json are correct
+   - Test direct URL navigation
+
+3. **Check Browser Console**
+   - Look for JavaScript errors
+   - Check network requests for 404s
+
+4. **Test API Endpoints**
+   - Visit `/api/session` - should return JSON
+   - Check if serverless functions are deployed
+
+5. **Environment Variables**
+   - Verify all required env vars are set in Vercel dashboard
+   - Test database connectivity
+
+### Common Fixes:
+
+- **Static Assets 404**: Check `outputDirectory` configuration
+- **API Routes 404**: Verify serverless functions deployed
+- **SPA Routing Issues**: Ensure rewrites handle all routes
+- **Blank Page**: Check browser console for JavaScript errors
+
+See `VERCEL_DEBUG_GUIDE.md` for detailed debugging steps.
+
 ## Next Steps After Deployment
 
 1. **Custom Domain** (Optional)
@@ -163,3 +196,4 @@ If you encounter issues:
 2. Verify environment variables
 3. Test database connectivity
 4. Review function logs in Vercel dashboard
+5. Use the debug guide for step-by-step troubleshooting
