@@ -1,49 +1,49 @@
-// Dedicated Better Auth serverless handler for Vercel
-import { betterAuth } from "better-auth";
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import ws from "ws";
-
-// Import schema
-import { users, sessions, accounts, verifications } from "../../shared/schema.js";
-
-// Configure Neon for serverless
-neonConfig.webSocketConstructor = ws;
+import { auth } from '../../server/auth.js';
 
 export default async function handler(req, res) {
+  // Set CORS headers for Vercel
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   try {
-    // Database setup
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
-
-    // Better Auth configuration for serverless
-    const auth = betterAuth({
-      database: drizzleAdapter(db, {
-        provider: "pg",
-        schema: {
-          user: users,
-          session: sessions,
-          account: accounts,
-          verification: verifications,
-        },
-      }),
-      secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
-      baseURL: 'https://recrutas.vercel.app',
-      emailAndPassword: {
-        enabled: true,
-        requireEmailVerification: false,
-      },
+    // Create a proper URL for the auth handler
+    const url = new URL(req.url, `https://${req.headers.host}`);
+    
+    // Create request object for Better Auth
+    const authRequest = new Request(url, {
+      method: req.method,
+      headers: req.headers,
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
     });
 
-    // Handle the request
-    return await auth.handler(req, res);
+    // Call Better Auth handler
+    const authResponse = await auth.handler(authRequest);
+    
+    // Convert Response to Express response
+    const responseBody = await authResponse.text();
+    
+    // Set status and headers
+    res.status(authResponse.status);
+    
+    // Copy headers from auth response
+    for (const [key, value] of authResponse.headers.entries()) {
+      res.setHeader(key, value);
+    }
+    
+    // Send response
+    if (responseBody) {
+      res.send(responseBody);
+    } else {
+      res.end();
+    }
   } catch (error) {
-    console.error('Better Auth handler error:', error);
-    return res.status(500).json({
-      error: 'AUTH_HANDLER_ERROR',
-      message: error.message,
-      type: error.constructor.name,
-    });
+    console.error('Auth handler error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 }
