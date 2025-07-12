@@ -62,10 +62,11 @@ export const useSession = () => {
       }
       return null;
     },
-    staleTime: 10 * 60 * 1000, // Data is fresh for 10 minutes
+    staleTime: Infinity, // Never consider data stale
     refetchInterval: false, // Disable automatic refetching
-    retry: 1, // Retry failed requests once
+    retry: false, // Don't retry failed requests
     refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
   });
 
   console.log('Session hook state:', {
