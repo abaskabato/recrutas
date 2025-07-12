@@ -103,7 +103,7 @@ export async function sendPasswordResetEmail(email: string, resetToken: string):
 
   return await sendEmail({
     to: email,
-    from: process.env.FROM_EMAIL || 'noreply@recrutas.com',
+    from: process.env.FROM_EMAIL || 'abaskabato@gmail.com',
     subject: 'Reset Your Password - Recrutas',
     text: textContent,
     html: htmlContent,
