@@ -236,6 +236,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test authentication endpoint for debugging
+  app.get("/api/test-auth", async (req, res) => {
+    try {
+      // Check if we can find any existing user
+      const allUsers = await db.select().from(users).limit(5);
+      console.log('Available users:', allUsers);
+      
+      // For testing, create a session for the first user
+      if (allUsers.length > 0) {
+        const testUser = allUsers[0];
+        
+        // Create a simple session token
+        const sessionToken = `test-${Date.now()}-${Math.random().toString(36)}`;
+        
+        // Store session in a simple way (in production, use proper session store)
+        res.cookie('test-session', sessionToken, {
+          httpOnly: false,
+          secure: false,
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+        
+        res.json({
+          message: 'Test authentication successful',
+          user: testUser,
+          sessionToken
+        });
+      } else {
+        res.json({ message: 'No users found in database' });
+      }
+    } catch (error) {
+      console.error('Test auth error:', error);
+      res.status(500).json({ error: 'Test authentication failed' });
+    }
+  });
+
   // Custom logout endpoint to force clear all session data
   app.get("/api/logout", async (req, res) => {
     try {
