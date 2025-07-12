@@ -1,0 +1,81 @@
+[04:32:41.410] Running build in Washington, D.C., USA (East) – iad1
+[04:32:41.411] Build machine configuration: 2 cores, 8 GB
+[04:32:41.454] Cloning github.com/abaskabato/recrutas (Branch: main, Commit: 0d1ccdd)
+[04:32:42.562] Cloning completed: 1.108s
+[04:32:42.719] Found .vercelignore
+[04:32:42.745] Removed 42 ignored files defined in .vercelignore
+[04:32:42.746]   /api/auth-direct.js
+[04:32:42.746]   /api/auth-working.js
+[04:32:42.746]   /api/auth.js
+[04:32:42.747]   /api/fallback-auth.js
+[04:32:42.747]   /api/index.js
+[04:32:42.747]   /api/test-minimal-auth.js
+[04:32:42.747]   /server/advanced-matching-engine.ts
+[04:32:42.747]   /server/ai-resume-parser.ts
+[04:32:42.748]   /server/ai-service.ts
+[04:32:42.748]   /server/application-intelligence.ts
+[04:32:43.248] Restored build cache from previous deployment (DZ78mXrWYenbhaJroQQjeciif6dn)
+[04:32:43.929] Running "vercel build"
+[04:32:44.410] Vercel CLI 44.3.0
+[04:32:46.359] Installing dependencies...
+[04:32:47.824] npm warn EBADENGINE Unsupported engine {
+[04:32:47.824] npm warn EBADENGINE   package: '@simplewebauthn/server@13.1.1',
+[04:32:47.824] npm warn EBADENGINE   required: { node: '>=20.0.0' },
+[04:32:47.825] npm warn EBADENGINE   current: { node: 'v18.20.6', npm: '10.8.2' }
+[04:32:47.825] npm warn EBADENGINE }
+[04:32:48.415] 
+[04:32:48.415] up to date in 2s
+[04:32:48.416] 
+[04:32:48.416] 90 packages are looking for funding
+[04:32:48.416]   run `npm fund` for details
+[04:32:48.734] [36mvite v5.4.19 [32mbuilding for production...[36m[39m
+[04:32:49.120] transforming...
+[04:32:49.171] Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+[04:32:49.172]   npx update-browserslist-db@latest
+[04:32:49.172]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[04:32:56.008] [32m✓[39m 2416 modules transformed.
+[04:32:56.573] rendering chunks...
+[04:32:56.587] computing gzip size...
+[04:32:56.612] [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  1.13 kB[22m[1m[22m[2m │ gzip:   0.59 kB[22m
+[04:32:56.612] [2m../dist/public/[22m[2massets/[22m[35mindex-nEHzZwQz.css  [39m[1m[2m127.80 kB[22m[1m[22m[2m │ gzip:  19.54 kB[22m
+[04:32:56.613] [2m../dist/public/[22m[2massets/[22m[36mindex-CBSVX3ro.js   [39m[1m[33m741.55 kB[39m[22m[2m │ gzip: 216.82 kB[22m
+[04:32:56.613] [33m
+[04:32:56.613] (!) Some chunks are larger than 500 kB after minification. Consider:
+[04:32:56.613] - Using dynamic import() to code-split the application
+[04:32:56.614] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[04:32:56.614] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[04:32:56.614] [32m✓ built in 7.52s[39m
+[04:32:57.036] Using TypeScript 5.6.3 (local user-provided)
+[04:33:03.512] shared/schema.ts(568,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(569,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(573,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(574,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(575,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(579,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(580,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(581,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(585,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.512] shared/schema.ts(586,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(587,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(591,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(592,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(596,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(597,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(598,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(602,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(603,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(604,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(608,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(609,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(610,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.513] shared/schema.ts(614,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.514] shared/schema.ts(615,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.514] shared/schema.ts(616,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[04:33:03.514] 
+[04:33:04.433] Using TypeScript 5.6.3 (local user-provided)
+[04:33:05.002] Using TypeScript 5.6.3 (local user-provided)
+[04:33:05.476] Using TypeScript 5.6.3 (local user-provided)
+[04:33:05.933] Build Completed in /vercel/output [20s]
+[04:33:06.075] Deploying outputs...
+[04:33:10.402] 
+[04:33:10.564] Deployment completed
