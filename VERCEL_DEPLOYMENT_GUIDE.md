@@ -25,22 +25,27 @@ NODE_ENV=production
 
 ## Deployment Steps
 
-### 1. Connect Repository
-```bash
-# If not already connected
-vercel --prod
-```
+### 1. Simple Deployment Method
 
-### 2. Deploy with Environment Variables
+**Option 1: Vercel Dashboard (Recommended)**
+1. Go to vercel.com and import your GitHub repository
+2. Set environment variables in the dashboard
+3. Deploy with default settings
+
+**Option 2: Command Line**
 ```bash
-# Set environment variables
-vercel env add DATABASE_URL
-vercel env add BETTER_AUTH_SECRET
-vercel env add BETTER_AUTH_URL
+# Install Vercel CLI
+npm i -g vercel
 
 # Deploy
 vercel --prod
 ```
+
+### 2. Environment Variables Setup
+In Vercel dashboard, add these environment variables:
+- `DATABASE_URL`: Your PostgreSQL connection string
+- `BETTER_AUTH_SECRET`: Random secret key
+- `BETTER_AUTH_URL`: Your deployment URL (e.g., https://your-app.vercel.app)
 
 ### 3. Database Migration
 ```bash
