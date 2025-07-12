@@ -24,14 +24,22 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     autoSignIn: true,
     sendResetPassword: async ({ user, url, token }) => {
+      console.log(`Password reset requested for ${user.email}`);
+      console.log(`Reset URL: ${url}`);
+      console.log(`Reset Token: ${token}`);
+      
       // Use SendGrid if configured, otherwise log for development
       if (process.env.SENDGRID_API_KEY) {
-        const { sendPasswordResetEmail } = await import("./email-service");
-        await sendPasswordResetEmail(user.email, token);
+        console.log("SendGrid API key detected - attempting to send email");
+        try {
+          const { sendPasswordResetEmail } = await import("./email-service");
+          const emailSent = await sendPasswordResetEmail(user.email, token);
+          console.log(`Email sent result: ${emailSent}`);
+        } catch (error) {
+          console.error("Error sending password reset email:", error);
+        }
       } else {
-        console.log(`Password reset requested for ${user.email}`);
-        console.log(`Reset URL: ${url}`);
-        console.log(`Reset Token: ${token}`);
+        console.log("No SendGrid API key - email sending skipped");
       }
     },
   },

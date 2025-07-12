@@ -2,6 +2,8 @@ import { MailService } from '@sendgrid/mail';
 
 if (!process.env.SENDGRID_API_KEY) {
   console.warn("SENDGRID_API_KEY not configured - email sending will be disabled");
+} else {
+  console.log("SendGrid API key configured - email sending enabled");
 }
 
 const mailService = new MailService();
@@ -101,7 +103,7 @@ export async function sendPasswordResetEmail(email: string, resetToken: string):
 
   return await sendEmail({
     to: email,
-    from: 'noreply@recrutas.ai',
+    from: process.env.FROM_EMAIL || 'noreply@recrutas.com',
     subject: 'Reset Your Password - Recrutas',
     text: textContent,
     html: htmlContent,

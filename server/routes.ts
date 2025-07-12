@@ -30,6 +30,15 @@ import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
+import { config } from "dotenv";
+
+// Load environment variables
+config();
+
+// Debug environment variables
+console.log("Environment variables loaded:");
+console.log("SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? "***configured***" : "not configured");
+console.log("NODE_ENV:", process.env.NODE_ENV);
 
 // Simple in-memory cache for external jobs consistency
 const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
