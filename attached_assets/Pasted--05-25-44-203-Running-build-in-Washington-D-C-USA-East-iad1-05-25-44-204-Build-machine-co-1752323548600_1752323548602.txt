@@ -1,0 +1,89 @@
+[05:25:44.203] Running build in Washington, D.C., USA (East) – iad1
+[05:25:44.204] Build machine configuration: 2 cores, 8 GB
+[05:25:44.220] Cloning github.com/abaskabato/recrutas (Branch: main, Commit: 1a46d11)
+[05:25:44.630] Cloning completed: 410.000ms
+[05:25:44.718] Found .vercelignore
+[05:25:44.738] Removed 41 ignored files defined in .vercelignore
+[05:25:44.738]   /api/auth-direct.js
+[05:25:44.738]   /api/auth-working.js
+[05:25:44.738]   /api/auth.js
+[05:25:44.738]   /api/fallback-auth.js
+[05:25:44.738]   /api/index.js
+[05:25:44.738]   /api/test-minimal-auth.js
+[05:25:44.739]   /server/advanced-matching-engine.ts
+[05:25:44.739]   /server/ai-resume-parser.ts
+[05:25:44.739]   /server/ai-service.ts
+[05:25:44.739]   /server/application-intelligence.ts
+[05:25:45.660] Restored build cache from previous deployment (HuwquXqzhir11URzbSHWWKwTAwbJ)
+[05:25:46.729] Running "vercel build"
+[05:25:47.162] Vercel CLI 44.3.0
+[05:25:48.176] Installing dependencies...
+[05:25:49.516] npm warn EBADENGINE Unsupported engine {
+[05:25:49.517] npm warn EBADENGINE   package: '@simplewebauthn/server@13.1.1',
+[05:25:49.517] npm warn EBADENGINE   required: { node: '>=20.0.0' },
+[05:25:49.517] npm warn EBADENGINE   current: { node: 'v18.20.6', npm: '10.8.2' }
+[05:25:49.517] npm warn EBADENGINE }
+[05:25:50.061] npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+[05:25:57.023] 
+[05:25:57.024] added 7 packages, and changed 10 packages in 9s
+[05:25:57.024] 
+[05:25:57.025] 90 packages are looking for funding
+[05:25:57.025]   run `npm fund` for details
+[05:25:57.080] 🚀 Starting Vercel frontend build...
+[05:25:57.081] 📦 Building frontend...
+[05:25:58.008] [36mvite v5.4.19 [32mbuilding for production...[36m[39m
+[05:25:58.347] transforming...
+[05:25:58.384] Browserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+[05:25:58.385]   npx update-browserslist-db@latest
+[05:25:58.385]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[05:26:05.509] [32m✓[39m 2416 modules transformed.
+[05:26:06.035] rendering chunks...
+[05:26:06.048] computing gzip size...
+[05:26:06.073] [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  1.29 kB[22m[1m[22m[2m │ gzip:   0.66 kB[22m
+[05:26:06.073] [2m../dist/public/[22m[2massets/[22m[35mindex-nEHzZwQz.css  [39m[1m[2m127.80 kB[22m[1m[22m[2m │ gzip:  19.54 kB[22m
+[05:26:06.074] [2m../dist/public/[22m[2massets/[22m[36mindex-BdNdf8l9.js   [39m[1m[33m741.90 kB[39m[22m[2m │ gzip: 216.88 kB[22m
+[05:26:06.076] [32m✓ built in 7.75s[39m
+[05:26:06.076] [33m
+[05:26:06.077] (!) Some chunks are larger than 500 kB after minification. Consider:
+[05:26:06.077] - Using dynamic import() to code-split the application
+[05:26:06.077] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[05:26:06.077] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[05:26:06.105] ✅ Frontend build completed
+[05:26:06.105] ℹ️ Serverless API functions will be handled automatically by Vercel
+[05:26:06.459] Using TypeScript 5.6.3 (local user-provided)
+[05:26:12.386] shared/schema.ts(568,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.386] shared/schema.ts(569,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.386] shared/schema.ts(573,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(574,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(575,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(579,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(580,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(581,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(585,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.387] shared/schema.ts(586,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(587,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(591,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(592,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(596,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(597,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(598,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(602,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.388] shared/schema.ts(603,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.389] shared/schema.ts(604,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.389] shared/schema.ts(608,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.389] shared/schema.ts(609,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.389] shared/schema.ts(610,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.390] shared/schema.ts(614,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.390] shared/schema.ts(615,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.393] shared/schema.ts(616,3): error TS2322: Type 'boolean' is not assignable to type 'never'.
+[05:26:12.393] 
+[05:26:13.269] Using TypeScript 5.6.3 (local user-provided)
+[05:26:13.815] Using TypeScript 5.6.3 (local user-provided)
+[05:26:14.269] Using TypeScript 5.6.3 (local user-provided)
+[05:26:14.700] Build Completed in /vercel/output [27s]
+[05:26:14.842] Deploying outputs...
+[05:26:19.238] 
+[05:26:19.380] Deployment completed
+[05:27:11.064] Uploading build cache [117.13 MB]...
+[05:27:12.606] Build cache uploaded: 1.547s
+[05:27:14.859] Exiting build container
