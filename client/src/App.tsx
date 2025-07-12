@@ -22,7 +22,15 @@ function Router() {
   const user = session?.user;
   const isAuthenticated = !!user;
   
-  console.log('Router state:', { session, user, isAuthenticated, isLoading, error });
+  console.log('Router state:', { 
+    session, 
+    user, 
+    isAuthenticated, 
+    isLoading, 
+    error,
+    sessionUser: session?.user,
+    userRole: user?.role
+  });
 
 
 
