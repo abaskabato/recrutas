@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react"
 import { useQuery } from "@tanstack/react-query"
 
 export const authClient = createAuthClient({
-  baseURL: window.location.origin,
+  baseURL: typeof window !== 'undefined' ? window.location.origin : '',
   basePath: "/api/auth",
   fetchOptions: {
     credentials: "include"
@@ -38,9 +38,9 @@ export const useSession = () => {
       }
       return null;
     },
-    refetchInterval: 5000, // Refetch every 5 seconds
-    staleTime: 0, // Always consider stale
-    retry: 3, // Retry failed requests
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 5s)
+    staleTime: 10000, // Consider stale after 10 seconds
+    retry: 2, // Retry failed requests twice
   });
 
   // Always use our custom session endpoint since Better Auth isn't working
