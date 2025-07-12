@@ -2,8 +2,6 @@ import { MailService } from '@sendgrid/mail';
 
 if (!process.env.SENDGRID_API_KEY) {
   console.warn("SENDGRID_API_KEY not configured - email sending will be disabled");
-} else {
-  console.log("SendGrid API key configured - email sending enabled");
 }
 
 const mailService = new MailService();
@@ -38,9 +36,6 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('SendGrid email error:', error);
-    if (error.response && error.response.body) {
-      console.error('SendGrid error details:', JSON.stringify(error.response.body, null, 2));
-    }
     return false;
   }
 }
@@ -106,7 +101,7 @@ export async function sendPasswordResetEmail(email: string, resetToken: string):
 
   return await sendEmail({
     to: email,
-    from: process.env.FROM_EMAIL || 'abaskabato@gmail.com',
+    from: 'noreply@recrutas.ai',
     subject: 'Reset Your Password - Recrutas',
     text: textContent,
     html: htmlContent,

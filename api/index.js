@@ -144,8 +144,6 @@ export default async function handler(req, res) {
         // Better Auth configured for serverless environment with JWT sessions
         const auth = betterAuth({
           secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
-          baseURL: process.env.BETTER_AUTH_URL || `https://${process.env.VERCEL_URL || 'recrutas.vercel.app'}`,
-          basePath: "/api/auth",
           session: {
             strategy: "jwt",
             expiresIn: 60 * 60 * 24 * 7, // 7 days
@@ -194,20 +192,17 @@ export default async function handler(req, res) {
           trustedOrigins: [
             "http://localhost:5000",
             "https://recrutas.vercel.app",
-            "https://recrutas-*.vercel.app", // Support all preview deployments
-            process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
             "https://recrutas-git-main-abas-kabatos-projects.vercel.app",
             "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
-          ].filter(Boolean),
+          ],
           
           advanced: {
-            useSecureCookies: true, // Always use secure cookies in serverless
+            useSecureCookies: process.env.NODE_ENV === 'production',
             defaultCookieAttributes: {
               httpOnly: false,
-              secure: true, // Always secure in production (HTTPS)
+              secure: process.env.NODE_ENV === 'production',
               sameSite: "lax",
               path: "/",
-              domain: undefined, // Let browser determine domain
             },
           },
         });

@@ -141,7 +141,7 @@ export default function TalentDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/auth";
+        window.location.href = "/api/login";
       }, 1000);
       return;
     }

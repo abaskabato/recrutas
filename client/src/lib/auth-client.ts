@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react"
 import { useQuery } from "@tanstack/react-query"
 
 export const authClient = createAuthClient({
-  baseURL: typeof window !== 'undefined' ? window.location.origin : '',
+  baseURL: window.location.origin,
   basePath: "/api/auth",
   fetchOptions: {
     credentials: "include"
@@ -12,27 +12,8 @@ export const authClient = createAuthClient({
 export const {
   signIn,
   signUp,
-  signOut: betterAuthSignOut,
+  signOut,
 } = authClient
-
-// Enhanced signOut function with proper session cleanup and redirection
-export const signOut = async () => {
-  try {
-    // Call Better Auth signOut
-    await betterAuthSignOut();
-    
-    // Clear any localStorage items
-    localStorage.removeItem('continuationJob');
-    sessionStorage.removeItem('pendingJobApplication');
-    
-    // Force reload to clear session state
-    window.location.href = '/';
-  } catch (error) {
-    console.error('Sign out error:', error);
-    // Force redirect even if signOut fails
-    window.location.href = '/';
-  }
-}
 
 // Custom session hook that uses our fallback endpoint
 export const useSession = () => {
@@ -57,9 +38,9 @@ export const useSession = () => {
       }
       return null;
     },
-    refetchInterval: 5000, // Refetch every 5 seconds for responsive updates
-    staleTime: 0, // Always consider stale for immediate updates
-    retry: 2, // Retry failed requests twice
+    refetchInterval: 5000, // Refetch every 5 seconds
+    staleTime: 0, // Always consider stale
+    retry: 3, // Retry failed requests
   });
 
   // Always use our custom session endpoint since Better Auth isn't working

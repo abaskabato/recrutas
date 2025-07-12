@@ -40,96 +40,34 @@ export default function AuthPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validation checks
-    if (!signInData.email.trim()) {
-      toast({
-        title: "Email required",
-        description: "Please enter your email address",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    if (!signInData.password.trim()) {
-      toast({
-        title: "Password required",
-        description: "Please enter your password",
-        variant: "destructive",
-      })
-      return
-    }
-    
     setIsSigningIn(true)
     
-    try {
-      const { data, error } = await signIn.email({
-        email: signInData.email,
-        password: signInData.password,
-        rememberMe,
-        callbackURL: "/"
-      }, {
-        onRequest: () => {
-          console.log('Sign in request started')
-        },
-        onSuccess: () => {
-          toast({ title: "Welcome back!", description: "Successfully signed in." })
-        },
-        onError: (ctx) => {
-          toast({
-            title: "Sign in failed",
-            description: ctx.error.message || "Invalid email or password",
-            variant: "destructive",
-          })
-        }
-      })
-      
-      // If successful, redirect will happen automatically
-      if (data && !error) {
-        console.log('Sign in successful, redirecting...')
+    const { data, error } = await signIn.email({
+      email: signInData.email,
+      password: signInData.password,
+      rememberMe,
+      callbackURL: "/"
+    }, {
+      onRequest: () => {
+        console.log('Sign in request started')
+      },
+      onSuccess: () => {
+        toast({ title: "Welcome back!", description: "Successfully signed in." })
+      },
+      onError: (ctx) => {
+        toast({
+          title: "Sign in failed",
+          description: ctx.error.message || "Invalid email or password",
+          variant: "destructive",
+        })
       }
-    } catch (err: any) {
-      console.error('Sign in error:', err)
-      toast({
-        title: "Sign in failed",
-        description: err.message || "An unexpected error occurred",
-        variant: "destructive",
-      })
-    }
+    })
     
     setIsSigningIn(false)
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validation checks
-    if (!signUpData.name.trim()) {
-      toast({
-        title: "Name required",
-        description: "Please enter your full name",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    if (!signUpData.email.trim()) {
-      toast({
-        title: "Email required", 
-        description: "Please enter your email address",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    if (signUpData.password.length < 8) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 8 characters long",
-        variant: "destructive",
-      })
-      return
-    }
     
     if (signUpData.password !== signUpData.confirmPassword) {
       toast({
@@ -142,43 +80,29 @@ export default function AuthPage() {
     
     setIsSigningUp(true)
     
-    try {
-      const { data, error } = await signUp.email({
-        email: signUpData.email,
-        password: signUpData.password,
-        name: signUpData.name,
-        callbackURL: "/role-selection"
-      }, {
-        onRequest: () => {
-          console.log('Sign up request started')
-        },
-        onSuccess: () => {
-          toast({ 
-            title: "Account created!", 
-            description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
-          })
-        },
-        onError: (ctx) => {
-          toast({
-            title: "Sign up failed",
-            description: ctx.error.message || "Failed to create account",
-            variant: "destructive",
-          })
-        }
-      })
-      
-      // If successful, redirect will happen automatically
-      if (data && !error) {
-        console.log('Sign up successful, redirecting to role selection')
+    const { data, error } = await signUp.email({
+      email: signUpData.email,
+      password: signUpData.password,
+      name: signUpData.name,
+      callbackURL: "/role-selection"
+    }, {
+      onRequest: () => {
+        console.log('Sign up request started')
+      },
+      onSuccess: () => {
+        toast({ 
+          title: "Account created!", 
+          description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
+        })
+      },
+      onError: (ctx) => {
+        toast({
+          title: "Sign up failed",
+          description: ctx.error.message || "Failed to create account",
+          variant: "destructive",
+        })
       }
-    } catch (err: any) {
-      console.error('Sign up error:', err)
-      toast({
-        title: "Sign up failed",
-        description: err.message || "An unexpected error occurred",
-        variant: "destructive",
-      })
-    }
+    })
     
     setIsSigningUp(false)
   }

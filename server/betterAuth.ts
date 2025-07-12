@@ -15,7 +15,7 @@ export const auth = betterAuth({
     },
   }),
   basePath: "/api/auth",
-  baseURL: process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'development' ? `http://localhost:5000` : `https://${process.env.VERCEL_URL || 'recrutas.vercel.app'}`),
+  baseURL: process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'development' ? `http://localhost:5000` : "https://recrutas.vercel.app"),
   secret: process.env.BETTER_AUTH_SECRET || "dev-secret-key-please-change-in-production",
   emailAndPassword: {
     enabled: true,
@@ -24,22 +24,14 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     autoSignIn: true,
     sendResetPassword: async ({ user, url, token }) => {
-      console.log(`Password reset requested for ${user.email}`);
-      console.log(`Reset URL: ${url}`);
-      console.log(`Reset Token: ${token}`);
-      
       // Use SendGrid if configured, otherwise log for development
       if (process.env.SENDGRID_API_KEY) {
-        console.log("SendGrid API key detected - attempting to send email");
-        try {
-          const { sendPasswordResetEmail } = await import("./email-service");
-          const emailSent = await sendPasswordResetEmail(user.email, token);
-          console.log(`Email sent result: ${emailSent}`);
-        } catch (error) {
-          console.error("Error sending password reset email:", error);
-        }
+        const { sendPasswordResetEmail } = await import("./email-service");
+        await sendPasswordResetEmail(user.email, token);
       } else {
-        console.log("No SendGrid API key - email sending skipped");
+        console.log(`Password reset requested for ${user.email}`);
+        console.log(`Reset URL: ${url}`);
+        console.log(`Reset Token: ${token}`);
       }
     },
   },
@@ -93,7 +85,7 @@ export const auth = betterAuth({
     },
     cookieOptions: {
       httpOnly: false, // Allow JavaScript access for client-side auth
-      secure: process.env.NODE_ENV === 'production', // Enable secure in production for HTTPS
+      secure: false, // Disable secure for development
       sameSite: "lax",
       path: "/",
       domain: undefined, // Don't set domain for localhost/vercel
@@ -105,20 +97,14 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [
-    // Development origins
     "http://localhost:5000",
     "https://*.replit.app", 
     "https://*.replit.dev",
-    process.env.REPLIT_DEV_DOMAIN || "",
-    
-    // Production origins
     "https://recrutas.vercel.app",
-    "https://recrutas-*.vercel.app", // Support all Vercel preview deployments
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
-    
-    // Legacy specific deployments
     "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
     "https://e0f14cb7-13c7-49be-849b-00e0e677863c-00-13vuezjrrpu3a.picard.replit.dev",
+    process.env.REPLIT_DEV_DOMAIN || "",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
   ].filter(Boolean),
 })
 

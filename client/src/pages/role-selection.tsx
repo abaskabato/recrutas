@@ -28,19 +28,19 @@ export default function RoleSelection() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Clear all caches and force fresh data
-      queryClient.clear();
-      
-      // Show success message
+      // Invalidate the correct query cache that our custom session hook uses
+      queryClient.invalidateQueries({ queryKey: ['/api/session'] });
       toast({
         title: 'Role Selected',
         description: `Welcome! Your account has been set up as a ${selectedRole === 'candidate' ? 'candidate' : 'talent owner'}.`,
       });
       
-      // Force navigation with full page reload to ensure fresh session
-      setTimeout(() => {
-        window.location.href = selectedRole === 'candidate' ? '/candidate-dashboard' : '/talent-dashboard';
-      }, 500);
+      // Redirect based on role
+      if (selectedRole === 'candidate') {
+        setLocation('/candidate-dashboard');
+      } else {
+        setLocation('/talent-dashboard');
+      }
     },
     onError: (error) => {
       toast({

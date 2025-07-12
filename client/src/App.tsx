@@ -8,7 +8,6 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { authClient, useSession } from "@/lib/auth-client";
 import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
-import SimpleAuth from "@/pages/simple-auth";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import RoleSelection from "@/pages/role-selection";
 import CandidateDashboard from "@/pages/candidate-dashboard-streamlined";
@@ -37,7 +36,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <Route path="/simple-auth" component={SimpleAuth} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/role-selection" component={RoleSelection} />
       <Route path="/candidate-dashboard" component={CandidateDashboard} />
