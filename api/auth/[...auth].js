@@ -1,88 +1,58 @@
-// Simplified authentication handler for Vercel deployment
-import { createVercelDB } from '../db-vercel.js';
-import bcrypt from 'bcryptjs';
-import { nanoid } from 'nanoid';
+// Better Auth handler for Vercel deployment
+import { auth } from '../../server/betterAuth.js';
 
 export default async function handler(req, res) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
   try {
-    console.log('Auth request:', req.method, req.url);
-    
-    // Handle sign-up
-    if (req.url?.includes('/sign-up') && req.method === 'POST') {
-      const { name, email, password } = req.body;
-      
-      console.log('Sign-up attempt:', { name, email });
-      
-      if (!name || !email || !password) {
-        return res.status(400).json({ 
-          error: 'Name, email, and password are required' 
-        });
+    // Create a proper Web Request object for Better Auth
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
+    const url = new URL(req.url, `${protocol}://${host}`);
+
+    // Set up headers properly
+    const headers = new Headers();
+    Object.entries(req.headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        headers.set(key, value);
+      } else if (Array.isArray(value)) {
+        headers.set(key, value.join(', '));
       }
+    });
 
-      const client = createVercelDB();
-      
-      try {
-        // Initialize tables first
-        await client.unsafe(`
-          CREATE TABLE IF NOT EXISTS "user" (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            "emailVerified" BOOLEAN DEFAULT false,
-            image TEXT,
-            "createdAt" TIMESTAMP DEFAULT NOW(),
-            "updatedAt" TIMESTAMP DEFAULT NOW(),
-            role TEXT
-          );
-          
-          CREATE TABLE IF NOT EXISTS "session" (
-            id TEXT PRIMARY KEY,
-            "userId" TEXT NOT NULL,
-            "expiresAt" TIMESTAMP NOT NULL,
-            token TEXT NOT NULL UNIQUE,
-            "createdAt" TIMESTAMP DEFAULT NOW(),
-            "updatedAt" TIMESTAMP DEFAULT NOW(),
-            "ipAddress" TEXT,
-            "userAgent" TEXT,
-            FOREIGN KEY ("userId") REFERENCES "user"(id) ON DELETE CASCADE
-          );
-        `);
+    // Handle request body
+    let body = undefined;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      if (req.body) {
+        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+        headers.set('Content-Type', 'application/json');
+      }
+    }
 
-        // Check if user exists
-        const existingUser = await client`
-          SELECT id FROM "user" WHERE email = ${email} LIMIT 1
-        `;
-        
-        if (existingUser.length > 0) {
-          return res.status(400).json({ 
-            error: 'User already exists' 
-          });
-        }
+    const webRequest = new Request(url.toString(), {
+      method: req.method,
+      headers,
+      body,
+    });
 
-        // Hash password and create user
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const userId = nanoid();
-        
-        await client`
-          INSERT INTO "user" (id, name, email, "createdAt", "updatedAt")
-          VALUES (${userId}, ${name}, ${email}, NOW(), NOW())
-        `;
-
-        // Create session
-        const sessionId = nanoid();
-        const sessionToken = nanoid(32);
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Call Better Auth handler
+    const response = await auth.handler(webRequest);
+    
+    // Forward response status and headers
+    res.status(response.status);
+    
+    // Copy headers from Better Auth response
+    for (const [key, value] of response.headers.entries()) {
+      res.setHeader(key, value);
+    }
+    
+    // Get response body
+    const responseBody = await response.text();
+    
+    // Send response
+    if (responseBody) {
+      res.send(responseBody);
+    } else {
+      res.end();
+    }
         
         await client`
           INSERT INTO "session" (id, "userId", token, "expiresAt", "createdAt", "updatedAt")
