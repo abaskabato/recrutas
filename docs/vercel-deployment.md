@@ -49,12 +49,13 @@ The deployment automatically creates these tables in your Supabase database:
 
 Your deployed app will have these serverless functions:
 
-- `/api/session` - Session management
-- `/api/auth/sign-up` - User registration
-- `/api/auth/sign-in` - User authentication
-- `/api/auth/sign-out` - Session termination
+- `/api/session` - Session management and validation
+- `/api/auth/sign-up` - User registration endpoint
+- `/api/auth/sign-in` - User authentication endpoint  
+- `/api/auth/sign-out` - Session termination endpoint
 - `/api/jobs` - Job data endpoints
 - `/api/user` - User profile management
+- `/api/stats` - Platform statistics
 
 ## Local vs Production
 
@@ -65,8 +66,23 @@ Your deployed app will have these serverless functions:
 
 After deployment, verify these endpoints work:
 - GET `/api/session` - Should return session status
-- POST `/api/auth/sign-up` - Should create new users
-- POST `/api/auth/sign-in` - Should authenticate users
+- POST `/api/auth/sign-up` - Should create new users with proper validation
+- POST `/api/auth/sign-in` - Should authenticate users and create sessions
+- POST `/api/auth/sign-out` - Should clear sessions and cookies
+
+### Test Sign-up
+```bash
+curl -X POST https://your-app.vercel.app/api/auth/sign-up \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123","name":"Test User"}'
+```
+
+### Test Sign-in
+```bash
+curl -X POST https://your-app.vercel.app/api/auth/sign-in \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+```
 
 ## Security Features
 

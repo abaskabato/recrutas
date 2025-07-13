@@ -52,7 +52,7 @@ export default async function handler(req, res) {
           expiresAt: session.expiresAt,
         },
         user: {
-          id: session.id,
+          id: session.userId,
           name: session.name,
           email: session.email,
           role: session.role,
