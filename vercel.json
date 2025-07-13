@@ -2,15 +2,14 @@
   "buildCommand": "node vercel-build.js",
   "outputDirectory": "dist/public",
   "framework": null,
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
-      "source": "/api/auth/:path*",
-      "destination": "/api/auth/[...auth]"
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
