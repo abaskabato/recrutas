@@ -1,4 +1,4 @@
-import { auth } from '../../server/auth.js';
+import { auth } from '../../server/betterAuth.js';
 
 export default async function handler(req, res) {
   // Set CORS headers for Vercel

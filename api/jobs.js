@@ -1,4 +1,4 @@
-import { auth } from '../server/auth.js';
+import { auth } from '../server/betterAuth.js';
 import { db } from '../server/db.js';
 import { jobs } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
