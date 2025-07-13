@@ -2,14 +2,38 @@
   "buildCommand": "node vercel-build.js",
   "outputDirectory": "dist/public",
   "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+  "functions": {
+    "api/auth/sign-up.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
     },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+    "api/auth/sign-in.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
+    },
+    "api/auth/sign-out.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
+    },
+    "api/session.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
+    },
+    "api/jobs.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
+    },
+    "api/stats.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
+    },
+    "api/user.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
+    },
+    "api/debug.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
     }
-  ]
+  }
 }
