@@ -1,5 +1,3 @@
-import { auth } from '../../server/betterAuth.js';
-
 export default async function handler(req, res) {
   // Set CORS headers for Vercel
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,38 +10,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Create a proper URL for the auth handler
-    const url = new URL(req.url, `https://${req.headers.host}`);
+    // Simplified auth handler for Vercel deployment
+    // This is a placeholder that allows the frontend to load
+    console.log('Auth request:', req.method, req.url);
     
-    // Create request object for Better Auth
-    const authRequest = new Request(url, {
-      method: req.method,
-      headers: req.headers,
-      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-    });
-
-    // Call Better Auth handler
-    const authResponse = await auth.handler(authRequest);
-    
-    // Convert Response to Express response
-    const responseBody = await authResponse.text();
-    
-    // Set status and headers
-    res.status(authResponse.status);
-    
-    // Copy headers from auth response
-    for (const [key, value] of authResponse.headers.entries()) {
-      res.setHeader(key, value);
+    // Return appropriate responses for different auth endpoints
+    if (req.url?.includes('/get-session')) {
+      return res.status(200).json({ session: null, user: null });
     }
     
-    // Send response
-    if (responseBody) {
-      res.send(responseBody);
-    } else {
-      res.end();
+    if (req.url?.includes('/sign-in')) {
+      return res.status(400).json({ error: 'Authentication not configured' });
     }
+    
+    if (req.url?.includes('/sign-up')) {
+      return res.status(400).json({ error: 'Authentication not configured' });
+    }
+    
+    return res.status(404).json({ error: 'Endpoint not found' });
+    
   } catch (error) {
-    console.error('Auth handler error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Auth endpoint error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
