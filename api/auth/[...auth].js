@@ -1,72 +1,63 @@
-// Better Auth handler for Vercel deployment
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+// Create Better Auth instance directly in the handler
+const createAuth = () => {
+  const client = postgres(process.env.DATABASE_URL, { max: 1 });
+  const db = drizzle(client);
+  
+  return betterAuth({
+    database: drizzleAdapter(db, { provider: "pg" }),
+    baseURL: process.env.BETTER_AUTH_URL || "https://recrutas.vercel.app",
+    secret: process.env.BETTER_AUTH_SECRET,
+    emailAndPassword: { enabled: true },
+    session: { expiresIn: 60 * 60 * 24 * 7 }, // 7 days
+  });
+};
+
 export default async function handler(req, res) {
   try {
-    console.log('Auth handler called:', req.method, req.url);
+    const auth = createAuth();
     
-    // Import auth config dynamically to avoid issues
-    const { auth } = await import('../auth-config-vercel.js');
-    
-    // Create a proper Web Request object for Better Auth
+    // Convert Vercel request to Web Request
     const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'recrutas.vercel.app';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
     const url = new URL(req.url, `${protocol}://${host}`);
-
-    console.log('Request URL:', url.toString());
-
-    // Set up headers properly
+    
     const headers = new Headers();
     Object.entries(req.headers).forEach(([key, value]) => {
-      if (typeof value === 'string') {
-        headers.set(key, value);
-      } else if (Array.isArray(value)) {
-        headers.set(key, value.join(', '));
-      }
+      if (typeof value === 'string') headers.set(key, value);
     });
-
-    // Handle request body
+    
     let body = undefined;
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      if (req.body) {
-        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-        headers.set('Content-Type', 'application/json');
-      }
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+      body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      headers.set('Content-Type', 'application/json');
     }
-
+    
     const webRequest = new Request(url.toString(), {
       method: req.method,
       headers,
       body,
     });
-
-    // Call Better Auth handler
+    
     const response = await auth.handler(webRequest);
     
-    console.log('Auth response status:', response.status);
-    
-    // Forward response status and headers
     res.status(response.status);
-    
-    // Copy headers from Better Auth response
-    for (const [key, value] of response.headers.entries()) {
+    response.headers.forEach((value, key) => {
       res.setHeader(key, value);
-    }
+    });
     
-    // Get response body
     const responseBody = await response.text();
-    
-    // Send response
-    if (responseBody) {
-      res.send(responseBody);
-    } else {
-      res.end();
-    }
+    res.send(responseBody);
     
   } catch (error) {
     console.error('Better Auth error:', error);
     res.status(500).json({ 
       error: 'Authentication error',
-      message: error.message,
-      stack: error.stack
+      message: error.message 
     });
   }
 }

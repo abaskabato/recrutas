@@ -1,22 +1,22 @@
 // Better Auth configuration for Vercel deployment with Supabase
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createVercelDB } from './db-vercel.js';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
-// Initialize database connection
-const db = createVercelDB();
+// Create database connection for Vercel
+const client = postgres(process.env.DATABASE_URL || '', {
+  max: 1,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
+
+const db = drizzle(client);
 
 // Better Auth configuration optimized for Vercel + Supabase
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
-    // Use compatible schema names for Supabase
-    schema: {
-      user: "user",
-      session: "session", 
-      account: "account",
-      verification: "verification",
-    },
   }),
   basePath: "/api/auth",
   baseURL: process.env.BETTER_AUTH_URL || "https://recrutas.vercel.app",
