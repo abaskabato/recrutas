@@ -1,12 +1,17 @@
 // Better Auth handler for Vercel deployment
-import { auth } from '../auth-config-vercel.js';
-
 export default async function handler(req, res) {
   try {
+    console.log('Auth handler called:', req.method, req.url);
+    
+    // Import auth config dynamically to avoid issues
+    const { auth } = await import('../auth-config-vercel.js');
+    
     // Create a proper Web Request object for Better Auth
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'recrutas.vercel.app';
     const url = new URL(req.url, `${protocol}://${host}`);
+
+    console.log('Request URL:', url.toString());
 
     // Set up headers properly
     const headers = new Headers();
@@ -36,6 +41,8 @@ export default async function handler(req, res) {
     // Call Better Auth handler
     const response = await auth.handler(webRequest);
     
+    console.log('Auth response status:', response.status);
+    
     // Forward response status and headers
     res.status(response.status);
     
@@ -58,7 +65,8 @@ export default async function handler(req, res) {
     console.error('Better Auth error:', error);
     res.status(500).json({ 
       error: 'Authentication error',
-      message: error.message 
+      message: error.message,
+      stack: error.stack
     });
   }
 }
