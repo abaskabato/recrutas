@@ -3,28 +3,7 @@
   "outputDirectory": "dist/public",
   "framework": null,
   "functions": {
-    "api/auth/[...auth].js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/session.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/jobs.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/stats.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/user.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/debug.js": {
-      "runtime": "nodejs20.x",
+    "api/**/*.js": {
       "maxDuration": 30
     }
   },
