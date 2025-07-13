@@ -83,8 +83,23 @@ CREATE TABLE IF NOT EXISTS verifications (...);
 
 1. **Set Environment Variables**: Add all required environment variables to your Vercel project dashboard
 2. **Deploy**: Push your code to trigger Vercel deployment
-3. **Database Initialization**: The tables will be created automatically on first API call
+3. **Database Initialization**: The tables will be created automatically on first sign-up attempt
 4. **Test Authentication**: Try signing up/in on your deployed app
+
+## Troubleshooting
+
+If you see "Sign up failed - Failed to create account":
+1. Check that DATABASE_URL is correctly set in Vercel environment variables
+2. Verify Supabase database is accessible from Vercel
+3. Check Vercel function logs for specific error messages
+4. Ensure CORS settings allow your domain
+
+## API Endpoints
+
+- `POST /api/auth/sign-up` - Create new user account
+- `POST /api/auth/sign-in` - Authenticate existing user
+- `POST /api/auth/sign-out` - End user session
+- `GET /api/session` - Check current session status
 
 ## Key Features
 
