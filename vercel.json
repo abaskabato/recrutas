@@ -3,15 +3,7 @@
   "outputDirectory": "dist/public",
   "framework": null,
   "functions": {
-    "api/auth/sign-up.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/auth/sign-in.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    },
-    "api/auth/sign-out.js": {
+    "api/auth/[...auth].js": {
       "runtime": "nodejs20.x",
       "maxDuration": 30
     },
@@ -35,5 +27,11 @@
       "runtime": "nodejs20.x",
       "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/auth/(.*)",
+      "destination": "/api/auth/[...auth]"
+    }
+  ]
 }
