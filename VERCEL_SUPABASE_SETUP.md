@@ -10,15 +10,15 @@ Set these environment variables in your Vercel project dashboard:
 ### Required Variables
 ```bash
 # Supabase Database
-DATABASE_URL="postgresql://postgres.hszttqfamgesltcxpzvc:O2fglkDEoOrCtbqG@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DATABASE_URL="your-supabase-connection-string"
 
 # Better Auth Configuration
-BETTER_AUTH_SECRET="f03a8c675e0d4b6cc347ad29c324e669499d5f50a50c36f6b1a84e3f591a4034"
-BETTER_AUTH_URL="https://recrutas.vercel.app"
+BETTER_AUTH_SECRET="your-secure-32-character-secret"
+BETTER_AUTH_URL="https://your-app.vercel.app"
 
 # Email Service (Optional)
-SENDGRID_API_KEY="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"
-FROM_EMAIL="abaskabato@gmail.com"
+SENDGRID_API_KEY="your-sendgrid-api-key"
+FROM_EMAIL="your-from-email@domain.com"
 ```
 
 ## Deployment Files Created
