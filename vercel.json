@@ -4,7 +4,7 @@
   "framework": null,
   "functions": {
     "api/index.js": {
-      "runtime": "nodejs20.x"
+      "runtime": "node:20"
     }
   },
   "rewrites": [
