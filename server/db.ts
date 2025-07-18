@@ -9,7 +9,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Use the correct Neon PostgreSQL database connection with SSL
-const connectionString = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}?sslmode=require`;
+const connectionString = process.env.DATABASE_URL;
 
 console.log('🔗 Using database connection:', connectionString.replace(/:[^:]*@/, ':***@'));
 
