@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node vercel-build.js",
+  
   "outputDirectory": "dist/public",
   "framework": null,
   "builds": [
