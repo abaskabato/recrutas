@@ -183,7 +183,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  
+  // Session configuration
+  const session = await import('express-session');
+  app.use(session.default({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  }));
 
   // Auth middleware
   setupBetterAuth(app);
@@ -191,32 +198,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Custom session endpoint to handle Better Auth session issues
   app.get("/api/session", async (req, res) => {
     try {
-      // With JWT strategy, session data is in the token, not a separate cookie.
-      // Better Auth's own /api/auth/session endpoint should be used.
-      // This custom endpoint might be redundant or need to fetch session via auth.api.getSession
-      // For now, let's simplify to rely on better-auth's internal session.
-      const session = await auth.api.getSession({ headers: req.headers });
-      if (session?.user) {
-        // Get fresh user data from database to ensure we have the latest role
+      console.log('Session request headers:', req.headers.cookie);
+      const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
+      
+      if (sessionCookie) {
         try {
-          const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
-          if (user) {
-            return res.json({
-              user: {
-                ...session.user,
-                role: user.role,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                profileComplete: user.profileComplete
-              },
-              session: session.session // better-auth session object
-            });
+          const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
+          console.log('Decoded session:', decodedSession);
+          if (decodedSession.session?.user) {
+            // Get fresh user data from database to ensure we have the latest role
+            try {
+              const [user] = await db.select().from(users).where(eq(users.id, decodedSession.session.user.id));
+              console.log('Fresh user data:', user);
+              
+              if (user) {
+                return res.json({
+                  user: {
+                    ...decodedSession.session.user,
+                    role: user.role, // Use fresh role from database
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    profileComplete: user.profileComplete
+                  },
+                  session: decodedSession.session.session
+                });
+              }
+            } catch (dbError) {
+              console.error('Database query error:', dbError);
+              // Fallback to session data if database fails
+              return res.json({
+                user: decodedSession.session.user,
+                session: decodedSession.session.session
+              });
+            }
           }
-        } catch (dbError) {
-          console.error('Database query error in /api/session:', dbError);
-          return res.json({ user: session.user, session: session.session });
+        } catch (e) {
+          console.log('Session decode error:', e);
         }
       }
+      
+      console.log('No valid session found');
       res.json(null);
     } catch (error) {
       console.error('Session endpoint error:', error);
@@ -227,15 +248,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Custom logout endpoint to force clear all session data
   app.get("/api/logout", async (req, res) => {
     try {
-      // With JWT strategy, clearing cookies is less about session data and more about the token.
-      // Better Auth's own /api/auth/sign-out endpoint should handle this.
-      // This custom endpoint can simply redirect or return success.
-      // The betterAuth.ts already has robust cookie clearing for sign-out.
-      res.clearCookie('better-auth.session_token', { path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-      res.clearCookie('better-auth.session_data', { path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-      res.clearCookie('connect.sid', { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' }); // Clear legacy if present
-
-      console.log('Manual logout completed, relevant cookies cleared');
+      // Clear all possible session cookies
+      res.clearCookie('better-auth.session_token', { 
+        path: '/', 
+        httpOnly: false, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      res.clearCookie('better-auth.session_data', { 
+        path: '/', 
+        httpOnly: false, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      res.clearCookie('connect.sid', { 
+        path: '/', 
+        httpOnly: true, 
+        secure: false,
+        sameSite: 'lax'
+      });
+      
+      // Also try clearing with different path variations
+      res.clearCookie('better-auth.session_token');
+      res.clearCookie('better-auth.session_data');
+      res.clearCookie('connect.sid');
+      
+      console.log('Manual logout completed, all cookies cleared');
       res.status(200).json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
       console.error('Logout error:', error);

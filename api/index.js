@@ -1,8 +1,4 @@
 import express from 'express';
-import { db } from '../server/db.js';
-import { users, sessions, accounts, verifications } from '../shared/schema.js';
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 let app;
 let authEnabled = false;
@@ -61,6 +57,90 @@ export default async function handler(req, res) {
       try {
         console.log('Starting Better Auth initialization...');
         
+        // Load dependencies sequentially to avoid timeout issues
+        const { betterAuth } = await import("better-auth");
+        const { drizzleAdapter } = await import("better-auth/adapters/drizzle");
+        const pgModule = await import('pg');
+        const { drizzle } = await import('drizzle-orm/node-postgres');
+        const { pgTable, text, timestamp, boolean } = await import("drizzle-orm/pg-core");
+        
+        console.log('Dependencies loaded successfully');
+        
+        // Handle different export patterns for pg module in serverless environments
+        const Pool = pgModule.Pool || pgModule.default?.Pool || pgModule.default;
+        
+        // Schema definition exactly matching shared/schema.ts
+        const users = pgTable("users", {
+          id: text("id").primaryKey(),
+          name: text("name").notNull(),
+          email: text("email").notNull().unique(),
+          emailVerified: boolean("emailVerified").notNull().default(false),
+          image: text("image"),
+          createdAt: timestamp("createdAt").notNull(),
+          updatedAt: timestamp("updatedAt").notNull(),
+          // Custom fields for our platform
+          firstName: text("first_name"),
+          lastName: text("last_name"),
+          phoneNumber: text("phone_number"),
+          profileImageUrl: text("profile_image_url"),
+          role: text("role"),
+          profileComplete: boolean("profile_complete").default(false),
+        });
+
+        const sessions = pgTable("sessions", {
+          id: text("id").primaryKey(),
+          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+          expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
+          token: text("token").notNull().unique(),
+          createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+          updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+          ipAddress: text("ipAddress"),
+          userAgent: text("userAgent"),
+        });
+
+        const accounts = pgTable("accounts", {
+          id: text("id").primaryKey(),
+          accountId: text("accountId").notNull(),
+          providerId: text("providerId").notNull(),
+          userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+          accessToken: text("accessToken"),
+          refreshToken: text("refreshToken"),
+          idToken: text("idToken"),
+          accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
+          refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
+          scope: text("scope"),
+          password: text("password"),
+          createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
+          updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+        });
+
+        const verifications = pgTable("verifications", {
+          id: text("id").primaryKey(),
+          identifier: text("identifier").notNull(),
+          value: text("value").notNull(),
+          expiresAt: timestamp("expiresAt").notNull(),
+          createdAt: timestamp("createdAt"),
+          updatedAt: timestamp("updatedAt"),
+        });
+
+        // Database setup - Supabase with standard PostgreSQL
+        if (!process.env.DATABASE_URL) {
+          throw new Error('DATABASE_URL environment variable is required');
+        }
+        
+        // Create minimal pool for serverless
+        const pool = new Pool({ 
+          connectionString: process.env.DATABASE_URL,
+          ssl: { rejectUnauthorized: false },
+          max: 1,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
+        });
+        
+        console.log('Database pool created');
+        const db = drizzle({ client: pool, schema: { users, sessions, accounts, verifications } });
+        console.log('Drizzle instance created');
+
         // Better Auth configured for serverless environment with JWT sessions
         const auth = betterAuth({
           secret: process.env.BETTER_AUTH_SECRET || process.env.SESSION_SECRET,
