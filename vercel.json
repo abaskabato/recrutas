@@ -2,11 +2,12 @@
   "buildCommand": "node vercel-build.js",
   "outputDirectory": "dist/public",
   "framework": null,
-  "functions": {
-    "api/index.js": {
-      "runtime": "nodejs20.x"
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
