@@ -19,15 +19,9 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET || "dev-secret-key-please-change-in-production",
   trustedOrigins: ["http://localhost:5000", "https://recrutas.vercel.app"],
   session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 60 * 60 * 24 * 7 // 7 days
-    },
-    cookieSecure: process.env.NODE_ENV === 'production',
-    cookieSameSite: 'lax',
-    cookieHttpOnly: false,
-    cookieDomain: undefined,
-    cookiePath: '/',
+    strategy: "jwt", // Change to JWT strategy
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // 1 day
   },
   emailAndPassword: {
     enabled: true,
@@ -93,6 +87,13 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: false, // Disable for development
+    },
+    // Add defaultCookieAttributes for JWT strategy if needed, matching api/index.js
+    defaultCookieAttributes: {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: "lax",
+      path: "/",
     },
   },
   trustedOrigins: [
