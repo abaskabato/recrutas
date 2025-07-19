@@ -8,12 +8,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Use the correct Neon PostgreSQL database connection with SSL
-const connectionString = `postgresql://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}:${process.env.PGPORT}/${process.env.PGDATABASE}?sslmode=require`;
+// Use the DATABASE_URL directly for consistency
+const connectionString = process.env.DATABASE_URL;
 
-console.log('🔗 Using database connection:', connectionString.replace(/:[^:]*@/, ':***@'));
+console.log('🔗 Using database connection from DATABASE_URL');
 
-// Create connection to Neon PostgreSQL with optimized settings
+// Create connection to PostgreSQL with optimized settings for serverless environments
 const client = postgres(connectionString, {
   max: 1, // Use a single connection for serverless
   idle_timeout: 20,
@@ -23,8 +23,20 @@ const client = postgres(connectionString, {
   connection: {
     application_name: 'recrutas-app',
   },
-  ssl: { rejectUnauthorized: false }, // Required for Neon
+  ssl: { rejectUnauthorized: false }, // Required for Supabase/Neon
   debug: false, // Disable debug to reduce overhead
 });
 
 export const db = drizzle(client, { schema });
+
+// Function to test the database connection
+export async function testDbConnection() {
+  try {
+    await client`SELECT 1`;
+    console.log('✅ Database connection successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    return false;
+  }
+}
