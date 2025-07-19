@@ -117,6 +117,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupBetterAuth(app);
 
+  app.post("/api/auth/sign-up/email", async (req, res) => {
+    try {
+      const result = await auth.handler(req);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      res.status(500).json({ error: "Authentication system error" });
+    }
+  });
+
   // Custom session endpoint to handle Better Auth session issues
   app.get("/api/session", async (req, res) => {
     try {
