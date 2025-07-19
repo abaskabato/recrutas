@@ -4,48 +4,11 @@ import { useQuery } from "@tanstack/react-query"
 export const authClient = createAuthClient({
   baseURL: window.location.origin,
   basePath: "/api/auth",
-  fetchOptions: {
-    credentials: "include"
-  }
 })
 
 export const {
   signIn,
   signUp,
   signOut,
+  useSession,
 } = authClient
-
-// Custom session hook that uses our fallback endpoint
-export const useSession = () => {
-  const customSession = useQuery({
-    queryKey: ['/api/session'],
-    queryFn: async () => {
-      const response = await fetch('/api/session', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      const data = await response.json();
-
-      // Transform the data to match expected Better Auth structure
-      if (data && data.user) {
-        return {
-          user: data.user,
-          session: data.session
-        };
-      }
-      return null;
-    },
-    refetchInterval: 5000, // Refetch every 5 seconds
-    staleTime: 0, // Always consider stale
-    retry: 3, // Retry failed requests
-  });
-
-  // Always use our custom session endpoint since Better Auth isn't working
-  return {
-    data: customSession.data,
-    isPending: customSession.isPending,
-    error: customSession.error
-  };
-}

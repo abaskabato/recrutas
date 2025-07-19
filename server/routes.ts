@@ -30,6 +30,7 @@ import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
+import { isAuthenticated, auth } from "./betterAuth";
 
 // Simple in-memory cache for external jobs consistency
 const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
@@ -74,79 +75,7 @@ function generateHumanReadableUpdate(event: any): string {
   return eventMessages[event.eventType] || 'Application status updated.';
 }
 
-// Custom session validation endpoint as fallback
-async function validateSession(req: express.Request, res: express.Response, next: express.NextFunction) {
-  try {
-    // First try Better Auth session
-    const authHeader = req.headers.authorization;
-    const sessionCookie = req.headers.cookie;
-    
-    if (sessionCookie && sessionCookie.includes('better-auth.session_data')) {
-      // Extract session data from cookie
-      const sessionMatch = sessionCookie.match(/better-auth\.session_data=([^;]+)/);
-      if (sessionMatch) {
-        try {
-          const sessionData = Buffer.from(sessionMatch[1], 'base64').toString();
-          const parsed = JSON.parse(sessionData);
-          
-          if (parsed.session && parsed.session.user) {
-            // Validate session is not expired
-            const expiresAt = new Date(parsed.expiresAt);
-            if (expiresAt > new Date()) {
-              // Check if session exists in database
-              const sessionToken = parsed.session.session.token;
-              const dbSession = await db
-                .select()
-                .from(sessions)
-                .where(eq(sessions.token, sessionToken))
-                .limit(1);
-              
-              if (dbSession.length > 0) {
-                // Session is valid, attach user to request
-                req.user = parsed.session.user;
-                return next();
-              }
-            }
-          }
-        } catch (e) {
-          console.log('Session validation error:', e);
-        }
-      }
-    }
-    
-    // No valid session found
-    req.user = null;
-    next();
-  } catch (error) {
-    console.error('Session validation error:', error);
-    req.user = null;
-    next();
-  }
-}
 
-// Authentication middleware for Better Auth sessions
-async function requireAuth(req: any, res: any, next: any) {
-  try {
-    const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
-    
-    if (sessionCookie) {
-      try {
-        const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
-        if (decodedSession.session?.user) {
-          req.user = decodedSession.session.user;
-          return next();
-        }
-      } catch (e) {
-        console.log('Auth middleware decode error:', e);
-      }
-    }
-    
-    res.status(401).json({ message: "Unauthorized" });
-  } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(401).json({ message: "Unauthorized" });
-  }
-}
 
 // Configure multer for file uploads
 const uploadDir = "uploads";
@@ -533,7 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete user profile (name and phone number)
-  app.post('/api/auth/complete-profile', requireAuth, async (req: any, res) => {
+  app.post('/api/auth/complete-profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { firstName, lastName, phoneNumber } = req.body;
@@ -556,7 +485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate profile routes
-  app.get('/api/candidate/profile', requireAuth, async (req: any, res) => {
+  app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profile = await storage.getCandidateProfile(userId);
@@ -567,7 +496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/candidate/profile', requireAuth, async (req: any, res) => {
+  app.post('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profileData = insertCandidateProfileSchema.parse({
@@ -583,7 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/candidate/profile', requireAuth, async (req: any, res) => {
+  app.patch('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profileData = {
@@ -601,7 +530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Resume upload with AI parsing
-  app.post('/api/candidate/resume', requireAuth, upload.single('resume'), async (req: any, res) => {
+  app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -808,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Resume parsing endpoint for testing
-  app.post('/api/resume/parse', requireAuth, async (req: any, res) => {
+  app.post('/api/resume/parse', isAuthenticated, async (req: any, res) => {
     try {
       console.log('Resume parsing endpoint called:', req.body);
       const { text } = req.body;
@@ -923,7 +852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate matches (plural route for frontend compatibility)
-  app.get('/api/candidates/matches', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/matches', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       console.log('Fetching job matches for user:', userId);
@@ -1097,7 +1026,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate stats (plural route for frontend compatibility)
-  app.get('/api/candidates/stats', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const stats = await storage.getCandidateStats(userId);
@@ -1109,7 +1038,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate applications
-  app.get('/api/candidates/applications', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/applications', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const applications = await storage.getApplicationsForCandidate(userId);
@@ -1121,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate activity
-  app.get('/api/candidates/activity', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/activity', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const activities = await storage.getActivityForCandidate(userId);
@@ -1133,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete candidate profile endpoint
-  app.post('/api/candidates/profile/complete', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/profile/complete', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profileData = req.body;
@@ -1183,7 +1112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI matches for candidate
-  app.post('/api/candidates/generate-matches', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/generate-matches', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profile = await storage.getCandidateProfile(userId);
@@ -1230,7 +1159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark external application endpoint
-  app.post('/api/candidates/mark-applied/:matchId', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/mark-applied/:matchId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const matchIdStr = req.params.matchId;
@@ -1260,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Advanced job matching with AI
-  app.get('/api/advanced-matches/:candidateId', requireAuth, async (req: any, res) => {
+  app.get('/api/advanced-matches/:candidateId', isAuthenticated, async (req: any, res) => {
     try {
       const { candidateId } = req.params;
       const limit = parseInt(req.query.limit as string) || 20;
@@ -1279,7 +1208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update candidate matching preferences
-  app.put('/api/candidate/match-preferences', requireAuth, async (req: any, res) => {
+  app.put('/api/candidate/match-preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const preferences = req.body;
@@ -1294,7 +1223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Role selection endpoint
-  app.post('/api/auth/select-role', requireAuth, async (req: any, res) => {
+  app.post('/api/auth/select-role', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { role } = req.body;
@@ -1362,7 +1291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Job posting routes with automatic exam creation
-  app.post('/api/jobs', requireAuth, async (req: any, res) => {
+  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.id || req.user?.claims?.sub || req.user?.sub;
       
@@ -1467,7 +1396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Talent owner profile completion endpoint
-  app.post('/api/talent-owner/profile/complete', requireAuth, async (req: any, res) => {
+  app.post('/api/talent-owner/profile/complete', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profileData = req.body;
@@ -1495,7 +1424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Exam endpoints for candidate assessment
-  app.get('/api/jobs/:id/exam', requireAuth, async (req: any, res) => {
+  app.get('/api/jobs/:id/exam', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
       const exam = await storage.getJobExam(jobId);
@@ -1511,7 +1440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/jobs/:id/exam/attempt', requireAuth, async (req: any, res) => {
+  app.post('/api/jobs/:id/exam/attempt', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1543,7 +1472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/jobs/:id/exam/attempt/:attemptId', requireAuth, async (req: any, res) => {
+  app.put('/api/jobs/:id/exam/attempt/:attemptId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const attemptId = parseInt(req.params.attemptId);
@@ -1604,7 +1533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat access endpoints (controlled by exam performance)
-  app.get('/api/jobs/:id/chat', requireAuth, async (req: any, res) => {
+  app.get('/api/jobs/:id/chat', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1624,7 +1553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/chat-rooms', requireAuth, async (req: any, res) => {
+  app.get('/api/chat-rooms', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const chatRooms = await storage.getChatRoomsForUser(userId);
@@ -1635,7 +1564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/jobs', requireAuth, async (req: any, res) => {
+  app.get('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobs = await storage.getJobPostings(userId);
@@ -1646,7 +1575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/jobs/:id/matches', requireAuth, async (req: any, res) => {
+  app.get('/api/jobs/:id/matches', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
       const matches = await storage.getMatchesForJob(jobId);
@@ -1658,7 +1587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Job editing endpoint
-  app.put('/api/jobs/:id', requireAuth, async (req: any, res) => {
+  app.put('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1677,7 +1606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Regenerate matches for a job
-  app.post('/api/jobs/:id/regenerate-matches', requireAuth, async (req: any, res) => {
+  app.post('/api/jobs/:id/regenerate-matches', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1713,7 +1642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Job deletion endpoint
-  app.delete('/api/jobs/:id', requireAuth, async (req: any, res) => {
+  app.delete('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1727,7 +1656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recruiter stats
-  app.get('/api/recruiter/stats', requireAuth, async (req: any, res) => {
+  app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const stats = await storage.getRecruiterStats(userId);
@@ -1739,7 +1668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Job postings routes
-  app.post('/api/jobs', requireAuth, async (req: any, res) => {
+  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobData = insertJobPostingSchema.parse({
@@ -1771,7 +1700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Activity logs
-  app.get('/api/activity', requireAuth, async (req: any, res) => {
+  app.get('/api/activity', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const activities = await storage.getActivityLogs(userId);
@@ -1783,7 +1712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate dashboard endpoints
-  app.get('/api/candidates/stats', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const stats = await storage.getCandidateStats(userId);
@@ -1794,7 +1723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/candidate/profile', requireAuth, async (req: any, res) => {
+  app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const profile = await storage.getCandidateProfile(userId);
@@ -1805,7 +1734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/candidates/activity', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/activity', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const activities = await storage.getActivityLogs(userId, 20);
@@ -1816,7 +1745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/candidates/applications', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/applications', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const applications = await storage.getApplicationsWithStatus(userId);
@@ -1827,7 +1756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/candidates/matches', requireAuth, async (req: any, res) => {
+  app.get('/api/candidates/matches', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       
@@ -1966,7 +1895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Resume upload endpoint
-  app.post('/api/candidates/upload-resume', requireAuth, upload.single('resume'), async (req: any, res) => {
+  app.post('/api/candidates/upload-resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
       const userId = req.user.id;
       
@@ -1997,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/candidates/apply/:jobId', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.jobId);
@@ -2026,7 +1955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Apply to external job (from instant modal)
-  app.post('/api/candidates/apply-external', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/apply-external', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { jobData, source, externalUrl, matchScore } = req.body;
@@ -2070,7 +1999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat endpoints
-  app.get('/api/chat/rooms', requireAuth, async (req: any, res) => {
+  app.get('/api/chat/rooms', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const chatRooms = await storage.getChatRoomsForUser(userId);
@@ -2081,7 +2010,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/chat/start/:matchId', requireAuth, async (req: any, res) => {
+  app.post('/api/chat/start/:matchId', isAuthenticated, async (req: any, res) => {
     try {
       const matchId = parseInt(req.params.matchId);
       const userId = req.user.id;
@@ -2108,7 +2037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/chat/room/:matchId', requireAuth, async (req: any, res) => {
+  app.get('/api/chat/room/:matchId', isAuthenticated, async (req: any, res) => {
     try {
       const matchId = parseInt(req.params.matchId);
       const chatRoom = await storage.getChatRoom(matchId, req.user.id);
@@ -2129,7 +2058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/chat/messages/:roomId', requireAuth, async (req: any, res) => {
+  app.get('/api/chat/messages/:roomId', isAuthenticated, async (req: any, res) => {
     try {
       const roomId = parseInt(req.params.roomId);
       const messages = await storage.getChatMessages(roomId);
@@ -2140,7 +2069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/chat/rooms/:roomId/messages', requireAuth, async (req: any, res) => {
+  app.post('/api/chat/rooms/:roomId/messages', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const roomId = parseInt(req.params.roomId);
@@ -2171,7 +2100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification endpoints
-  app.get('/api/notifications', requireAuth, async (req: any, res) => {
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       console.log('Fetching notifications for user:', userId);
@@ -2193,7 +2122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  app.put('/api/notifications/:id/read', requireAuth, async (req: any, res) => {
+  app.put('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const notificationId = parseInt(req.params.id);
@@ -2205,7 +2134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/notifications/mark-all-read', requireAuth, async (req: any, res) => {
+  app.put('/api/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       await storage.markAllNotificationsAsRead(userId);
@@ -2216,7 +2145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/notifications/preferences', requireAuth, async (req: any, res) => {
+  app.get('/api/notifications/preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const preferences = await storage.getNotificationPreferences(userId);
@@ -2234,7 +2163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/notifications/preferences', requireAuth, async (req: any, res) => {
+  app.put('/api/notifications/preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const preferences = req.body;
@@ -2751,7 +2680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recruiter endpoints
-  app.get('/api/recruiter/stats', requireAuth, async (req: any, res) => {
+  app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const stats = await storage.getRecruiterStats(userId);
@@ -2762,7 +2691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/recruiter/jobs', requireAuth, async (req: any, res) => {
+  app.get('/api/recruiter/jobs', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobs = await storage.getJobPostings(userId);
@@ -2773,7 +2702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/recruiter/candidates', requireAuth, async (req: any, res) => {
+  app.get('/api/recruiter/candidates', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const candidates = await storage.getCandidatesForRecruiter(userId);
@@ -2785,7 +2714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced job application endpoint for V2
-  app.post('/api/jobs/:id/apply', requireAuth, async (req: any, res) => {
+  app.post('/api/jobs/:id/apply', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -2907,7 +2836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Match status updates
-  app.patch('/api/matches/:id/status', requireAuth, async (req: any, res) => {
+  app.patch('/api/matches/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const matchId = parseInt(req.params.id);
       const { status } = req.body;
@@ -2926,7 +2855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Application tracking routes
-  app.get('/api/applications/status', requireAuth, async (req: any, res) => {
+  app.get('/api/applications/status', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const applications = await storage.getApplicationsWithStatus(userId);
@@ -2937,7 +2866,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/applications/:id/status', requireAuth, async (req: any, res) => {
+  app.post('/api/applications/:id/status', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
       const { status, interviewDate, notes, feedback, reviewerName, viewDuration, ranking, totalApplicants } = req.body;
@@ -2989,7 +2918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // New endpoint: Get application intelligence for a specific application
-  app.get('/api/applications/:id/intelligence', requireAuth, async (req: any, res) => {
+  app.get('/api/applications/:id/intelligence', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
       const userId = req.user.id;
@@ -3095,7 +3024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Quick apply endpoint with real-time notifications
-  app.post('/api/jobs/:id/quick-apply', requireAuth, async (req: any, res) => {
+  app.post('/api/jobs/:id/quick-apply', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
       const userId = req.user.id;
@@ -3134,7 +3063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat routes
-  app.get('/api/chat/rooms', requireAuth, async (req: any, res) => {
+  app.get('/api/chat/rooms', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const rooms = await storage.getChatRoomsForUser(userId);
@@ -3145,7 +3074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/chat/:roomId/messages', requireAuth, async (req: any, res) => {
+  app.get('/api/chat/:roomId/messages', isAuthenticated, async (req: any, res) => {
     try {
       const roomId = parseInt(req.params.roomId);
       const messages = await storage.getChatMessages(roomId);
@@ -3156,7 +3085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/chat/:matchId/room', requireAuth, async (req: any, res) => {
+  app.post('/api/chat/:matchId/room', isAuthenticated, async (req: any, res) => {
     try {
       const matchId = parseInt(req.params.matchId);
       
@@ -3177,7 +3106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Activity logs
-  app.get('/api/activity', requireAuth, async (req: any, res) => {
+  app.get('/api/activity', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -3190,7 +3119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Candidate application endpoints
-  app.post('/api/candidates/apply/:jobId', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.jobId);
@@ -3220,7 +3149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mark external application as applied
-  app.post('/api/candidates/mark-applied/:matchId', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/mark-applied/:matchId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const matchId = parseInt(req.params.matchId);
@@ -3239,7 +3168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start chat with hiring manager (after exam qualification)
-  app.post('/api/candidates/start-chat/:jobId', requireAuth, async (req: any, res) => {
+  app.post('/api/candidates/start-chat/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.jobId);
@@ -3263,7 +3192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Notification preferences endpoints
-  app.get('/api/notification-preferences', requireAuth, async (req: any, res) => {
+  app.get('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const preferences = await storage.getNotificationPreferences(userId);
@@ -3274,7 +3203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/notification-preferences', requireAuth, async (req: any, res) => {
+  app.post('/api/notification-preferences', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const preferences = await storage.updateNotificationPreferences(userId, req.body);
@@ -3344,7 +3273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submit exam answers
-  app.post("/api/jobs/:jobId/exam/submit", requireAuth, async (req: any, res) => {
+  app.post("/api/jobs/:jobId/exam/submit", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
       const { answers } = req.body;
@@ -3432,7 +3361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =============================================================================
   
   // Track application interactions (viewing, ranking, feedback)
-  app.post('/api/talent/applications/:applicationId/track', requireAuth, async (req: any, res) => {
+  app.post('/api/talent/applications/:applicationId/track', isAuthenticated, async (req: any, res) => {
     try {
       const { applicationId } = req.params;
       const { type, duration, timestamp, data } = req.body;
@@ -3475,7 +3404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update application status and details
-  app.patch('/api/talent/applications/:applicationId', requireAuth, async (req: any, res) => {
+  app.patch('/api/talent/applications/:applicationId', isAuthenticated, async (req: any, res) => {
     try {
       const { applicationId } = req.params;
       const updates = req.body;
@@ -3496,7 +3425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Provide feedback to candidate
-  app.post('/api/talent/applications/:applicationId/feedback', requireAuth, async (req: any, res) => {
+  app.post('/api/talent/applications/:applicationId/feedback', isAuthenticated, async (req: any, res) => {
     try {
       const { applicationId } = req.params;
       const { feedback, rating, nextSteps, timestamp } = req.body;
@@ -3532,7 +3461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rank candidates for a job
-  app.post('/api/talent/jobs/:jobId/rank-candidates', requireAuth, async (req: any, res) => {
+  app.post('/api/talent/jobs/:jobId/rank-candidates', isAuthenticated, async (req: any, res) => {
     try {
       const { jobId } = req.params;
       const { rankings } = req.body; // Array of { applicationId, rank }
@@ -3556,7 +3485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get application intelligence summary for talent dashboard
-  app.get('/api/talent/applications', requireAuth, async (req: any, res) => {
+  app.get('/api/talent/applications', isAuthenticated, async (req: any, res) => {
     try {
       const talentId = req.user.id;
 
@@ -3586,7 +3515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update transparency settings
-  app.post('/api/talent/transparency-settings', requireAuth, async (req: any, res) => {
+  app.post('/api/talent/transparency-settings', isAuthenticated, async (req: any, res) => {
     try {
       const talentId = req.user.id;
       const settings = req.body;
