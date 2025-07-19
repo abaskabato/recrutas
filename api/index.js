@@ -111,10 +111,15 @@ export default async function handler(req, res) {
           
           trustedOrigins: [
             "http://localhost:5000",
+            "https://*.replit.app",
+            "https://*.replit.dev",
             "https://recrutas.vercel.app",
-            "https://recrutas-git-main-abas-kabatos-projects.vercel.app",
             "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
-          ],
+            "https://recrutas-git-main-abas-kabatos-projects.vercel.app",
+            "https://e0f14cb7-13c7-49be-849b-00e0e677863c-00-13vuezjrrpu3a.picard.replit.dev",
+            process.env.REPLIT_DEV_DOMAIN || "",
+            process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+          ].filter(Boolean),
           
           advanced: {
             useSecureCookies: process.env.NODE_ENV === 'production',
@@ -209,8 +214,17 @@ export default async function handler(req, res) {
           url: webRequest.url,
           hasHeaders: !!webRequest.headers,
           headerCount: webRequest.headers ? webRequest.headers.size : 0,
+          contentType: webRequest.headers.get('Content-Type'),
           hasBody: !!webRequest.body
         });
+        if (webRequest.body) {
+          try {
+            const clonedBody = await webRequest.clone().text();
+            console.log('WebRequest body (cloned):', clonedBody.substring(0, 500));
+          } catch (e) {
+            console.log('Could not clone WebRequest body for logging:', e.message);
+          }
+        }
         
         let response;
         try {
