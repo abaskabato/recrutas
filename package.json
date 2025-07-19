@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "vite build",
+    "build": "tsc --project server/tsconfig.json && tsc --project shared/tsconfig.json && vite build",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
