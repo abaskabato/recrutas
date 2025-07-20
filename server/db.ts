@@ -23,7 +23,7 @@ const client = postgres(connectionString, {
   connection: {
     application_name: 'recrutas-app',
   },
-  ssl: { rejectUnauthorized: false }, // Required for Supabase/Neon
+  ssl: 'require', // Required for Supabase/Neon
   debug: false, // Disable debug to reduce overhead
 });
 
