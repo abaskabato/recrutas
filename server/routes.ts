@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupBetterAuth } from "./betterAuth";
+import { isAuthenticated } from "./auth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
@@ -30,7 +30,7 @@ import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
-import { isAuthenticated, auth } from "./betterAuth";
+import { isAuthenticated, auth } from "./auth";
 
 // Simple in-memory cache for external jobs consistency
 const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
@@ -114,54 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   
 
-  // Auth middleware
-  setupBetterAuth(app);
-
-  app.post("/api/auth/sign-up/email", async (req, res) => {
-    try {
-      const protocol = req.protocol || 'http'
-      const host = req.get('host') || 'localhost:5000'
-      const url = new URL(req.url, `${protocol}://${host}`)
-      
-      const headers = new Headers()
-      Object.entries(req.headers).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-          headers.set(key, value)
-        } else if (Array.isArray(value)) {
-          headers.set(key, value.join(', '))
-        }
-      })
-
-      let body: string | undefined
-      if (req.body && Object.keys(req.body).length > 0) {
-        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
-        headers.set('Content-Type', 'application/json')
-      }
-
-      const webRequest = new Request(url.toString(), {
-        method: req.method,
-        headers,
-        body,
-      })
-
-      const response = await auth.handler(webRequest);
-      
-      res.status(response.status)
-      response.headers.forEach((value, key) => {
-        res.setHeader(key, value)
-      })
-      
-      if (response.body) {
-        const text = await response.text()
-        res.send(text)
-      } else {
-        res.end()
-      }
-    } catch (error) {
-      console.error("Sign-up handler error:", error)
-      res.status(500).json({ error: "Authentication system error" })
-    }
-  });
+  
 
   // Custom session endpoint to handle Better Auth session issues
   app.get("/api/session", async (req, res) => {

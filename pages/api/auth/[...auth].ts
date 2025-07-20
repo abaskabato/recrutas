@@ -1,4 +1,3 @@
-// pages/api/auth/[...auth].ts
-import { auth } from "@/server/betterAuth";
+import { handler } from "../../../server/auth";
 
-export default auth;
+export default handler;
