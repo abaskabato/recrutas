@@ -1,10 +1,22 @@
 {
-  "outputDirectory": "dist/public",
-  "framework": null,
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/vercel.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist/public"
+      }
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/vercel.js"
     },
     {
       "source": "/(.*)",
