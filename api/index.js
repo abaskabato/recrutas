@@ -83,7 +83,7 @@ export default async function handler(req, res) {
         
         // Test Better Auth initialization
         try {
-          await initializeBetterAuth();
+          const { auth } = await import('../../server/auth.ts');
           debugInfo.betterAuth = { status: 'initialized', error: null };
         } catch (authError) {
           debugInfo.betterAuth = { 

@@ -3,7 +3,13 @@
   "builds": [
     {
       "src": "api/vercel.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "env": [
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL"
+      ]
     },
     {
       "src": "package.json",
