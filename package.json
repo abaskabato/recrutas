@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "NODE_TLS_REJECT_UNAUTHORIZED=0 npm run db:push && vite build",
+    "build": "vite build",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0",
@@ -64,6 +64,7 @@
     "cmdk": "^1.1.1",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.2.1",
     "drizzle-orm": "^0.39.1",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",

@@ -48,7 +48,7 @@ import {
   type InsertNotificationPreferences
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, and, or, sql } from "drizzle-orm";
 
 /**
  * Storage Interface Definition
@@ -338,11 +338,11 @@ export class DatabaseStorage implements IStorage {
       const client = db;
       
       // Delete in sequence to respect foreign keys
-      await client.execute(`DELETE FROM job_applications WHERE job_id = $1`, [id]);
-      await client.execute(`DELETE FROM exam_attempts WHERE job_id = $1`, [id]);
-      await client.execute(`DELETE FROM job_exams WHERE job_id = $1`, [id]);
-      await client.execute(`DELETE FROM job_matches WHERE job_id = $1`, [id]);
-      await client.execute(`DELETE FROM job_postings WHERE id = $1 AND talent_owner_id = $2`, [id, talentOwnerId]);
+      await client.execute(sql`DELETE FROM job_applications WHERE job_id = ${id}`);
+      await client.execute(sql`DELETE FROM exam_attempts WHERE job_id = ${id}`);
+      await client.execute(sql`DELETE FROM job_exams WHERE job_id = ${id}`);
+      await client.execute(sql`DELETE FROM job_matches WHERE job_id = ${id}`);
+      await client.execute(sql`DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = ${talentOwnerId}`);
     } catch (error) {
       console.error('Error deleting job posting:', error);
       throw error;
@@ -1071,8 +1071,8 @@ export class DatabaseStorage implements IStorage {
         .where(eq(jobApplications.id, applicationId));
       
       return application ? {
-        ...application.job_applications,
-        job: application.job_postings
+        ...(application as any).job_applications,
+        job: (application as any).job_postings
       } : undefined;
     } catch (error) {
       console.error('Error fetching application by ID:', error);

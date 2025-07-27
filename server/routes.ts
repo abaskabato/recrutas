@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { isAuthenticated } from "./auth";
+
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
@@ -123,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Better Auth's own /api/auth/session endpoint should be used.
       // This custom endpoint might be redundant or need to fetch session via auth.api.getSession
       // For now, let's simplify to rely on better-auth's internal session.
-      const session = await auth.api.getSession({ headers: req.headers });
+      const session = await auth.api.getSession({ headers: new Headers(req.headers as any) });
       if (session?.user) {
         // Get fresh user data from database to ensure we have the latest role
         try {
@@ -3440,7 +3440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Notify candidate about feedback
-      await notificationService.sendNotification({
+      await notificationService.createNotification(notificationData);
         userId: applicationId, // This should be the candidate's user ID
         type: 'application_feedback',
         title: 'New Feedback on Your Application',

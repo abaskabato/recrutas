@@ -11,7 +11,7 @@ import {
   type NotificationPreferences,
   type User 
 } from "@shared/schema";
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { WebSocket } from "ws";
 
 interface NotificationData {

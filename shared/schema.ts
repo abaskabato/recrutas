@@ -120,7 +120,7 @@ export const candidateProfiles = pgTable("candidate_profiles", {
   mediumUrl: text("medium_url"),
   
   // Profile Data & Preferences
-  skills: jsonb("skills").$type<string[]>().default([]),
+  skills: jsonb("skills").default([] as any),
   experience: text("experience"),
   location: varchar("location"),
   salaryMin: integer("salary_min"),
@@ -151,8 +151,8 @@ export const jobPostings = pgTable("job_postings", {
   title: varchar("title").notNull(),
   company: varchar("company").notNull(),
   description: text("description").notNull(),
-  requirements: jsonb("requirements").$type<string[]>().default([]),
-  skills: jsonb("skills").$type<string[]>().default([]),
+  requirements: jsonb("requirements").default([] as any),
+  skills: jsonb("skills").default([] as any),
   location: varchar("location"),
   salaryMin: integer("salary_min"),
   salaryMax: integer("salary_max"),
@@ -186,14 +186,7 @@ export const jobExams = pgTable("job_exams", {
   timeLimit: integer("time_limit").default(30), // Minutes
   passingScore: integer("passing_score").default(70), // Percentage
   isActive: boolean("is_active").default(true),
-  questions: jsonb("questions").$type<{
-    id: string;
-    question: string;
-    type: 'multiple-choice' | 'short-answer' | 'coding';
-    options?: string[];
-    correctAnswer?: string | number;
-    points: number;
-  }[]>().default([]),
+  questions: jsonb("questions").default([] as any),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -208,7 +201,7 @@ export const examAttempts = pgTable("exam_attempts", {
   totalQuestions: integer("total_questions"),
   correctAnswers: integer("correct_answers"),
   timeSpent: integer("time_spent"), // Minutes
-  answers: jsonb("answers").$type<{questionId: string, answer: string | number}[]>().default([]),
+  answers: jsonb("answers").default([] as any),
   status: varchar("status", { enum: ["in_progress", "completed", "abandoned"] }).default("in_progress"),
   passedExam: boolean("passed_exam").default(false),
   qualifiedForChat: boolean("qualified_for_chat").default(false), // Based on ranking
@@ -225,8 +218,8 @@ export const jobMatches = pgTable("job_matches", {
   candidateId: varchar("candidate_id").notNull().references(() => users.id),
   matchScore: varchar("match_score").notNull(),
   confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
-  matchReasons: jsonb("match_reasons").$type<string[]>().default([]),
-  skillMatches: jsonb("skill_matches").$type<{skill: string, matched: boolean}[]>().default([]),
+  matchReasons: jsonb("match_reasons").default([] as any),
+  skillMatches: jsonb("skill_matches").default([] as any),
   aiExplanation: text("ai_explanation"), // Why this match was suggested
   status: varchar("status", { enum: ["pending", "viewed", "interested", "applied", "rejected"] }).default("pending"),
   userFeedback: integer("user_feedback"), // 1-5 rating for learning
@@ -320,18 +313,14 @@ export const applicationInsights = pgTable("application_insights", {
   id: serial("id").primaryKey(),
   candidateId: varchar("candidate_id").notNull().references(() => users.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
-  strengthsIdentified: jsonb("strengths_identified").$type<string[]>().default([]),
-  improvementAreas: jsonb("improvement_areas").$type<string[]>().default([]),
+  strengthsIdentified: jsonb("strengths_identified").default([] as any),
+  improvementAreas: jsonb("improvement_areas").default([] as any),
   benchmarkViewTime: integer("benchmark_view_time"), // average for this role
   actualViewTime: integer("actual_view_time"),
   benchmarkScore: integer("benchmark_score"), // average score for this role  
   actualScore: integer("actual_score"),
-  similarSuccessfulProfiles: jsonb("similar_successful_profiles").$type<{
-    skills: string[];
-    experience: string;
-    differentiatingFactor: string;
-  }[]>().default([]),
-  recommendedActions: jsonb("recommended_actions").$type<string[]>().default([]),
+  similarSuccessfulProfiles: jsonb("similar_successful_profiles").default([] as any),
+  recommendedActions: jsonb("recommended_actions").default([] as any),
   successProbability: integer("success_probability"), // 0-100
   supportiveMessage: text("supportive_message"), // mental health support
   createdAt: timestamp("created_at").defaultNow(),
@@ -346,7 +335,7 @@ export const matchFeedback = pgTable("match_feedback", {
   rating: integer("rating").notNull(), // 1-5 stars
   feedbackType: varchar("feedback_type", { enum: ["match_quality", "job_relevance", "timing", "requirements"] }),
   comment: text("comment"),
-  improvementSuggestions: jsonb("improvement_suggestions").$type<string[]>().default([]),
+  improvementSuggestions: jsonb("improvement_suggestions").default([] as any),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

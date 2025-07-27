@@ -66,7 +66,7 @@ export const { handler, api } = auth;
 
 export async function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   try {
-    const session = await api.getSession({ headers: req.headers });
+    const session = await api.getSession({ headers: new Headers(req.headers as any) });
     console.log('isAuthenticated session:', session);
     if (session?.user) {
       (req as any).user = session.user;
@@ -83,8 +83,8 @@ export async function isAuthenticated(req: Request, res: Response, next: NextFun
 export function hasRole(role: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const session = await api.getSession({ headers: req.headers });
-      if (session?.user?.role === role) {
+      const session = await api.getSession({ headers: new Headers(req.headers as any) });
+      if ((session?.user as any)?.role === role) {
         (req as any).user = session.user;
         return next();
       }

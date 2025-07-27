@@ -22,7 +22,6 @@ try {
     max: 1, // Use a single connection for serverless
     idle_timeout: 20,
     connect_timeout: 10,
-    statement_timeout: 30000, // 30 seconds
     query_timeout: 15000, // 15 seconds
     connection: {
       application_name: 'recrutas-app',

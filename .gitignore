@@ -92,4 +92,11 @@ docs/.vitepress/cache
 # Misc
 *.tgz
 *.tar.gz
-.nyc_output
+.nyc_outputsupabase_schema.sql
+
+# Build artifacts
+build log
+ls
+rest-express@1.0.0
+supabase_schema.sql
+test-db-connection.ts
