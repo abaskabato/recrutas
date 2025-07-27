@@ -48,7 +48,7 @@ import {
   type InsertNotificationPreferences
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, sql } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 
 /**
  * Storage Interface Definition
@@ -73,7 +73,7 @@ export interface IStorage {
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
-  deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
+  
   
   // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
@@ -332,22 +332,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
-    try {
-      // Use the Neon client directly for raw SQL
-      const client = db;
-      
-      // Delete in sequence to respect foreign keys
-      await client.execute(sql`DELETE FROM job_applications WHERE job_id = ${id}`);
-      await client.execute(sql`DELETE FROM exam_attempts WHERE job_id = ${id}`);
-      await client.execute(sql`DELETE FROM job_exams WHERE job_id = ${id}`);
-      await client.execute(sql`DELETE FROM job_matches WHERE job_id = ${id}`);
-      await client.execute(sql`DELETE FROM job_postings WHERE id = ${id} AND talent_owner_id = ${talentOwnerId}`);
-    } catch (error) {
-      console.error('Error deleting job posting:', error);
-      throw error;
-    }
-  }
+  
 
   // Matching operations
   async createJobMatch(match: InsertJobMatch): Promise<JobMatch> {

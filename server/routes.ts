@@ -1289,6 +1289,34 @@ export async function registerRoutes(app: Express): Promise<Express> {
     return questions;
   }
 
+  async function findMatchingCandidates(job: any) {
+  // This is a placeholder function. In a real application, this would
+  // involve a more complex matching algorithm.
+  const allCandidates = await storage.getAllCandidateProfiles();
+  const matches = [];
+
+  for (const candidate of allCandidates) {
+    let score = 0;
+    if (candidate.skills && job.skills) {
+      for (const skill of job.skills) {
+        if (candidate.skills.includes(skill)) {
+          score += 10;
+        }
+      }
+    }
+
+    if (score > 0) {
+      matches.push({
+        candidateId: candidate.userId,
+        matchScore: score.toString(),
+        matchReasons: [`Shared skills: ${job.skills.filter((s: any) => candidate.skills.includes(s)).join(", ")}`],
+      });
+    }
+  }
+
+  return matches;
+}
+
   // Job posting routes with automatic exam creation
   app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
