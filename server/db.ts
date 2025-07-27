@@ -11,21 +11,31 @@ if (!process.env.DATABASE_URL) {
 // Use the DATABASE_URL directly for consistency
 const connectionString = process.env.DATABASE_URL;
 
-console.log('🔗 Using database connection from DATABASE_URL');
+// Mask the password in the connection string for logging
+const maskedConnectionString = connectionString.replace(/:([^:]+)@/, ':********@');
+console.log(`🔗 Using database connection: ${maskedConnectionString}`);
 
-// Create connection to PostgreSQL with optimized settings for serverless environments
-const client = postgres(connectionString, {
-  max: 1, // Use a single connection for serverless
-  idle_timeout: 20,
-  connect_timeout: 10,
-  statement_timeout: 30000, // 30 seconds
-  query_timeout: 15000, // 15 seconds
-  connection: {
-    application_name: 'recrutas-app',
-  },
-  ssl: 'require', // Required for Supabase/Neon
-  debug: false, // Disable debug to reduce overhead
-});
+let client;
+try {
+  // Create connection to PostgreSQL with optimized settings for serverless environments
+  client = postgres(connectionString, {
+    max: 1, // Use a single connection for serverless
+    idle_timeout: 20,
+    connect_timeout: 10,
+    statement_timeout: 30000, // 30 seconds
+    query_timeout: 15000, // 15 seconds
+    connection: {
+      application_name: 'recrutas-app',
+    },
+    ssl: 'require', // Required for Supabase/Neon
+    debug: false, // Disable debug to reduce overhead
+  });
+  console.log('✅ Postgres client initialized');
+} catch (error) {
+  console.error('❌ Error initializing Postgres client:', error);
+  throw error; // Re-throw the error to prevent the application from starting
+}
+
 
 export const db = drizzle(client, { schema });
 
