@@ -1,3 +1,3 @@
 
-import app from '../server/index.ts';
+import app from '../dist/index.js';
 export default app;
