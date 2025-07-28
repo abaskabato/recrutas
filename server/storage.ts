@@ -73,6 +73,7 @@ export interface IStorage {
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
+  deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
   
   
   // Matching operations
@@ -328,6 +329,17 @@ export class DatabaseStorage implements IStorage {
       return job;
     } catch (error) {
       console.error('Error updating job posting:', error);
+      throw error;
+    }
+  }
+
+  async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
+    try {
+      await db
+        .delete(jobPostings)
+        .where(and(eq(jobPostings.id, id), eq(jobPostings.talentOwnerId, talentOwnerId)));
+    } catch (error) {
+      console.error('Error deleting job posting:', error);
       throw error;
     }
   }
