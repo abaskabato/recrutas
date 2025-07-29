@@ -4,7 +4,7 @@
 
 Skip the recruiters. Talk straight to the people who actually make hiring decisions.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-43853D?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -161,23 +161,7 @@ docker build -t recrutas .
 docker run -p 5000:5000 recrutas
 ```
 
-## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Workflow
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and test thoroughly
-4. Commit with descriptive messages: `git commit -m 'Add amazing feature'`
-5. Push to your branch: `git push origin feature/amazing-feature`
-6. Open a Pull Request
-
-### Code Style
-- TypeScript for type safety
-- ESLint + Prettier for formatting
-- Conventional commits for clear history
-- Comprehensive testing for new features
 
 ## 📊 Performance
 
@@ -213,19 +197,11 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## 📞 Support
 
 - **Documentation**: Check our [docs folder](./docs)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/recrutas/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/recrutas/discussions)
+- **Contact**: [support@recrutas.com](mailto:support@recrutas.com)
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
 
-- OpenAI for AI capabilities
-- The React and Node.js communities
-- All contributors and testers
-- Companies providing job data feeds
 
 ---
 

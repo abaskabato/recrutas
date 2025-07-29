@@ -1025,40 +1025,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Candidate stats (plural route for frontend compatibility)
-  app.get('/api/candidates/stats', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const stats = await storage.getCandidateStats(userId);
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching candidate stats:", error);
-      res.status(500).json({ message: "Failed to fetch stats" });
-    }
-  });
-
-  // Candidate applications
-  app.get('/api/candidates/applications', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const applications = await storage.getApplicationsForCandidate(userId);
-      res.json(applications);
-    } catch (error) {
-      console.error("Error fetching applications:", error);
-      res.status(500).json({ message: "Failed to fetch applications" });
-    }
-  });
-
-  // Candidate activity
-  app.get('/api/candidates/activity', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const activities = await storage.getActivityForCandidate(userId);
-      res.json(activities);
-    } catch (error) {
-      console.error("Error fetching activity:", error);
-      res.status(500).json({ message: "Failed to fetch activity" });
-    }
-  });
+  
 
   // Complete candidate profile endpoint
   app.post('/api/candidates/profile/complete', isAuthenticated, async (req: any, res) => {
