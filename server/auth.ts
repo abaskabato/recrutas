@@ -5,17 +5,53 @@ import { users, sessions, accounts, verifications } from "../shared/schema";
 import type { Request, Response, NextFunction } from 'express';
 
 console.log('Initializing Better Auth...');
-const baseURL = process.env.BETTER_AUTH_URL || (process.env.NODE_ENV === 'development' ? `http://localhost:5000` : "https://recrutas.vercel.app");
+
+/**
+ * Dynamically determines the application's base URL.
+ * This is critical for ensuring authentication callbacks and redirects work correctly across all environments.
+ * - Uses `VERCEL_URL` for Vercel deployments (both production and preview).
+ * - Falls back to `BETTER_AUTH_URL` if explicitly set.
+ * - Defaults to localhost for local development.
+ * - Uses the production domain as a final fallback.
+ */
+const getBaseURL = () => {
+  // 1. Vercel system environment variable (preferred for Vercel deployments)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // 2. Explicitly set URL (for other environments or overrides)
+  if (process.env.BETTER_AUTH_URL) {
+    return process.env.BETTER_AUTH_URL;
+  }
+  // 3. Local development
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5000';
+  }
+  // 4. Fallback to production URL
+  return 'https://recrutas.vercel.app';
+};
+
+const baseURL = getBaseURL();
+
+/**
+ * Constructs a list of trusted origins for CORS.
+ * This is a security measure to ensure only approved frontends can communicate with the auth API.
+ * - Always trusts the application's own `baseURL`.
+ * - Adds Vercel-specific preview URLs if in a preview environment.
+ * - Includes localhost and Replit for development.
+ */
 const trustedOrigins = [
-    "http://localhost:5000",
-    "https://*.replit.app", 
-    "https://*.replit.dev",
-    "https://recrutas.vercel.app",
-    "https://recrutas-2z1uoh51z-abas-kabatos-projects.vercel.app",
-    "https://e0f14cb7-13c7-49be-849b-00e0e677863c-00-13vuezjrrpu3a.picard.replit.dev",
-    process.env.REPLIT_DEV_DOMAIN || "",
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
-  ].filter(Boolean);
+  baseURL, // The application's own URL is always trusted
+  "http://localhost:5000",
+  "https://*.replit.app",
+  "https://*.replit.dev",
+].filter(Boolean);
+
+// In a Vercel preview environment, the frontend may be on a different URL than the backend.
+// `VERCEL_BRANCH_URL` points to the canonical URL for the branch deployment.
+if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_BRANCH_URL) {
+    trustedOrigins.push(`https://${process.env.VERCEL_BRANCH_URL}`);
+}
 
 console.log(`Auth baseURL: ${baseURL}`);
 console.log(`Auth trustedOrigins: ${JSON.stringify(trustedOrigins)}`);
