@@ -455,43 +455,7 @@ export class JobAggregator {
   }
 
   async fetchFromHiringCafe(): Promise<ExternalJob[]> {
-    try {
-      console.log('Fetching hiring.cafe job data...');
-      
-      // Try to fetch HTML content with proper headers
-      const response = await fetch('https://hiring.cafe/', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Connection': 'keep-alive',
-        },
-        // Remove timeout property as it's not supported in native fetch
-      });
-      
-      if (!response.ok) {
-        console.log(`Hiring.cafe returned ${response.status}, using curated jobs`);
-        return this.getHiringCafeFallbackJobs();
-      }
-      
-      const html = await response.text();
-      console.log(`Fetched ${html.length} characters from hiring.cafe`);
-      
-      // Parse HTML for job data patterns
-      const jobs = this.parseHiringCafeHTML(html);
-      
-      if (jobs.length === 0) {
-        console.log('No structured jobs found in HTML, using fallback jobs');
-        return this.getHiringCafeFallbackJobs();
-      }
-      
-      console.log(`Successfully extracted ${jobs.length} jobs from hiring.cafe HTML`);
-      return jobs;
-      
-    } catch (error) {
-      console.log('Fetch failed, using curated hiring.cafe jobs:', error instanceof Error ? error.message : 'Unknown error');
-      return this.getHiringCafeFallbackJobs();
-    }
+    return await universalJobScraper.scrapeHiringCafe();
   }
 
   private getHiringCafeFallbackJobs(): ExternalJob[] {

@@ -41,7 +41,12 @@ export class UniversalJobScraper {
       const jobs = this.parseJobsFromHTML(html, companyUrl, companyName);
       console.log(`Extracted ${jobs.length} jobs from ${companyUrl}`);
       
-      return jobs;
+      const enhancedJobs = await Promise.all(jobs.map(async (job) => {
+        const enhancedDetails = await this.getEnhancedJobDetails(job.description);
+        return { ...job, ...enhancedDetails };
+      }));
+
+      return enhancedJobs;
     } catch (error) {
       console.error(`Failed to scrape ${companyUrl}:`, error);
       return []; // Only return authentic scraped data
@@ -66,6 +71,10 @@ export class UniversalJobScraper {
 
     // Remove duplicates and return
     return this.deduplicateJobs(jobs).slice(0, 50);
+  }
+
+  async scrapeHiringCafe(): Promise<UniversalJob[]> {
+    return this.scrapeCompanyJobs('https://hiring.cafe', 'hiring.cafe');
   }
 
   private extractJsonLdJobs(html: string, sourceUrl: string, companyName?: string): UniversalJob[] {
@@ -478,6 +487,34 @@ export class UniversalJobScraper {
     
     return this.deduplicateJobs(allJobs);
   }
+
+  async getEnhancedJobDetails(description: string): Promise<{ summary: string; skills: string[] }> {
+    try {
+      const summaryResponse = await this.runGemini('Summarize this job description: ' + description);
+      const skillsResponse = await this.runGemini('Extract the skills from this job description: ' + description);
+
+      const skills = skillsResponse.split(',').map(skill => skill.trim());
+
+      return { summary: summaryResponse, skills };
+    } catch (error) {
+      console.error('Failed to get enhanced job details from Gemini:', error);
+      return { summary: '', skills: [] };
+    }
+  }
+
+  private async runGemini(prompt: string): Promise<string> {
+    const { exec } = await import('child_process');
+    return new Promise((resolve, reject) => {
+      exec(`gemini "${prompt}"`, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+    });
+  }
+}
 }
 
 export const universalJobScraper = new UniversalJobScraper();
