@@ -454,9 +454,9 @@ export class JobAggregator {
       }));
   }
 
-  async fetchFromHiringCafe(): Promise<ExternalJob[]> {
-    return await universalJobScraper.scrapeHiringCafe();
-  }
+  // async fetchFromHiringCafe(): Promise<ExternalJob[]> {
+  //   return await universalJobScraper.scrapeHiringCafe();
+  // }
 
   private getHiringCafeFallbackJobs(): ExternalJob[] {
     // Curated real tech jobs from hiring.cafe patterns

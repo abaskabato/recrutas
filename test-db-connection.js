@@ -1,0 +1,1 @@
+import { testDbConnection } from './server/db.ts'; testDbConnection();
