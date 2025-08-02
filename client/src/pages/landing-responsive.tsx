@@ -9,7 +9,7 @@ import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import InstantMatchModal from "@/components/instant-match-modal";
 
 export default function LandingResponsive() {
