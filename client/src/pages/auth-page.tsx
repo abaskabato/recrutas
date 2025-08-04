@@ -126,11 +126,12 @@ export default function AuthPage() {
   }
 
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'microsoft') => {
+    console.log(`Social sign in started for provider: ${provider}`);
     try {
       await signIn.social({ 
         provider,
         callbackURL: window.location.origin 
-      })
+      });
     } catch (error: any) {
       toast({
         title: "Social sign in failed",

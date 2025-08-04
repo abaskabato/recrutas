@@ -5,6 +5,15 @@ import { users, sessions, accounts, verifications } from "../shared/schema";
 import type { Request, Response, NextFunction } from 'express';
 
 console.log('Initializing Better Auth...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('VERCEL_URL:', process.env.VERCEL_URL);
+console.log('BETTER_AUTH_URL:', process.env.BETTER_AUTH_URL);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('BETTER_AUTH_SECRET exists:', !!process.env.BETTER_AUTH_SECRET);
+console.log('GOOGLE_CLIENT_ID exists:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('GITHUB_CLIENT_ID exists:', !!process.env.GITHUB_CLIENT_ID);
+console.log('MICROSOFT_CLIENT_ID exists:', !!process.env.MICROSOFT_CLIENT_ID);
+
 
 /**
  * Dynamically determines the application's base URL.
