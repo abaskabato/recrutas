@@ -7,7 +7,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/server/:splat"
+  to = "/.netlify/functions/api/:splat"
   status = 200
 
 [[redirects]]
@@ -16,4 +16,4 @@
   status = 200
 
 [functions]
-  directory = "netlify/functions"
+  included_files = ["dist/**"]
