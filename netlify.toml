@@ -1,6 +1,7 @@
 [build]
   publish = "dist/public"
   command = "npm run build"
+  functions = "dist/functions"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -14,8 +15,3 @@
   from = "/*"
   to = "/index.html"
   status = 200
-
-[functions]
-  directory = "api"
-  node_bundler = "esbuild"
-  included_files = ["dist/**"]
