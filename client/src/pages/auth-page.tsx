@@ -90,29 +90,31 @@ export default function AuthPage() {
     setIsSigningUp(true)
     
     try {
-      const { data, error } = await signUp.email({
-        email: signUpData.email,
-        password: signUpData.password,
-        name: signUpData.name,
-        callbackURL: "/role-selection"
-      }, {
-        onRequest: () => {
-          console.log('Sign up request started')
-        },
-        onSuccess: () => {
-          toast({ 
-            title: "Account created!", 
-            description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
-          })
-        },
-        onError: (ctx) => {
-          toast({
-            title: "Sign up failed",
-            description: ctx.error.message || "Failed to create account",
-            variant: "destructive",
-          })
-        }
-      })
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: signUpData.email,
+          password: signUpData.password,
+          name: signUpData.name,
+        })
+      });
+
+      if (response.ok) {
+        toast({ 
+          title: "Account created!", 
+          description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
+        });
+        // Redirect to role selection or another appropriate page
+        window.location.href = '/role-selection';
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Sign up failed",
+          description: errorData.message || "Failed to create account",
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       console.warn('Sign up error caught:', error)
       toast({
@@ -144,7 +146,6 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <h1 className="text-white text-center text-2xl mb-4">Deployment Test: 3385613</h1>
         <Link href="/" className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to home
