@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { auth } from '../../../../server/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Method received:', req.method);
   if (req.method === 'POST') {
     try {
       const { email, password, name } = req.body;
