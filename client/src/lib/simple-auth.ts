@@ -89,7 +89,7 @@ export async function signIn(email: string, password: string): Promise<boolean> 
 
 export async function signUp(email: string, password: string, name: string): Promise<boolean> {
   try {
-    const response = await apiRequest('POST', '/api/auth/sign-up/email', {
+    const response = await apiRequest('POST', '/api/auth/signup', {
       email,
       password,
       name,
