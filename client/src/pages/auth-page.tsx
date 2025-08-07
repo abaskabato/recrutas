@@ -90,7 +90,7 @@ export default function AuthPage() {
     setIsSigningUp(true)
     
     try {
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch('/api/custom-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
