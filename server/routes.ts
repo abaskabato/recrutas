@@ -30,7 +30,12 @@ import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
-import { isAuthenticated, auth } from "./auth";
+import { isAuthenticated, auth, hasSubscription } from "./auth";
+import * as hackerrank from "./hackerrank-service";
+import * as codility from "./codility-service";
+import * as analytics from "./analytics-service";
+import { createCheckoutSession, handleStripeWebhook } from "./stripe-service";
+import stripe from "stripe";
 
 // Simple in-memory cache for external jobs consistency
 const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
@@ -74,6 +79,53 @@ function generateHumanReadableUpdate(event: any): string {
   
   return eventMessages[event.eventType] || 'Application status updated.';
 }
+
+  // Application Intelligence Endpoints
+  app.get('/api/applications/:id/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const events = await storage.getApplicationEvents(applicationId);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching application events:", error);
+      res.status(500).json({ message: "Failed to fetch application events" });
+    }
+  });
+
+  app.post('/api/applications/:id/events', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const eventData = req.body;
+      
+      const event = await storage.createApplicationEvent({
+        applicationId,
+        ...eventData,
+      });
+
+      // After creating an event, we can trigger an update to the application insights
+      // For example, after a 'viewed' event, we can update the view count and average view time.
+      // This logic can be expanded based on the event type.
+      if (event.eventType === 'viewed') {
+        // ... logic to update insights
+      }
+
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating application event:", error);
+      res.status(500).json({ message: "Failed to create application event" });
+    }
+  });
+
+  app.get('/api/talent/applications', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const applications = await storage.getApplicationsForTalent(userId);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching applications for talent:", error);
+      res.status(500).json({ message: "Failed to fetch applications for talent" });
+    }
+  });
 
 
 
@@ -1285,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 }
 
   // Job posting routes with automatic exam creation
-  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/jobs', isAuthenticated, hasSubscription, async (req: any, res) => {
     try {
       const userId = req.user?.id || req.user?.claims?.sub || req.user?.sub;
       
@@ -1501,6 +1553,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
         // If passed, trigger ranking and chat access process
         if (passedExam) {
           await storage.rankCandidatesByExamScore(parseInt(req.params.id));
+
+          // Create a chat room for the candidate
+          await storage.createChatRoomForSuccessfulExam(updatedAttempt);
           
           // Send notification about exam completion
           await storage.createNotification({
@@ -1579,7 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Job editing endpoint
-  app.put('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/jobs/:id', isAuthenticated, hasSubscription, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1598,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Regenerate matches for a job
-  app.post('/api/jobs/:id/regenerate-matches', isAuthenticated, async (req: any, res) => {
+  app.post('/api/jobs/:id/regenerate-matches', isAuthenticated, hasSubscription, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1634,7 +1689,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Job deletion endpoint
-  app.delete('/api/jobs/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/jobs/:id', isAuthenticated, hasSubscription, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.id);
@@ -1660,7 +1715,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Job postings routes
-  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/jobs', isAuthenticated, hasSubscription, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobData = insertJobPostingSchema.parse({
@@ -1936,6 +1991,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
         appliedAt: new Date(),
       });
 
+      // Create a "submitted" event for application intelligence
+      await storage.createApplicationEvent({
+        applicationId: application.id,
+        eventType: 'submitted',
+        actorRole: 'candidate',
+        actorName: `${req.user.firstName} ${req.user.lastName}`,
+      });
+
       // Create activity log
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
@@ -1987,6 +2050,179 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error('Error applying to external job:', error);
       res.status(500).json({ message: 'Failed to apply to external job' });
+    }
+  });
+
+  app.post('/api/stripe/create-checkout-session', isAuthenticated, async (req: any, res) => {
+    try {
+      const { priceId } = req.body;
+      const session = await createCheckoutSession(req.user.id, req.user.email, priceId);
+      res.json({ id: session.id });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  app.post('/api/stripe/webhook', async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    } catch (err: any) {
+      console.error('Webhook signature verification failed.', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      await handleStripeWebhook(event);
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Error handling webhook:", error);
+      res.status(500).json({ message: "Failed to handle webhook" });
+    }
+  });
+
+  // HackerRank Integration Endpoints
+  app.post('/api/integrations/hackerrank/create-assessment', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const { title, description } = req.body;
+      const assessment = await hackerrank.createAssessment(title, description);
+      res.json(assessment);
+    } catch (error) {
+      console.error("Error creating HackerRank assessment:", error);
+      res.status(500).json({ message: "Failed to create HackerRank assessment" });
+    }
+  });
+
+  app.post('/api/integrations/hackerrank/invite-candidate', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const { assessmentId, candidateEmail } = req.body;
+      const invitation = await hackerrank.inviteCandidate(assessmentId, candidateEmail);
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error inviting candidate to HackerRank assessment:", error);
+      res.status(500).json({ message: "Failed to invite candidate to HackerRank assessment" });
+    }
+  });
+
+  app.get('/api/integrations/hackerrank/assessment-result/:assessmentId/:candidateEmail', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const { assessmentId, candidateEmail } = req.params;
+      const result = await hackerrank.getAssessmentResult(parseInt(assessmentId), candidateEmail);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting HackerRank assessment result:", error);
+      res.status(500).json({ message: "Failed to get HackerRank assessment result" });
+    }
+  });
+
+  // Codility Integration Endpoints
+  app.post('/api/integrations/codility/create-assessment', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const { title, description } = req.body;
+      const assessment = await codility.createAssessment(title, description);
+      res.json(assessment);
+    } catch (error) {
+      console.error("Error creating Codility assessment:", error);
+      res.status(500).json({ message: "Failed to create Codility assessment" });
+    }
+  });
+
+  app.post('/api/integrations/codility/invite-candidate', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const { assessmentId, candidateEmail } = req.body;
+      const invitation = await codility.inviteCandidate(assessmentId, candidateEmail);
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error inviting candidate to Codility assessment:", error);
+      res.status(500).json({ message: "Failed to invite candidate to Codility assessment" });
+    }
+  });
+
+  app.get('/api/integrations/codility/assessment-result/:assessmentId/:candidateEmail', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const { assessmentId, candidateEmail } = req.params;
+      const result = await codility.getAssessmentResult(parseInt(assessmentId), candidateEmail);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting Codility assessment result:", error);
+      res.status(500).json({ message: "Failed to get Codility assessment result" });
+    }
+  });
+
+  // Analytics Endpoints
+  app.get('/api/analytics/hiring-funnel', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const funnel = await analytics.getHiringFunnel(req.user.id);
+      res.json(funnel);
+    } catch (error) {
+      console.error("Error getting hiring funnel:", error);
+      res.status(500).json({ message: "Failed to get hiring funnel" });
+    }
+  });
+
+  app.get('/api/analytics/response-times', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const responseTimes = await analytics.getResponseTimes(req.user.id);
+      res.json(responseTimes);
+    } catch (error) {
+      console.error("Error getting response times:", error);
+      res.status(500).json({ message: "Failed to get response times" });
+    }
+  });
+
+  app.get('/api/analytics/top-skills', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const topSkills = await analytics.getTopSkills(req.user.id);
+      res.json(topSkills);
+    } catch (error) {
+      console.error("Error getting top skills:", error);
+      res.status(500).json({ message: "Failed to get top skills" });
+    }
+  });
+
+  app.get('/api/analytics/job-performance', isAuthenticated, hasSubscription, async (req: any, res) => {
+    try {
+      const jobPerformance = await analytics.getJobPerformance(req.user.id);
+      res.json(jobPerformance);
+    } catch (error) {
+      console.error("Error getting job performance:", error);
+      res.status(500).json({ message: "Failed to get job performance" });
+    }
+  });
+
+  app.post('/api/stripe/create-checkout-session', isAuthenticated, async (req: any, res) => {
+    try {
+      const { priceId } = req.body;
+      const session = await createCheckoutSession(req.user.id, req.user.email, priceId);
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  app.post('/api/stripe/webhook', async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    let event;
+
+    try {
+      event = new stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: "2024-04-10",
+      }).webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    } catch (err: any) {
+      console.error('Webhook signature verification failed.', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      await handleStripeWebhook(event);
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Error handling webhook:", error);
+      res.status(500).json({ message: "Failed to handle webhook" });
     }
   });
 

@@ -222,10 +222,18 @@ export default function ExamPage() {
                   <div className="flex justify-center space-x-4">
                     <Button 
                       onClick={handleReturnToDashboard}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      variant="outline"
                     >
                       Return to Dashboard
                     </Button>
+                    {examResult.passed && (
+                      <Button 
+                        onClick={() => setLocation(`/chat/${jobId}`)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Chat with Hiring Manager
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

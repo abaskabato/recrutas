@@ -18,6 +18,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ roomId, room, onClose }: ChatInterfaceProps) {
   const { user } = useAuth();
   const [message, setMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -57,13 +58,51 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
         const data = JSON.parse(event.data);
         if (data.type === 'new_message') {
           queryClient.invalidateQueries({ queryKey: ["/api/chat", roomId, "messages"] });
+        } else if (data.type === 'TYPING') {
+          if (data.payload.userId !== user.id) {
+            setIsTyping(true);
+            setTimeout(() => {
+              setIsTyping(false);
+            }, 2000);
+          }
+        } else if (data.type === 'MESSAGE_READ') {
+          queryClient.invalidateQueries({ queryKey: ["/api/chat", roomId, "messages"] });
         }
       };
 
       socket.addEventListener('message', handleMessage);
       return () => socket.removeEventListener('message', handleMessage);
     }
-  }, [socket, roomId, queryClient]);
+  }, [socket, roomId, queryClient, user.id]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const messageId = (entry.target as HTMLElement).dataset.messageId;
+            if (messageId && socket) {
+              socket.send(JSON.stringify({ type: 'MESSAGE_READ', payload: { messageId: parseInt(messageId), userId: user.id } }));
+            }
+          }
+        });
+      },
+      { threshold: 1.0 }
+    );
+
+    const messageElements = document.querySelectorAll('[data-message-id]');
+    messageElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      messageElements.forEach((el) => observer.unobserve(el));
+    };
+  }, [messages, socket, user.id]);
+
+  const handleTyping = () => {
+    if (socket) {
+      socket.send(JSON.stringify({ type: 'TYPING', payload: { userId: user.id, roomId } }));
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +183,7 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
                       isCurrentUser ? 'text-blue-200' : 'text-neutral-500'
                     }`}>
                       {new Date(msg.createdAt).toLocaleTimeString()}
+                      {isCurrentUser && msg.readAt && <span className="ml-1">✓✓</span>}
                     </p>
                   </div>
                   {isCurrentUser && (
@@ -161,6 +201,10 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
           <div ref={messagesEndRef} />
         </CardContent>
 
+        {isTyping && (
+          <div className="p-4 text-sm text-neutral-500">...typing</div>
+        )}
+
         {/* Chat Input */}
         <div className="p-4 border-t">
           <form onSubmit={handleSendMessage} className="flex space-x-3">
@@ -168,7 +212,10 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
               type="text"
               placeholder="Type your message..."
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                handleTyping();
+              }}
               className="flex-1"
               disabled={sendMessageMutation.isPending}
             />

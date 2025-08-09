@@ -96,8 +96,10 @@ export interface IStorage {
   getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined>;
   getChatMessages(chatRoomId: number): Promise<(ChatMessage & { sender: User })[]>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  markMessageAsRead(messageId: number, userId: string): Promise<void>;
   getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]>;
   grantChatAccess(jobId: number, candidateId: string, examAttemptId: number, ranking: number): Promise<ChatRoom>;
+  createChatRoomForSuccessfulExam(attempt: any): Promise<ChatRoom | undefined>;
   
   // Activity operations
   createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog>;
@@ -519,6 +521,18 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error creating chat message:', error);
+      throw error;
+    }
+  }
+
+  async markMessageAsRead(messageId: number, userId: string): Promise<void> {
+    try {
+      await db
+        .update(chatMessages)
+        .set({ readAt: new Date() })
+        .where(and(eq(chatMessages.id, messageId), eq(chatMessages.senderId, userId)));
+    } catch (error) {
+      console.error('Error marking message as read:', error);
       throw error;
     }
   }
@@ -989,6 +1003,46 @@ export class DatabaseStorage implements IStorage {
       return room;
     } catch (error) {
       console.error('Error granting chat access:', error);
+      throw error;
+    }
+  }
+
+  async createChatRoomForSuccessfulExam(attempt: any): Promise<ChatRoom | undefined> {
+    try {
+      const job = await this.getJobPosting(attempt.jobId);
+      if (!job || !job.hiringManagerId) {
+        console.log(`Job or hiring manager not found for job ID: ${attempt.jobId}`);
+        return undefined;
+      }
+
+      // Check if a chat room already exists
+      const existingChatRoom = await this.getChatRoom(attempt.jobId, attempt.candidateId);
+      if (existingChatRoom) {
+        console.log(`Chat room already exists for job ID: ${attempt.jobId} and candidate ID: ${attempt.candidateId}`);
+        return existingChatRoom;
+      }
+
+      const chatRoomData = {
+        jobId: attempt.jobId,
+        candidateId: attempt.candidateId,
+        hiringManagerId: job.hiringManagerId,
+        examAttemptId: attempt.id,
+      };
+
+      const chatRoom = await this.createChatRoom(chatRoomData);
+
+      // Notify the candidate that they have unlocked the chat
+      await this.createNotification({
+        userId: attempt.candidateId,
+        type: 'direct_connection',
+        title: 'Congratulations! You\'ve unlocked a direct line to the hiring manager.',
+        message: `Your performance on the assessment for the ${job.title} role has earned you a direct chat with the hiring manager.`, 
+        relatedJobId: job.id,
+      });
+
+      return chatRoom;
+    } catch (error) {
+      console.error('Error creating chat room for successful exam:', error);
       throw error;
     }
   }

@@ -20,55 +20,9 @@ import {
   Info
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
-
-interface ApplicationIntelligence {
-  id: number;
-  status: string;
-  appliedAt: string;
-  viewedByEmployerAt?: string;
-  lastStatusUpdate: string;
-  interviewDate?: string;
-  job: {
-    id: number;
-    title: string;
-    company: string;
-    location: string;
-    salaryMin?: number;
-    salaryMax?: number;
-    workType: string;
-  };
-  match?: {
-    matchScore: string;
-    confidenceLevel: string;
-  };
-  // Revolutionary Intelligence Features
-  intelligence?: {
-    timeline: Array<{
-      timestamp: string;
-      type: string;
-      actor: string;
-      details: {
-        viewDuration?: number;
-        ranking?: number;
-        totalApplicants?: number;
-        feedback?: string;
-        humanReadable: string;
-      };
-    }>;
-    insights: {
-      strengthsIdentified: string[];
-      improvementAreas: string[];
-      recommendedActions: string[];
-    };
-    benchmarks: {
-      averageViewTime: number;
-      yourViewTime: number;
-      averageScore: number;
-      yourScore: number;
-    };
-  };
-}
+import { useState, useEffect } from "react";
+import { apiRequest } from "@/lib/queryClient";
+import { ApplicationIntelligence } from "@shared/types/application-intelligence";
 
 const statusConfig: Record<string, { label: string; color: string; progress: number; icon: any }> = {
   submitted: { label: "Submitted", color: "bg-blue-500", progress: 10, icon: CheckCircle },
@@ -84,9 +38,50 @@ const statusConfig: Record<string, { label: string; color: string; progress: num
 export default function ApplicationIntelligenceTracker() {
   const [expandedApplication, setExpandedApplication] = useState<number | null>(null);
   
-  const { data: applications, isLoading } = useQuery<ApplicationIntelligence[]>({
-    queryKey: ["/api/applications/status"],
+  const { data: applications, isLoading: isLoadingApplications } = useQuery<ApplicationIntelligence[]>({
+    queryKey: ["/api/candidates/applications"],
+    queryFn: () => apiRequest("/api/candidates/applications"),
   });
+
+  const [applicationsWithIntelligence, setApplicationsWithIntelligence] = useState<ApplicationIntelligence[]>([]);
+  const [isLoadingIntelligence, setIsLoadingIntelligence] = useState(false);
+
+  useEffect(() => {
+    if (applications) {
+      setIsLoadingIntelligence(true);
+      const fetchEvents = async () => {
+        const applicationsWithEvents = await Promise.all(
+          applications.map(async (app) => {
+            try {
+              const events = await apiRequest(`/api/applications/${app.id}/events`);
+              // A mock intelligence object. In a real scenario, this would be more sophisticated.
+              const intelligence = {
+                timeline: events,
+                insights: { 
+                  strengthsIdentified: ["Proactive Communicator", "Strong problem-solver"], 
+                  improvementAreas: ["More detailed project descriptions"], 
+                  recommendedActions: ["Add quantifiable results to your resume"]
+                },
+                benchmarks: { 
+                  averageViewTime: 45, 
+                  yourViewTime: 60, 
+                  averageScore: 75, 
+                  yourScore: 85 
+                },
+              };
+              return { ...app, intelligence };
+            } catch (error) {
+              console.error(`Failed to fetch events for application ${app.id}`, error);
+              return app; // Return the application without intelligence data if fetching events fails
+            }
+          })
+        );
+        setApplicationsWithIntelligence(applicationsWithEvents);
+        setIsLoadingIntelligence(false);
+      };
+      fetchEvents();
+    }
+  }, [applications]);
 
   const getStatusBadge = (status: string, intelligence?: ApplicationIntelligence['intelligence']) => {
     const config = statusConfig[status] || statusConfig.submitted;
@@ -127,7 +122,7 @@ export default function ApplicationIntelligenceTracker() {
     setExpandedApplication(expandedApplication === applicationId ? null : applicationId);
   };
 
-  if (isLoading) {
+  if (isLoadingApplications || isLoadingIntelligence) {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
@@ -142,7 +137,7 @@ export default function ApplicationIntelligenceTracker() {
     );
   }
 
-  if (!applications || applications.length === 0) {
+  if (!applicationsWithIntelligence || applicationsWithIntelligence.length === 0) {
     return (
       <Card>
         <CardContent className="p-8 text-center">
@@ -156,10 +151,10 @@ export default function ApplicationIntelligenceTracker() {
     );
   }
 
-  const activeApplications = applications.filter(app => 
+  const activeApplications = applicationsWithIntelligence.filter(app => 
     !['rejected', 'withdrawn'].includes(app.status)
   );
-  const closedApplications = applications.filter(app => 
+  const closedApplications = applicationsWithIntelligence.filter(app => 
     ['rejected', 'withdrawn'].includes(app.status)
   );
 

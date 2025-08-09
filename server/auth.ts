@@ -139,3 +139,19 @@ export function hasRole(role: string) {
     }
   };
 }
+
+export async function hasSubscription(req: Request, res: Response, next: NextFunction) {
+  try {
+    const session = await api.getSession({ headers: new Headers(req.headers as any) });
+    if (session?.user) {
+      const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) });
+      if (user?.stripeSubscriptionStatus === 'active') {
+        (req as any).user = session.user;
+        return next();
+      }
+    }
+    return res.status(403).json({ message: "Forbidden: No active subscription" });
+  } catch (error) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+}

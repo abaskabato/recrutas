@@ -12,6 +12,7 @@ import TalentDashboard from "@/pages/talent-dashboard";
 import ExamPage from "@/pages/exam-page";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
+import PricingPage from "@/pages/pricing-page";
 
 
 

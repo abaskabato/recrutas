@@ -14,7 +14,7 @@ import {
   formatDate
 } from "@/lib/dashboard-utils";
 import RealTimeNotifications from "@/components/real-time-notifications";
-import TalentApplicationIntelligence from "@/components/talent-application-intelligence";
+import TalentApplicationView from "@/components/talent-application-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -108,6 +108,7 @@ export default function TalentDashboard() {
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [showJobWizard, setShowJobWizard] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<ApplicationIntelligence | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -164,11 +165,35 @@ export default function TalentDashboard() {
     enabled: !!user,
   });
 
-  // Fetch candidates
-  const { data: candidates = [], isLoading: candidatesLoading } = useQuery<Candidate[]>({
-    queryKey: ['/api/recruiter/candidates'],
-    retry: false,
+  // Fetch applications for talent owner
+  const { data: applications = [], isLoading: applicationsLoading } = useQuery<ApplicationIntelligence[]>({
+    queryKey: ['/api/talent/applications'],
+    queryFn: () => apiRequest("/api/talent/applications"),
     enabled: !!user,
+  });
+
+  const { data: hiringFunnel, isLoading: hiringFunnelLoading } = useQuery({
+    queryKey: ["/api/analytics/hiring-funnel"],
+    queryFn: () => apiRequest("/api/analytics/hiring-funnel"),
+    enabled: activeTab === 'analytics' && !!user,
+  });
+
+  const { data: responseTimes, isLoading: responseTimesLoading } = useQuery({
+    queryKey: ["/api/analytics/response-times"],
+    queryFn: () => apiRequest("/api/analytics/response-times"),
+    enabled: activeTab === 'analytics' && !!user,
+  });
+
+  const { data: topSkills, isLoading: topSkillsLoading } = useQuery({
+    queryKey: ["/api/analytics/top-skills"],
+    queryFn: () => apiRequest("/api/analytics/top-skills"),
+    enabled: activeTab === 'analytics' && !!user,
+  });
+
+  const { data: jobPerformance, isLoading: jobPerformanceLoading } = useQuery({
+    queryKey: ["/api/analytics/job-performance"],
+    queryFn: () => apiRequest("/api/analytics/job-performance"),
+    enabled: activeTab === 'analytics' && !!user,
   });
 
   // Create job mutation
@@ -281,13 +306,11 @@ export default function TalentDashboard() {
     return matchesSearch && matchesStatus;
   });
 
-  const filteredCandidates = candidates.filter(candidate => {
+  const filteredApplications = applications.filter(application => {
     const matchesSearch = searchQuery === "" || 
-      candidate.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus = filterStatus === "all" || candidate.status === filterStatus;
+      application.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      application.job.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = filterStatus === "all" || application.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -774,51 +797,92 @@ export default function TalentDashboard() {
         {/* Candidates Tab - Application Intelligence */}
         {activeTab === 'candidates' && (
           <div className="space-y-6">
+            {selectedApplication ? (
+              <div>
+                <Button onClick={() => setSelectedApplication(null)} variant="outline" className="mb-4">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Applications
+                </Button>
+                <TalentApplicationView application={selectedApplication} />
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Candidates</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Review and manage candidate applications</p>
+                  </div>
+                </div>
 
+                {/* Search and Filters */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search by candidate or job..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="applied">Applied</SelectItem>
+                      <SelectItem value="screening">Screening</SelectItem>
+                      <SelectItem value="interview">Interview</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="hired">Hired</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {candidatesLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                {applicationsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-6">
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : filteredApplications.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12 text-center">
+                      <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No candidate applications yet</h3>
+                      <p className="text-gray-600 dark:text-gray-400">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            ) : filteredCandidates.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No candidate applications yet</h3>
-                  <p className="text-gray-600 dark:text-gray-400">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <TalentApplicationIntelligence 
-                applications={filteredCandidates.map(candidate => ({
-                  id: candidate.id,
-                  candidateId: candidate.id,
-                  jobId: candidate.jobId || 0,
-                  candidateName: `${candidate.firstName} ${candidate.lastName}`,
-                  candidateEmail: candidate.email,
-                  jobTitle: candidate.jobTitle || "Unknown Position",
-                  appliedAt: candidate.createdAt || new Date().toISOString(),
-                  status: candidate.status as any,
-                  matchScore: candidate.matchScore || 0,
-                  skills: candidate.skills || [],
-                  experience: candidate.experience || "",
-                  location: candidate.location || "",
-                  resumeUrl: candidate.resumeUrl,
-                  transparencyLevel: 'partial' as const,
-                  viewedAt: candidate.status !== 'applied' ? new Date().toISOString() : undefined,
-                  viewDuration: candidate.status !== 'applied' ? Math.floor(Math.random() * 180) + 30 : undefined,
-                  ranking: candidate.status !== 'applied' ? Math.floor(Math.random() * 10) + 1 : undefined,
-                  totalApplicants: Math.floor(Math.random() * 50) + 10
-                }))}
-              />
+                ) : (
+                  <div className="space-y-4">
+                    {filteredApplications.map((application) => (
+                      <Card key={application.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedApplication(application)}>
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{application.candidateName}</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">Applied for {application.job.title}</p>
+                            </div>
+                            <Badge variant={application.status === 'applied' ? 'default' : 'secondary'}>
+                              {application.status}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -843,27 +907,28 @@ export default function TalentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {jobs.slice(0, 5).map((job, index) => {
-                      const performance = Math.min(100, (job.applicationCount / Math.max(job.viewCount, 1)) * 100);
-                      return (
+                    {jobPerformanceLoading ? (
+                      <p>Loading...</p>
+                    ) : (
+                      jobPerformance.map((job: any) => (
                         <div key={job.id} className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium truncate">{job.title}</span>
-                            <span className="text-gray-500">{Math.round(performance)}%</span>
+                            <span className="text-gray-500">{Math.round(job.conversionRate)}%</span>
                           </div>
                           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div 
                               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${performance}%` }}
+                              style={{ width: `${job.conversionRate}%` }}
                             />
                           </div>
                           <div className="flex justify-between text-xs text-gray-500">
-                            <span>{job.viewCount} views</span>
-                            <span>{job.applicationCount} applications</span>
+                            <span>{job.views} views</span>
+                            <span>{job.applications} applications</span>
                           </div>
                         </div>
-                      );
-                    })}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -878,26 +943,7 @@ export default function TalentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {['This Week', 'Last Week', '2 Weeks Ago', '3 Weeks Ago'].map((period, index) => {
-                      const applications = Math.max(1, Math.floor(Math.random() * 25) + (4 - index) * 5);
-                      const maxApps = 30;
-                      const percentage = (applications / maxApps) * 100;
-                      
-                      return (
-                        <div key={period} className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">{period}</span>
-                            <span className="text-gray-500">{applications} applications</span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div 
-                              className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <p>Application trends data goes here.</p>
                   </div>
                 </CardContent>
               </Card>
@@ -912,25 +958,18 @@ export default function TalentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {(() => {
-                      const allSkills = jobs.flatMap(job => job.skills);
-                      const skillCounts = allSkills.reduce((acc, skill) => {
-                        acc[skill] = (acc[skill] || 0) + 1;
-                        return acc;
-                      }, {} as Record<string, number>);
-                      
-                      return Object.entries(skillCounts)
-                        .sort(([,a], [,b]) => b - a)
-                        .slice(0, 8)
-                        .map(([skill, count]) => (
-                          <div key={skill} className="flex items-center justify-between">
-                            <Badge variant="outline" className="text-xs">
-                              {skill}
-                            </Badge>
-                            <span className="text-sm text-gray-500">{count} jobs</span>
-                          </div>
-                        ));
-                    })()}
+                    {topSkillsLoading ? (
+                      <p>Loading...</p>
+                    ) : (
+                      topSkills.map(([skill, count]: [string, number]) => (
+                        <div key={skill} className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-xs">
+                            {skill}
+                          </Badge>
+                          <span className="text-sm text-gray-500">{count} jobs</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -945,35 +984,14 @@ export default function TalentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-green-600">2.3 hrs</div>
-                      <div className="text-sm text-gray-500">Average Response Time</div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {[
-                        { range: '< 1 hour', count: Math.floor(candidates.length * 0.4), color: 'bg-green-500' },
-                        { range: '1-4 hours', count: Math.floor(candidates.length * 0.35), color: 'bg-yellow-500' },
-                        { range: '4-24 hours', count: Math.floor(candidates.length * 0.2), color: 'bg-orange-500' },
-                        { range: '> 24 hours', count: Math.floor(candidates.length * 0.05), color: 'bg-red-500' }
-                      ].map(({ range, count, color }) => {
-                        const percentage = candidates.length > 0 ? (count / candidates.length) * 100 : 0;
-                        return (
-                          <div key={range} className="space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span>{range}</span>
-                              <span className="text-gray-500">{count} responses</span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
-                                className={`${color} h-2 rounded-full transition-all duration-300`}
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {responseTimesLoading ? (
+                      <p>Loading...</p>
+                    ) : (
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-green-600">{responseTimes.averageResponseTime.toFixed(1)} hrs</div>
+                        <div className="text-sm text-gray-500">Average Response Time</div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -988,27 +1006,20 @@ export default function TalentDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                  {[
-                    { stage: 'Applied', count: candidates.length, color: 'bg-blue-500' },
-                    { stage: 'Viewed', count: candidates.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
-                    { stage: 'Interested', count: candidates.filter(c => c.status === 'interested').length, color: 'bg-yellow-500' },
-                    { stage: 'Interviewed', count: Math.floor(candidates.length * 0.1), color: 'bg-orange-500' },
-                    { stage: 'Hired', count: stats?.hires || 0, color: 'bg-purple-500' }
-                  ].map(({ stage, count, color }) => (
-                    <div key={stage} className="text-center">
-                      <div className={`${color} text-white rounded-lg p-4 mb-2`}>
-                        <div className="text-2xl font-bold">{count}</div>
-                        <div className="text-sm opacity-90">{stage}</div>
-                      </div>
-                      {stage !== 'Hired' && (
-                        <div className="text-xs text-gray-500">
-                          {candidates.length > 0 ? Math.round((count / candidates.length) * 100) : 0}% conversion
+                {hiringFunnelLoading ? (
+                  <p>Loading...</p>
+                ) : (
+                  <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+                    {Object.entries(hiringFunnel).map(([stage, count]) => (
+                      <div key={stage} className="text-center">
+                        <div className="bg-blue-500 text-white rounded-lg p-4 mb-2">
+                          <div className="text-2xl font-bold">{count as number}</div>
+                          <div className="text-sm opacity-90">{stage}</div>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

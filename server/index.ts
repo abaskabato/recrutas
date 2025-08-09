@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
+import { WebSocketServer, WebSocket } from 'ws';
 import { registerRoutes } from "./routes";
 
 
@@ -41,14 +42,59 @@ app.use((req, res, next) => {
   await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error(err);
+
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    const errorResponse: { message: string; stack?: string } = {
+      message,
+    };
+
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.stack = err.stack;
+    }
+
+    res.status(status).json(errorResponse);
   });
 
   const server = createServer(app);
+  const wss = new WebSocketServer({ server });
+
+  wss.on('connection', (ws) => {
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        // Handle incoming messages
+        switch (data.type) {
+          case 'TYPING':
+            // Broadcast typing event to other clients in the same chat room
+            wss.clients.forEach((client) => {
+              if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({ type: 'TYPING', payload: data.payload }));
+              }
+            });
+            break;
+          case 'MESSAGE_READ':
+            {
+              const { messageId, userId } = data.payload;
+              await storage.markMessageAsRead(messageId, userId);
+              // Broadcast the event to the other user in the chat room
+              wss.clients.forEach((client) => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify({ type: 'MESSAGE_READ', payload: { messageId } }));
+                }
+              });
+              break;
+            }
+          default:
+            console.log('Unknown message type:', data.type);
+        }
+      } catch (error) {
+        console.error('Failed to process message:', error);
+      }
+    });
+  });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route

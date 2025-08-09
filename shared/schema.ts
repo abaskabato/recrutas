@@ -53,6 +53,35 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   role: text("role"),
   profileComplete: boolean("profile_complete").default(false),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeSubscriptionStatus: text("stripe_subscription_status"),
+});
+
+// HackerRank Assessments Table
+export const hackerrankAssessments = pgTable("hackerrank_assessments", {
+  id: serial("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull(),
+  jobId: integer("job_id").references(() => jobPostings.id),
+  candidateId: varchar("candidate_id").references(() => users.id),
+  invitationUrl: text("invitation_url"),
+  status: text("status").default("pending"), // pending, invited, completed
+  score: integer("score"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Codility Assessments Table
+export const codilityAssessments = pgTable("codility_assessments", {
+  id: serial("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull(),
+  jobId: integer("job_id").references(() => jobPostings.id),
+  candidateId: varchar("candidate_id").references(() => users.id),
+  invitationUrl: text("invitation_url"),
+  status: text("status").default("pending"), // pending, invited, completed
+  score: integer("score"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Sessions table (Better Auth compatible)
@@ -251,6 +280,7 @@ export const chatMessages = pgTable("chat_messages", {
   senderId: varchar("sender_id").notNull().references(() => users.id),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  readAt: timestamp("read_at"),
 });
 
 // Job applications - Track application status and updates

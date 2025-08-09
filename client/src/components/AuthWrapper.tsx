@@ -10,6 +10,7 @@ import TalentDashboard from '@/pages/talent-dashboard';
 import ExamPage from '@/pages/exam-page';
 import Chat from '@/pages/chat';
 import NotFound from '@/pages/not-found';
+import PricingPage from '@/pages/pricing-page';
 
 function Router() {
   const { data: session, isPending: isLoading } = useSession();
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/talent-dashboard" component={TalentDashboard} />
       <Route path="/exam/:jobId/:jobTitle?" component={ExamPage} />
       <Route path="/chat/:roomId?" component={Chat} />
+      <Route path="/pricing" component={PricingPage} />
       
       <Route path="/">
         {(() => {
