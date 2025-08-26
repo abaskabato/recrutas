@@ -18,15 +18,6 @@ Recrutas is a revolutionary platform that connects talented job seekers directly
 *   **Direct Chat:** Real-time chat between job seekers and hiring managers.
 *   **Skills-First Assessments:** Create and take job-specific tests to prove your skills.
 *   **AI-Powered Matching:** Our AI-powered matching engine connects the right people with the right opportunities.
-*   **Application Tracking:** No more black hole applications. Track every step of your hiring process in real-time.
-*   **Career Gap Assistance:** Smart suggestions for getting back on track after a career gap.
-
-## 💻 Tech Stack
-
-*   **Frontend:** React, TypeScript, Tailwind CSS
-*   **Backend:** Node.js, Express, TypeScript
-*   **Database:** PostgreSQL, Drizzle ORM
-*   **AI:** OpenAI
 
 ## 🤝 Get Involved
 
