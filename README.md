@@ -1,32 +1,32 @@
-# Recrutas: The Future of Hiring is Direct
+# Recrutas
 
-**Tired of the job application black hole? So are we.**
+✨ Built on AI. Backed by transparency. Focused on you.
 
-Recrutas is a revolutionary platform that connects talented job seekers directly with the hiring managers who make the decisions. No more recruiters, no more guessing games, just transparent, skills-first hiring.
+## Job Search. Reinvented.
 
-## 🔥 Why Recrutas?
+AI-powered talent acquisition → Direct company connections → Skip the recruiters
 
-*   **For Job Seekers:** Stop wasting time on applications that go nowhere. On Recrutas, you prove your skills through job-specific tests and unlock direct conversations with the people who matter.
-*   **For Hiring Managers:** Stop wasting time on unqualified candidates. On Recrutas, you create custom tests that filter for the skills you actually need, and you only talk to the people who pass.
+## Getting Started
 
-## 🚀 Live Demo
+1.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+2.  **Set up environment variables:**
+    ```bash
+    cp .env.example .env
+    ```
+    Fill in your environment variables in the `.env` file.
+3.  **Set up the database:**
+    ```bash
+    npm run db:push
+    ```
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
 
-[Check out the live demo of Recrutas here!](https://recrutas.vercel.app/)
-
-## 💡 Key Features
-
-*   **Direct Chat:** Real-time chat between job seekers and hiring managers.
-*   **Skills-First Assessments:** Create and take job-specific tests to prove your skills.
-*   **AI-Powered Matching:** Our AI-powered matching engine connects the right people with the right opportunities.
-
-## 🤝 Get Involved
-
-Recrutas is a startup, and we're always looking for feedback and contributions. Here's how you can get involved:
-
-*   **Try the demo:** [Check out the live demo](https://recrutas.vercel.app/) and let us know what you think.
-*   **Report bugs:** If you find a bug, please [open an issue](https://github.com/abaskabato/recrutas/issues).
-*   **Contribute code:** We welcome pull requests!
-
-## 🚀 Getting Started
-
-To get started with Recrutas, please see the [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) file.
+## Testing
+```bash
+npm test
+```
