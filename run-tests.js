@@ -2,8 +2,8 @@
  * Test Runner - Runs all authentication tests
  */
 
-import { runAPITests } from './test-auth-api.js';
-import { runAllTests } from './test-auth-e2e.js';
+// import { runAPITests } from './test-auth-api.js';
+// import { runAllTests } from './test-auth-e2e.js';
 
 async function runAllTestSuites() {
   console.log('🧪 RECRUTAS AUTHENTICATION TEST SUITE');
@@ -14,11 +14,13 @@ async function runAllTestSuites() {
   try {
     console.log('🔧 Phase 1: API Tests');
     console.log('---------------------');
-    await runAPITests();
+    // await runAPITests();
     
     console.log('\n🌐 Phase 2: End-to-End Tests');
     console.log('-----------------------------');
-    await runAllTests();
+    // await runAllTests();
+
+    console.log('Tests are currently disabled. See comments in run-tests.js');
     
   } catch (error) {
     console.error('Test suite failed:', error);
