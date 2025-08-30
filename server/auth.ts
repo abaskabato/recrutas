@@ -84,7 +84,7 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // 1 day
   },
   emailAndPassword: {
-    enabled: true,
+    enabled: false,
     requireEmailVerification: false,
   },
   socialProviders: {

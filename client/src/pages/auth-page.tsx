@@ -1,32 +1,12 @@
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Redirect, Link } from "wouter"
-import { Loader2, ArrowLeft } from "lucide-react"
-import { authClient, signIn, signUp, signOut } from "@/lib/auth-client"
+import { ArrowLeft } from "lucide-react"
+import { authClient, signIn } from "@/lib/auth-client"
 
 export default function AuthPage() {
   const { data: session } = authClient.useSession()
   const { toast } = useToast()
-  const [isSigningIn, setIsSigningIn] = useState(false)
-  const [isSigningUp, setIsSigningUp] = useState(false)
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
-  
-  const [signInData, setSignInData] = useState({
-    email: "",
-    password: "",
-  })
-  
-  const [signUpData, setSignUpData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  })
 
   // Redirect if already authenticated
   if (session?.user) {
@@ -36,93 +16,6 @@ export default function AuthPage() {
     }
     // If user has a role, redirect to dashboard
     return <Redirect to="/" />
-  }
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSigningIn(true)
-    
-    try {
-      const { data, error } = await signIn.email({
-        email: signInData.email,
-        password: signInData.password,
-        rememberMe,
-        callbackURL: "/"
-      }, {
-        onRequest: () => {
-          console.log('Sign in request started')
-        },
-        onSuccess: () => {
-          toast({ title: "Welcome back!", description: "Successfully signed in." })
-        },
-        onError: (ctx) => {
-          toast({
-            title: "Sign in failed",
-            description: ctx.error.message || "Invalid email or password",
-            variant: "destructive",
-          })
-        }
-      })
-    } catch (error: any) {
-      console.warn('Sign in error caught:', error)
-      toast({
-        title: "Sign in failed",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSigningIn(false)
-    }
-  }
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (signUpData.password !== signUpData.confirmPassword) {
-      toast({
-        title: "Password mismatch",
-        description: "Passwords do not match",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    setIsSigningUp(true)
-    
-    try {
-      const { data, error } = await signUp.email({
-        email: signUpData.email,
-        password: signUpData.password,
-        name: signUpData.name,
-        callbackURL: "/role-selection"
-      }, {
-        onRequest: () => {
-          console.log('Sign up request started')
-        },
-        onSuccess: () => {
-          toast({ 
-            title: "Account created!", 
-            description: `Welcome to Recrutas, ${signUpData.name}! Please select your role.` 
-          })
-        },
-        onError: (ctx) => {
-          toast({
-            title: "Sign up failed",
-            description: ctx.error.message || "Failed to create account",
-            variant: "destructive",
-          })
-        }
-      })
-    } catch (error: any) {
-      console.warn('Sign up error caught:', error)
-      toast({
-        title: "Sign up failed",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSigningUp(false)
-    }
   }
 
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'microsoft') => {
@@ -150,183 +43,15 @@ export default function AuthPage() {
         </Link>
         
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-8">
-          {/* Tab Headers */}
-          <div className="flex border-b border-gray-800 mb-8">
-            <button
-              onClick={() => setIsSignUp(false)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                !isSignUp 
-                  ? 'text-white border-white' 
-                  : 'text-gray-400 border-transparent hover:text-gray-300'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setIsSignUp(true)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                isSignUp 
-                  ? 'text-white border-white' 
-                  : 'text-gray-400 border-transparent hover:text-gray-300'
-              }`}
-            >
-              Sign Up
-            </button>
+          <div className="text-center mb-8">
+            <h2 className="text-xl font-semibold text-white mb-2">Sign In</h2>
+            <p className="text-gray-400 text-sm">
+              Choose a provider to sign in to your account
+            </p>
           </div>
 
-          {/* Sign In Form */}
-          {!isSignUp && (
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Sign In</h2>
-              <p className="text-gray-400 text-sm mb-6">
-                Enter your email below to login to your account
-              </p>
-              
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div>
-                  <Label htmlFor="signin-email" className="text-gray-300">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="m@example.com"
-                    value={signInData.email}
-                    onChange={(e) => setSignInData(prev => ({ ...prev, email: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 mt-1"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="signin-password" className="text-gray-300">Password</Label>
-                    <Link 
-                      href="/forgot-password" 
-                      className="text-sm text-gray-400 hover:text-white underline"
-                    >
-                      Forgot your password?
-                    </Link>
-                  </div>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    placeholder="password"
-                    value={signInData.password}
-                    onChange={(e) => setSignInData(prev => ({ ...prev, password: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 mt-1"
-                    required
-                  />
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(!!checked)}
-                  />
-                  <Label htmlFor="remember" className="text-sm text-gray-300">
-                    Remember me
-                  </Label>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full bg-white text-black hover:bg-gray-100"
-                  disabled={isSigningIn}
-                >
-                  {isSigningIn ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Signing in...
-                    </>
-                  ) : (
-                    'Login'
-                  )}
-                </Button>
-              </form>
-            </div>
-          )}
-
-          {/* Sign Up Form */}
-          {isSignUp && (
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Sign Up</h2>
-              <p className="text-gray-400 text-sm mb-6">
-                Create a new account to get started
-              </p>
-              
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div>
-                  <Label htmlFor="signup-name" className="text-gray-300">Full Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={signUpData.name}
-                    onChange={(e) => setSignUpData(prev => ({ ...prev, name: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 mt-1"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="signup-email" className="text-gray-300">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="m@example.com"
-                    value={signUpData.email}
-                    onChange={(e) => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 mt-1"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="signup-password" className="text-gray-300">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="password"
-                    value={signUpData.password}
-                    onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 mt-1"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="signup-confirm-password" className="text-gray-300">Confirm Password</Label>
-                  <Input
-                    id="signup-confirm-password"
-                    type="password"
-                    placeholder="confirm password"
-                    value={signUpData.confirmPassword}
-                    onChange={(e) => setSignUpData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 mt-1"
-                    required
-                  />
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full bg-white text-black hover:bg-gray-100"
-                  disabled={isSigningUp}
-                >
-                  {isSigningUp ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Creating account...
-                    </>
-                  ) : (
-                    'Create Account'
-                  )}
-                </Button>
-              </form>
-            </div>
-          )}
-
           {/* Social Sign In */}
-          <div className="mt-6 space-y-3">
+          <div className="space-y-3">
             <Button
               onClick={() => handleSocialSignIn('google')}
               variant="outline"
@@ -355,7 +80,7 @@ export default function AuthPage() {
             <Button
               onClick={() => handleSocialSignIn('microsoft')}
               variant="outline"
-              className="w-full bg-transparent border-gray-700 text-white hover:bg-gray-800"
+              className="w-full bg-transparent border-ray-700 text-white hover:bg-gray-800"
             >
               <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M0 0h11v11H0V0zm13 0h11v11H13V0zM0 13h11v11H0V13zm13 0h11v11H13V13z"/>
