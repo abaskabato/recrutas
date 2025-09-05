@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 
+import { isAuthenticated } from "./middleware/auth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
@@ -25,12 +26,11 @@ import {
   chatRooms,
   chatMessages
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
-import { isAuthenticated, auth } from "./auth";
 
 // Simple in-memory cache for external jobs consistency
 const externalJobsCache = new Map<string, { jobs: any[], timestamp: number }>();
@@ -51,8 +51,8 @@ function generateDefaultFeedback(status: string): string {
 async function generateIntelligenceNotification(applicationId: number, status: string, details: any) {
   const humanReadableMessages: Record<string, string> = {
     'viewed': `Great news! ${details.reviewerName || 'A hiring manager'} spent ${details.viewDuration || 45} seconds reviewing your profile${details.ranking ? ` - you're ranked #${details.ranking} out of ${details.totalApplicants} applicants` : ''}.`,
-    'rejected': `While this role wasn't a match, here's valuable feedback: ${details.feedback}. ${details.ranking ? `You were #${details.ranking} out of ${details.totalApplicants} - very competitive!` : ''}`,
-    'interview_scheduled': `Excellent! You've progressed to interviews${details.ranking ? ` as one of the top ${details.ranking} candidates` : ''}. Your application really impressed the team.`
+    'rejected': `While this role wasn\'t a match, here\'s valuable feedback: ${details.feedback}. ${details.ranking ? `You were #${details.ranking} out of ${details.totalApplicants} - very competitive!` : ''}`,
+    'interview_scheduled': `Excellent! You\'ve progressed to interviews${details.ranking ? ` as one of the top ${details.ranking} candidates` : ''}. Your application really impressed the team.`
   };
   
   return {
@@ -112,116 +112,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
     });
   });
 
-  
-
-  
-
-  // Custom session endpoint to handle Better Auth session issues
-  app.get("/api/session", async (req, res) => {
-    try {
-      // With JWT strategy, session data is in the token, not a separate cookie.
-      // Better Auth's own /api/auth/session endpoint should be used.
-      // This custom endpoint might be redundant or need to fetch session via auth.api.getSession
-      // For now, let's simplify to rely on better-auth's internal session.
-      const session = await auth.api.getSession({ headers: new Headers(req.headers as any) });
-      if (session?.user) {
-        // Get fresh user data from database to ensure we have the latest role
-        try {
-          const [user] = await db.select().from(users).where(eq(users.id, session.user.id));
-          if (user) {
-            return res.json({
-              user: {
-                ...session.user,
-                role: user.role,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                profileComplete: user.profileComplete
-              },
-              session: session.session // better-auth session object
-            });
-          }
-        } catch (dbError) {
-          console.error('Database query error in /api/session:', dbError);
-          return res.json({ user: session.user, session: session.session });
-        }
-      }
-      res.json(null);
-    } catch (error) {
-      console.error('Session endpoint error:', error);
-      res.json(null);
-    }
-  });
-
-  // Custom logout endpoint to force clear all session data
-  app.get("/api/logout", async (req, res) => {
-    try {
-      // With JWT strategy, clearing cookies is less about session data and more about the token.
-      // Better Auth's own /api/auth/sign-out endpoint should handle this.
-      // This custom endpoint can simply redirect or return success.
-      // The betterAuth.ts already has robust cookie clearing for sign-out.
-      res.clearCookie('better-auth.session_token', { path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-      res.clearCookie('better-auth.session_data', { path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-      res.clearCookie('connect.sid', { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' }); // Clear legacy if present
-
-      console.log('Manual logout completed, relevant cookies cleared');
-      res.status(200).json({ success: true, message: 'Logged out successfully' });
-    } catch (error) {
-      console.error('Logout error:', error);
-      res.status(500).json({ message: 'Logout failed' });
-    }
-  });
-
-  // Role selection endpoint - uses Better Auth session
-  app.post("/api/user/select-role", async (req: any, res) => {
-    try {
-      // Get session using Better Auth
-      const sessionCookie = req.headers.cookie?.match(/better-auth\.session_data=([^;]+)/)?.[1];
-      
-      if (!sessionCookie) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-      
-      let userId;
-      try {
-        const decodedSession = JSON.parse(Buffer.from(decodeURIComponent(sessionCookie), 'base64').toString());
-        userId = decodedSession.session?.user?.id;
-        if (!userId) {
-          return res.status(401).json({ message: "Invalid session" });
-        }
-      } catch (e) {
-        return res.status(401).json({ message: "Invalid session data" });
-      }
-      
-      const { role } = req.body;
-      
-      if (!role || !['candidate', 'talent_owner'].includes(role)) {
-        return res.status(400).json({ message: "Invalid role. Must be 'candidate' or 'talent_owner'" });
-      }
-      
-      // Update user role in database
-      await db.update(users)
-        .set({ role: role as any, updatedAt: new Date() })
-        .where(eq(users.id, userId));
-      
-      // Get updated user
-      const [updatedUser] = await db.select().from(users).where(eq(users.id, userId));
-      
-      res.json({ 
-        success: true, 
-        user: updatedUser,
-        message: `Role set to ${role}` 
-      });
-    } catch (error) {
-      console.error('Role selection error:', error);
-      res.status(500).json({ message: "Failed to set role" });
-    }
-  });
-
   // AI-powered job matching for candidates - place before other authenticated routes
-  app.get('/api/ai-matches', async (req: any, res) => {
+  app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
     try {
       // Get the authenticated user ID from the current session
-      const userId = "44091169"; // Known authenticated user
+      const userId = req.user.id;
       
       console.log('AI matches endpoint accessed for user:', userId);
       const candidateProfile = await storage.getCandidateProfile(userId);
@@ -357,18 +252,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Public platform stats endpoint - optimized for performance
   app.get('/api/platform/stats', async (req, res) => {
     try {
-      // Use count queries instead of fetching all records for better performance
-      // TODO: Restore SQL count queries after fixing imports
       const [userCount, jobCount, matchCount] = await Promise.all([
-        db.select().from(users),
-        db.select().from(jobPostings),
-        db.select().from(jobApplications)
+        db.select({ count: sql<number>`count(*)` }).from(users),
+        db.select({ count: sql<number>`count(*)` }).from(jobPostings),
+        db.select({ count: sql<number>`count(*)` }).from(jobApplications)
       ]);
 
       const stats = {
-        totalUsers: userCount.length || 0,
-        totalJobs: jobCount.length || 0,
-        totalMatches: matchCount.length || 0,
+        totalUsers: userCount[0].count || 0,
+        totalJobs: jobCount[0].count || 0,
+        totalMatches: matchCount[0].count || 0,
         avgMatchScore: matchCount.length > 0 ? 88 : 0
       };
 
@@ -382,10 +275,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Auth routes - Updated for new authentication system
-  app.get('/api/auth/user', async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      if (req.session?.user) {
-        const userId = req.session.user.id;
+      if (req.user) {
+        const userId = req.user.id;
         const user = await storage.getUser(userId);
         if (!user) {
           return res.status(404).json({ message: "User not found" });
@@ -408,13 +301,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Set user role
-  app.post('/api/auth/role', async (req: any, res) => {
+  app.post('/api/auth/role', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.session?.user) {
+      if (!req.user) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       
-      const userId = req.session.user.id;
+      const userId = req.user.id;
       const { role } = req.body;
       
       if (!['candidate', 'talent_owner'].includes(role)) {
@@ -451,7 +344,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Always return success for security (don't reveal if email exists)
       res.json({ 
         success: true, 
-        message: "If an account with this email exists, we've sent reset instructions." 
+        message: "If an account with this email exists, we\'ve sent reset instructions."
       });
       
     } catch (error) {
@@ -686,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
                   jobId: job.id,
                   candidateId: userId,
                   matchScore: `${Math.round(aiMatch.score)}%`,
-                  confidenceLevel: aiMatch.confidenceLevel >= 80 ? 'high' : 
+                  confidenceLevel: aiMatch.confidenceLevel >= 80 ? 'high' :
                                   aiMatch.confidenceLevel >= 60 ? 'medium' : 'low',
                   skillMatches: aiMatch.skillMatches.map(skill => ({ skill, matched: true })),
                   aiExplanation: aiMatch.aiExplanation,
@@ -705,7 +598,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         // Don't fail the resume upload if matching fails
       }
 
-      res.json({ 
+      res.json({
         resumeUrl,
         parsed: parsingSuccess,
         aiParsing: {
@@ -736,7 +629,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Resume parsing endpoint for testing
-  app.post('/api/resume/parse', isAuthenticated, async (req: any, res) => {
+  app.post('/api/resume/parse', async (req: any, res) => {
     try {
       console.log('Resume parsing endpoint called:', req.body);
       const { text } = req.body;
@@ -774,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       
       // Check if it's an OpenAI API issue
       if (error.message.includes('OpenAI API key') || error.message.includes('quota') || error.message.includes('insufficient_quota')) {
-        return res.status(402).json({ 
+        return res.status(402).json({
           success: false,
           message: "Resume parsing requires a valid OpenAI API key with available credits",
           error: "OpenAI API key needed for authentic data extraction",
@@ -782,10 +675,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         });
       }
       
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         message: "Failed to parse resume",
-        error: error.message 
+        error: error.message
       });
     }
   });
@@ -1070,9 +963,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
         userId: req.user?.id,
         profileData: Object.keys(req.body || {})
       });
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to complete profile',
-        error: error.message 
+        error: error.message
       });
     }
   });
@@ -1200,9 +1093,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       
       await storage.updateUserRole(userId, role);
       
-      res.json({ 
+      res.json({
         message: 'Role updated successfully',
-        role 
+        role
       });
     } catch (error) {
       console.error("Role selection error:", error);
@@ -1287,7 +1180,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Job posting routes with automatic exam creation
   app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id || req.user?.claims?.sub || req.user?.sub;
+      const userId = req.user.id;
       
       if (!userId) {
         return res.status(401).json({ message: "User ID not found in session" });
@@ -1395,7 +1288,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       
       // Update user basic info and store company information
       await db.update(users)
-        .set({ 
+        .set({
           firstName: profileData.firstName,
           lastName: profileData.lastName,
           email: profileData.email,
@@ -1533,8 +1426,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const chatRoom = await storage.getChatRoom(jobId, userId);
       
       if (!chatRoom) {
-        return res.status(403).json({ 
-          message: "Chat access not granted. Complete the exam with a passing score to qualify." 
+        return res.status(403).json({
+          message: "Chat access not granted. Complete the exam with a passing score to qualify."
         });
       }
       
@@ -1659,37 +1552,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  // Job postings routes
-  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const jobData = insertJobPostingSchema.parse({
-        ...req.body,
-        talentOwnerId: userId,
-      });
-      
-      const job = await storage.createJobPosting(jobData);
-      
-      // Find and create matches for this job
-      const candidates = await findMatchingCandidates(job);
-      for (const candidate of candidates) {
-        await storage.createJobMatch({
-          jobId: job.id,
-          candidateId: candidate.userId,
-          matchScore: candidate.matchScore.toString(),
-          matchReasons: candidate.matchReasons,
-        });
-      }
-
-      // Create activity log
-      await storage.createActivityLog(userId, "job_posted", `Job posted: ${job.title}`);
-
-      res.json(job);
-    } catch (error) {
-      console.error("Error creating job posting:", error);
-      res.status(500).json({ message: "Failed to create job posting" });
-    }
-  });
+  
 
   // Activity logs
   app.get('/api/activity', isAuthenticated, async (req: any, res) => {
@@ -1715,16 +1578,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const profile = await storage.getCandidateProfile(userId);
-      res.json(profile);
-    } catch (error) {
-      console.error("Error fetching candidate profile:", error);
-      res.status(500).json({ message: "Failed to fetch profile" });
-    }
-  });
+  
 
   app.get('/api/candidates/activity', isAuthenticated, async (req: any, res) => {
     try {
@@ -1748,143 +1602,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  app.get('/api/candidates/matches', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      
-      // Get candidate profile for matching
-      const candidateProfile = await storage.getCandidateProfile(userId);
-      if (!candidateProfile) {
-        return res.json([]);
-      }
-
-      // Get fresh job data from multiple sources with rotation
-      const currentTime = Date.now();
-      const rotationSeed = Math.floor(currentTime / (5 * 60 * 1000)); // Rotate every 5 minutes
-      
-      // Get live jobs with variety
-      const liveJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills || [], 50);
-      
-      // Shuffle jobs using time-based seed for variety
-      const shuffledJobs = [...liveJobs].sort(() => Math.sin(rotationSeed) - 0.5);
-      
-      // Get database matches as well
-      const dbMatches = await storage.getMatchesForCandidate(userId);
-      console.log(`Found ${dbMatches.length} database matches`);
-
-      // Transform database matches to ensure proper source mapping and exam indicators
-      const internalMatches = dbMatches.map(match => {
-        const isSDEJob = match.job?.title === 'SDE';
-        if (isSDEJob) {
-          console.log(`DEBUG: SDE Job match found - BEFORE transformation:`, {
-            matchId: match.id,
-            jobId: match.job?.id,
-            title: match.job?.title,
-            hasExam: match.job?.hasExam,
-            company: match.job?.company,
-            source: match.job?.source,
-            status: match.status
-          });
-        }
-        
-        const transformedMatch = {
-          ...match,
-          job: {
-            ...match.job,
-            source: 'internal', // All database jobs are internal
-            hasExam: Boolean(match.job?.hasExam), // This should be correctly mapped from storage
-            company: match.job?.company || 'Recrutas',
-            workType: match.job?.workType || 'remote'
-          }
-        };
-        
-        if (isSDEJob) {
-          console.log(`DEBUG: SDE Job match found - AFTER transformation:`, {
-            matchId: transformedMatch.id,
-            jobId: transformedMatch.job?.id,
-            title: transformedMatch.job?.title,
-            hasExam: transformedMatch.job?.hasExam,
-            company: transformedMatch.job?.company,
-            source: transformedMatch.job?.source,
-            status: transformedMatch.status
-          });
-        }
-        
-        return transformedMatch;
-      });
-      
-      // Transform live jobs into match format with unique IDs
-      const liveMatches = [];
-      const usedJobIds = new Set();
-      
-      for (const job of shuffledJobs) {
-        // Skip if we've already added this job
-        const jobKey = `${job.company}_${job.title}`;
-        if (usedJobIds.has(jobKey)) continue;
-        usedJobIds.add(jobKey);
-        
-        if (liveMatches.length >= 8) break;
-        
-        const matchScore = Math.floor(Math.random() * 30) + 70; // 70-99% match
-        const uniqueId = parseInt(`${currentTime}${Math.floor(Math.random() * 1000)}`);
-        
-        liveMatches.push({
-          id: uniqueId,
-          jobId: `external_${job.id}_${currentTime}`,
-          candidateId: userId,
-          matchScore: `${matchScore}%`,
-          status: 'pending',
-          createdAt: new Date(currentTime - Math.random() * 86400000).toISOString(), // Random within last 24h
-          job: {
-            id: `job_${uniqueId}`,
-            title: job.title,
-            company: job.company,
-            location: job.location,
-            salaryMin: job.salaryMin || 120000,
-            salaryMax: job.salaryMax || 200000,
-            workType: job.workType,
-            description: job.description,
-            skills: job.skills,
-            source: 'external'
-          },
-          recruiter: {
-            id: `recruiter_${uniqueId}`,
-            firstName: 'Hiring',
-            lastName: 'Manager',
-            email: 'hiring@' + job.company.toLowerCase().replace(/\s+/g, '') + '.com'
-          }
-        });
-      }
-
-          // Combine internal matches with live matches
-      const allMatches = [...internalMatches, ...liveMatches];
-      console.log(`Returning ${allMatches.length} total matches (${internalMatches.length} internal, ${liveMatches.length} external)`);
-      
-      // Debug: Log the Test job specifically
-      const testMatch = allMatches.find(m => m.job?.title === 'Test');
-      if (testMatch) {
-        console.log('Final Test job data being sent to frontend:', {
-          id: testMatch.id,
-          jobTitle: testMatch.job?.title,
-          hasExam: testMatch.job?.hasExam,
-          source: testMatch.job?.source,
-          company: testMatch.job?.company
-        });
-      }
-      
-      // Sort by creation date (newest first) to show fresh matches
-      allMatches.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      });
-      
-      res.json(allMatches);
-    } catch (error) {
-      console.error("Error fetching job matches:", error);
-      res.status(500).json({ message: "Failed to fetch matches" });
-    }
-  });
+  
 
   // Resume upload endpoint
   app.post('/api/candidates/upload-resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
@@ -1908,9 +1626,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Create activity log
       await storage.createActivityLog(userId, "resume_uploaded", "Resume uploaded successfully");
 
-      res.json({ 
+      res.json({
         message: "Resume uploaded successfully",
-        resumeUrl: resumeUrl 
+        resumeUrl: resumeUrl
       });
     } catch (error) {
       console.error("Error uploading resume:", error);
@@ -1975,11 +1693,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
         userId,
         'external_job_application',
         `Applied to external job: ${jobData.title} at ${jobData.company}`,
-        { 
+        {
           externalJobId: jobData.id,
           source,
           externalUrl,
-          applicationId: application.id 
+          applicationId: application.id
         }
       );
 

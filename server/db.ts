@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: '/home/abaskabato/recrutas/.env' });
+
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from "@shared/schema";

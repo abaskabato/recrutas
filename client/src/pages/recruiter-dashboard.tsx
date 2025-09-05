@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,37 +10,38 @@ import { Bell, User, Plus, Briefcase, Users, MessageSquare, Handshake, Edit, Pau
 import JobCard from "@/components/job-card";
 
 export default function RecruiterDashboard() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const { toast } = useToast();
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!session) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/auth";
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [session, toast]);
 
   const { data: jobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["/api/jobs"],
-    enabled: !!user,
+    enabled: !!session?.user,
     retry: false,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/recruiter/stats"],
-    enabled: !!user,
+    enabled: !!session?.user,
     retry: false,
   });
 
-  if (isLoading || !user) {
+  if (!session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -48,8 +49,9 @@ export default function RecruiterDashboard() {
     );
   }
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
   };
 
   return (
@@ -67,15 +69,15 @@ export default function RecruiterDashboard() {
               </Button>
               <div className="relative">
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="flex items-center space-x-2">
-                  {user.profileImageUrl ? (
-                    <img src={user.profileImageUrl} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
+                  {session.user.user_metadata.avatar_url ? (
+                    <img src={session.user.user_metadata.avatar_url} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
                   ) : (
                     <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                       <User className="h-3 w-3 text-white" />
                     </div>
                   )}
                   <span className="hidden sm:block">
-                    {user.firstName || user.email?.split('@')[0] || 'User'}
+                    {session.user.email?.split('@')[0] || 'User'}
                   </span>
                 </Button>
               </div>

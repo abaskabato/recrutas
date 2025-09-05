@@ -9,7 +9,7 @@ import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import InstantMatchModal from "@/components/instant-match-modal";
 
 export default function LandingResponsive() {
@@ -18,18 +18,19 @@ export default function LandingResponsive() {
   const [quickSkills, setQuickSkills] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const [, setLocation] = useLocation();
 
   // Auto-open instant match modal after 3 seconds for non-authenticated users
   useEffect(() => {
-    if (!isAuthenticated && !isLoading) {
+    if (!session) {
       const timer = setTimeout(() => {
         setShowInstantMatch(true);
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isAuthenticated, isLoading]);
+  }, [session]);
 
   // Fetch real platform statistics
   const { data: platformStats } = useQuery({
@@ -71,13 +72,14 @@ export default function LandingResponsive() {
     window.location.href = "/auth";
   };
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
   };
 
   const handleStartMatching = () => {
     setShowInstantMatch(false);
-    if (isAuthenticated && user?.role === 'candidate') {
+    if (session) {
       setLocation("/candidate-dashboard");
     } else {
       handleLogin();
@@ -85,13 +87,13 @@ export default function LandingResponsive() {
   };
 
   // Show role selection for authenticated users without a role
-  if (isAuthenticated && user && !user.role) {
+  if (session && !session.user.user_metadata.role) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4">
         <div className="w-full max-w-4xl mx-auto">
           <div className="text-center mb-8 md:mb-12">
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4">
-              Welcome to Recrutas, {user.firstName || 'User'}!
+              Welcome to Recrutas, {session.user.email || 'User'}!
             </h1>
             <p className="text-lg md:text-xl text-slate-300 mb-6 md:mb-8">
               Please select your role to get started

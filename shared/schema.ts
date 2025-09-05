@@ -24,6 +24,7 @@ import {
   integer,
   boolean,
   numeric,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -33,65 +34,16 @@ import { relations } from "drizzle-orm";
 // AUTHENTICATION & USER MANAGEMENT
 // =============================================================================
 
-/**
- * Better Auth Required Tables
- */
-
-// Users table (Better Auth compatible)
 export const users = pgTable("users", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("emailVerified").notNull().default(false),
-  image: text("image"),
-  createdAt: timestamp("createdAt").notNull(),
-  updatedAt: timestamp("updatedAt").notNull(),
-  // Custom fields for our platform
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  phoneNumber: text("phone_number"),
-  profileImageUrl: text("profile_image_url"),
+  id: uuid("id").primaryKey(),
+  first_name: text("first_name"),
+  last_name: text("last_name"),
+  phone_number: text("phone_number"),
   role: text("role"),
-  profileComplete: boolean("profile_complete").default(false),
-});
-
-// Sessions table (Better Auth compatible)
-export const sessions = pgTable("sessions", {
-  id: text("id").primaryKey(),
-  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
-  ipAddress: text("ipAddress"),
-  userAgent: text("userAgent"),
-});
-
-// Accounts table (Better Auth compatible)
-export const accounts = pgTable("accounts", {
-  id: text("id").primaryKey(),
-  accountId: text("accountId").notNull(),
-  providerId: text("providerId").notNull(),
-  userId: text("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  accessToken: text("accessToken"),
-  refreshToken: text("refreshToken"),
-  idToken: text("idToken"),
-  accessTokenExpiresAt: timestamp("accessTokenExpiresAt"),
-  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt"),
-  scope: text("scope"),
-  password: text("password"),
-  createdAt: timestamp("createdAt").defaultNow(),
-  updatedAt: timestamp("updatedAt").defaultNow(),
-});
-
-// Verification table (Better Auth compatible)
-export const verifications = pgTable("verifications", {
-  id: text("id").primaryKey(),
-  identifier: text("identifier").notNull(),
-  value: text("value").notNull(),
-  expiresAt: timestamp("expiresAt", { mode: "date" }).notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" }).defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" }).defaultNow(),
+  profile_complete: boolean("profile_complete").default(false),
+  profile_image_url: text("profile_image_url"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
 });
 
 /**
@@ -99,9 +51,9 @@ export const verifications = pgTable("verifications", {
  * Extended profile information for job seekers
  * Includes portfolio links, skills, preferences, and AI-parsed resume data
  */
-export const candidateProfiles = pgTable("candidate_profiles", {
+export const candidateProfiles = pgTable("candidate_users", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().unique().references(() => users.id),
+  userId: uuid("user_id").notNull().unique().references(() => users.id),
   
   // Basic Info
   firstName: varchar("first_name"),
@@ -146,8 +98,8 @@ export const candidateProfiles = pgTable("candidate_profiles", {
 // Job postings - Enhanced for AI-curated feeds
 export const jobPostings = pgTable("job_postings", {
   id: serial("id").primaryKey(),
-  talentOwnerId: varchar("talent_owner_id").notNull().references(() => users.id),
-  hiringManagerId: varchar("hiring_manager_id").references(() => users.id),
+  talentOwnerId: uuid("talent_owner_id").notNull().references(() => users.id),
+  hiringManagerId: uuid("hiring_manager_id").references(() => users.id),
   title: varchar("title").notNull(),
   company: varchar("company").notNull(),
   description: text("description").notNull(),
@@ -195,7 +147,7 @@ export const jobExams = pgTable("job_exams", {
 export const examAttempts = pgTable("exam_attempts", {
   id: serial("id").primaryKey(),
   examId: integer("exam_id").notNull().references(() => jobExams.id),
-  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   score: integer("score"), // Percentage score
   totalQuestions: integer("total_questions"),
@@ -215,7 +167,7 @@ export const examAttempts = pgTable("exam_attempts", {
 export const jobMatches = pgTable("job_matches", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   matchScore: varchar("match_score").notNull(),
   confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
   matchReasons: jsonb("match_reasons").default([] as any),
@@ -234,8 +186,8 @@ export const jobMatches = pgTable("job_matches", {
 export const chatRooms = pgTable("chat_rooms", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: varchar("candidate_id").notNull().references(() => users.id),
-  hiringManagerId: varchar("hiring_manager_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  hiringManagerId: uuid("hiring_manager_id").notNull().references(() => users.id),
   examAttemptId: integer("exam_attempt_id").references(() => examAttempts.id), // Required for access
   status: varchar("status", { enum: ["active", "closed"] }).default("active"),
   candidateRanking: integer("candidate_ranking"), // Their position among qualified candidates
@@ -248,7 +200,7 @@ export const chatRooms = pgTable("chat_rooms", {
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   chatRoomId: integer("chat_room_id").notNull().references(() => chatRooms.id),
-  senderId: varchar("sender_id").notNull().references(() => users.id),
+  senderId: uuid("sender_id").notNull().references(() => users.id),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -256,7 +208,7 @@ export const chatMessages = pgTable("chat_messages", {
 // Job applications - Track application status and updates
 export const jobApplications = pgTable("job_applications", {
   id: serial("id").primaryKey(),
-  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   matchId: integer("match_id").references(() => jobMatches.id),
   status: varchar("status", { 
@@ -281,7 +233,7 @@ export const applicationUpdates = pgTable("application_updates", {
   previousStatus: varchar("previous_status"),
   newStatus: varchar("new_status").notNull(),
   message: text("message"), // Update message for candidate
-  updatedBy: varchar("updated_by"), // System or talent owner ID
+  updatedBy: uuid("updated_by"), // System or talent owner ID
   metadata: jsonb("metadata"), // Additional context
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -311,7 +263,7 @@ export const applicationEvents = pgTable("application_events", {
 // Application Intelligence Insights - Learning from applications
 export const applicationInsights = pgTable("application_insights", {
   id: serial("id").primaryKey(),
-  candidateId: varchar("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   strengthsIdentified: jsonb("strengths_identified").default([] as any),
   improvementAreas: jsonb("improvement_areas").default([] as any),
@@ -319,7 +271,7 @@ export const applicationInsights = pgTable("application_insights", {
   actualViewTime: integer("actual_view_time"),
   benchmarkScore: integer("benchmark_score"), // average score for this role  
   actualScore: integer("actual_score"),
-  similarSuccessfulProfiles: jsonb("similar_successful_profiles").default([] as any),
+  similarSuccessfulProfiles: jsonb("similar_successful_users").default([] as any),
   recommendedActions: jsonb("recommended_actions").default([] as any),
   successProbability: integer("success_probability"), // 0-100
   supportiveMessage: text("supportive_message"), // mental health support
@@ -330,7 +282,7 @@ export const applicationInsights = pgTable("application_insights", {
 // User feedback for match learning
 export const matchFeedback = pgTable("match_feedback", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   matchId: integer("match_id").notNull().references(() => jobMatches.id),
   rating: integer("rating").notNull(), // 1-5 stars
   feedbackType: varchar("feedback_type", { enum: ["match_quality", "job_relevance", "timing", "requirements"] }),
@@ -342,7 +294,7 @@ export const matchFeedback = pgTable("match_feedback", {
 // Activity logs
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   type: varchar("type").notNull(),
   description: text("description").notNull(),
   metadata: jsonb("metadata"),
@@ -352,7 +304,7 @@ export const activityLogs = pgTable("activity_logs", {
 // Real-time notifications system
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   type: varchar("type", { 
     enum: [
       "application_viewed", 
@@ -383,7 +335,7 @@ export const notifications = pgTable("notifications", {
 // Notification preferences for users
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().unique().references(() => users.id),
+  userId: uuid("user_id").notNull().unique().references(() => users.id),
   inAppNotifications: boolean("in_app_notifications").default(true),
   emailNotifications: boolean("email_notifications").default(true),
   pushNotifications: boolean("push_notifications").default(false),
@@ -399,7 +351,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
 // Real-time connection tracking
 export const connectionStatus = pgTable("connection_status", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().unique().references(() => users.id),
+  userId: uuid("user_id").notNull().unique().references(() => users.id),
   isOnline: boolean("is_online").default(false),
   lastSeen: timestamp("last_seen").defaultNow(),
   socketId: varchar("socket_id"),
@@ -411,8 +363,8 @@ export const connectionStatus = pgTable("connection_status", {
 // Video interviews
 export const interviews = pgTable("interviews", {
   id: serial("id").primaryKey(),
-  candidateId: varchar("candidate_id").notNull().references(() => users.id),
-  interviewerId: varchar("interviewer_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  interviewerId: uuid("interviewer_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   scheduledAt: timestamp("scheduled_at").notNull(),

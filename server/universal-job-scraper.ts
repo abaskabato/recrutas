@@ -515,6 +515,5 @@ export class UniversalJobScraper {
     });
   }
 }
-}
 
 export const universalJobScraper = new UniversalJobScraper();

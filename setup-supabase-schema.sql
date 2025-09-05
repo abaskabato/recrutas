@@ -2,64 +2,22 @@
 -- Run this in your Supabase SQL Editor
 
 -- =============================================================================
--- AUTHENTICATION & USER MANAGEMENT (Better Auth Required)
+-- AUTHENTICATION & USER MANAGEMENT (Supabase Auth)
 -- =============================================================================
 
--- Users table (Better Auth compatible)
-CREATE TABLE IF NOT EXISTS users (
-  id text PRIMARY KEY,
-  name text NOT NULL,
-  email text NOT NULL UNIQUE,
-  "emailVerified" boolean NOT NULL DEFAULT false,
-  image text,
-  "createdAt" timestamp NOT NULL DEFAULT NOW(),
-  "updatedAt" timestamp NOT NULL DEFAULT NOW(),
-  -- Custom fields for our platform
-  first_name varchar,
-  last_name varchar,
-  phone_number varchar,
-  role varchar,
+-- Users table is managed by Supabase Auth.
+-- We will create a profiles table to store user-specific data.
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  first_name text,
+  last_name text,
+  phone_number text,
+  role text,
   profile_complete boolean DEFAULT false,
-  profile_image_url varchar
-);
-
--- Sessions table (Better Auth required)
-CREATE TABLE IF NOT EXISTS sessions (
-  id text PRIMARY KEY,
-  "expiresAt" timestamp NOT NULL,
-  token text NOT NULL UNIQUE,
-  "createdAt" timestamp DEFAULT NOW(),
-  "updatedAt" timestamp DEFAULT NOW(),
-  "ipAddress" text,
-  "userAgent" text,
-  "userId" text NOT NULL REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Accounts table (Better Auth required for OAuth)
-CREATE TABLE IF NOT EXISTS accounts (
-  id text PRIMARY KEY,
-  "accountId" text NOT NULL,
-  "providerId" text NOT NULL,
-  "userId" text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  "accessToken" text,
-  "refreshToken" text,
-  "idToken" text,
-  "accessTokenExpiresAt" timestamp,
-  "refreshTokenExpiresAt" timestamp,
-  scope text,
-  password text,
-  "createdAt" timestamp DEFAULT NOW(),
-  "updatedAt" timestamp DEFAULT NOW()
-);
-
--- Verifications table (Better Auth required)
-CREATE TABLE IF NOT EXISTS verifications (
-  id text PRIMARY KEY,
-  identifier text NOT NULL,
-  value text NOT NULL,
-  "expiresAt" timestamp NOT NULL,
-  "createdAt" timestamp DEFAULT NOW(),
-  "updatedAt" timestamp DEFAULT NOW()
+  profile_image_url text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- =============================================================================
@@ -67,9 +25,9 @@ CREATE TABLE IF NOT EXISTS verifications (
 -- =============================================================================
 
 -- Extended user profiles for candidates
-CREATE TABLE IF NOT EXISTS candidates (
+CREATE TABLE IF NOT EXISTS public.candidates (
   id serial PRIMARY KEY,
-  user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   skills text[] DEFAULT '{}',
   experience_level varchar(20),
   location varchar(255),
@@ -87,9 +45,9 @@ CREATE TABLE IF NOT EXISTS candidates (
 );
 
 -- Talent owners (hiring managers/companies)
-CREATE TABLE IF NOT EXISTS talent_owners (
+CREATE TABLE IF NOT EXISTS public.talent_owners (
   id serial PRIMARY KEY,
-  user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   company_name varchar(255) NOT NULL,
   company_size varchar(50),
   industry varchar(100),
@@ -103,9 +61,9 @@ CREATE TABLE IF NOT EXISTS talent_owners (
 );
 
 -- Job postings
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE IF NOT EXISTS public.jobs (
   id serial PRIMARY KEY,
-  talent_owner_id integer NOT NULL REFERENCES talent_owners(id) ON DELETE CASCADE,
+  talent_owner_id integer NOT NULL REFERENCES public.talent_owners(id) ON DELETE CASCADE,
   title varchar(255) NOT NULL,
   description text NOT NULL,
   requirements text[] DEFAULT '{}',
@@ -129,10 +87,10 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
 -- Job applications
-CREATE TABLE IF NOT EXISTS applications (
+CREATE TABLE IF NOT EXISTS public.applications (
   id serial PRIMARY KEY,
-  candidate_id integer NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
-  job_id integer NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  candidate_id integer NOT NULL REFERENCES public.candidates(id) ON DELETE CASCADE,
+  job_id integer NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
   status varchar(50) DEFAULT 'submitted',
   cover_letter text,
   exam_score numeric(5,2),
@@ -145,25 +103,25 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 
 -- Exams/assessments
-CREATE TABLE IF NOT EXISTS exams (
+CREATE TABLE IF NOT EXISTS public.exams (
   id serial PRIMARY KEY,
-  job_id integer NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  job_id integer NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
   title varchar(255) NOT NULL,
   description text,
   questions jsonb NOT NULL,
   passing_score integer DEFAULT 70,
   time_limit_minutes integer DEFAULT 60,
   is_active boolean DEFAULT true,
-  created_by integer NOT NULL REFERENCES talent_owners(id),
+  created_by integer NOT NULL REFERENCES public.talent_owners(id),
   created_at timestamp DEFAULT NOW(),
   updated_at timestamp DEFAULT NOW()
 );
 
 -- Exam submissions
-CREATE TABLE IF NOT EXISTS exam_submissions (
+CREATE TABLE IF NOT EXISTS public.exam_submissions (
   id serial PRIMARY KEY,
-  exam_id integer NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
-  candidate_id integer NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
+  exam_id integer NOT NULL REFERENCES public.exams(id) ON DELETE CASCADE,
+  candidate_id integer NOT NULL REFERENCES public.candidates(id) ON DELETE CASCADE,
   answers jsonb NOT NULL,
   score numeric(5,2),
   passed boolean DEFAULT false,
@@ -179,24 +137,24 @@ CREATE TABLE IF NOT EXISTS exam_submissions (
 -- =============================================================================
 
 -- Chat conversations
-CREATE TABLE IF NOT EXISTS conversations (
+CREATE TABLE IF NOT EXISTS public.conversations (
   id serial PRIMARY KEY,
-  application_id integer NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-  participant_ids integer[] NOT NULL,
+  application_id integer NOT NULL REFERENCES public.applications(id) ON DELETE CASCADE,
+  participant_ids uuid[] NOT NULL,
   last_message_at timestamp DEFAULT NOW(),
   is_active boolean DEFAULT true,
   created_at timestamp DEFAULT NOW()
 );
 
 -- Chat messages
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS public.messages (
   id serial PRIMARY KEY,
-  conversation_id integer NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  conversation_id integer NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content text NOT NULL,
   message_type varchar(20) DEFAULT 'text',
   attachments jsonb,
-  read_by integer[] DEFAULT '{}',
+  read_by uuid[] DEFAULT '{}',
   sent_at timestamp DEFAULT NOW(),
   edited_at timestamp,
   deleted_at timestamp
@@ -207,9 +165,9 @@ CREATE TABLE IF NOT EXISTS messages (
 -- =============================================================================
 
 -- Notifications
-CREATE TABLE IF NOT EXISTS notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id serial PRIMARY KEY,
-  user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   type varchar(50) NOT NULL,
   title varchar(255) NOT NULL,
   content text NOT NULL,
@@ -220,18 +178,18 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- Saved jobs
-CREATE TABLE IF NOT EXISTS saved_jobs (
+CREATE TABLE IF NOT EXISTS public.saved_jobs (
   id serial PRIMARY KEY,
-  candidate_id integer NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
-  job_id integer NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  candidate_id integer NOT NULL REFERENCES public.candidates(id) ON DELETE CASCADE,
+  job_id integer NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
   saved_at timestamp DEFAULT NOW(),
   UNIQUE(candidate_id, job_id)
 );
 
 -- Platform analytics
-CREATE TABLE IF NOT EXISTS analytics_events (
+CREATE TABLE IF NOT EXISTS public.analytics_events (
   id serial PRIMARY KEY,
-  user_id text REFERENCES users(id),
+  user_id uuid REFERENCES auth.users(id),
   event_type varchar(100) NOT NULL,
   event_data jsonb,
   session_id text,
@@ -245,36 +203,34 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 -- =============================================================================
 
 -- User lookups
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions("userId");
-CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts("userId");
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(id);
 
 -- Job matching optimization
-CREATE INDEX IF NOT EXISTS idx_jobs_active ON jobs(is_active, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_jobs_skills ON jobs USING GIN(skills_required);
-CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location);
-CREATE INDEX IF NOT EXISTS idx_jobs_salary ON jobs(salary_min, salary_max);
+CREATE INDEX IF NOT EXISTS idx_jobs_active ON public.jobs(is_active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_skills ON public.jobs USING GIN(skills_required);
+CREATE INDEX IF NOT EXISTS idx_jobs_location ON public.jobs(location);
+CREATE INDEX IF NOT EXISTS idx_jobs_salary ON public.jobs(salary_min, salary_max);
 
 -- Application tracking
-CREATE INDEX IF NOT EXISTS idx_applications_candidate ON applications(candidate_id);
-CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
-CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+CREATE INDEX IF NOT EXISTS idx_applications_candidate ON public.applications(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_applications_job ON public.applications(job_id);
+CREATE INDEX IF NOT EXISTS idx_applications_status ON public.applications(status);
 
 -- Communication
-CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON public.messages(conversation_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id, created_at DESC);
 
 -- Analytics
-CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_events_created ON analytics_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON public.analytics_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON public.analytics_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_created ON public.analytics_events(created_at);
 
 -- =============================================================================
 -- COMPLETE!
 -- =============================================================================
 
 -- Your Recrutas database is now ready with:
--- ✅ Complete Better Auth authentication system
+-- ✅ Supabase Auth authentication system
 -- ✅ Job posting and matching infrastructure
 -- ✅ Application tracking with transparency
 -- ✅ Real-time communication system

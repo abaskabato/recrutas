@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,38 +15,39 @@ import ChatInterface from "@/components/chat-interface";
 
 export default function Chat() {
   const { roomId } = useParams();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!session) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/auth";
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [session, toast]);
 
   const { data: chatRooms = [], isLoading: roomsLoading } = useQuery({
     queryKey: ["/api/chat/rooms"],
-    enabled: !!user,
+    enabled: !!session?.user,
     retry: false,
   });
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ["/api/chat", roomId, "messages"],
-    enabled: !!roomId && !!user,
+    enabled: !!roomId && !!session?.user,
     retry: false,
   });
 
-  if (isLoading || !user) {
+  if (!session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -99,7 +100,7 @@ export default function Chat() {
               ) : (
                 <div className="space-y-2">
                   {chatRooms.map((room: any) => {
-                    const otherUser = user.role === 'candidate' ? room.match.recruiter : room.match.candidate;
+                    const otherUser = session.user.user_metadata.role === 'candidate' ? room.match.recruiter : room.match.candidate;
                     const jobTitle = room.match.job?.title || 'Job';
                     
                     return (

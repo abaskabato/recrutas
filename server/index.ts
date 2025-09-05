@@ -1,3 +1,21 @@
+import fs from 'fs';
+import path from 'path';
+
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  const envConfig = fs.readFileSync(envPath, 'utf-8');
+  const env = Object.fromEntries(
+    envConfig.split('\n').map((line) => {
+      const [key, ...value] = line.split('=');
+      return [key, value.join('=')];
+    })
+  );
+  Object.assign(process.env, env);
+}
+
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";

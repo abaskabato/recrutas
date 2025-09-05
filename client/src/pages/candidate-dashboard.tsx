@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { signOut } from "@/lib/auth-client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,43 +14,44 @@ import AIJobFeed from "@/components/ai-job-feed";
 import AdvancedJobMatches from "@/components/advanced-job-matches";
 
 export default function CandidateDashboard() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const { toast } = useToast();
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!session) {
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/auth";
       }, 500);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [session, toast]);
 
   const { data: matches = [], isLoading: matchesLoading } = useQuery({
     queryKey: ["/api/candidate/matches"],
-    enabled: !!user,
+    enabled: !!session?.user,
     retry: false,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/candidate/stats"],
-    enabled: !!user,
+    enabled: !!session?.user,
     retry: false,
   });
 
   const { data: activities = [], isLoading: activitiesLoading } = useQuery({
     queryKey: ["/api/activity"],
-    enabled: !!user,
+    enabled: !!session?.user,
     retry: false,
   });
 
-  if (isLoading || !user) {
+  if (!session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -59,8 +59,9 @@ export default function CandidateDashboard() {
     );
   }
 
-  const handleLogout = () => {
-    signOut();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
   };
 
   return (
@@ -78,15 +79,15 @@ export default function CandidateDashboard() {
               </Button>
               <div className="relative">
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="flex items-center space-x-2">
-                  {user.profileImageUrl ? (
-                    <img src={user.profileImageUrl} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
+                  {session.user.user_metadata.avatar_url ? (
+                    <img src={session.user.user_metadata.avatar_url} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
                   ) : (
                     <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                       <User className="h-3 w-3 text-white" />
                     </div>
                   )}
                   <span className="hidden sm:block">
-                    {user.firstName || user.email?.split('@')[0] || 'User'}
+                    {session.user.email?.split('@')[0] || 'User'}
                   </span>
                 </Button>
               </div>
@@ -102,11 +103,11 @@ export default function CandidateDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-neutral-800">
-                  Welcome back, {user.firstName || 'there'}!
+                  Welcome back, {session.user.email?.split('@')[0] || 'there'}!
                 </h2>
                 <p className="text-neutral-600">
                   Your profile is <span className="text-secondary font-medium">
-                    {user.candidateProfile ? '92%' : '45%'} complete
+                    {session.user.user_metadata.profileComplete ? '92%' : '45%'} complete
                   </span>
                 </p>
               </div>
@@ -200,7 +201,7 @@ export default function CandidateDashboard() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-neutral-600">Resume Upload</span>
-                    {user.candidateProfile?.resumeUrl ? (
+                    {session.user.user_metadata.resumeUrl ? (
                       <Check className="h-4 w-4 text-secondary" />
                     ) : (
                       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
@@ -216,7 +217,7 @@ export default function CandidateDashboard() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-neutral-600">Preferences</span>
-                    {user.candidateProfile?.workType ? (
+                    {session.user.user_metadata.workType ? (
                       <Check className="h-4 w-4 text-secondary" />
                     ) : (
                       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
@@ -225,7 +226,7 @@ export default function CandidateDashboard() {
                     )}
                   </div>
                 </div>
-                {!user.candidateProfile?.resumeUrl && (
+                {!session.user.user_metadata.resumeUrl && (
                   <div className="mt-4">
                     <ProfileUpload />
                   </div>
@@ -274,3 +275,4 @@ export default function CandidateDashboard() {
     </div>
   );
 }
+

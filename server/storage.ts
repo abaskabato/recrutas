@@ -34,8 +34,8 @@ import {
   jobApplications,
   type User,
   type UpsertUser,
-  type CandidateProfile,
-  type InsertCandidateProfile,
+  type CandidateUser,
+  type InsertCandidateUser,
   type JobPosting,
   type InsertJobPosting,
   type JobMatch,
@@ -60,13 +60,23 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserProfile(userId: string, userData: Partial<UpsertUser>): Promise<User>;
+    updateUserInfo(userId: string, userInfo: any): Promise<any>;
+  getApplicationsForTalent(talentId: string): Promise<any[]>;
+  updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
+  storeExamResult(result: any): Promise<any>;
+  createApplicationEvent(event: any): Promise<any>;
+  getApplicationEvents(applicationId: number): Promise<any[]>;
+  getApplicationInsights(applicationId: number): Promise<any>;
+  createApplicationInsights(insights: any): Promise<any>;
+  updateApplicationIntelligence(applicationId: string, updates: any): Promise<any>;
+  getAvailableNotificationUsers(): Promise<string[]>;
+  getApplicationById(applicationId: number): Promise<any>;
   updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User>;
   
   // Candidate operations
-  getCandidateProfile(userId: string): Promise<CandidateProfile | undefined>;
-  upsertCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile>;
-  getAllCandidateProfiles(): Promise<CandidateProfile[]>;
+  getCandidateUser(userId: string): Promise<CandidateUser | undefined>;
+  upsertCandidateUser(profile: InsertCandidateUser): Promise<CandidateUser>;
+  getAllCandidateUsers(): Promise<CandidateUser[]>;
   
   // Job operations
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
@@ -79,7 +89,7 @@ export interface IStorage {
   // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
   getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]>;
-  getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]>;
+  getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateUser?: CandidateUser })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
   clearJobMatches(jobId: number): Promise<void>;
   
@@ -150,8 +160,8 @@ export interface IStorage {
   // Enhanced candidate operations
   getApplicationsForCandidate(candidateId: string): Promise<any[]>;
   getActivityForCandidate(candidateId: string): Promise<any[]>;
-  createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<any>;
-  updateUserInfo(userId: string, userInfo: any): Promise<any>;
+  
+  
 }
 
 /**
@@ -208,7 +218,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateUserProfile(userId: string, userData: Partial<UpsertUser>): Promise<User> {
+  async updateUserUser(userId: string, userData: Partial<UpsertUser>): Promise<User> {
     try {
       const [user] = await db
         .update(users)
@@ -223,7 +233,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Candidate operations
-  async getCandidateProfile(userId: string): Promise<CandidateProfile | undefined> {
+  async getCandidateUser(userId: string): Promise<CandidateUser | undefined> {
     try {
       const [profile] = await db
         .select()
@@ -236,7 +246,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async upsertCandidateProfile(profile: InsertCandidateProfile): Promise<CandidateProfile> {
+  async upsertCandidateUser(profile: InsertCandidateUser): Promise<CandidateUser> {
     try {
       const [result] = await db
         .insert(candidateProfiles)
@@ -261,7 +271,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAllCandidateProfiles(): Promise<CandidateProfile[]> {
+  async getAllCandidateUsers(): Promise<CandidateUser[]> {
     try {
       return await db.select().from(candidateProfiles);
     } catch (error) {
@@ -419,7 +429,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]> {
+  async getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateUser?: CandidateUser })[]> {
     try {
       return await db
         .select()
@@ -1035,23 +1045,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createOrUpdateCandidateProfile(userId: string, profileData: any): Promise<CandidateProfile> {
-    try {
-      return await this.upsertCandidateProfile({ userId, ...profileData });
-    } catch (error) {
-      console.error('Error creating/updating candidate profile:', error);
-      throw error;
-    }
-  }
+  
 
-  async updateUserInfo(userId: string, userData: any): Promise<User> {
-    try {
-      return await this.updateUserProfile(userId, userData);
-    } catch (error) {
-      console.error('Error updating user info:', error);
-      throw error;
-    }
-  }
+  
 
   async getAvailableNotificationUsers(): Promise<string[]> {
     const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
@@ -1094,7 +1090,7 @@ export class DatabaseStorage implements IStorage {
         totalApplicants: event.totalApplicants,
         feedback: event.feedback,
         nextSteps: event.nextSteps,
-        competitorProfile: event.competitorProfile,
+        competitorUser: event.competitorUser,
         visible: event.visible ?? true
       }).returning();
       
@@ -1151,7 +1147,7 @@ export class DatabaseStorage implements IStorage {
         actualViewTime: insights.actualViewTime,
         benchmarkScore: insights.benchmarkScore,
         actualScore: insights.actualScore,
-        similarSuccessfulProfiles: insights.similarSuccessfulProfiles,
+        similarSuccessfulUsers: insights.similarSuccessfulUsers,
         recommendedActions: insights.recommendedActions,
         successProbability: insights.successProbability,
         supportiveMessage: insights.supportiveMessage
@@ -1160,6 +1156,235 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error creating application insights:', error);
+      throw error;
+    }
+  }
+
+  async getApplicationsForTalent(talentId: string): Promise<any[]> {
+    try {
+      // Get all applications for jobs owned by this talent
+      const results = await db
+        .select({
+          application: jobApplications,
+          candidate: candidateProfiles,
+          job: jobPostings,
+          user: users
+        })
+        .from(jobApplications)
+        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
+        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .leftJoin(users, eq(candidateProfiles.userId, users.id))
+        .where(eq(jobPostings.talentOwnerId, talentId));
+
+      return results.map(({ application, candidate, job, user }) => ({
+        id: application.id.toString(),
+        candidateId: user?.id,
+        jobId: job?.id,
+        candidateName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email?.split('@')[0] || 'Unknown',
+        candidateEmail: user?.email,
+        jobTitle: job?.title,
+        appliedAt: application.appliedAt?.toISOString(),
+        status: application.status,
+        matchScore: candidate?.matchScore || 0,
+        skills: candidate?.skills || [],
+        experience: candidate?.experience || '',
+        location: candidate?.location || '',
+        resumeUrl: candidate?.resumeUrl,
+        // Intelligence data stored in application
+        viewedAt: application.viewedAt?.toISOString(),
+        viewDuration: application.viewDuration,
+        ranking: application.ranking,
+        totalApplicants: application.totalApplicants,
+        feedback: application.feedback,
+        rating: application.rating,
+        nextSteps: application.nextSteps,
+        transparencyLevel: application.transparencyLevel || 'partial'
+      }));
+    } catch (error) {
+      console.error('Error getting applications for talent:', error);
+      throw error;
+    }
+  }
+
+  async updateTalentTransparencySettings(talentId: string, settings: any): Promise<any> {
+    try {
+      // Store talent transparency preferences in user profile
+      const [result] = await db
+        .update(users)
+        .set({
+          transparencySettings: JSON.stringify(settings),
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, talentId))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error updating transparency settings:', error);
+      throw error;
+    }
+  }
+
+  async storeExamResult(result: any): Promise<any> {
+    try {
+      // First get the exam ID for this job
+      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
+      if (!exam) {
+        throw new Error('No exam found for this job');
+      }
+
+      await db.insert(examAttempts).values({
+        examId: exam.id,
+        candidateId: result.candidateId,
+        jobId: result.jobId,
+        score: result.score,
+        totalQuestions: result.totalQuestions,
+        correctAnswers: result.correctAnswers,
+        timeSpent: result.timeSpent,
+        answers: result.answers,
+        status: 'completed',
+        passedExam: result.score >= (exam.passingScore || 70),
+        qualifiedForChat: false, // Will be set during ranking
+        completedAt: new Date(),
+      });
+    } catch (error) {
+      console.error('Error storing exam result:', error);
+      throw error;
+    }
+  }
+
+  async createApplicationEvent(event: any): Promise<any> {
+    try {
+      // Import the applicationEvents table from schema
+      const { applicationEvents } = await import("@shared/schema");
+      
+      const [result] = await db.insert(applicationEvents).values({
+        applicationId: event.applicationId,
+        eventType: event.eventType,
+        actorRole: event.actorRole,
+        actorName: event.actorName,
+        actorTitle: event.actorTitle,
+        viewDuration: event.viewDuration,
+        candidateScore: event.candidateScore,
+        candidateRanking: event.candidateRanking,
+        totalApplicants: event.totalApplicants,
+        feedback: event.feedback,
+        nextSteps: event.nextSteps,
+        competitorUser: event.competitorUser,
+        visible: event.visible ?? true
+      }).returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error creating application event:', error);
+      throw error;
+    }
+  }
+
+  async getApplicationEvents(applicationId: number): Promise<any[]> {
+    try {
+      const { applicationEvents } = await import("@shared/schema");
+      
+      return await db
+        .select()
+        .from(applicationEvents)
+        .where(eq(applicationEvents.applicationId, applicationId))
+        .orderBy(desc(applicationEvents.createdAt));
+    } catch (error) {
+      console.error('Error fetching application events:', error);
+      return [];
+    }
+  }
+
+  async getApplicationInsights(applicationId: number): Promise<any> {
+    try {
+      const { applicationInsights } = await import("@shared/schema");
+      
+      const [insights] = await db
+        .select()
+        .from(applicationInsights)
+        .where(eq(applicationInsights.applicationId, applicationId))
+        .orderBy(desc(applicationInsights.createdAt))
+        .limit(1);
+        
+      return insights;
+    } catch (error) {
+      console.error('Error fetching application insights:', error);
+      return null;
+    }
+  }
+
+  async createApplicationInsights(insights: any): Promise<any> {
+    try {
+      const { applicationInsights } = await import("@shared/schema");
+      
+      const [result] = await db.insert(applicationInsights).values({
+        candidateId: insights.candidateId,
+        applicationId: insights.applicationId,
+        strengthsIdentified: insights.strengthsIdentified,
+        improvementAreas: insights.improvementAreas,
+        benchmarkViewTime: insights.benchmarkViewTime,
+        actualViewTime: insights.actualViewTime,
+        benchmarkScore: insights.benchmarkScore,
+        actualScore: insights.actualScore,
+        similarSuccessfulUsers: insights.similarSuccessfulUsers,
+        recommendedActions: insights.recommendedActions,
+        successProbability: insights.successProbability,
+        supportiveMessage: insights.supportiveMessage
+      }).returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error creating application insights:', error);
+      throw error;
+    }
+  }
+
+  async updateApplicationIntelligence(applicationId: string | number, updates: any): Promise<any> {
+    try {
+      // Ensure applicationId is a valid integer
+      const validApplicationId = typeof applicationId === 'string' ? parseInt(applicationId) : applicationId;
+      if (isNaN(validApplicationId)) {
+        throw new Error('Invalid application ID');
+      }
+
+      // For demo purposes, using the jobApplications table to store intelligence data
+      // In production, this would be a dedicated application_intelligence table
+      const [result] = await db
+        .update(jobApplications)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(jobApplications.id, validApplicationId))
+        .returning();
+      
+      return result;
+    } catch (error) {
+      console.error('Error updating application intelligence:', error);
+      throw error;
+    }
+  }
+
+  async getAvailableNotificationUsers(): Promise<string[]> {
+    const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
+    return result.map(r => r.userId);
+  }
+
+  async getApplicationById(applicationId: number): Promise<any> {
+    try {
+      const [application] = await db
+        .select()
+        .from(jobApplications)
+        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(eq(jobApplications.id, applicationId));
+      
+      return application ? {
+        ...(application as any).job_applications,
+        job: (application as any).job_postings
+      } : undefined;
+    } catch (error) {
+      console.error('Error fetching application by ID:', error);
       throw error;
     }
   }
