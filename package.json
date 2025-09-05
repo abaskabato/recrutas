@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "vite build && mkdir -p dist/functions && echo \"import app from '../server/index.js'; export const handler = app;\" > dist/functions/server.js",
+    "build": "npm install && vite build && mkdir -p dist/functions && echo \"import app from '../server/index.js'; export const handler = app;\" > dist/functions/server.js",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
     "lint": "echo \"Linter is currently disabled\"",
