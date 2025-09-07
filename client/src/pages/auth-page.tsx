@@ -1,41 +1,77 @@
-import { useState } from "react";
-import { useSupabaseClient } from "@supabase/auth-helpers-react";
-import { Redirect } from "wouter";
+import { useState, useEffect } from "react";
+import { useSupabaseClient, useSession } from "@supabase/auth-helpers-react";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AuthPage() {
   const supabase = useSupabaseClient();
+  const session = useSession();
+  const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [session, setSession] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (session) {
+      const userRole = session.user?.user_metadata?.role;
+      if (userRole === 'candidate') {
+        setLocation("/candidate-dashboard");
+      } else if (userRole === 'recruiter' || userRole === 'talent_owner') {
+        setLocation("/talent-dashboard");
+      } else {
+        setLocation("/role-selection");
+      }
+    }
+  }, [session, setLocation]);
 
   const handleSignIn = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      console.error(error);
-      return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+    } catch (error) {
+      toast({
+        title: "Error signing in",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    setSession(true);
   };
 
   const handleSignUp = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) {
-      console.error(error);
-      return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+      toast({
+        title: "Account created",
+        description: "Please check your email to verify your account.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error signing up",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    setSession(true);
   };
 
   if (session) {
-    return <Redirect to="/" />;
+    // Render a loading state or null while redirecting
+    return null;
   }
 
   return (
@@ -98,15 +134,17 @@ export default function AuthPage() {
             <div className="flex items-center justify-between">
               <button
                 onClick={handleSignIn}
+                disabled={loading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                Sign in
+                {loading ? 'Signing in...' : 'Sign in'}
               </button>
               <button
                 onClick={handleSignUp}
+                disabled={loading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ml-4"
               >
-                Sign up
+                {loading ? 'Signing up...' : 'Sign up'}
               </button>
             </div>
           </form>
