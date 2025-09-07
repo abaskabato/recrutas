@@ -41,6 +41,11 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+        <div className="text-center mb-4">
+          <a href="/" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+            Back to Home
+          </a>
+        </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-8">
           <form className="space-y-6">
             <div>
