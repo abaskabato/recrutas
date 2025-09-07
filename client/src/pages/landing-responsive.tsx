@@ -395,12 +395,12 @@ export default function LandingResponsive() {
       </footer>
 
       {/* Instant Match Modal */}
-      {/* <InstantMatchModal
+      <InstantMatchModal
         isOpen={showInstantMatch}
         onClose={() => setShowInstantMatch(false)}
         onStartMatching={handleStartMatching}
         initialSkills={quickSkills}
-      /> */}
+      />
     </div>
   );
 }
