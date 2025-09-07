@@ -10,7 +10,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
-// import InstantMatchModal from "@/components/instant-match-modal";
+import InstantMatchModal from "@/components/instant-match-modal";
 
 export default function LandingResponsive() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
