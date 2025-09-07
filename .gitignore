@@ -99,4 +99,4 @@ build log
 ls
 rest-express@1.0.0
 supabase_schema.sql
-test-db-connection.ts
+test-db-connection.ts.env
