@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/useRoleBasedAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, BriefcaseIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ interface Notification {
 }
 
 export default function RealTimeNotifications() {
-  const { user } = useAuth();
+  const { user } = useRoleBasedAuth();
   const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
