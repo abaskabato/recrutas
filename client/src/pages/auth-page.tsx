@@ -27,6 +27,7 @@ export default function AuthPage() {
 
   const handleSignIn = async (e) => {
     e.preventDefault();
+    console.log("Attempting to sign in...");
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -35,6 +36,7 @@ export default function AuthPage() {
       });
       if (error) throw error;
     } catch (error) {
+      console.error("Sign-in error:", error);
       toast({
         title: "Error signing in",
         description: error.message,
