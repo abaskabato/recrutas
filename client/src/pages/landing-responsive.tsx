@@ -142,16 +142,16 @@ export default function LandingResponsive() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden">
       {/* Floating Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-4 w-48 h-48 md:w-72 md:h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 -right-4 w-48 h-48 md:w-72 md:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/4 -left-4 w-48 h-48 md:w-72 md:h-72 bg-gray-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 -right-4 w-48 h-48 md:w-72 md:h-72 bg-gray-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 lg:hidden">
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 lg:hidden">
           <div className="flex flex-col h-full">
             <div className="flex justify-between items-center p-4 border-b border-slate-700">
               <h2 className="text-xl font-bold text-white">Menu</h2>
@@ -171,7 +171,7 @@ export default function LandingResponsive() {
               </Button>
               <Button 
                 size="lg"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-xl px-8 py-4"
+                className="bg-black text-white hover:bg-gray-800 text-xl px-8 py-4"
                 onClick={handleQuickMatch}
               >
                 Try Instant Match
@@ -182,7 +182,7 @@ export default function LandingResponsive() {
       )}
 
       {/* Navigation */}
-      <nav className="sticky top-0 z-40 backdrop-blur-md bg-slate-950/80 border-b border-slate-700/50">
+      <nav className="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-black/80 border-b border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             <div className="flex items-center space-x-2 md:space-x-3">
@@ -202,7 +202,7 @@ export default function LandingResponsive() {
                 Sign In
               </Button>
               <Button 
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                className="bg-black text-white hover:bg-gray-800"
                 onClick={handleQuickMatch}
               >
                 Try Instant Match
@@ -226,14 +226,14 @@ export default function LandingResponsive() {
       <section className="relative py-12 md:py-20 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-5xl mx-auto">
-            <Badge variant="secondary" className="mb-6 md:mb-8 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 border border-blue-400/30">
+            <Badge variant="secondary" className="mb-6 md:mb-8 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium bg-gray-200 text-black border border-gray-300">
               ✨ Built on AI. Backed by transparency. Focused on you.
             </Badge>
             
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-6 md:mb-8 leading-tight tracking-tight">
               Job Search.
               <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <span className="text-black dark:text-white">
                 Reinvented.
               </span>
             </h1>
@@ -244,18 +244,18 @@ export default function LandingResponsive() {
 
             {/* Skills Input Section */}
             <div className="max-w-2xl mx-auto mb-8 md:mb-12">
-              <div className="bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-600/50 p-4 md:p-6 lg:p-8 shadow-2xl">
+              <div className="bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-300/50 dark:border-gray-700/50 p-4 md:p-6 lg:p-8 shadow-2xl">
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   <Input
                     placeholder="Enter your skills to see instant matches..."
-                    className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-slate-600/50 bg-slate-700/50 text-white placeholder-slate-400 focus:bg-slate-700"
+                    className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-gray-300/50 dark:border-gray-700/50 bg-gray-100/50 dark:bg-gray-900/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-gray-200/70 dark:focus:bg-gray-800/70"
                     value={quickSkills}
                     onChange={(e) => setQuickSkills(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
                   />
                   <Button 
                     size="lg"
-                    className="px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl text-base md:text-lg font-medium min-w-[120px] whitespace-nowrap"
+                    className="px-6 md:px-8 py-3 md:py-4 bg-black text-white hover:bg-gray-800 rounded-xl text-base md:text-lg font-medium min-w-[120px] whitespace-nowrap"
                     onClick={handleQuickMatch}
                     disabled={!quickSkills.trim()}
                   >
@@ -270,7 +270,7 @@ export default function LandingResponsive() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 md:mb-16">
               <Button 
                 size="lg"
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg md:text-xl font-semibold rounded-xl"
+                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 bg-black text-white hover:bg-gray-800 text-lg md:text-xl font-semibold rounded-xl"
                 onClick={handleLogin}
               >
                 Get Started Free
@@ -279,7 +279,7 @@ export default function LandingResponsive() {
               <Button 
                 variant="outline"
                 size="lg"
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 border-slate-600/50 bg-slate-800/30 text-slate-300 hover:bg-slate-700/50 text-lg md:text-xl font-semibold rounded-xl"
+                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 border-gray-300/50 dark:border-gray-700/50 bg-gray-100/30 dark:bg-gray-800/30 text-black dark:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50 text-lg md:text-xl font-semibold rounded-xl"
                 onClick={handleQuickMatch}
               >
                 <Search className="w-5 h-5 md:w-6 md:h-6 mr-2" />
@@ -291,37 +291,37 @@ export default function LandingResponsive() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 md:py-20 bg-slate-800/30 backdrop-blur-sm border-y border-slate-700/50">
+      <section className="py-12 md:py-20 bg-gray-100/30 dark:bg-gray-800/30 backdrop-blur-sm border-y border-gray-200/50 dark:border-gray-700/50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 text-center">
             <div className="space-y-2 md:space-y-3">
-              <div className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white">
                 {(platformStats as any)?.totalUsers || '9'}+
               </div>
-              <div className="text-slate-300 text-lg md:text-xl">Active Users</div>
-              <div className="flex items-center justify-center text-green-400 text-sm md:text-base">
+              <div className="text-slate-600 dark:text-slate-300 text-lg md:text-xl">Active Users</div>
+              <div className="flex items-center justify-center text-black dark:text-white text-sm md:text-base">
                 <TrendingUp className="w-4 h-4 mr-1" />
                 Growing daily
               </div>
             </div>
             
             <div className="space-y-2 md:space-y-3">
-              <div className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white">
                 {(platformStats as any)?.totalJobs || '25'}+
               </div>
-              <div className="text-slate-300 text-lg md:text-xl">Live Jobs</div>
-              <div className="flex items-center justify-center text-blue-400 text-sm md:text-base">
+              <div className="text-slate-600 dark:text-slate-300 text-lg md:text-xl">Live Jobs</div>
+              <div className="flex items-center justify-center text-black dark:text-white text-sm md:text-base">
                 <Globe className="w-4 h-4 mr-1" />
                 From top companies
               </div>
             </div>
             
             <div className="space-y-2 md:space-y-3">
-              <div className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+              <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white">
                 {(platformStats as any)?.totalMatches || '47'}+
               </div>
-              <div className="text-slate-300 text-lg md:text-xl">Successful Matches</div>
-              <div className="flex items-center justify-center text-emerald-400 text-sm md:text-base">
+              <div className="text-slate-600 dark:text-slate-300 text-lg md:text-xl">Successful Matches</div>
+              <div className="flex items-center justify-center text-black dark:text-white text-sm md:text-base">
                 <Clock className="w-4 h-4 mr-1" />
                 Real-time matching
               </div>
@@ -343,37 +343,37 @@ export default function LandingResponsive() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            <Card className="bg-slate-800/50 border-slate-600/50 hover:border-blue-500/50 transition-all duration-300 group">
+            <Card className="bg-gray-100/50 dark:bg-gray-800/50 border-gray-200/50 dark:border-gray-700/50 hover:border-black/50 dark:hover:border-white/50 transition-all duration-300 group">
               <CardContent className="p-6 md:p-8">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-black text-white rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
                   <Search className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Instant Matching</h3>
-                <p className="text-slate-300 leading-relaxed">
+                <h3 className="text-xl md:text-2xl font-bold text-black dark:text-white mb-3 md:mb-4">Instant Matching</h3>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   AI-powered job matching that understands your skills and preferences to deliver personalized opportunities.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-600/50 hover:border-purple-500/50 transition-all duration-300 group">
+            <Card className="bg-gray-100/50 dark:bg-gray-800/50 border-gray-200/50 dark:border-gray-700/50 hover:border-black/50 dark:hover:border-white/50 transition-all duration-300 group">
               <CardContent className="p-6 md:p-8">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-black text-white rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
                   <Target className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Direct Access</h3>
-                <p className="text-slate-300 leading-relaxed">
+                <h3 className="text-xl md:text-2xl font-bold text-black dark:text-white mb-3 md:mb-4">Direct Access</h3>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   Connect directly with companies without recruiter interference. Apply straight to company career pages.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-600/50 hover:border-green-500/50 transition-all duration-300 group md:col-span-2 lg:col-span-1">
+            <Card className="bg-gray-100/50 dark:bg-gray-800/50 border-gray-200/50 dark:border-gray-700/50 hover:border-black/50 dark:hover:border-white/50 transition-all duration-300 group md:col-span-2 lg:col-span-1">
               <CardContent className="p-6 md:p-8">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-black text-white rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
                   <Zap className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Zero Fees</h3>
-                <p className="text-slate-300 leading-relaxed">
+                <h3 className="text-xl md:text-2xl font-bold text-black dark:text-white mb-3 md:mb-4">Zero Fees</h3>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                   Completely free for job seekers. No hidden costs, no recruiter markups, just direct opportunities.
                 </p>
               </CardContent>
@@ -383,7 +383,7 @@ export default function LandingResponsive() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 md:py-12 bg-slate-900/50 border-t border-slate-700/50">
+      <footer className="py-8 md:py-12 bg-gray-100/50 dark:bg-gray-900/50 border-t border-gray-200/50 dark:border-gray-700/50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-0">
