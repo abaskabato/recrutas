@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock } from "lucide-react";
 import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -159,6 +160,7 @@ export default function LandingResponsive() {
               </Button>
             </div>
             <div className="flex-1 flex flex-col justify-center items-center space-y-8 p-8">
+              <ThemeToggleButton />
               <Button 
                 variant="ghost" 
                 size="lg"
@@ -191,6 +193,7 @@ export default function LandingResponsive() {
             
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-4">
+              <ThemeToggleButton />
               <Button 
                 variant="ghost" 
                 className="text-slate-300 hover:text-white hover:bg-slate-800/50"
