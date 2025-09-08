@@ -143,17 +143,13 @@ export default function LandingResponsive() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden">
-      {/* Floating Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-4 w-48 h-48 md:w-72 md:h-72 bg-gray-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 -right-4 w-48 h-48 md:w-72 md:h-72 bg-gray-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
+      
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 lg:hidden">
           <div className="flex flex-col h-full">
-            <div className="flex justify-between items-center p-4 border-b border-slate-700">
+            <div className="flex justify-between items-center p-4 border-b border-gray-700">
               <h2 className="text-xl font-bold text-white">Menu</h2>
               <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
                 <X className="w-5 h-5 text-white" />
@@ -187,7 +183,7 @@ export default function LandingResponsive() {
           <div className="flex items-center justify-between h-16 md:h-20">
             <div className="flex items-center space-x-2 md:space-x-3">
               <RecrutasLogo size={32} className="w-8 h-8 md:w-10 md:h-10" />
-              <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Recrutas</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-black dark:text-white tracking-tight">Recrutas</h2>
 
             </div>
             
@@ -196,13 +192,13 @@ export default function LandingResponsive() {
               <ThemeToggleButton />
               <Button 
                 variant="ghost" 
-                className="text-slate-300 hover:text-white hover:bg-slate-800/50"
+                className="text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/50"
                 onClick={handleLogin}
               >
                 Sign In
               </Button>
               <Button 
-                className="bg-black text-white hover:bg-gray-800"
+                className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
                 onClick={handleQuickMatch}
               >
                 Try Instant Match
@@ -213,7 +209,7 @@ export default function LandingResponsive() {
             <Button 
               variant="ghost" 
               size="sm"
-              className="lg:hidden text-white"
+              className="lg:hidden text-black dark:text-white"
               onClick={() => setMobileMenuOpen(true)}
             >
               <Menu className="w-5 h-5" />
@@ -223,14 +219,14 @@ export default function LandingResponsive() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-12 md:py-20 lg:py-32">
+      <section className="relative py-20 md:py-28 lg:py-40">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-5xl mx-auto">
-            <Badge variant="secondary" className="mb-6 md:mb-8 px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium bg-gray-200 text-black border border-gray-300">
+            <Badge variant="secondary" className="mb-6 md:mb-8 px-4 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-black dark:text-white border border-gray-200 dark:border-gray-700">
               ✨ Built on AI. Backed by transparency. Focused on you.
             </Badge>
             
-            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-6 md:mb-8 leading-tight tracking-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-black dark:text-white mb-6 md:mb-8 leading-tight tracking-tight">
               Job Search.
               <br />
               <span className="text-black dark:text-white">
@@ -238,24 +234,24 @@ export default function LandingResponsive() {
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
+            <p className="text-lg sm:text-xl md:text-2xl text-slate-600 dark:text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
               AI-powered talent acquisition → Direct company connections → Skip the recruiters
             </p>
 
             {/* Skills Input Section */}
             <div className="max-w-2xl mx-auto mb-8 md:mb-12">
-              <div className="bg-gray-200/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-300/50 dark:border-gray-700/50 p-4 md:p-6 lg:p-8 shadow-2xl">
+              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-4 md:p-6 lg:p-8 shadow-lg">
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   <Input
                     placeholder="Enter your skills to see instant matches..."
-                    className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-gray-300/50 dark:border-gray-700/50 bg-gray-100/50 dark:bg-gray-900/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-gray-200/70 dark:focus:bg-gray-800/70"
+                    className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white/70 dark:focus:bg-gray-800/70"
                     value={quickSkills}
                     onChange={(e) => setQuickSkills(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
                   />
                   <Button 
                     size="lg"
-                    className="px-6 md:px-8 py-3 md:py-4 bg-black text-white hover:bg-gray-800 rounded-xl text-base md:text-lg font-medium min-w-[120px] whitespace-nowrap"
+                    className="px-6 md:px-8 py-3 md:py-4 bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 rounded-xl text-base md:text-lg font-medium min-w-[120px] whitespace-nowrap"
                     onClick={handleQuickMatch}
                     disabled={!quickSkills.trim()}
                   >
@@ -270,7 +266,7 @@ export default function LandingResponsive() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 md:mb-16">
               <Button 
                 size="lg"
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 bg-black text-white hover:bg-gray-800 text-lg md:text-xl font-semibold rounded-xl"
+                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-lg md:text-xl font-semibold rounded-xl"
                 onClick={handleLogin}
               >
                 Get Started Free
@@ -279,7 +275,7 @@ export default function LandingResponsive() {
               <Button 
                 variant="outline"
                 size="lg"
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 border-gray-300/50 dark:border-gray-700/50 bg-gray-100/30 dark:bg-gray-800/30 text-black dark:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50 text-lg md:text-xl font-semibold rounded-xl"
+                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 border-gray-300 dark:border-gray-700 bg-white/30 dark:bg-gray-800/30 text-black dark:text-white hover:bg-white/50 dark:hover:bg-gray-700/50 text-lg md:text-xl font-semibold rounded-xl"
                 onClick={handleQuickMatch}
               >
                 <Search className="w-5 h-5 md:w-6 md:h-6 mr-2" />
@@ -291,108 +287,75 @@ export default function LandingResponsive() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-12 md:py-20 bg-gray-100/30 dark:bg-gray-800/30 backdrop-blur-sm border-y border-gray-200/50 dark:border-gray-700/50">
+      <section className="py-16 md:py-24 bg-gray-100 dark:bg-gray-900 border-y border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 text-center">
-            <div className="space-y-2 md:space-y-3">
-              <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white">
+            <div className="space-y-2">
+              <div className="text-4xl md:text-5xl font-bold text-black dark:text-white">
                 {(platformStats as any)?.totalUsers || '9'}+
               </div>
-              <div className="text-slate-600 dark:text-slate-300 text-lg md:text-xl">Active Users</div>
-              <div className="flex items-center justify-center text-black dark:text-white text-sm md:text-base">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                Growing daily
-              </div>
+              <div className="text-slate-600 dark:text-slate-400 text-lg">Active Users</div>
             </div>
             
-            <div className="space-y-2 md:space-y-3">
-              <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white">
+            <div className="space-y-2">
+              <div className="text-4xl md:text-5xl font-bold text-black dark:text-white">
                 {(platformStats as any)?.totalJobs || '25'}+
               </div>
-              <div className="text-slate-600 dark:text-slate-300 text-lg md:text-xl">Live Jobs</div>
-              <div className="flex items-center justify-center text-black dark:text-white text-sm md:text-base">
-                <Globe className="w-4 h-4 mr-1" />
-                From top companies
-              </div>
+              <div className="text-slate-600 dark:text-slate-400 text-lg">Live Jobs</div>
             </div>
             
-            <div className="space-y-2 md:space-y-3">
-              <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white">
+            <div className="space-y-2">
+              <div className="text-4xl md:text-5xl font-bold text-black dark:text-white">
                 {(platformStats as any)?.totalMatches || '47'}+
               </div>
-              <div className="text-slate-600 dark:text-slate-300 text-lg md:text-xl">Successful Matches</div>
-              <div className="flex items-center justify-center text-black dark:text-white text-sm md:text-base">
-                <Clock className="w-4 h-4 mr-1" />
-                Real-time matching
-              </div>
+              <div className="text-slate-600 dark:text-slate-400 text-lg">Successful Matches</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-12 md:py-20 lg:py-32">
+      <section className="py-16 md:py-24 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 md:mb-20">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 md:mb-6">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
               Why Choose Recrutas?
             </h2>
-            <p className="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto">
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
               Experience the future of job searching with direct access to company opportunities
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            <Card className="bg-gray-100/50 dark:bg-gray-800/50 border-gray-200/50 dark:border-gray-700/50 hover:border-black/50 dark:hover:border-white/50 transition-all duration-300 group">
-              <CardContent className="p-6 md:p-8">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-black text-white rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
-                  <Search className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-black dark:text-white mb-3 md:mb-4">Instant Matching</h3>
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                  AI-powered job matching that understands your skills and preferences to deliver personalized opportunities.
-                </p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Instant Matching</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                AI-powered job matching that understands your skills and preferences to deliver personalized opportunities.
+              </p>
+            </div>
 
-            <Card className="bg-gray-100/50 dark:bg-gray-800/50 border-gray-200/50 dark:border-gray-700/50 hover:border-black/50 dark:hover:border-white/50 transition-all duration-300 group">
-              <CardContent className="p-6 md:p-8">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-black text-white rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
-                  <Target className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-black dark:text-white mb-3 md:mb-4">Direct Access</h3>
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Connect directly with companies without recruiter interference. Apply straight to company career pages.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Direct Access</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Connect directly with companies without recruiter interference. Apply straight to company career pages.
+              </p>
+            </div>
 
-            <Card className="bg-gray-100/50 dark:bg-gray-800/50 border-gray-200/50 dark:border-gray-700/50 hover:border-black/50 dark:hover:border-white/50 transition-all duration-300 group md:col-span-2 lg:col-span-1">
-              <CardContent className="p-6 md:p-8">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-black text-white rounded-lg flex items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform">
-                  <Zap className="w-6 h-6 md:w-8 md:h-8 text-white" />
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-black dark:text-white mb-3 md:mb-4">Zero Fees</h3>
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Completely free for job seekers. No hidden costs, no recruiter markups, just direct opportunities.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Zero Fees</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Completely free for job seekers. No hidden costs, no recruiter markups, just direct opportunities.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 md:py-12 bg-gray-100/50 dark:bg-gray-900/50 border-t border-gray-200/50 dark:border-gray-700/50">
+      <footer className="py-8 md:py-12 bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-0">
-              <RecrutasLogoSimple size={24} className="w-6 h-6 md:w-8 md:h-8" />
-              <span className="text-lg md:text-xl font-bold text-white">Recrutas</span>
-            </div>
-            <div className="text-slate-400 text-sm md:text-base text-center md:text-right">
-              © 2025 Recrutas. Revolutionizing job search.
-            </div>
+          <div className="text-center text-sm text-slate-500 dark:text-slate-400">
+            © 2025 Recrutas. All rights reserved.
           </div>
         </div>
       </footer>
