@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock } from "lucide-react";
 import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
+import RecrutasLogoBW from "@/components/recrutas-logo-bw";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -182,7 +183,7 @@ export default function LandingResponsive() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             <div className="flex items-center space-x-2 md:space-x-3">
-              <RecrutasLogo size={32} className="w-8 h-8 md:w-10 md:h-10" />
+                                          <RecrutasLogoBW size={32} className="w-8 h-8 md:w-10 md:h-10" />
               <h2 className="text-xl md:text-2xl font-bold text-black dark:text-white tracking-tight">Recrutas</h2>
 
             </div>
