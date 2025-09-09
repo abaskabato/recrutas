@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSession } from "@supabase/auth-helpers-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -115,12 +116,11 @@ export default function InstantJobSearch() {
     return 'text-gray-600';
   };
 
+  const session = useSession();
   // Handle job application - save job for unauthenticated users
   const handleJobApplication = (job: InstantJob) => {
     // Check if user is authenticated
-    const isAuthenticated = document.cookie.includes('better-auth.session_token') || 
-                           document.cookie.includes('session') ||
-                           window.location.pathname.includes('/candidate');
+    const isAuthenticated = session;
     
     if (!isAuthenticated) {
       // Store job information for continuation after login
