@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
+  console.log('[PROXY] Function executed');
   const { method, headers, body, url } = req;
 
   console.log(`[PROXY] Request: ${method} ${url}`);
