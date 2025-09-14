@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock } from "lucide-react";
+import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock, Briefcase, DollarSign } from "lucide-react";
 import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import RecrutasLogoBW from "@/components/recrutas-logo-bw";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
@@ -143,7 +143,7 @@ export default function LandingResponsive() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden bg-grid-pattern dark:bg-grid-pattern">
       
 
       {/* Mobile Menu Overlay */}
@@ -179,11 +179,11 @@ export default function LandingResponsive() {
       )}
 
       {/* Navigation */}
-      <nav className="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-black/80 border-b border-gray-200 dark:border-gray-800">
+      <nav className="sticky top-0 z-40 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
             <div className="flex items-center space-x-2 md:space-x-3">
-                                          <RecrutasLogoBW size={32} className="w-8 h-8 md:w-10 md:h-10" />
+                                          <RecrutasLogo size={32} className="w-8 h-8 md:w-10 md:h-10" />
               <h2 className="text-xl md:text-2xl font-bold text-black dark:text-white tracking-tight">Recrutas</h2>
 
             </div>
@@ -198,12 +198,7 @@ export default function LandingResponsive() {
               >
                 Sign In
               </Button>
-              <Button 
-                className="bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
-                onClick={handleQuickMatch}
-              >
-                Try Instant Match
-              </Button>
+              
             </div>
 
             {/* Mobile Menu Button */}
@@ -235,13 +230,29 @@ export default function LandingResponsive() {
               </span>
             </h1>
             
-            <p className="text-lg sm:text-xl md:text-2xl text-slate-600 dark:text-slate-300 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
-              AI-powered talent acquisition → Direct company connections → Skip the recruiters
-            </p>
+            
+            <blockquote className="text-lg sm:text-xl md:text-2xl text-slate-500 dark:text-slate-400 mb-8 md:mb-12 font-light max-w-3xl mx-auto italic">
+                            In a world where algorithms decide who exists, Recrutas insists everyone deserves visibility, everyone deserves dignity.
+            </blockquote>
 
-            {/* Skills Input Section */}
-            <div className="max-w-2xl mx-auto mb-8 md:mb-12">
-              <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-4 md:p-6 lg:p-8 shadow-lg">
+            </div>
+        </div>
+      </section>
+
+      {/* Skills Input Section */}
+      {/* Skills Input Section */}
+      <section className="pb-20 md:pb-28 lg:pb-40">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 md:mb-20">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
+              Get Instant Matches
+            </h2>
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              Enter your skills to see a personalized feed of jobs that match your experience.
+            </p>
+          </div>
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 lg:p-8 shadow-lg">
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   <Input
                     placeholder="Enter your skills to see instant matches..."
@@ -262,58 +273,56 @@ export default function LandingResponsive() {
                 </div>
               </div>
             </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 md:mb-16">
-              <Button 
-                size="lg"
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-lg md:text-xl font-semibold rounded-xl"
-                onClick={handleLogin}
-              >
-                Get Started Free
-                <ArrowRight className="w-5 h-5 md:w-6 md:h-6 ml-2" />
-              </Button>
-              <Button 
-                variant="outline"
-                size="lg"
-                className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-6 border-gray-300 dark:border-gray-700 bg-white/30 dark:bg-gray-800/30 text-black dark:text-white hover:bg-white/50 dark:hover:bg-gray-700/50 text-lg md:text-xl font-semibold rounded-xl"
-                onClick={handleQuickMatch}
-              >
-                <Search className="w-5 h-5 md:w-6 md:h-6 mr-2" />
-                Preview Jobs
-              </Button>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* How It Works Section */}
       <section className="py-16 md:py-24 bg-gray-100 dark:bg-gray-900 border-y border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 text-center">
-            <div className="space-y-2">
-              <div className="text-4xl md:text-5xl font-bold text-black dark:text-white">
-                {(platformStats as any)?.totalUsers || '9'}+
+          <div className="text-center mb-12 md:mb-20">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
+              How It Works
+            </h2>
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              A simple, transparent process to connect you with your next opportunity.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            <div className="space-y-4">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto bg-blue-500/10 text-blue-500 rounded-full">
+                <span className="text-2xl font-bold">1</span>
               </div>
-              <div className="text-slate-600 dark:text-slate-400 text-lg">Active Users</div>
+              <h3 className="text-2xl font-bold text-black dark:text-white">Enter Your Skills</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Tell us what you do. Our AI will understand your skills and experience.
+              </p>
             </div>
-            
-            <div className="space-y-2">
-              <div className="text-4xl md:text-5xl font-bold text-black dark:text-white">
-                {(platformStats as any)?.totalJobs || '25'}+
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto bg-purple-500/10 text-purple-500 rounded-full">
+                <span className="text-2xl font-bold">2</span>
               </div>
-              <div className="text-slate-600 dark:text-slate-400 text-lg">Live Jobs</div>
+              <h3 className="text-2xl font-bold text-black dark:text-white">See Your Matches</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Our AI finds the best jobs for you. No more endless scrolling through irrelevant job postings.
+              </p>
             </div>
-            
-            <div className="space-y-2">
-              <div className="text-4xl md:text-5xl font-bold text-black dark:text-white">
-                {(platformStats as any)?.totalMatches || '47'}+
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto bg-green-500/10 text-green-500 rounded-full">
+                <span className="text-2xl font-bold">3</span>
               </div>
-              <div className="text-slate-600 dark:text-slate-400 text-lg">Successful Matches</div>
+              <h3 className="text-2xl font-bold text-black dark:text-white">Connect Directly</h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                Talk to the hiring managers, no recruiters. Get feedback and build relationships.
+              </p>
             </div>
           </div>
         </div>
       </section>
+
+      
 
       {/* Features Section */}
       <section className="py-16 md:py-24 lg:py-32">
@@ -329,21 +338,30 @@ export default function LandingResponsive() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
-              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Instant Matching</h3>
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-blue-500/10 text-blue-500 rounded-full">
+                <Brain className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">AI-Powered Matching</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                 AI-powered job matching that understands your skills and preferences to deliver personalized opportunities.
               </p>
             </div>
 
             <div className="text-center">
-              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Direct Access</h3>
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-purple-500/10 text-purple-500 rounded-full">
+                <Users className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Direct Company Connections</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                 Connect directly with companies without recruiter interference. Apply straight to company career pages.
               </p>
             </div>
 
             <div className="text-center">
-              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Zero Fees</h3>
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-green-500/10 text-green-500 rounded-full">
+                <DollarSign className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Free for Job Seekers</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                 Completely free for job seekers. No hidden costs, no recruiter markups, just direct opportunities.
               </p>
@@ -352,11 +370,59 @@ export default function LandingResponsive() {
         </div>
       </section>
 
+      
+
+      {/* Community Section */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 md:mb-20">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
+              Join the Community
+            </h2>
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              Connect with other job seekers and companies, share your experiences, and get help from the community.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <a href="#" target="_blank" rel="noopener noreferrer" className="block">
+              <Card className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 hover:border-blue-500 dark:hover:border-blue-500 transition-all">
+                <CardContent className="p-6 text-center">
+                  <svg className="w-12 h-12 mx-auto mb-4 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.01 16.16c-.18.18-.44.28-.71.28-.27 0-.53-.1-.71-.28l-3.59-3.59-3.59 3.59c-.18.18-.44.28-.71.28-.27 0-.53-.1-.71-.28-.39-.39-.39-1.02 0-1.41l3.59-3.59-3.59-3.59c-.39-.39-.39-1.02 0-1.41.39-.39 1.02-.39 1.41 0l3.59 3.59 3.59-3.59c.39-.39 1.02-.39 1.41 0 .39.39.39 1.02 0 1.41l-3.59 3.59 3.59 3.59c.39.39.39 1.02 0 1.41z"/></svg>
+                  <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Reddit</h3>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Join the conversation on our subreddit. Ask questions, share your success stories, and help others.
+                  </p>
+                </CardContent>
+              </Card>
+            </a>
+
+            <a href="#" target="_blank" rel="noopener noreferrer" className="block">
+              <Card className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 hover:border-purple-500 dark:hover:border-purple-500 transition-all">
+                <CardContent className="p-6 text-center">
+                  <svg className="w-12 h-12 mx-auto mb-4 text-purple-500" fill="currentColor" viewBox="0 0 24 24"><path d="M20.3,3.7c-1.2-1.2-2.8-1.9-4.5-1.9H8.2c-1.7,0-3.3,0.7-4.5,1.9C2.5,4.9,1.8,6.5,1.8,8.2v7.6c0,1.7,0.7,3.3,1.9,4.5c1.2,1.2,2.8,1.9,4.5,1.9h7.6c1.7,0,3.3-0.7,4.5-1.9c1.2-1.2,1.9-2.8,1.9-4.5V8.2C22.2,6.5,21.5,4.9,20.3,3.7z M18.4,15.3c0,0.8-0.7,1.5-1.5,1.5H7.1c-0.8,0-1.5-0.7-1.5-1.5V8.7c0-0.8,0.7-1.5,1.5-1.5h9.8c0.8,0,1.5,0.7,1.5,1.5V15.3z M12,10.1c-1.2,0-2.2,1-2.2,2.2s1,2.2,2.2,2.2s2.2-1,2.2-2.2S13.2,10.1,12,10.1z M15.3,8.7h-1.5V7.2h1.5V8.7z"/></svg>
+                  <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Discord</h3>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Chat with other members of the community in real-time. Get help, find collaborators, and make friends.
+                  </p>
+                </CardContent>
+              </Card>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-8 md:py-12 bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center text-sm text-slate-500 dark:text-slate-400">
-            © 2025 Recrutas. All rights reserved.
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="text-sm text-slate-500 dark:text-slate-400 mb-4 md:mb-0">
+              © 2025 Recrutas. All rights reserved.
+            </div>
+            <div className="flex space-x-4">
+              <a href="#" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Privacy Policy</a>
+              <a href="#" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Terms of Service</a>
+            </div>
           </div>
         </div>
       </footer>
