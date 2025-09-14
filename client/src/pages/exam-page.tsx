@@ -49,10 +49,10 @@ export default function ExamPage() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <p className="text-slate-600">Please log in to take the exam.</p>
+            <p className="text-muted-foreground">Please log in to take the exam.</p>
             <Button 
               className="mt-4" 
               onClick={() => setLocation('/auth')}
@@ -67,10 +67,10 @@ export default function ExamPage() {
 
   if (!jobId) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
-            <p className="text-slate-600">Invalid exam link. Please return to the job listing.</p>
+            <p className="text-muted-foreground">Invalid exam link. Please return to the job listing.</p>
             <Button 
               className="mt-4" 
               onClick={handleReturnToDashboard}
@@ -84,9 +84,9 @@ export default function ExamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4 flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -99,10 +99,10 @@ export default function ExamPage() {
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back to Jobs</span>
               </Button>
-              <div className="h-6 w-px bg-slate-300" />
+              <div className="h-6 w-px bg-muted" />
               <div className="flex items-center space-x-2">
-                <Briefcase className="w-5 h-5 text-slate-500" />
-                <h1 className="text-lg font-semibold text-slate-900">{jobTitle}</h1>
+                <Briefcase className="w-5 h-5 text-muted-foreground" />
+                <h1 className="text-lg font-semibold text-foreground">{jobTitle}</h1>
               </div>
             </div>
             <Badge variant="secondary" className="flex items-center space-x-1">
@@ -125,7 +125,7 @@ export default function ExamPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="prose prose-slate max-w-none">
+                <div className="prose prose-foreground max-w-none">
                   <p>
                     Welcome to the assessment for the <strong>{jobTitle}</strong> position. 
                     This exam will help us evaluate your skills and experience for this role.
@@ -148,8 +148,8 @@ export default function ExamPage() {
                   </ul>
                 </div>
                 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-blue-800 text-sm">
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                  <p className="text-primary text-sm">
                     <strong>Note:</strong> Once you start the exam, the timer will begin. 
                     Make sure you're ready before clicking "Start Exam".
                   </p>
@@ -158,7 +158,7 @@ export default function ExamPage() {
                 <div className="flex justify-center pt-4">
                   <Button 
                     onClick={handleExamStart}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-primary hover:bg-primary/90"
                     size="lg"
                   >
                     Start Exam
@@ -182,28 +182,28 @@ export default function ExamPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <CheckCircle className={`w-5 h-5 ${examResult.passed ? 'text-green-600' : 'text-orange-600'}`} />
+                  <CheckCircle className={`w-5 h-5 ${examResult.passed ? 'text-green-500' : 'text-orange-500'}`} />
                   <span>Exam Completed</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center space-y-4">
                   <div className="space-y-2">
-                    <p className="text-lg font-medium text-slate-900">
+                    <p className="text-lg font-medium text-foreground">
                       Your Score: <span className="text-2xl font-bold">{examResult.score}%</span>
                     </p>
                     <Badge 
                       variant={examResult.passed ? "default" : "secondary"}
                       className={`text-sm px-3 py-1 ${
-                        examResult.passed ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                        examResult.passed ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'
                       }`}
                     >
                       {examResult.passed ? '✅ Passed' : '⏳ Under Review'}
                     </Badge>
                   </div>
 
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-slate-700">
+                  <div className="bg-muted rounded-lg p-4">
+                    <p className="text-muted-foreground">
                       {examResult.passed ? (
                         <>
                           <strong>Congratulations!</strong> You've successfully passed the assessment. 
@@ -222,7 +222,7 @@ export default function ExamPage() {
                   <div className="flex justify-center space-x-4">
                     <Button 
                       onClick={handleReturnToDashboard}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-primary hover:bg-primary/90"
                     >
                       Return to Dashboard
                     </Button>

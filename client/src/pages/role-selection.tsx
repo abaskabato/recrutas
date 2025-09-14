@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,7 +82,7 @@ export default function RoleSelection() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-4xl space-y-8">
         {/* Header with Sign Out Option */}
         <div className="text-center space-y-4 relative">
@@ -94,8 +95,8 @@ export default function RoleSelection() {
             <LogOut className="h-4 w-4" />
             Sign Out
           </Button>
-          <h1 className="text-4xl font-bold text-slate-900">Choose Your Role</h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+          <h1 className="text-4xl font-bold text-foreground">Choose Your Role</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Select how you'd like to use the platform. You can change this later in your settings.
           </p>
         </div>
@@ -104,16 +105,16 @@ export default function RoleSelection() {
         <div className="grid md:grid-cols-2 gap-8">
           {/* Candidate Role */}
           <Card 
-            className={`cursor-pointer transition-all duration-200 hover:shadow-xl ${
+            className={`cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border ${
               selectedRole === 'candidate' 
-                ? 'ring-2 ring-blue-500 shadow-lg' 
+                ? 'ring-2 ring-primary shadow-lg' 
                 : 'hover:shadow-lg'
             }`}
             onClick={() => setSelectedRole('candidate')}
           >
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 relative">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
                   <Users className="w-8 h-8 text-white" />
                 </div>
                 {selectedRole === 'candidate' && (
@@ -123,36 +124,36 @@ export default function RoleSelection() {
                 )}
               </div>
               <CardTitle className="text-2xl">I'm a Candidate</CardTitle>
-              <p className="text-slate-600">Looking for job opportunities</p>
+              <p className="text-muted-foreground">Looking for job opportunities</p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <Search className="w-5 h-5 text-blue-500 mt-1" />
+                  <Search className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h4 className="font-medium text-slate-900">Smart Job Matching</h4>
-                    <p className="text-sm text-slate-600">AI-powered job recommendations based on your skills and preferences</p>
+                    <h4 className="font-medium text-foreground">Smart Job Matching</h4>
+                    <p className="text-sm text-muted-foreground">AI-powered job recommendations based on your skills and preferences</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Target className="w-5 h-5 text-blue-500 mt-1" />
+                  <Target className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h4 className="font-medium text-slate-900">Direct Applications</h4>
-                    <p className="text-sm text-slate-600">Apply directly to companies without going through recruiters</p>
+                    <h4 className="font-medium text-foreground">Direct Applications</h4>
+                    <p className="text-sm text-muted-foreground">Apply directly to companies without going through recruiters</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <TrendingUp className="w-5 h-5 text-blue-500 mt-1" />
+                  <TrendingUp className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h4 className="font-medium text-slate-900">Career Insights</h4>
-                    <p className="text-sm text-slate-600">Get personalized career advice and market insights</p>
+                    <h4 className="font-medium text-foreground">Career Insights</h4>
+                    <p className="text-sm text-muted-foreground">Get personalized career advice and market insights</p>
                   </div>
                 </div>
               </div>
               
               <div className="pt-4 border-t">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">Perfect for:</span>
+                  <span className="text-sm font-medium text-muted-foreground">Perfect for:</span>
                   <div className="flex gap-2">
                     <Badge variant="secondary" className="text-xs">Job Seekers</Badge>
                     <Badge variant="secondary" className="text-xs">Career Changers</Badge>
@@ -164,16 +165,16 @@ export default function RoleSelection() {
 
           {/* Talent Owner Role */}
           <Card 
-            className={`cursor-pointer transition-all duration-200 hover:shadow-xl ${
+            className={`cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border ${
               selectedRole === 'talent_owner' 
-                ? 'ring-2 ring-purple-500 shadow-lg' 
+                ? 'ring-2 ring-primary shadow-lg' 
                 : 'hover:shadow-lg'
             }`}
             onClick={() => setSelectedRole('talent_owner')}
           >
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 relative">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
                   <Building className="w-8 h-8 text-white" />
                 </div>
                 {selectedRole === 'talent_owner' && (
@@ -183,36 +184,36 @@ export default function RoleSelection() {
                 )}
               </div>
               <CardTitle className="text-2xl">I'm a Talent Owner</CardTitle>
-              <p className="text-slate-600">Hiring talent for my company</p>
+              <p className="text-muted-foreground">Hiring talent for my company</p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <Briefcase className="w-5 h-5 text-purple-500 mt-1" />
+                  <Briefcase className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h4 className="font-medium text-slate-900">Post Job Openings</h4>
-                    <p className="text-sm text-slate-600">Create detailed job postings and reach qualified candidates</p>
+                    <h4 className="font-medium text-foreground">Post Job Openings</h4>
+                    <p className="text-sm text-muted-foreground">Create detailed job postings and reach qualified candidates</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Target className="w-5 h-5 text-purple-500 mt-1" />
+                  <Target className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h4 className="font-medium text-slate-900">AI Candidate Matching</h4>
-                    <p className="text-sm text-slate-600">Get matched with candidates who fit your requirements</p>
+                    <h4 className="font-medium text-foreground">AI Candidate Matching</h4>
+                    <p className="text-sm text-muted-foreground">Get matched with candidates who fit your requirements</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Users className="w-5 h-5 text-purple-500 mt-1" />
+                  <Users className="w-5 h-5 text-primary mt-1" />
                   <div>
-                    <h4 className="font-medium text-slate-900">Direct Communication</h4>
-                    <p className="text-sm text-slate-600">Connect directly with candidates without intermediaries</p>
+                    <h4 className="font-medium text-foreground">Direct Communication</h4>
+                    <p className="text-sm text-muted-foreground">Connect directly with candidates without intermediaries</p>
                   </div>
                 </div>
               </div>
               
               <div className="pt-4 border-t">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">Perfect for:</span>
+                  <span className="text-sm font-medium text-muted-foreground">Perfect for:</span>
                   <div className="flex gap-2">
                     <Badge variant="secondary" className="text-xs">Hiring Managers</Badge>
                     <Badge variant="secondary" className="text-xs">Startups</Badge>
@@ -245,12 +246,12 @@ export default function RoleSelection() {
           </Button>
           
           {selectedRole && (
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               You can change your role later in account settings
             </p>
           )}
         </div>
-      </div>
+.      </div>
     </div>
   );
 }

@@ -58,9 +58,9 @@ export default function Chat() {
   if (!roomId) {
     // Show chat rooms list
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-background">
         {/* Navigation */}
-        <nav className="bg-white border-b border-gray-200">
+        <nav className="bg-card border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-14 sm:h-16">
               <div className="flex items-center space-x-2 sm:space-x-4">
@@ -83,19 +83,19 @@ export default function Chat() {
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="animate-pulse flex items-center space-x-3 p-4">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div className="w-10 h-10 bg-muted rounded-full"></div>
                       <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2"></div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : chatRooms.length === 0 ? (
                 <div className="text-center py-12">
-                  <User className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
-                  <p className="text-gray-600">Start chatting with matched candidates or recruiters!</p>
+                  <User className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No conversations yet</h3>
+                  <p className="text-muted-foreground">Start chatting with matched candidates or recruiters!</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -120,7 +120,7 @@ export default function Chat() {
                           <p className="font-medium">
                             {otherUser.firstName || otherUser.email?.split('@')[0] || 'User'}
                           </p>
-                          <p className="text-sm text-gray-600">{jobTitle}</p>
+                          <p className="text-sm text-muted-foreground">{jobTitle}</p>
                         </div>
                       </Button>
                     );

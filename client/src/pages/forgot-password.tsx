@@ -84,32 +84,32 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative">
       {/* Back to Auth link */}
-      <Link href="/auth" className="absolute top-4 left-4 flex items-center space-x-2 text-gray-600 hover:text-black transition-colors duration-200">
+      <Link href="/auth" className="absolute top-4 left-4 flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors duration-200">
         <ArrowLeft className="w-4 h-4" />
         <span className="text-sm">Back to sign in</span>
       </Link>
 
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-black">Reset your password</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-foreground">Reset your password</h1>
+          <p className="text-muted-foreground mt-2">
             Enter your email address and we'll send you a link to reset your password.
           </p>
         </div>
 
-        <Card className="border border-gray-200 shadow-lg">
+        <Card className="border border-border shadow-lg">
           <CardHeader className="pb-4">
-            <CardTitle className="text-black text-xl">Forgot password</CardTitle>
-            <CardDescription className="text-gray-600">
+            <CardTitle className="text-foreground text-xl">Forgot password</CardTitle>
+            <CardDescription className="text-muted-foreground">
               We'll send reset instructions to your email
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-black">Email address</Label>
+                <Label htmlFor="email" className="text-foreground">Email address</Label>
                 <Input
                   id="email"
                   name="email"
@@ -118,13 +118,13 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="border-gray-300 focus:border-black h-11"
+                  className="border-input focus:border-ring h-11"
                 />
               </div>
               
               <Button 
                 type="submit" 
-                className="w-full bg-black text-white hover:bg-gray-800 transition-colors duration-200 h-11"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200 h-11"
                 disabled={resetPasswordMutation.isPending || !email}
               >
                 {resetPasswordMutation.isPending ? (
@@ -139,9 +139,9 @@ export default function ForgotPasswordPage() {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Remember your password?{" "}
-                <Link href="/auth" className="text-black hover:underline font-medium">
+                <Link href="/auth" className="text-foreground hover:underline font-medium">
                   Sign in
                 </Link>
               </p>

@@ -158,14 +158,14 @@ export default function TalentDashboard() {
   });
 
   // Fetch job postings
-  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<JobPosting[]>({
+  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<JobPosting[]>({ 
     queryKey: ['/api/jobs'],
     retry: false,
     enabled: !!user,
   });
 
   // Fetch candidates
-  const { data: candidates = [], isLoading: candidatesLoading } = useQuery<Candidate[]>({
+  const { data: candidates = [], isLoading: candidatesLoading } = useQuery<Candidate[]>({ 
     queryKey: ['/api/recruiter/candidates'],
     retry: false,
     enabled: !!user,
@@ -293,8 +293,8 @@ export default function TalentDashboard() {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -302,7 +302,7 @@ export default function TalentDashboard() {
   // Show profile completion if profile is not complete
   if (!user.profileComplete) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background">
         <TalentOwnerProfileCompletion
           user={user}
           onComplete={() => {
@@ -325,9 +325,9 @@ export default function TalentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+      <div className="lg:hidden bg-card border-b border-border sticky top-0 z-40">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center space-x-3">
             <Button
@@ -351,7 +351,7 @@ export default function TalentDashboard() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="border-t border-border bg-card">
             <div className="p-4 space-y-2">
               {['overview', 'jobs', 'candidates', 'analytics'].map((tab) => (
                 <Button
@@ -376,7 +376,7 @@ export default function TalentDashboard() {
       </div>
 
       {/* Desktop Header */}
-      <div className="hidden lg:block bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+      <div className="hidden lg:block bg-card border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
@@ -402,12 +402,12 @@ export default function TalentDashboard() {
             <div className="flex items-center space-x-4">
               <RealTimeNotifications />
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <span className="text-primary-foreground text-sm font-medium">
                     {user.firstName?.[0] || user.email?.[0] || 'U'}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-muted-foreground">
                   {user.firstName || user.email?.split('@')[0] || 'User'}
                 </span>
               </div>
@@ -425,19 +425,19 @@ export default function TalentDashboard() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Welcome Header */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+            <div className="bg-card rounded-xl p-6 shadow-sm">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
                     Welcome back, {user.firstName || 'Talent Owner'}!
                   </h1>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  <p className="text-muted-foreground mt-1">
                     Manage your job postings and connect with top candidates
                   </p>
                 </div>
                 <Button 
                   onClick={() => setShowJobWizard(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Create Job with Exam
@@ -450,12 +450,12 @@ export default function TalentDashboard() {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                      <Briefcase className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Briefcase className="h-6 w-6 text-primary" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Jobs</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <p className="text-sm font-medium text-muted-foreground">Active Jobs</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {statsLoading ? "..." : stats?.activeJobs || 0}
                       </p>
                     </div>
@@ -466,12 +466,12 @@ export default function TalentDashboard() {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                      <Users className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div className="p-2 bg-green-500/10 rounded-lg">
+                      <Users className="h-6 w-6 text-green-500" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Matches</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <p className="text-sm font-medium text-muted-foreground">Total Matches</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {statsLoading ? "..." : stats?.totalMatches || 0}
                       </p>
                     </div>
@@ -482,12 +482,12 @@ export default function TalentDashboard() {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                      <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                    <div className="p-2 bg-purple-500/10 rounded-lg">
+                      <MessageSquare className="h-6 w-6 text-purple-500" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Chats</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <p className="text-sm font-medium text-muted-foreground">Active Chats</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {statsLoading ? "..." : stats?.activeChats || 0}
                       </p>
                     </div>
@@ -498,12 +498,12 @@ export default function TalentDashboard() {
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-                      <Star className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                    <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <Star className="h-6 w-6 text-orange-500" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Hires Made</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <p className="text-sm font-medium text-muted-foreground">Hires Made</p>
+                      <p className="text-2xl font-bold text-foreground">
                         {statsLoading ? "..." : stats?.hires || 0}
                       </p>
                     </div>
@@ -532,16 +532,16 @@ export default function TalentDashboard() {
                   <div className="space-y-4">
                     {[1, 2, 3].map((i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                        <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
+                        <div className="h-3 bg-muted rounded w-1/2"></div>
                       </div>
                     ))}
                   </div>
                 ) : jobs.length === 0 ? (
                   <div className="text-center py-8">
-                    <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No job postings yet</h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-6">Create your first job posting to start finding great candidates.</p>
+                    <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No job postings yet</h3>
+                    <p className="text-muted-foreground mb-6">Create your first job posting to start finding great candidates.</p>
                     <Button onClick={() => setShowJobDialog(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Post Your First Job
@@ -550,16 +550,16 @@ export default function TalentDashboard() {
                 ) : (
                   <div className="space-y-4">
                     {jobs.slice(0, 3).map((job) => (
-                      <div key={job.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div key={job.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white">{job.title}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{job.company} • {job.location}</p>
+                          <h4 className="font-medium text-foreground">{job.title}</h4>
+                          <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
                           <div className="flex items-center space-x-4 mt-2">
-                            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                            <span className="text-xs text-muted-foreground flex items-center">
                               <Eye className="h-3 w-3 mr-1" />
                               {job.viewCount} views
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                            <span className="text-xs text-muted-foreground flex items-center">
                               <Users className="h-3 w-3 mr-1" />
                               {job.applicationCount} applications
                             </span>
@@ -583,12 +583,12 @@ export default function TalentDashboard() {
             {/* Jobs Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Job Postings</h2>
-                <p className="text-gray-600 dark:text-gray-400">Manage your job listings and track applications</p>
+                <h2 className="text-2xl lg:text-3xl font-bold text-foreground">Job Postings</h2>
+                <p className="text-muted-foreground">Manage your job listings and track applications</p>
               </div>
               <Button 
                 onClick={() => setShowJobDialog(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Post New Job
@@ -599,7 +599,7 @@ export default function TalentDashboard() {
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search jobs..."
                     value={searchQuery}
@@ -629,9 +629,9 @@ export default function TalentDashboard() {
                   {[1, 2, 3].map((i) => (
                     <Card key={i} className="animate-pulse">
                       <CardContent className="p-6">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
-                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                        <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
+                        <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
+                        <div className="h-4 bg-muted rounded w-2/3"></div>
                       </CardContent>
                     </Card>
                   ))}
@@ -639,11 +639,11 @@ export default function TalentDashboard() {
               ) : filteredJobs.length === 0 ? (
                 <Card>
                   <CardContent className="p-12 text-center">
-                    <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">
                       {searchQuery || filterStatus !== 'all' ? 'No jobs found' : 'No job postings yet'}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    <p className="text-muted-foreground mb-6">
                       {searchQuery || filterStatus !== 'all' 
                         ? 'Try adjusting your search or filters' 
                         : 'Create your first job posting to start finding great candidates'}
@@ -663,13 +663,13 @@ export default function TalentDashboard() {
                       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-start justify-between mb-3">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{job.title}</h3>
+                            <h3 className="text-lg font-semibold text-foreground">{job.title}</h3>
                             <Badge variant={job.status === 'active' ? 'default' : 'secondary'}>
                               {job.status}
                             </Badge>
                           </div>
                           
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-3">
                             <span className="flex items-center">
                               <Building2 className="h-4 w-4 mr-1" />
                               {job.company}
@@ -691,7 +691,7 @@ export default function TalentDashboard() {
                             )}
                           </div>
 
-                          <p className="text-gray-700 dark:text-gray-300 mb-4 line-clamp-2">
+                          <p className="text-muted-foreground mb-4 line-clamp-2">
                             {job.description}
                           </p>
 
@@ -708,7 +708,7 @@ export default function TalentDashboard() {
                             )}
                           </div>
 
-                          <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
                             <span className="flex items-center">
                               <Eye className="h-4 w-4 mr-1" />
                               {job.viewCount} views
@@ -781,9 +781,9 @@ export default function TalentDashboard() {
                 {[1, 2, 3].map((i) => (
                   <Card key={i} className="animate-pulse">
                     <CardContent className="p-6">
-                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                      <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
+                      <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
+                      <div className="h-4 bg-muted rounded w-2/3"></div>
                     </CardContent>
                   </Card>
                 ))}
@@ -791,9 +791,9 @@ export default function TalentDashboard() {
             ) : filteredCandidates.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
-                  <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No candidate applications yet</h3>
-                  <p className="text-gray-600 dark:text-gray-400">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
+                  <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No candidate applications yet</h3>
+                  <p className="text-muted-foreground">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
                 </CardContent>
               </Card>
             ) : (
@@ -827,8 +827,8 @@ export default function TalentDashboard() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Analytics</h2>
-              <p className="text-gray-600 dark:text-gray-400">Track your hiring performance and metrics</p>
+              <h2 className="text-2xl lg:text-3xl font-bold text-foreground">Analytics</h2>
+              <p className="text-muted-foreground">Track your hiring performance and metrics</p>
             </div>
 
             {/* Analytics Grid */}
@@ -849,15 +849,15 @@ export default function TalentDashboard() {
                         <div key={job.id} className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium truncate">{job.title}</span>
-                            <span className="text-gray-500">{Math.round(performance)}%</span>
+                            <span className="text-muted-foreground">{Math.round(performance)}%</span>
                           </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="w-full bg-muted rounded-full h-2">
                             <div 
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              className="bg-primary h-2 rounded-full transition-all duration-300"
                               style={{ width: `${performance}%` }}
                             />
                           </div>
-                          <div className="flex justify-between text-xs text-gray-500">
+                          <div className="flex justify-between text-xs text-muted-foreground">
                             <span>{job.viewCount} views</span>
                             <span>{job.applicationCount} applications</span>
                           </div>
@@ -887,9 +887,9 @@ export default function TalentDashboard() {
                         <div key={period} className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium">{period}</span>
-                            <span className="text-gray-500">{applications} applications</span>
+                            <span className="text-muted-foreground">{applications} applications</span>
                           </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div className="w-full bg-muted rounded-full h-2">
                             <div 
                               className="bg-green-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${percentage}%` }}
@@ -927,7 +927,7 @@ export default function TalentDashboard() {
                             <Badge variant="outline" className="text-xs">
                               {skill}
                             </Badge>
-                            <span className="text-sm text-gray-500">{count} jobs</span>
+                            <span className="text-sm text-muted-foreground">{count} jobs</span>
                           </div>
                         ));
                     })()}
@@ -947,11 +947,11 @@ export default function TalentDashboard() {
                   <div className="space-y-4">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-green-600">2.3 hrs</div>
-                      <div className="text-sm text-gray-500">Average Response Time</div>
+                      <div className="text-sm text-muted-foreground">Average Response Time</div>
                     </div>
                     
                     <div className="space-y-3">
-                      {[
+                      {[ 
                         { range: '< 1 hour', count: Math.floor(candidates.length * 0.4), color: 'bg-green-500' },
                         { range: '1-4 hours', count: Math.floor(candidates.length * 0.35), color: 'bg-yellow-500' },
                         { range: '4-24 hours', count: Math.floor(candidates.length * 0.2), color: 'bg-orange-500' },
@@ -962,9 +962,9 @@ export default function TalentDashboard() {
                           <div key={range} className="space-y-1">
                             <div className="flex justify-between text-sm">
                               <span>{range}</span>
-                              <span className="text-gray-500">{count} responses</span>
+                              <span className="text-muted-foreground">{count} responses</span>
                             </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div className="w-full bg-muted rounded-full h-2">
                               <div 
                                 className={`${color} h-2 rounded-full transition-all duration-300`}
                                 style={{ width: `${percentage}%` }}
@@ -989,7 +989,7 @@ export default function TalentDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                  {[
+                  {[ 
                     { stage: 'Applied', count: candidates.length, color: 'bg-blue-500' },
                     { stage: 'Viewed', count: candidates.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
                     { stage: 'Interested', count: candidates.filter(c => c.status === 'interested').length, color: 'bg-yellow-500' },
@@ -1002,7 +1002,7 @@ export default function TalentDashboard() {
                         <div className="text-sm opacity-90">{stage}</div>
                       </div>
                       {stage !== 'Hired' && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {candidates.length > 0 ? Math.round((count / candidates.length) * 100) : 0}% conversion
                         </div>
                       )}
@@ -1023,7 +1023,7 @@ export default function TalentDashboard() {
               <Briefcase className="h-5 w-5 mr-2" />
               Post New Job - Advanced Job Posting
             </DialogTitle>
-            <p className="text-sm text-gray-600">Create a comprehensive job posting to attract the right candidates</p>
+            <p className="text-sm text-muted-foreground">Create a comprehensive job posting to attract the right candidates</p>
           </DialogHeader>
           
           <div className="space-y-8 py-4">
@@ -1064,7 +1064,7 @@ export default function TalentDashboard() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Industry</label>
-                  <Select value={jobForm.industry} onValueChange={(value) => setJobForm({ ...jobForm, industry: value })}>
+                  <Select value={jobForm.industry} onValueChange={(value) => setJobForm({ ...jobForm, industry: value }) }>
                     <SelectTrigger>
                       <SelectValue placeholder="Select industry" />
                     </SelectTrigger>
@@ -1121,7 +1121,7 @@ export default function TalentDashboard() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Work Type</label>
-                  <Select value={jobForm.workType} onValueChange={(value: any) => setJobForm({ ...jobForm, workType: value })}>
+                  <Select value={jobForm.workType} onValueChange={(value: any) => setJobForm({ ...jobForm, workType: value }) }>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -1137,7 +1137,7 @@ export default function TalentDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Experience Level</label>
-                  <Select value={jobForm.experienceLevel} onValueChange={(value) => setJobForm({ ...jobForm, experienceLevel: value })}>
+                  <Select value={jobForm.experienceLevel} onValueChange={(value) => setJobForm({ ...jobForm, experienceLevel: value }) }>
                     <SelectTrigger>
                       <SelectValue placeholder="Select experience level" />
                     </SelectTrigger>
@@ -1152,7 +1152,7 @@ export default function TalentDashboard() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Company Size</label>
-                  <Select value={jobForm.companySize} onValueChange={(value) => setJobForm({ ...jobForm, companySize: value })}>
+                  <Select value={jobForm.companySize} onValueChange={(value) => setJobForm({ ...jobForm, companySize: value }) }>
                     <SelectTrigger>
                       <SelectValue placeholder="Select company size" />
                     </SelectTrigger>
@@ -1199,7 +1199,14 @@ export default function TalentDashboard() {
               <div>
                 <label className="block text-sm font-medium mb-2">Benefits & Perks</label>
                 <Textarea
-                  placeholder="• Health, dental, vision insurance&#10;• 401(k) with company match&#10;• Unlimited PTO&#10;• Remote work flexibility&#10;• Professional development budget&#10;• Stock options/equity&#10;• Gym membership&#10;• Free lunch"
+                  placeholder="• Health, dental, vision insurance
+• 401(k) with company match
+• Unlimited PTO
+• Remote work flexibility
+• Professional development budget
+• Stock options/equity
+• Gym membership
+• Free lunch"
                   rows={3}
                   onChange={(e) => setJobForm({ 
                     ...jobForm, 
@@ -1225,13 +1232,18 @@ export default function TalentDashboard() {
                     skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
                   })}
                 />
-                <p className="text-xs text-gray-500 mt-1">These skills will be used for AI-powered candidate matching</p>
+                <p className="text-xs text-muted-foreground mt-1">These skills will be used for AI-powered candidate matching</p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">Requirements & Qualifications</label>
                 <Textarea
-                  placeholder="• 3+ years of professional software development experience&#10;• Bachelor's degree in Computer Science or related field&#10;• Experience with modern web technologies&#10;• Strong problem-solving and analytical skills&#10;• Excellent communication and collaboration abilities&#10;• Experience with agile development methodologies"
+                  placeholder="• 3+ years of professional software development experience
+• Bachelor's degree in Computer Science or related field
+• Experience with modern web technologies
+• Strong problem-solving and analytical skills
+• Excellent communication and collaboration abilities
+• Experience with agile development methodologies"
                   rows={4}
                   onChange={(e) => setJobForm({ 
                     ...jobForm, 
@@ -1270,7 +1282,7 @@ export default function TalentDashboard() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Urgency Level</label>
-                <Select value={jobForm.urgency} onValueChange={(value: any) => setJobForm({ ...jobForm, urgency: value })}>
+                <Select value={jobForm.urgency} onValueChange={(value: any) => setJobForm({ ...jobForm, urgency: value }) }>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -1295,7 +1307,7 @@ export default function TalentDashboard() {
               <Button 
                 onClick={handleJobSubmit}
                 disabled={createJobMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {createJobMutation.isPending ? (
                   <>

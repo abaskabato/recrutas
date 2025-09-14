@@ -217,7 +217,7 @@ export default function CandidateStreamlinedDashboard() {
                     e.stopPropagation();
                     handleContinueJobApplication(jobData);
                   }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   Continue
                 </Button>
@@ -244,7 +244,7 @@ export default function CandidateStreamlinedDashboard() {
                   // Scroll to job matches section
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 View Jobs
               </Button>
@@ -457,22 +457,22 @@ export default function CandidateStreamlinedDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 sm:py-0 sm:h-16 gap-4 sm:gap-0">
             <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
               <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
-                <AvatarFallback className="bg-blue-100 text-blue-600">
+                <AvatarFallback className="bg-primary/10 text-primary">
                   {user?.email?.[0]?.toUpperCase() || 'C'}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl font-semibold text-slate-900 truncate">
+                <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
                   Welcome back, {user?.email?.split('@')[0] || 'Candidate'}
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 hidden sm:block">
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                   Let's find your next opportunity
                 </p>
               </div>
@@ -513,9 +513,9 @@ export default function CandidateStreamlinedDashboard() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <Briefcase className="w-4 h-4 text-primary" />
                     <div>
-                      <p className="text-xs text-slate-500">Applications</p>
+                      <p className="text-xs text-muted-foreground">Applications</p>
                       <p className="text-lg font-semibold">{stats?.totalApplications || 0}</p>
                     </div>
                   </div>
@@ -525,9 +525,9 @@ export default function CandidateStreamlinedDashboard() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <Star className="w-4 h-4 text-green-600" />
+                    <Star className="w-4 h-4 text-green-500" />
                     <div>
-                      <p className="text-xs text-slate-500">Active Matches</p>
+                      <p className="text-xs text-muted-foreground">Active Matches</p>
                       <p className="text-lg font-semibold">{stats?.activeMatches || 0}</p>
                     </div>
                   </div>
@@ -537,9 +537,9 @@ export default function CandidateStreamlinedDashboard() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <Eye className="w-4 h-4 text-purple-600" />
+                    <Eye className="w-4 h-4 text-purple-500" />
                     <div>
-                      <p className="text-xs text-slate-500">Profile Views</p>
+                      <p className="text-xs text-muted-foreground">Profile Views</p>
                       <p className="text-lg font-semibold">{stats?.profileViews || 0}</p>
                     </div>
                   </div>
@@ -549,9 +549,9 @@ export default function CandidateStreamlinedDashboard() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-orange-600" />
+                    <TrendingUp className="w-4 h-4 text-orange-500" />
                     <div>
-                      <p className="text-xs text-slate-500">Avg Match</p>
+                      <p className="text-xs text-muted-foreground">Avg Match</p>
                       <p className="text-lg font-semibold">{stats?.avgMatchScore || 0}%</p>
                     </div>
                   </div>
@@ -561,21 +561,21 @@ export default function CandidateStreamlinedDashboard() {
 
             {/* Job Continuation Card */}
             {continuationJob && (
-              <Card className="mb-6 border-blue-500 bg-blue-50">
+              <Card className="mb-6 border-primary bg-primary/10">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
                       <div>
-                        <h3 className="font-semibold text-blue-900">Continue Job Application</h3>
-                        <p className="text-sm text-blue-700">
+                        <h3 className="font-semibold text-primary">Continue Job Application</h3>
+                        <p className="text-sm text-primary/80">
                           Complete your application to {continuationJob.jobData?.title} at {continuationJob.jobData?.company}
                         </p>
                       </div>
                     </div>
                     <Button 
                       onClick={() => handleContinueJobApplication(continuationJob)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       Continue Application
                     </Button>
@@ -622,8 +622,8 @@ export default function CandidateStreamlinedDashboard() {
                           return (
                             <div key={match.id} className={`border rounded-lg p-6 transition-colors ${
                               match.job?.source === 'internal' 
-                                ? 'border-blue-200 bg-blue-50/30 hover:border-blue-300' 
-                                : 'border-slate-200 hover:border-orange-300'
+                                ? 'border-primary/20 bg-primary/5' 
+                                : 'border-border hover:border-orange-500/50'
                             }`}>
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
@@ -638,21 +638,21 @@ export default function CandidateStreamlinedDashboard() {
                                       });
                                     }
                                     return match.job?.source === 'internal' ? (
-                                      <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                                      <Badge className="bg-primary/10 text-primary border-primary/20">
                                         🎯 Platform Job
                                       </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200">
+                                      <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20">
                                         🌐 External
                                       </Badge>
                                     );
                                   })()}
                                   {match.job?.source === 'internal' && match.job?.hasExam && (
-                                    <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200">
+                                    <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20">
                                       📝 Has Exam
                                     </Badge>
                                   )}
-                                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                  <Badge variant="secondary" className="bg-green-500/10 text-green-500">
                                     {match.matchScore}% match
                                   </Badge>
                                   <Badge className={getStatusColor(match.status)}>
@@ -660,16 +660,16 @@ export default function CandidateStreamlinedDashboard() {
                                     <span className="ml-1 capitalize">{match.status}</span>
                                   </Badge>
                                 </div>
-                                <h3 className="font-semibold text-lg text-slate-900 mb-2">
+                                <h3 className="font-semibold text-lg text-foreground mb-2">
                                   {match.job?.title || 'Job Title Unavailable'}
                                 </h3>
                                 
-                                <div className="flex items-center space-x-1 text-slate-600 mb-2">
+                                <div className="flex items-center space-x-1 text-muted-foreground mb-2">
                                   <Building className="w-4 h-4" />
                                   <span className="font-medium">{match.job?.company || 'Company Unavailable'}</span>
                                 </div>
                                 
-                                <div className="flex items-center space-x-4 text-sm text-slate-500 mb-4">
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-4">
                                   <div className="flex items-center space-x-1">
                                     <MapPin className="w-4 h-4" />
                                     <span>{match.job?.location || 'Location Unavailable'}</span>
@@ -684,7 +684,7 @@ export default function CandidateStreamlinedDashboard() {
                                 </div>
                                 
                                 {match.job?.source === 'internal' && match.recruiter && (
-                                  <div className="flex items-center space-x-2 text-sm text-slate-500">
+                                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                                     <User className="w-4 h-4" />
                                     <span>{match.recruiter.firstName} {match.recruiter.lastName}</span>
                                   </div>
@@ -764,7 +764,7 @@ export default function CandidateStreamlinedDashboard() {
                                     </>
                                   )}
                                 </div>
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-muted-foreground">
                                   Matched {new Date(match.createdAt).toLocaleDateString()}
                                 </p>
                               </div>
@@ -804,26 +804,26 @@ export default function CandidateStreamlinedDashboard() {
                             // Only render if match.job exists
                             if (!match.job) return null;
                             return (
-                            <div key={match.id} className="border rounded-lg p-6 bg-green-50 border-green-200">
+                            <div key={match.id} className="border rounded-lg p-6 bg-green-500/10 border-green-500/20">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="font-medium text-slate-900">
+                                    <h3 className="font-medium text-foreground">
                                       {match.job?.title || 'Job Title'}
                                     </h3>
-                                    <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                    <Badge variant="secondary" className="bg-green-500/10 text-green-500">
                                       Applied
                                     </Badge>
                                   </div>
-                                  <p className="text-sm text-slate-600 mb-1">
+                                  <p className="text-sm text-muted-foreground mb-1">
                                     {match.job?.company || 'Company Name'} • {match.job?.location || 'Location'}
                                   </p>
-                                  <p className="text-sm text-slate-500 mb-3">
+                                  <p className="text-sm text-muted-foreground mb-3">
                                     {match.job?.workType || 'Work Type'} • 
                                     {match.job?.salaryMin && match.job?.salaryMax && ` $${match.job.salaryMin.toLocaleString()} - $${match.job.salaryMax.toLocaleString()}`}
                                   </p>
-                                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                                    <span className="font-medium text-purple-600">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <span className="font-medium text-purple-500">
                                       {match.matchScore}% match
                                     </span>
                                     <span>•</span>
@@ -874,17 +874,17 @@ export default function CandidateStreamlinedDashboard() {
                       <div className="space-y-4">
                         {[1, 2, 3].map(i => (
                           <div key={i} className="animate-pulse">
-                            <div className="h-16 bg-slate-200 rounded"></div>
+                            <div className="h-16 bg-muted rounded"></div>
                           </div>
                         ))}
                       </div>
                     ) : activities?.length > 0 ? (
                       <div className="space-y-4">
                         {activities.map((activity) => (
-                          <div key={activity.id} className="flex items-start space-x-3 p-3 border-l-4 border-l-blue-500 bg-blue-50 rounded-r">
+                          <div key={activity.id} className="flex items-start space-x-3 p-3 border-l-4 border-l-primary bg-primary/5 rounded-r">
                             <div className="flex-1">
-                              <p className="text-sm text-slate-900">{activity.description}</p>
-                              <p className="text-xs text-slate-500 mt-1">
+                              <p className="text-sm text-foreground">{activity.description}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
                                 {new Date(activity.createdAt).toLocaleString()}
                               </p>
                             </div>
@@ -893,8 +893,8 @@ export default function CandidateStreamlinedDashboard() {
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <Clock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                        <p className="text-slate-500">No recent activity</p>
+                        <Clock className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-muted-foreground">No recent activity</p>
                       </div>
                     )}
                   </CardContent>
