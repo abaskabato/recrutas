@@ -164,7 +164,7 @@ export default function Landing() {
                     onClick={() => handleRoleSelection('candidate')}>
                 <CardContent className="p-8 text-center">
                   <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Search className="w-12 h-12 text-white" />
+                    <Search className="w-12 h-12 text-primary-foreground" />
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-4">Job Seeker</h3>
                   <p className="text-slate-300 mb-6 leading-relaxed">
@@ -195,7 +195,7 @@ export default function Landing() {
                     onClick={() => handleRoleSelection('talent_owner')}>
                 <CardContent className="p-8 text-center">
                   <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <Building2 className="w-12 h-12 text-white" />
+                    <Building2 className="w-12 h-12 text-primary-foreground" />
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-4">Talent Owner</h3>
                   <p className="text-slate-300 mb-6 leading-relaxed">
@@ -317,7 +317,7 @@ export default function Landing() {
             <div className="flex justify-between items-center p-6 border-b border-slate-700">
               <RecrutasLogo size={32} />
               <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
-                <X className="w-6 h-6 text-white" />
+                <X className="w-6 h-6 text-primary-foreground" />
               </Button>
             </div>
             <div className="flex-1 flex flex-col justify-center items-center space-y-8 p-8">
@@ -502,7 +502,7 @@ export default function Landing() {
                 <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:scale-105 backdrop-blur-sm">
                   <CardContent className="p-6 text-center">
                     <div className={`w-16 h-16 mx-auto mb-4 bg-gradient-to-r ${feature.gradient} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                      <feature.icon className="w-8 h-8 text-white" />
+                      <feature.icon className="w-8 h-8 text-primary-foreground" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
                     <p className="text-slate-300 leading-relaxed">{feature.description}</p>
@@ -544,7 +544,7 @@ export default function Landing() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                        <Briefcase className="w-6 h-6 text-white" />
+                        <Briefcase className="w-6 h-6 text-primary-foreground" />
                       </div>
                       <Badge className="bg-green-500/20 text-green-300 border-green-400/30">
                         {job.type}

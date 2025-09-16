@@ -146,7 +146,7 @@ export default function CandidateDashboard() {
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 sm:w-10 h-8 sm:h-10 bg-gradient-to-r from-primary to-primary/80 rounded-lg flex items-center justify-center">
-                <Sparkles className="h-4 sm:h-5 w-4 sm:w-5 text-white" />
+                <Sparkles className="h-4 sm:h-5 w-4 sm:w-5 text-primary-foreground" />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-lg sm:text-xl font-bold">Recrutas V2</h1>

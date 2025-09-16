@@ -115,7 +115,7 @@ export default function RoleSelection() {
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 relative">
                 <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-                  <Users className="w-8 h-8 text-white" />
+                  <Users className="w-8 h-8 text-primary-foreground" />
                 </div>
                 {selectedRole === 'candidate' && (
                   <div className="absolute -top-2 -right-2">
@@ -175,7 +175,7 @@ export default function RoleSelection() {
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 relative">
                 <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-                  <Building className="w-8 h-8 text-white" />
+                  <Building className="w-8 h-8 text-primary-foreground" />
                 </div>
                 {selectedRole === 'talent_owner' && (
                   <div className="absolute -top-2 -right-2">

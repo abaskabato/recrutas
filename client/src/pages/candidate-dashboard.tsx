@@ -83,7 +83,7 @@ export default function CandidateDashboard() {
                     <img src={session.user.user_metadata.avatar_url} alt="Profile" className="w-6 h-6 rounded-full object-cover" />
                   ) : (
                     <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                      <User className="h-3 w-3 text-white" />
+                      <User className="h-3 w-3 text-primary-foreground" />
                     </div>
                   )}
                   <span className="hidden sm:block">

@@ -485,7 +485,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     transition={{ delay: 0.2, duration: 0.4 }}
                     className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-xl mb-4"
                   >
-                    <Sparkles className="w-8 h-8 text-white" />
+                    <Sparkles className="w-8 h-8 text-primary-foreground" />
                   </motion.div>
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                     {jobsLoading ? "Finding Matches..." : `${jobsToShow.length} Jobs Found`}
@@ -704,7 +704,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     transition={{ delay: 0.2, duration: 0.4 }}
                     className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-xl mb-4"
                   >
-                    <Star className="w-8 h-8 text-white" />
+                    <Star className="w-8 h-8 text-primary-foreground" />
                   </motion.div>
                   <h3 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                     Full Platform Features
