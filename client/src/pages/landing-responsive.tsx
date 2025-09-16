@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock, Briefcase, DollarSign, Reddit } from "lucide-react";
+import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock, Briefcase, DollarSign } from "lucide-react";
 import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import RecrutasLogoBW from "@/components/recrutas-logo-bw";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
@@ -13,20 +13,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import InstantMatchModal from "@/components/instant-match-modal";
-
-const DiscordIcon = (props) => (
-  <svg
-    {...props}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M19.738 2.5C18.758 2.062 17.667 1.75 16.5 1.5C16.217 1.917 15.833 2.417 15.417 3C13.583 1.833 11.667 1.167 9.66701 1.5C7.75001 1.833 5.91701 2.667 4.33301 4.083C2.08301 6.083 0.75001 8.667 0.25001 11.5C-0.16799 14.333 0.58201 17.083 2.25001 19.333C3.83301 21.5 6.08301 22.917 8.58301 23.5C9.08301 22.833 9.58301 22.083 10 21.25C9.16701 20.917 8.41701 20.5 7.75001 20C7.91701 19.833 8.08301 19.667 8.25001 19.5C10.083 20.5 12 20.5 13.833 19.5C14 19.667 14.167 19.833 14.333 20C13.667 20.5 12.917 20.917 12.083 21.25C12.5 22.083 12.917 22.833 13.417 23.5C15.917 22.917 18.167 21.5 19.75 19.333C21.417 17.083 22.167 14.333 21.75 11.5C21.25 8.667 19.917 6.083 17.667 4.083C17.083 3.583 16.417 3.083 15.75 2.667C16.833 2.5 17.833 2.25 18.75 1.917C19.083 2.083 19.417 2.292 19.738 2.5ZM7.5 15.5C6.667 15.5 6 14.75 6 13.833C6 12.917 6.667 12.167 7.5 12.167C8.333 12.167 9 12.917 9 13.833C9 14.75 8.333 15.5 7.5 15.5ZM16.5 15.5C15.667 15.5 15 14.75 15 13.833C15 12.917 15.667 12.167 16.5 12.167C17.333 12.167 18 12.917 18 13.833C18 14.75 17.333 15.5 16.5 15.5Z"
-      fill="currentColor"
-    />
-  </svg>
-);
 
 export default function LandingResponsive() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
@@ -402,7 +388,7 @@ export default function LandingResponsive() {
             <a href="#" target="_blank" rel="noopener noreferrer" className="block">
               <Card className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 hover:border-blue-500 dark:hover:border-blue-500 transition-all">
                 <CardContent className="p-6 text-center">
-                  <Reddit className="w-12 h-12 mx-auto mb-4 text-blue-500" />
+                  <p className="w-12 h-12 mx-auto mb-4 text-blue-500">Reddit</p>
                   <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Reddit</h3>
                   <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                     Join the conversation on our subreddit. Ask questions, share your success stories, and help others.
@@ -414,7 +400,7 @@ export default function LandingResponsive() {
             <a href="#" target="_blank" rel="noopener noreferrer" className="block">
               <Card className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 hover:border-purple-500 dark:hover:border-purple-500 transition-all">
                 <CardContent className="p-6 text-center">
-                  <DiscordIcon className="w-12 h-12 mx-auto mb-4 text-purple-500" />
+                  <p className="w-12 h-12 mx-auto mb-4 text-purple-500">Discord</p>
                   <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Discord</h3>
                   <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                     Chat with other members of the community in real-time. Get help, find collaborators, and make friends.
