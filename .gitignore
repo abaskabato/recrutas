@@ -101,3 +101,6 @@ ls
 rest-express@1.0.0
 supabase_schema.sql
 test-db-connection.ts.env
+
+playwright.config.ts
+tests/
