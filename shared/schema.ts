@@ -46,6 +46,16 @@ export const users = pgTable("users", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  website: varchar("website"),
+  size: varchar("size"),
+  ownerId: uuid("owner_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 /**
  * Candidate Profiles Table
  * Extended profile information for job seekers
@@ -391,10 +401,18 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [candidateProfiles.userId],
   }),
+  companies: many(companies),
   jobPostings: many(jobPostings),
   matches: many(jobMatches),
   chatMessages: many(chatMessages),
   activityLogs: many(activityLogs),
+}));
+
+export const companiesRelations = relations(companies, ({ one }) => ({
+  owner: one(users, {
+    fields: [companies.ownerId],
+    references: [users.id],
+  }),
 }));
 
 export const candidateProfilesRelations = relations(candidateProfiles, ({ one }) => ({

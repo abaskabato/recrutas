@@ -316,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const updatedUser = await storage.updateUserRole(userId, role);
 
-      res.json({ success: true });
+      res.json({ success: true, user: updatedUser });
     } catch (error) {
       console.error("Error setting user role:", error);
       res.status(500).json({ message: "Failed to set user role" });
@@ -357,17 +357,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/auth/complete-profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { firstName, lastName, phoneNumber } = req.body;
+      const { firstName, lastName, phoneNumber, headline } = req.body;
       
       if (!firstName || !lastName) {
         return res.status(400).json({ message: "First name and last name are required" });
       }
 
+      // Update the users table
       const updatedUser = await storage.updateUserProfile(userId, {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber || null
       } as any);
+
+      // Update the candidate_profiles table
+      if (headline) {
+        await storage.upsertCandidateUser({
+          userId,
+          summary: headline,
+        } as any);
+      }
 
       res.json({ success: true, user: updatedUser });
     } catch (error) {
@@ -1284,19 +1293,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/talent-owner/profile/complete', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const profileData = req.body;
+      const { companyName, website, companySize, ...profileData } = req.body;
       
-      // Update user basic info and store company information
+      // Update user basic info
       await db.update(users)
         .set({
-          firstName: profileData.firstName,
-          lastName: profileData.lastName,
-          email: profileData.email,
-          phoneNumber: profileData.phoneNumber,
+          ...profileData,
           profileComplete: true,
           updatedAt: new Date()
         })
         .where(eq(users.id, userId));
+
+      // Create company
+      if (companyName) {
+        await storage.createCompany({
+          name: companyName,
+          website,
+          size: companySize,
+          ownerId: userId,
+        });
+      }
       
       // Create activity log
       await storage.createActivityLog(userId, "profile_completed", "Talent owner profile completed");

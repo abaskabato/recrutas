@@ -32,6 +32,7 @@ import {
   jobExams,
   notificationPreferences,
   jobApplications,
+  companies,
   type User,
   type UpsertUser,
   type CandidateUser,
@@ -72,6 +73,7 @@ export interface IStorage {
   getAvailableNotificationUsers(): Promise<string[]>;
   getApplicationById(applicationId: number): Promise<any>;
   updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User>;
+  createCompany(companyData: any): Promise<any>;
   
   // Candidate operations
   getCandidateUser(userId: string): Promise<CandidateUser | undefined>;
@@ -218,7 +220,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateUserUser(userId: string, userData: Partial<UpsertUser>): Promise<User> {
+  async updateUserProfile(userId: string, userData: Partial<UpsertUser>): Promise<User> {
     try {
       const [user] = await db
         .update(users)
@@ -276,6 +278,16 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(candidateProfiles);
     } catch (error) {
       console.error('Error fetching all candidate profiles:', error);
+      throw error;
+    }
+  }
+
+  async createCompany(companyData: any): Promise<any> {
+    try {
+      const [result] = await db.insert(companies).values(companyData).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating company:', error);
       throw error;
     }
   }
