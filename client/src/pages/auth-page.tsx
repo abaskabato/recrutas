@@ -10,7 +10,8 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [signInLoading, setSignInLoading] = useState(false);
+  const [signUpLoading, setSignUpLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function AuthPage() {
   const handleSignIn = async (e) => {
     e.preventDefault();
     console.log("Attempting to sign in...");
-    setLoading(true);
+    setSignInLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -44,13 +45,13 @@ export default function AuthPage() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setSignInLoading(false);
     }
   };
 
   const handleSignUp = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSignUpLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -71,7 +72,7 @@ export default function AuthPage() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setSignUpLoading(false);
     }
   };
 
@@ -140,17 +141,17 @@ export default function AuthPage() {
             <div className="flex items-center justify-between">
               <button
                 onClick={handleSignIn}
-                disabled={loading}
+                disabled={signInLoading || signUpLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                {signInLoading ? 'Signing in...' : 'Sign in'}
               </button>
               <button
                 onClick={handleSignUp}
-                disabled={loading}
+                disabled={signInLoading || signUpLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ml-4"
               >
-                {loading ? 'Signing up...' : 'Sign up'}
+                {signUpLoading ? 'Signing up...' : 'Sign up'}
               </button>
             </div>
           </form>

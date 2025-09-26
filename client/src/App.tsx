@@ -12,6 +12,8 @@ import TalentDashboard from "@/pages/talent-dashboard";
 import ExamPage from "@/pages/exam-page";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
+import { TopRightButtons } from '@/components/TopRightButtons';
+
 
 function App() {
   // ...
@@ -29,6 +31,7 @@ function App() {
           <Route path="/chat/:id" component={Chat} />
           <Route component={NotFound} />
         </Switch>
+        <TopRightButtons />
       </SessionContextProvider>
     </AppProviders>
   );
