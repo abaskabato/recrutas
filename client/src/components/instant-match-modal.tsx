@@ -10,6 +10,93 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 
+const JobCard = ({ job, index, onApply, onLike, onChat, isLiked }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: index * 0.1 + 0.3 }}
+    className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
+  >
+    <div className="flex items-start justify-between">
+      <div className="flex items-start space-x-4">
+        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+          <Building className="w-6 h-6 text-gray-400" />
+        </div>
+        <div>
+          <h4 className="text-lg font-bold text-gray-900 dark:text-white">{job.job?.title || job.title}</h4>
+          <p className="text-sm text-gray-600 dark:text-gray-300">{job.job?.company || job.company}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{job.job?.location || job.location || 'Remote'}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="flex items-center justify-end space-x-2">
+          <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700">
+            <Star className="w-3 h-3 mr-1" />
+            {job.matchScore || job.match || '90%'}
+          </Badge>
+          <Button size="icon" variant="ghost" onClick={() => onLike(job.id)}>
+            <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
+          </Button>
+        </div>
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-2">
+          {job.job?.salaryMin && job.job?.salaryMax
+            ? `${job.job.salaryMin / 1000}k-${job.job.salaryMax / 1000}k`
+            : job.salary || '$80k-120k'}
+        </p>
+      </div>
+    </div>
+    <div className="mt-4 flex items-center justify-between">
+      <div className="flex flex-wrap gap-1">
+        {(job.job?.skills || job.skills || []).slice(0, 3).map((skill: string) => (
+          <Badge key={skill} variant="secondary" className="text-xs">
+            {skill}
+          </Badge>
+        ))}
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button size="sm" variant="outline" onClick={() => onChat(job.id)}>
+          <MessageCircle className="w-4 h-4 mr-1" />
+          Chat
+        </Button>
+        <Button size="sm" onClick={() => onApply(job.id)}>
+          <Zap className="w-4 h-4 mr-1" />
+          Apply
+        </Button>
+      </div>
+    </div>
+  </motion.div>
+);
+
+const JobCardSkeleton = () => (
+  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
+    <div className="flex items-start justify-between">
+      <div className="flex items-start space-x-4">
+        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        <div className="space-y-2">
+          <div className="w-48 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div className="w-32 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          <div className="w-24 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1"></div>
+        </div>
+      </div>
+      <div className="text-right space-y-2">
+        <div className="w-20 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+        <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+      </div>
+    </div>
+    <div className="mt-4 flex items-center justify-between">
+      <div className="flex flex-wrap gap-1">
+        <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+        <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+        <div className="w-12 h-4 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+      </div>
+      <div className="flex items-center space-x-2">
+        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+      </div>
+    </div>
+  </div>
+);
+
 interface InstantMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -502,11 +589,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   )}
                 </div>
 
-                <div className="grid gap-4 max-h-96 overflow-y-auto">
+                <div className="grid gap-4 max-h-96 overflow-y-auto p-1">
                   {jobsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                    </div>
+                    Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={i} />)
                   ) : jobsToShow.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-gray-600 dark:text-gray-300">
@@ -515,141 +600,16 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     </div>
                   ) : (
                     jobsToShow.map((job: any, index: number) => (
-                    <motion.div
-                      key={job.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 + 0.3 }}
-                    >
-                      <Card className="group hover:shadow-2xl transition-all duration-500 border-0 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:scale-[1.02] relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 via-purple-500 to-cyan-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-500 origin-top"></div>
-                        
-                        <CardContent className="p-6 relative z-10">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors duration-300">{job.job?.title || job.title}</h4>
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{ delay: index * 0.1 + 0.5, type: "spring", bounce: 0.5 }}
-                                >
-                                  <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 text-sm px-3 py-1 shadow-lg">
-                                    <Star className="w-3 h-3 mr-1" />
-                                    {job.matchScore || job.match || '90%'}
-                                  </Badge>
-                                </motion.div>
-                                {job.chatActive && (
-                                  <motion.div
-                                    animate={{ scale: [1, 1.1, 1] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                  >
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 dark:from-blue-900 dark:to-cyan-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                                      <motion.div
-                                        animate={{ scale: [1, 1.2, 1] }}
-                                        transition={{ duration: 1, repeat: Infinity }}
-                                      >
-                                        <MessageCircle className="w-3 h-3 mr-1" />
-                                      </motion.div>
-                                      Live Chat
-                                    </Badge>
-                                  </motion.div>
-                                )}
-                              </div>
-                              <motion.div
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 + 0.4 }}
-                              >
-                                <p className="text-gray-700 dark:text-gray-300 font-semibold mb-3 flex items-center">
-                                  <Building className="w-4 h-4 mr-2 text-gray-500" />
-                                  {job.job?.company || job.company}
-                                </p>
-                              </motion.div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
-                            <div className="flex items-center">
-                              <MapPin className="w-4 h-4 mr-1" />
-                              {job.job?.location || job.location || 'Remote'}
-                            </div>
-                            <div className="flex items-center">
-                              <DollarSign className="w-4 h-4 mr-1" />
-                              {job.job?.salaryMin && job.job?.salaryMax 
-                                ? `$${job.job.salaryMin/1000}k-$${job.job.salaryMax/1000}k`
-                                : job.salary || '$80k-120k'
-                              }
-                            </div>
-                            <div className="flex items-center">
-                              <Briefcase className="w-4 h-4 mr-1" />
-                              {job.job?.workType || job.type || 'Full-time'}
-                            </div>
-                          </div>
-
-
-
-                          <div className="mb-4">
-                            <div className="flex flex-wrap gap-1">
-                              {(job.job?.skills || job.skills || []).map((skill: string) => (
-                                <Badge key={skill} variant="secondary" className="text-xs">
-                                  {skill}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleQuickApply(job.id)}
-                              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0"
-                            >
-                              <Zap className="w-4 h-4 mr-2" />
-                              Apply Direct
-                            </Button>
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleStartChat(job.id)}
-                                className="flex-1 sm:flex-none bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                              >
-                                <MessageCircle className="w-4 h-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">Message</span>
-                                <span className="sm:hidden">Chat</span>
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => handleLikeJob(job.id)}
-                                className={`${likedJobs.includes(job.id) ? 'bg-red-50 border-red-200 text-red-600' : ''}`}
-                              >
-                                <Heart className={`w-4 h-4 ${likedJobs.includes(job.id) ? 'fill-current' : ''}`} />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Simple application feedback */}
-                          {appliedJobs.includes(job.id) && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                <span className="text-sm text-green-800 dark:text-green-300 font-medium">
-                                  Marked as applied! Get full access to track status.
-                                </span>
-                              </div>
-                            </motion.div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        index={index}
+                        onApply={handleQuickApply}
+                        onLike={handleLikeJob}
+                        onChat={handleStartChat}
+                        isLiked={likedJobs.includes(job.id)}
+                      />
+                    ))
                   )}
                 </div>
 
