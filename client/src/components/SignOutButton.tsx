@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase-client';
 import { LogOut } from 'lucide-react';
 
-export function SignOutButton() {
+export function SignOutButton({ setLocation }: { setLocation: (path: string) => void }) {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/auth';
+    setLocation('/auth');
   };
 
   return (

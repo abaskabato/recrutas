@@ -4,9 +4,11 @@ import { SignOutButton } from './SignOutButton';
 import { ThemeToggleButton } from './theme-toggle-button';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useLocation } from 'wouter';
 
 export function TopRightButtons() {
   const session = useSession();
+  const [, setLocation] = useLocation();
 
   return (
     <div className="absolute top-4 right-4 flex items-center">
@@ -16,7 +18,7 @@ export function TopRightButtons() {
       <Button variant="ghost" size="icon" onClick={() => history.forward()}>
         <ArrowRight className="h-5 w-5" />
       </Button>
-      {session && <SignOutButton />}
+      {session && <SignOutButton setLocation={setLocation} />}
       <ThemeToggleButton />
     </div>
   );
