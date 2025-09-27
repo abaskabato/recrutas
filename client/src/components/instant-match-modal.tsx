@@ -9,36 +9,37 @@ import RecrutasLogo from "@/components/recrutas-logo";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { useTheme } from "@/components/theme-provider";
 
-const JobCard = ({ job, index, onApply, onLike, onChat, isLiked }) => (
+const JobCard = ({ job, index, onApply, onLike, onChat, isLiked, theme }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: index * 0.1 + 0.3 }}
-    className="bg-slate-800/50 border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 cursor-pointer backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl"
+    className={`border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 cursor-pointer backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-white/60'}`}
   >
     <div className="flex items-start justify-between">
       <div className="flex items-start space-x-4">
-        <div className="w-12 h-12 bg-slate-700/50 rounded-lg flex items-center justify-center">
-          <Building className="w-6 h-6 text-slate-400" />
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-100'}`}>
+          <Building className={`w-6 h-6 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-400'}`} />
         </div>
         <div>
-          <h4 className="text-lg font-bold text-white">{job.job?.title || job.title}</h4>
-          <p className="text-sm text-slate-300">{job.job?.company || job.company}</p>
-          <p className="text-xs text-slate-400 mt-1">{job.job?.location || job.location || 'Remote'}</p>
+          <h4 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{job.job?.title || job.title}</h4>
+          <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>{job.job?.company || job.company}</p>
+          <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'} mt-1`}>{job.job?.location || job.location || 'Remote'}</p>
         </div>
       </div>
       <div className="text-right">
         <div className="flex items-center justify-end space-x-2">
-          <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">
+          <Badge className={`${theme === 'dark' ? 'bg-blue-500/20 text-blue-300 border-blue-400/30' : 'bg-green-100 text-green-700 border-green-200'}`}>
             <Star className="w-3 h-3 mr-1" />
             {job.matchScore || job.match || '90%'}
           </Badge>
           <Button size="icon" variant="ghost" onClick={() => onLike(job.id)}>
-            <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : 'text-slate-400'}`} />
+            <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : theme === 'dark' ? 'text-slate-400' : 'text-gray-400'}`} />
           </Button>
         </div>
-        <p className="text-sm font-semibold text-slate-200 mt-2">
+        <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-200' : 'text-gray-800'} mt-2">
           {job.job?.salaryMin && job.job?.salaryMax
             ? `${job.job.salaryMin / 1000}k-${job.job.salaryMax / 1000}k`
             : job.salary || '$80k-120k'}
@@ -67,31 +68,31 @@ const JobCard = ({ job, index, onApply, onLike, onChat, isLiked }) => (
   </motion.div>
 );
 
-const JobCardSkeleton = () => (
-  <div className="bg-slate-800/50 border-slate-700/50 rounded-2xl p-6 shadow-lg">
+const JobCardSkeleton = ({ theme }) => (
+  <div className={`border-slate-700/50 rounded-2xl p-6 shadow-lg ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-white/60'}`}>
     <div className="flex items-start justify-between">
       <div className="flex items-start space-x-4">
-        <div className="w-12 h-12 bg-slate-700/50 rounded-lg animate-pulse"></div>
+        <div className={`w-12 h-12 rounded-lg animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
         <div className="space-y-2">
-          <div className="w-48 h-4 bg-slate-700/50 rounded animate-pulse"></div>
-          <div className="w-32 h-3 bg-slate-700/50 rounded animate-pulse"></div>
-          <div className="w-24 h-3 bg-slate-700/50 rounded animate-pulse mt-1"></div>
+          <div className={`w-48 h-4 rounded animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
+          <div className={`w-32 h-3 rounded animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
+          <div className={`w-24 h-3 rounded animate-pulse mt-1 ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
         </div>
       </div>
       <div className="text-right space-y-2">
-        <div className="w-20 h-6 bg-slate-700/50 rounded-full animate-pulse"></div>
-        <div className="w-24 h-4 bg-slate-700/50 rounded animate-pulse"></div>
+        <div className={`w-20 h-6 rounded-full animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
+        <div className={`w-24 h-4 rounded animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
       </div>
     </div>
     <div className="mt-4 flex items-center justify-between">
       <div className="flex flex-wrap gap-1">
-        <div className="w-16 h-4 bg-slate-700/50 rounded-full animate-pulse"></div>
-        <div className="w-20 h-4 bg-slate-700/50 rounded-full animate-pulse"></div>
-        <div className="w-12 h-4 bg-slate-700/50 rounded-full animate-pulse"></div>
+        <div className={`w-16 h-4 rounded-full animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
+        <div className={`w-20 h-4 rounded-full animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
+        <div className={`w-12 h-4 rounded-full animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
       </div>
       <div className="flex items-center space-x-2">
-        <div className="w-20 h-8 bg-slate-700/50 rounded-lg animate-pulse"></div>
-        <div className="w-20 h-8 bg-slate-700/50 rounded-lg animate-pulse"></div>
+        <div className={`w-20 h-8 rounded-lg animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
+        <div className={`w-20 h-8 rounded-lg animate-pulse ${theme === 'dark' ? 'bg-slate-700/50' : 'bg-gray-200'}`}></div>
       </div>
     </div>
   </div>
@@ -107,6 +108,7 @@ interface InstantMatchModalProps {
 // Removed sample data - using only authentic external job sources
 
 export default function InstantMatchModal({ isOpen, onClose, onStartMatching, initialSkills = "" }: InstantMatchModalProps) {
+  const { theme } = useTheme();
   const [step, setStep] = useState<'intro' | 'skills' | 'results' | 'features'>('intro');
   const [skills, setSkills] = useState(initialSkills);
   const [jobTitle, setJobTitle] = useState("");
@@ -283,7 +285,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="p-0 border-0 bg-gradient-to-br from-slate-950 via-blue-950 to-purple-900 backdrop-blur-2xl shadow-2xl flex flex-col">
+      <DialogContent className={`p-0 border-0 ${theme === 'dark' ? 'bg-gradient-to-br from-slate-950 via-blue-950 to-purple-900' : 'bg-white'} backdrop-blur-2xl shadow-2xl flex flex-col`}>
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">Find your perfect job match in 30 seconds with AI-powered recommendations</DialogDescription>
         
@@ -320,15 +322,15 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 exit={{ opacity: 0, y: -20 }}
                 className="p-8 text-center"
               >
-                <h2 className="text-3xl font-bold text-white mb-4">
+                <h2 className={`text-3xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-4`}>
                   Welcome to Recrutas
                 </h2>
-                <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
+                <p className={`text-lg ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'} mb-8 max-w-2xl mx-auto`}>
                   Find real jobs, talk to real people, and get hired—on your terms
                 </p>
                 <Button
                   size="lg"
-                  className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg"
+                  className={`px-8 py-4 text-lg font-medium text-white rounded-xl shadow-lg ${theme === 'dark' ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                   onClick={() => setStep('skills')}
                 >
                   <Sparkles className="w-5 h-5 mr-2" />
@@ -346,24 +348,24 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 className="p-8"
               >
                 <div className="max-w-3xl mx-auto">
-                  <h3 className="text-2xl font-bold text-white mb-2 text-center">
+                  <h3 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-2 text-center`}>
                     Find Your Perfect Match
                   </h3>
-                  <p className="text-slate-300 mb-6 text-center">
+                  <p className={`${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'} mb-6 text-center`}>
                     Tell us what you're looking for
                   </p>
                   
                   <div className="space-y-6">
                     {/* Job Title */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
                         Job Title / Role
                       </label>
                       <Input
                         placeholder="Software Engineer, Data Scientist, Product Manager..."
                         value={jobTitle}
                         onChange={(e) => setJobTitle(e.target.value)}
-                        className="text-lg p-4 rounded-xl border-2 bg-slate-800/50 border-slate-700/50 text-white"
+                        className={`text-lg p-4 rounded-xl border-2 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                         autoFocus
                       />
                       <div className="flex flex-wrap gap-2 mt-2">
@@ -386,7 +388,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                     {/* Skills and Resume Upload */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
                         Skills & Technologies
                       </label>
                       
@@ -442,7 +444,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                         placeholder="React, Python, Marketing... or upload resume above"
                         value={skills}
                         onChange={(e) => setSkills(e.target.value)}
-                        className="text-lg p-4 rounded-xl border-2 bg-slate-800/50 border-slate-700/50 text-white"
+                        className={`text-lg p-4 rounded-xl border-2 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                       />
                       
                       {/* Extracted Skills Display */}
@@ -487,28 +489,25 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Location */}
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          <MapPin className="w-4 h-4 inline mr-1" />
-                          Location
-                        </label>
+className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}
                         <Input
                           placeholder="New York, Remote..."
                           value={location}
                           onChange={(e) => setLocation(e.target.value)}
-                          className="p-3 rounded-lg bg-slate-800/50 border-slate-700/50 text-white"
+                          className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                         />
                       </div>
 
                       {/* Work Type */}
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                        <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
                           <Briefcase className="w-4 h-4 inline mr-1" />
                           Work Type
                         </label>
                         <select
                           value={workType}
                           onChange={(e) => setWorkType(e.target.value as any)}
-                          className="w-full p-3 rounded-lg border border-slate-700/50 bg-slate-800/50 text-white"
+                          className={`w-full p-3 rounded-lg border ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
                         >
                           <option value="any">Any</option>
                           <option value="remote">Remote</option>
@@ -519,7 +518,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                       {/* Salary */}
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                        <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
                           <DollarSign className="w-4 h-4 inline mr-1" />
                           Min Salary
                         </label>
@@ -527,7 +526,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <select
                             value={salaryType}
                             onChange={(e) => setSalaryType(e.target.value as any)}
-                            className="p-3 rounded-lg border border-slate-700/50 bg-slate-800/50 text-white"
+                            className={`p-3 rounded-lg border ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
                           >
                             <option value="annual">Annual</option>
                             <option value="hourly">Hourly</option>
@@ -536,7 +535,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             placeholder={salaryType === 'hourly' ? '$25' : '$50k'}
                             value={minSalary}
                             onChange={(e) => setMinSalary(e.target.value)}
-                            className="p-3 rounded-lg flex-1 bg-slate-800/50 border-slate-700/50 text-white"
+                            className={`p-3 rounded-lg flex-1 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                           />
                         </div>
                       </div>
@@ -544,7 +543,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                     <Button
                       size="lg"
-                      className="w-full py-4 text-lg font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl"
+                      className={`w-full py-4 text-lg font-medium text-white rounded-xl ${theme === 'dark' ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                       onClick={handleSkillsSubmit}
                       disabled={!skills.trim()}
                     >
@@ -573,14 +572,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   >
                     <Sparkles className="w-8 h-8 text-primary-foreground" />
                   </motion.div>
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                  <h3 className={`text-2xl font-bold ${theme === 'dark' ? 'bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent' : 'text-gray-900'} mb-2`}>
                     {jobsLoading ? "Finding Matches..." : `${jobsToShow.length} Jobs Found`}
                   </h3>
                   {jobsLoading && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="flex items-center justify-center gap-2 text-blue-400 mt-2"
+                      className={`flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mt-2`}
                     >
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm">Searching...</span>
@@ -590,10 +589,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                 <div className="grid gap-4 max-h-96 overflow-y-auto p-1">
                   {jobsLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={i} />)
+                    Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={i} theme={theme} />)
                   ) : jobsToShow.length === 0 ? (
                     <div className="text-center py-8">
-<p className="text-slate-300">
+<p className={`${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}">
                         No jobs found matching "{skills}". Try different skills.
                       </p>
                     </div>
@@ -607,6 +606,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                         onLike={handleLikeJob}
                         onChat={handleStartChat}
                         isLiked={likedJobs.includes(job.id)}
+                        theme={theme}
                       />
                     ))
                   )}
@@ -617,7 +617,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <Button 
                       onClick={handleViewFeatures}
                       variant="outline"
-                      className="flex-1 sm:flex-none py-3 text-sm font-medium bg-slate-800/50 border-slate-700/50 text-white backdrop-blur-lg"
+                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                     >
                       <TrendingUp className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">See All Features</span>
@@ -626,7 +626,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <Button
                       onClick={onStartMatching}
                       variant="outline"  
-                      className="flex-1 sm:flex-none py-3 text-sm font-medium border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50 backdrop-blur-lg"
+                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50' : 'border-blue-500 text-blue-600 hover:bg-blue-100 bg-white'}`}
                     >
                       <Eye className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">View My Jobs</span>
@@ -635,14 +635,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   </div>
                   <Button
                     size="lg"
-                    className="w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    className={`w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ${theme === 'dark' ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                     onClick={handleGetStarted}
                   >
                     Get Full Access
                     <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 ml-2" />
                   </Button>
                 </div>
-                <p className="text-sm text-slate-400 mt-3 text-center">
+                <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'} mt-3 text-center`}>
                   Join 8+ professionals already using Recrutas
                 </p>
               </motion.div>
@@ -665,10 +665,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   >
                     <Star className="w-8 h-8 text-primary-foreground" />
                   </motion.div>
-                  <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                  <h3 className={`text-3xl font-bold ${theme === 'dark' ? 'bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent' : 'text-gray-900'} mb-2`}>
                     Full Platform Features
                   </h3>
-                  <p className="text-slate-300">
+                  <p className={`${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                     Everything you need for your job search journey
                   </p>
                 </div>
@@ -677,14 +677,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
+className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      <h4 className="font-semibold text-white">Real-Time Chat</h4>
+                      <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Real-Time Chat</h4>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                       Direct messaging with recruiters and hiring managers. Get instant responses and schedule interviews on the spot.
                     </p>
                   </motion.div>
@@ -693,13 +692,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
+                    className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      <h4 className="font-semibold text-white">Application Tracking</h4>
+                      <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Application Tracking</h4>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                       Monitor every application with real-time status updates, interview schedules, and feedback from employers.
                     </p>
                   </motion.div>
@@ -707,14 +706,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
+className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      <h4 className="font-semibold text-white">AI Job Recommendations</h4>
+                      <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>AI Job Recommendations</h4>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                       Advanced AI analyzes your profile and suggests perfect matches based on skills, experience, and career goals.
                     </p>
                   </motion.div>
@@ -723,13 +721,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
+                    className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Zap className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      <h4 className="font-semibold text-white">One-Tap Applications</h4>
+                      <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>One-Tap Applications</h4>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                       Apply to jobs instantly with your pre-filled profile. No more repetitive forms or lengthy application processes.
                     </p>
                   </motion.div>
@@ -738,13 +736,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
-                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
+                    className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Users className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                      <h4 className="font-semibold text-white">Profile Analytics</h4>
+                      <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Profile Analytics</h4>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                       See who viewed your profile, track application success rates, and get insights to improve your job search.
                     </p>
                   </motion.div>
@@ -753,13 +751,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
+                    className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                      <h4 className="font-semibold text-white">Smart Notifications</h4>
+                      <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Smart Notifications</h4>
                     </div>
-                    <p className="text-sm text-slate-300">
+                    <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                       Get notified instantly when new matching jobs are posted or when recruiters show interest in your profile.
                     </p>
                   </motion.div>
@@ -768,13 +766,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 <div className="mt-6 text-center">
                   <Button
                     size="lg"
-                    className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg"
+                    className={`px-8 py-4 text-lg font-medium text-white rounded-xl shadow-lg ${theme === 'dark' ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                     onClick={handleGetStarted}
                   >
                     Start Your Job Search Journey
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
-                  <p className="text-sm text-slate-400 mt-3">
+                  <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'} mt-3`}>
                     Free to join • Premium features available
                   </p>
                 </div>
