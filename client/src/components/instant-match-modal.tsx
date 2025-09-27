@@ -371,7 +371,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       <div className="flex flex-wrap gap-2 mt-2">
                         {['Software Engineer', 'Data Scientist', 'Product Manager', 'Designer', 'Marketing Manager', 'Sales Rep'].map((role: string) => (
                           <Badge
-className={`cursor-pointer ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
+                            key={role}
+                            variant="secondary"
+                            className={`cursor-pointer ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
                             onClick={() => {
                               if (!jobTitle.includes(role)) {
                                 setJobTitle(role);
@@ -615,8 +617,7 @@ className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 't
                     <Button 
                       onClick={handleViewFeatures}
                       variant="outline"
-                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                    >
+                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
                       <TrendingUp className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">See All Features</span>
                       <span className="sm:hidden">Features</span>
@@ -624,8 +625,7 @@ className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 't
                     <Button
                       onClick={onStartMatching}
                       variant="outline"  
-                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50' : 'border-blue-500 text-blue-600 hover:bg-blue-100 bg-white'}`}
-                    >
+                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50' : 'border-blue-500 text-blue-600 hover:bg-blue-100 bg-white'}`}>
                       <Eye className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">View My Jobs</span>
                       <span className="sm:hidden">My Jobs</span>
