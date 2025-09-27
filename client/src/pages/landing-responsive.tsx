@@ -42,8 +42,7 @@ export default function LandingResponsive() {
 
   const setRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'talent_owner') => {
-      const apiRole = role === 'talent_owner' ? 'recruiter' : role;
-      await apiRequest('POST', '/api/auth/role', { role: apiRole });
+      await apiRequest('POST', '/api/auth/role', { role });
     },
     onSuccess: () => {
       toast({
@@ -88,58 +87,9 @@ export default function LandingResponsive() {
     }
   };
 
-  // Show role selection for authenticated users without a role
   if (session && !session.user.user_metadata.role) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center p-4">
-        <div className="w-full max-w-4xl mx-auto">
-          <div className="text-center mb-8 md:mb-12">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4">
-              Welcome to Recrutas, {session.user.email || 'User'}!
-            </h1>
-            <p className="text-lg md:text-xl text-slate-300 mb-6 md:mb-8">
-              Please select your role to get started
-            </p>
-            
-
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
-            <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 bg-slate-800/50 border-slate-600/50 hover:border-blue-500/50"
-                  onClick={() => handleRoleSelection('candidate')}>
-              <CardContent className="p-6 md:p-8 text-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Search className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground" />
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Job Seeker</h3>
-                <p className="text-slate-300 mb-4 md:mb-6 leading-relaxed">
-                  Find your dream job with AI-powered matching. Get direct access to company career pages without recruiter interference.
-                </p>
-                <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
-                  Zero Recruiter Fees
-                </Badge>
-              </CardContent>
-            </Card>
-
-            <Card className="group cursor-pointer transition-all duration-300 hover:scale-105 bg-slate-800/50 border-slate-600/50 hover:border-purple-500/50"
-                  onClick={() => handleRoleSelection('talent_owner')}>
-              <CardContent className="p-6 md:p-8 text-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Building2 className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground" />
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">Talent Owner</h3>
-                <p className="text-slate-300 mb-4 md:mb-6 leading-relaxed">
-                  Post jobs and connect directly with candidates. Build your team without recruitment agencies.
-                </p>
-                <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
-                  Direct Hiring
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
+    setLocation("/role-selection");
+    return null;
   }
 
   return (

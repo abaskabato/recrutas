@@ -19,7 +19,7 @@ export default function AuthPage() {
       const userRole = session.user?.user_metadata?.role;
       if (userRole === 'candidate') {
         setLocation("/candidate-dashboard");
-      } else if (userRole === 'recruiter' || userRole === 'talent_owner') {
+      } else if (userRole === 'talent_owner') {
         setLocation("/talent-dashboard");
       } else {
         setLocation("/role-selection");

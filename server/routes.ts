@@ -1100,27 +1100,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  // Role selection endpoint
-  app.post('/api/auth/select-role', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const { role } = req.body;
-      
-      if (!role || !['candidate', 'talent_owner'].includes(role)) {
-        return res.status(400).json({ error: 'Invalid role' });
-      }
-      
-      await storage.updateUserRole(userId, role);
-      
-      res.json({
-        message: 'Role updated successfully',
-        role
-      });
-    } catch (error) {
-      console.error("Role selection error:", error);
-      res.status(500).json({ error: "Failed to update role" });
-    }
-  });
 
   // Generate exam questions based on job requirements
   async function generateExamQuestions(job: any) {

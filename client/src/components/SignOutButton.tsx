@@ -1,12 +1,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase-client';
+import { signOut } from '@/lib/auth-client';
 import { LogOut } from 'lucide-react';
 
-export function SignOutButton({ setLocation }: { setLocation: (path: string) => void }) {
+export function SignOutButton() {
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    setLocation('/');
+    await signOut();
   };
 
   return (
