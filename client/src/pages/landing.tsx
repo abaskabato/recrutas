@@ -514,6 +514,27 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Rejection Section */}
+      <section className="px-6 py-20">
+        <div className="container mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Tired of the same old story?
+            </h2>
+            <blockquote className="text-xl md:text-2xl text-slate-400 italic max-w-3xl mx-auto mb-8">
+              "After careful consideration, we’ve decided to move forward with another candidate for this opportunity."
+            </blockquote>
+            <p className="text-xl text-slate-300">
+              Recrutas is here to change that.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Job Samples Section */}
       <section className="px-6 py-20">
         <div className="container mx-auto">

@@ -239,40 +239,20 @@ export default function LandingResponsive() {
         </div>
       </section>
 
-      {/* Skills Input Section */}
-      {/* Skills Input Section */}
-      <section className="pb-20 md:pb-28 lg:pb-40">
+      {/* Rejection Section */}
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 md:mb-20">
+          <div className="text-center max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
-              Get Instant Matches
+              Tired of the same old story?
             </h2>
-            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-              Enter your skills to see a personalized feed of jobs that match your experience.
+            <blockquote className="text-lg sm:text-xl md:text-2xl text-slate-500 dark:text-slate-400 mb-8 md:mb-12 font-light italic">
+              "After careful consideration, we’ve decided to move forward with another candidate for this opportunity."
+            </blockquote>
+            <p className="text-xl md:text-2xl text-slate-600 dark:text-slate-300">
+              Recrutas is here to change that.
             </p>
           </div>
-            <div className="max-w-2xl mx-auto">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 lg:p-8 shadow-lg">
-                <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                  <Input
-                    placeholder="Enter your skills to see instant matches..."
-                    className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white/70 dark:focus:bg-gray-800/70"
-                    value={quickSkills}
-                    onChange={(e) => setQuickSkills(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
-                  />
-                  <Button 
-                    size="lg"
-                    className="px-6 md:px-8 py-3 md:py-4 bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 rounded-xl text-base md:text-lg font-medium min-w-[120px] whitespace-nowrap"
-                    onClick={handleQuickMatch}
-                    disabled={!quickSkills.trim()}
-                  >
-                    <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-2" />
-                    Match Jobs
-                  </Button>
-                </div>
-              </div>
-            </div>
         </div>
       </section>
 
@@ -322,8 +302,6 @@ export default function LandingResponsive() {
         </div>
       </section>
 
-      
-
       {/* Features Section */}
       <section className="py-16 md:py-24 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -370,7 +348,41 @@ export default function LandingResponsive() {
         </div>
       </section>
 
-      
+      {/* Skills Input Section */}
+      <section className="pb-20 md:pb-28 lg:pb-40">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 md:mb-20">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
+              Get Instant Matches
+            </h2>
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
+              Enter your skills to see a personalized feed of jobs that match your experience.
+            </p>
+          </div>
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 lg:p-8 shadow-lg">
+                <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+                  <Input
+                    placeholder="Enter your skills to see instant matches..."
+                    className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white/70 dark:focus:bg-gray-800/70"
+                    value={quickSkills}
+                    onChange={(e) => setQuickSkills(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleQuickMatch()}
+                  />
+                  <Button 
+                    size="lg"
+                    className="px-6 md:px-8 py-3 md:py-4 bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 rounded-xl text-base md:text-lg font-medium min-w-[120px] whitespace-nowrap"
+                    onClick={handleQuickMatch}
+                    disabled={!quickSkills.trim()}
+                  >
+                    <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                    Match Jobs
+                  </Button>
+                </div>
+              </div>
+            </div>
+        </div>
+      </section>
 
       {/* Community Section */}
       <section className="py-16 md:py-24">
