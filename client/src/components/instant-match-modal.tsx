@@ -15,30 +15,30 @@ const JobCard = ({ job, index, onApply, onLike, onChat, isLiked }) => (
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay: index * 0.1 + 0.3 }}
-    className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
+    className="bg-slate-800/50 border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 cursor-pointer backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl"
   >
     <div className="flex items-start justify-between">
       <div className="flex items-start space-x-4">
-        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-          <Building className="w-6 h-6 text-gray-400" />
+        <div className="w-12 h-12 bg-slate-700/50 rounded-lg flex items-center justify-center">
+          <Building className="w-6 h-6 text-slate-400" />
         </div>
         <div>
-          <h4 className="text-lg font-bold text-gray-900 dark:text-white">{job.job?.title || job.title}</h4>
-          <p className="text-sm text-gray-600 dark:text-gray-300">{job.job?.company || job.company}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{job.job?.location || job.location || 'Remote'}</p>
+          <h4 className="text-lg font-bold text-white">{job.job?.title || job.title}</h4>
+          <p className="text-sm text-slate-300">{job.job?.company || job.company}</p>
+          <p className="text-xs text-slate-400 mt-1">{job.job?.location || job.location || 'Remote'}</p>
         </div>
       </div>
       <div className="text-right">
         <div className="flex items-center justify-end space-x-2">
-          <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700">
+          <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30">
             <Star className="w-3 h-3 mr-1" />
             {job.matchScore || job.match || '90%'}
           </Badge>
           <Button size="icon" variant="ghost" onClick={() => onLike(job.id)}>
-            <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
+            <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : 'text-slate-400'}`} />
           </Button>
         </div>
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-2">
+        <p className="text-sm font-semibold text-slate-200 mt-2">
           {job.job?.salaryMin && job.job?.salaryMax
             ? `${job.job.salaryMin / 1000}k-${job.job.salaryMax / 1000}k`
             : job.salary || '$80k-120k'}
@@ -68,30 +68,30 @@ const JobCard = ({ job, index, onApply, onLike, onChat, isLiked }) => (
 );
 
 const JobCardSkeleton = () => (
-  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
+  <div className="bg-slate-800/50 border-slate-700/50 rounded-2xl p-6 shadow-lg">
     <div className="flex items-start justify-between">
       <div className="flex items-start space-x-4">
-        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        <div className="w-12 h-12 bg-slate-700/50 rounded-lg animate-pulse"></div>
         <div className="space-y-2">
-          <div className="w-48 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div className="w-32 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-          <div className="w-24 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-1"></div>
+          <div className="w-48 h-4 bg-slate-700/50 rounded animate-pulse"></div>
+          <div className="w-32 h-3 bg-slate-700/50 rounded animate-pulse"></div>
+          <div className="w-24 h-3 bg-slate-700/50 rounded animate-pulse mt-1"></div>
         </div>
       </div>
       <div className="text-right space-y-2">
-        <div className="w-20 h-6 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-        <div className="w-24 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+        <div className="w-20 h-6 bg-slate-700/50 rounded-full animate-pulse"></div>
+        <div className="w-24 h-4 bg-slate-700/50 rounded animate-pulse"></div>
       </div>
     </div>
     <div className="mt-4 flex items-center justify-between">
       <div className="flex flex-wrap gap-1">
-        <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-        <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-        <div className="w-12 h-4 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+        <div className="w-16 h-4 bg-slate-700/50 rounded-full animate-pulse"></div>
+        <div className="w-20 h-4 bg-slate-700/50 rounded-full animate-pulse"></div>
+        <div className="w-12 h-4 bg-slate-700/50 rounded-full animate-pulse"></div>
       </div>
       <div className="flex items-center space-x-2">
-        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-        <div className="w-20 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+        <div className="w-20 h-8 bg-slate-700/50 rounded-lg animate-pulse"></div>
+        <div className="w-20 h-8 bg-slate-700/50 rounded-lg animate-pulse"></div>
       </div>
     </div>
   </div>
@@ -283,7 +283,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-full max-h-[95vh] p-0 border-0 bg-gradient-to-br from-white/95 via-blue-50/90 to-indigo-100/95 dark:from-gray-900/95 dark:via-blue-950/90 dark:to-indigo-950/95 backdrop-blur-2xl shadow-2xl flex flex-col">
+      <DialogContent className="p-0 border-0 bg-gradient-to-br from-slate-950 via-blue-950 to-purple-900 backdrop-blur-2xl shadow-2xl flex flex-col">
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">Find your perfect job match in 30 seconds with AI-powered recommendations</DialogDescription>
         
@@ -320,15 +320,15 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 exit={{ opacity: 0, y: -20 }}
                 className="p-8 text-center"
               >
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                <h2 className="text-3xl font-bold text-white mb-4">
                   Welcome to Recrutas
                 </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+                <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
                   Find real jobs, talk to real people, and get hired—on your terms
                 </p>
                 <Button
                   size="lg"
-                  className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl shadow-lg"
+                  className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg"
                   onClick={() => setStep('skills')}
                 >
                   <Sparkles className="w-5 h-5 mr-2" />
@@ -346,25 +346,24 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 className="p-8"
               >
                 <div className="max-w-3xl mx-auto">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2 text-center">
                     Find Your Perfect Match
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
+                  <p className="text-slate-300 mb-6 text-center">
                     Tell us what you're looking for
                   </p>
                   
                   <div className="space-y-6">
                     {/* Job Title */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <Briefcase className="w-4 h-4 inline mr-1" />
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
                         Job Title / Role
                       </label>
                       <Input
                         placeholder="Software Engineer, Data Scientist, Product Manager..."
                         value={jobTitle}
                         onChange={(e) => setJobTitle(e.target.value)}
-                        className="text-lg p-4 rounded-xl border-2"
+                        className="text-lg p-4 rounded-xl border-2 bg-slate-800/50 border-slate-700/50 text-white"
                         autoFocus
                       />
                       <div className="flex flex-wrap gap-2 mt-2">
@@ -372,7 +371,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <Badge
                             key={role}
                             variant="secondary"
-                            className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
+                            className="cursor-pointer bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50"
                             onClick={() => {
                               if (!jobTitle.includes(role)) {
                                 setJobTitle(role);
@@ -387,15 +386,15 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                     {/* Skills and Resume Upload */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
                         Skills & Technologies
                       </label>
                       
                       {/* Resume Upload Option */}
-                      <div className="mb-4 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                      <div className="mb-4 p-4 border-2 border-dashed border-slate-700/50 rounded-xl bg-slate-800/50">
                         <div className="text-center">
-                          <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                          <p className="text-sm text-slate-300 mb-3">
                             Upload your resume for automatic skill extraction
                           </p>
                           
@@ -414,7 +413,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               size="sm"
                               onClick={() => fileInputRef.current?.click()}
                               disabled={resumeUploading}
-                              className="flex items-center gap-2"
+                              className="flex items-center gap-2 bg-slate-700/50 border-slate-600/50 text-white hover:bg-slate-600/50"
                             >
                               {resumeUploading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -424,14 +423,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               {resumeUploading ? 'Processing...' : 'Upload Resume'}
                             </Button>
                           ) : (
-                            <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
+                            <div className="flex items-center justify-center gap-2 text-green-400">
                               <CheckCircle className="w-4 h-4" />
                               <span className="text-sm">Resume processed successfully</span>
                             </div>
                           )}
                           
                           {resumeFile && (
-                            <p className="text-xs text-gray-500 mt-2">
+                            <p className="text-xs text-slate-400 mt-2">
                               {resumeFile.name}
                             </p>
                           )}
@@ -443,13 +442,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                         placeholder="React, Python, Marketing... or upload resume above"
                         value={skills}
                         onChange={(e) => setSkills(e.target.value)}
-                        className="text-lg p-4 rounded-xl border-2"
+                        className="text-lg p-4 rounded-xl border-2 bg-slate-800/50 border-slate-700/50 text-white"
                       />
                       
                       {/* Extracted Skills Display */}
                       {extractedSkills.length > 0 && (
-                        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                          <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                        <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
+                          <p className="text-sm text-blue-300 mb-2">
                             Skills extracted from resume:
                           </p>
                           <div className="flex flex-wrap gap-1">
@@ -457,7 +456,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               <Badge
                                 key={skill}
                                 variant="secondary"
-                                className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200"
+                                className="bg-blue-500/20 text-blue-300 border-blue-400/30"
                               >
                                 {skill}
                               </Badge>
@@ -471,7 +470,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <Badge
                             key={skill}
                             variant="secondary"
-                            className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
+                            className="cursor-pointer bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50"
                             onClick={() => {
                               if (!skills.includes(skill)) {
                                 setSkills(prev => prev ? `${prev}, ${skill}` : skill);
@@ -488,7 +487,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Location */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
                           <MapPin className="w-4 h-4 inline mr-1" />
                           Location
                         </label>
@@ -496,20 +495,20 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           placeholder="New York, Remote..."
                           value={location}
                           onChange={(e) => setLocation(e.target.value)}
-                          className="p-3 rounded-lg"
+                          className="p-3 rounded-lg bg-slate-800/50 border-slate-700/50 text-white"
                         />
                       </div>
 
                       {/* Work Type */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
                           <Briefcase className="w-4 h-4 inline mr-1" />
                           Work Type
                         </label>
                         <select
                           value={workType}
                           onChange={(e) => setWorkType(e.target.value as any)}
-                          className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                          className="w-full p-3 rounded-lg border border-slate-700/50 bg-slate-800/50 text-white"
                         >
                           <option value="any">Any</option>
                           <option value="remote">Remote</option>
@@ -520,7 +519,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                       {/* Salary */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
                           <DollarSign className="w-4 h-4 inline mr-1" />
                           Min Salary
                         </label>
@@ -528,7 +527,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <select
                             value={salaryType}
                             onChange={(e) => setSalaryType(e.target.value as any)}
-                            className="p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                            className="p-3 rounded-lg border border-slate-700/50 bg-slate-800/50 text-white"
                           >
                             <option value="annual">Annual</option>
                             <option value="hourly">Hourly</option>
@@ -537,7 +536,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                             placeholder={salaryType === 'hourly' ? '$25' : '$50k'}
                             value={minSalary}
                             onChange={(e) => setMinSalary(e.target.value)}
-                            className="p-3 rounded-lg flex-1"
+                            className="p-3 rounded-lg flex-1 bg-slate-800/50 border-slate-700/50 text-white"
                           />
                         </div>
                       </div>
@@ -545,7 +544,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
                     <Button
                       size="lg"
-                      className="w-full py-4 text-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl"
+                      className="w-full py-4 text-lg font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl"
                       onClick={handleSkillsSubmit}
                       disabled={!skills.trim()}
                     >
@@ -574,14 +573,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   >
                     <Sparkles className="w-8 h-8 text-primary-foreground" />
                   </motion.div>
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
                     {jobsLoading ? "Finding Matches..." : `${jobsToShow.length} Jobs Found`}
                   </h3>
                   {jobsLoading && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 mt-2"
+                      className="flex items-center justify-center gap-2 text-blue-400 mt-2"
                     >
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm">Searching...</span>
@@ -594,7 +593,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={i} />)
                   ) : jobsToShow.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-600 dark:text-gray-300">
+<p className="text-slate-300">
                         No jobs found matching "{skills}". Try different skills.
                       </p>
                     </div>
@@ -618,7 +617,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <Button 
                       onClick={handleViewFeatures}
                       variant="outline"
-                      className="flex-1 sm:flex-none py-3 text-sm font-medium bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg"
+                      className="flex-1 sm:flex-none py-3 text-sm font-medium bg-slate-800/50 border-slate-700/50 text-white backdrop-blur-lg"
                     >
                       <TrendingUp className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">See All Features</span>
@@ -627,7 +626,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <Button
                       onClick={onStartMatching}
                       variant="outline"  
-                      className="flex-1 sm:flex-none py-3 text-sm font-medium border-blue-200 text-blue-700 hover:bg-blue-50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg"
+                      className="flex-1 sm:flex-none py-3 text-sm font-medium border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50 backdrop-blur-lg"
                     >
                       <Eye className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">View My Jobs</span>
@@ -636,14 +635,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   </div>
                   <Button
                     size="lg"
-                    className="w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="w-full sm:flex-1 px-6 sm:px-8 py-3 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                     onClick={handleGetStarted}
                   >
                     Get Full Access
                     <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 ml-2" />
                   </Button>
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
+                <p className="text-sm text-slate-400 mt-3 text-center">
                   Join 8+ professionals already using Recrutas
                 </p>
               </motion.div>
@@ -666,10 +665,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   >
                     <Star className="w-8 h-8 text-primary-foreground" />
                   </motion.div>
-                  <h3 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+                  <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
                     Full Platform Features
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300">
+                  <p className="text-slate-300">
                     Everything you need for your job search journey
                   </p>
                 </div>
@@ -679,13 +678,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700"
+                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      <h4 className="font-semibold text-gray-900 dark:text-white">Real-Time Chat</h4>
+                      <h4 className="font-semibold text-white">Real-Time Chat</h4>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-slate-300">
                       Direct messaging with recruiters and hiring managers. Get instant responses and schedule interviews on the spot.
                     </p>
                   </motion.div>
@@ -694,13 +693,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700"
+                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      <h4 className="font-semibold text-gray-900 dark:text-white">Application Tracking</h4>
+                      <h4 className="font-semibold text-white">Application Tracking</h4>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-slate-300">
                       Monitor every application with real-time status updates, interview schedules, and feedback from employers.
                     </p>
                   </motion.div>
@@ -709,13 +708,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-700"
+                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      <h4 className="font-semibold text-gray-900 dark:text-white">AI Job Recommendations</h4>
+                      <h4 className="font-semibold text-white">AI Job Recommendations</h4>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-slate-300">
                       Advanced AI analyzes your profile and suggests perfect matches based on skills, experience, and career goals.
                     </p>
                   </motion.div>
@@ -724,13 +723,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className="p-4 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border border-orange-200 dark:border-orange-700"
+                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Zap className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      <h4 className="font-semibold text-gray-900 dark:text-white">One-Tap Applications</h4>
+                      <h4 className="font-semibold text-white">One-Tap Applications</h4>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-slate-300">
                       Apply to jobs instantly with your pre-filled profile. No more repetitive forms or lengthy application processes.
                     </p>
                   </motion.div>
@@ -739,13 +738,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
-                    className="p-4 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-lg border border-teal-200 dark:border-teal-700"
+                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Users className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                      <h4 className="font-semibold text-gray-900 dark:text-white">Profile Analytics</h4>
+                      <h4 className="font-semibold text-white">Profile Analytics</h4>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-slate-300">
                       See who viewed your profile, track application success rates, and get insights to improve your job search.
                     </p>
                   </motion.div>
@@ -754,13 +753,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="p-4 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700"
+                    className="p-4 bg-slate-800/50 border-slate-700/50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                      <h4 className="font-semibold text-gray-900 dark:text-white">Smart Notifications</h4>
+                      <h4 className="font-semibold text-white">Smart Notifications</h4>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-slate-300">
                       Get notified instantly when new matching jobs are posted or when recruiters show interest in your profile.
                     </p>
                   </motion.div>
@@ -769,13 +768,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 <div className="mt-6 text-center">
                   <Button
                     size="lg"
-                    className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl shadow-lg"
+                    className="px-8 py-4 text-lg font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl shadow-lg"
                     onClick={handleGetStarted}
                   >
                     Start Your Job Search Journey
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
+                  <p className="text-sm text-slate-400 mt-3">
                     Free to join • Premium features available
                   </p>
                 </div>
