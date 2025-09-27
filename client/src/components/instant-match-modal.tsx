@@ -285,14 +285,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`p-0 border-0 ${theme === 'dark' ? 'bg-gradient-to-br from-slate-950 via-blue-950 to-purple-900' : 'bg-white'} backdrop-blur-2xl shadow-2xl flex flex-col`}>
+      <DialogContent className={`p-0 border-0 ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'} backdrop-blur-2xl shadow-2xl flex flex-col`}>
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">Find your perfect job match in 30 seconds with AI-powered recommendations</DialogDescription>
         
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/20 to-cyan-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/10 to-purple-600/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/10 to-cyan-600/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-purple-400/10 to-pink-600/10 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
 
@@ -489,7 +489,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Location */}
                       <div>
-className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}
+                        <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
+                          <MapPin className="w-4 h-4 inline mr-1" />
+                          Location
+                        </label>
                         <Input
                           placeholder="New York, Remote..."
                           value={location}
@@ -592,7 +595,7 @@ className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 't
                     Array.from({ length: 3 }).map((_, i) => <JobCardSkeleton key={i} theme={theme} />)
                   ) : jobsToShow.length === 0 ? (
                     <div className="text-center py-8">
-<p className={`${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}">
+<p className={`${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
                         No jobs found matching "{skills}". Try different skills.
                       </p>
                     </div>
@@ -617,7 +620,8 @@ className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 't
                     <Button 
                       onClick={handleViewFeatures}
                       variant="outline"
-                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
+                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                    >
                       <TrendingUp className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">See All Features</span>
                       <span className="sm:hidden">Features</span>
@@ -625,7 +629,8 @@ className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 't
                     <Button
                       onClick={onStartMatching}
                       variant="outline"  
-                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50' : 'border-blue-500 text-blue-600 hover:bg-blue-100 bg-white'}`}>
+                      className={`flex-1 sm:flex-none py-3 text-sm font-medium backdrop-blur-lg ${theme === 'dark' ? 'border-blue-500/50 text-blue-300 hover:bg-blue-500/20 bg-slate-800/50' : 'border-blue-500 text-blue-600 hover:bg-blue-100 bg-white'}`}
+                    >
                       <Eye className="w-4 h-4 mr-1 sm:mr-2" />
                       <span className="hidden sm:inline">View My Jobs</span>
                       <span className="sm:hidden">My Jobs</span>
@@ -675,7 +680,8 @@ className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 't
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
+                    transition={{ delay: 0.1 }}
+                    className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -704,7 +710,8 @@ className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-70
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
+                    transition={{ delay: 0.3 }}
+                    className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'}`}
                   >
                     <div className="flex items-center space-x-3 mb-2">
                       <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
