@@ -39,7 +39,7 @@ const JobCard = ({ job, index, onApply, onLike, onChat, isLiked, theme }) => (
             <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : theme === 'dark' ? 'text-slate-400' : 'text-gray-400'}`} />
           </Button>
         </div>
-        <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-200' : 'text-gray-800'} mt-2">
+        <p className={`text-sm font-semibold ${theme === 'dark' ? 'text-slate-200' : 'text-gray-800'} mt-2`}>
           {job.job?.salaryMin && job.job?.salaryMax
             ? `${job.job.salaryMin / 1000}k-${job.job.salaryMax / 1000}k`
             : job.salary || '$80k-120k'}
@@ -371,9 +371,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       <div className="flex flex-wrap gap-2 mt-2">
                         {['Software Engineer', 'Data Scientist', 'Product Manager', 'Designer', 'Marketing Manager', 'Sales Rep'].map((role: string) => (
                           <Badge
-                            key={role}
-                            variant="secondary"
-                            className="cursor-pointer bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50"
+className={`cursor-pointer ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
                             onClick={() => {
                               if (!jobTitle.includes(role)) {
                                 setJobTitle(role);
@@ -393,10 +391,10 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       </label>
                       
                       {/* Resume Upload Option */}
-                      <div className="mb-4 p-4 border-2 border-dashed border-slate-700/50 rounded-xl bg-slate-800/50">
+                      <div className={`mb-4 p-4 border-2 border-dashed rounded-xl ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50' : 'border-gray-300 bg-gray-50'}`}>
                         <div className="text-center">
-                          <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                          <p className="text-sm text-slate-300 mb-3">
+                          <FileText className={`w-8 h-8 mx-auto mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-400'}`} />
+                          <p className={`text-sm ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'} mb-3`}>
                             Upload your resume for automatic skill extraction
                           </p>
                           
@@ -415,7 +413,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               size="sm"
                               onClick={() => fileInputRef.current?.click()}
                               disabled={resumeUploading}
-                              className="flex items-center gap-2 bg-slate-700/50 border-slate-600/50 text-white hover:bg-slate-600/50"
+                              className={`flex items-center gap-2 ${theme === 'dark' ? 'bg-slate-700/50 border-slate-600/50 text-white hover:bg-slate-600/50' : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-100'}`}
                             >
                               {resumeUploading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -425,14 +423,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               {resumeUploading ? 'Processing...' : 'Upload Resume'}
                             </Button>
                           ) : (
-                            <div className="flex items-center justify-center gap-2 text-green-400">
+                            <div className={`flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-green-400' : 'text-green-600'}`}>
                               <CheckCircle className="w-4 h-4" />
                               <span className="text-sm">Resume processed successfully</span>
                             </div>
                           )}
                           
                           {resumeFile && (
-                            <p className="text-xs text-slate-400 mt-2">
+                            <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'} mt-2`}>
                               {resumeFile.name}
                             </p>
                           )}
@@ -449,8 +447,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       
                       {/* Extracted Skills Display */}
                       {extractedSkills.length > 0 && (
-                        <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                          <p className="text-sm text-blue-300 mb-2">
+                        <div className={`mt-3 p-3 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-blue-50'}`}>
+                          <p className={`text-sm ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'} mb-2`}>
                             Skills extracted from resume:
                           </p>
                           <div className="flex flex-wrap gap-1">
@@ -458,7 +456,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                               <Badge
                                 key={skill}
                                 variant="secondary"
-                                className="bg-blue-500/20 text-blue-300 border-blue-400/30"
+                                className={`bg-blue-500/20 text-blue-300 border-blue-400/30 ${theme === 'dark' ? '' : 'bg-blue-100 text-blue-800'}`}
                               >
                                 {skill}
                               </Badge>
@@ -472,7 +470,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           <Badge
                             key={skill}
                             variant="secondary"
-                            className="cursor-pointer bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50"
+                            className={`cursor-pointer ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
                             onClick={() => {
                               if (!skills.includes(skill)) {
                                 setSkills(prev => prev ? `${prev}, ${skill}` : skill);
