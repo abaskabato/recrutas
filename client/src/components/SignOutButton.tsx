@@ -6,7 +6,7 @@ import { LogOut } from 'lucide-react';
 export function SignOutButton({ setLocation }: { setLocation: (path: string) => void }) {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setLocation('/auth');
+    setLocation('/');
   };
 
   return (
