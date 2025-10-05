@@ -1,5 +1,3 @@
-
-
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -42,7 +40,7 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+async function startServer() {
   await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -71,4 +69,8 @@ app.use((req, res, next) => {
   }, () => {
     
   });
-})();
+}
+
+startServer();
+
+export default app;
