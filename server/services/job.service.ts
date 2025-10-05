@@ -8,7 +8,8 @@
  * - External job aggregation coordination
  */
 
-import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, ilike, inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm/sql";
 import { db } from "../db";
 import { 
   jobPostings, 
@@ -212,7 +213,7 @@ export class JobService {
     // Total and active jobs
     const [jobCounts] = await db
       .select({
-        total: sql<number>`count(*)`,
+        total: sql<number>`count(*)`, 
         active: sql<number>`count(*) filter (where status = 'active')`,
         recent: sql<number>`count(*) filter (where created_at >= now() - interval '7 days')`,
       })
@@ -222,7 +223,7 @@ export class JobService {
     const topCompanies = await db
       .select({
         company: jobPostings.company,
-        count: sql<number>`count(*)`,
+        count: sql<number>`count(*)`, 
       })
       .from(jobPostings)
       .where(eq(jobPostings.status, 'active'))

@@ -1,24 +1,3 @@
-/**
- * Storage Layer for Recrutas Platform
- * 
- * This module provides a comprehensive data access layer implementing the Repository pattern.
- * It handles all database interactions while maintaining clean separation between
- * business logic and data persistence.
- * 
- * Key Features:
- * - Type-safe database operations using Drizzle ORM
- * - Comprehensive CRUD operations for all entities
- * - Advanced querying with filtering and pagination
- * - Transaction support for complex operations
- * - Error handling and data validation
- * 
- * Architecture:
- * - IStorage interface defines the contract
- * - DatabaseStorage implements the interface
- * - All methods are async and return Promise-based results
- * - Uses dependency injection pattern for testability
- */
-
 import { 
   users, 
   candidateProfiles, 
@@ -35,8 +14,8 @@ import {
   companies,
   type User,
   type UpsertUser,
-  type CandidateUser,
-  type InsertCandidateUser,
+  type CandidateProfile as CandidateUser,
+  type InsertCandidateProfile as InsertCandidateUser,
   type JobPosting,
   type InsertJobPosting,
   type JobMatch,
@@ -51,17 +30,10 @@ import {
 import { db } from "./db";
 import { eq, desc, and, or } from "drizzle-orm";
 
-/**
- * Storage Interface Definition
- * 
- * Defines the contract for all data access operations across the platform.
- * This interface ensures consistency and enables easy testing through mocking.
- */
 export interface IStorage {
-  // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-    updateUserInfo(userId: string, userInfo: any): Promise<any>;
+  updateUserInfo(userId: string, userInfo: any): Promise<any>;
   getApplicationsForTalent(talentId: string): Promise<any[]>;
   updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
   storeExamResult(result: any): Promise<any>;
@@ -74,65 +46,37 @@ export interface IStorage {
   getApplicationById(applicationId: number): Promise<any>;
   updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User>;
   createCompany(companyData: any): Promise<any>;
-  
-  // Candidate operations
   getCandidateUser(userId: string): Promise<CandidateUser | undefined>;
   upsertCandidateUser(profile: InsertCandidateUser): Promise<CandidateUser>;
-  getAllCandidateUsers(): Promise<CandidateUser[]>;
-  
-  // Job operations
+  getAllCandidateProfiles(): Promise<CandidateUser[]>;
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
   deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
-  
-  
-  // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
   getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]>;
   getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateUser?: CandidateUser })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
   clearJobMatches(jobId: number): Promise<void>;
-  
-  // Exam operations
   createJobExam(exam: any): Promise<any>;
   getJobExam(jobId: number): Promise<any>;
   createExamAttempt(attempt: any): Promise<any>;
   updateExamAttempt(attemptId: number, data: any): Promise<any>;
   getExamAttempts(jobId: number): Promise<any[]>;
   rankCandidatesByExamScore(jobId: number): Promise<void>;
-  
-  // Chat operations (controlled by exam performance)
   createChatRoom(data: any): Promise<ChatRoom>;
   getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined>;
   getChatMessages(chatRoomId: number): Promise<(ChatMessage & { sender: User })[]>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]>;
   grantChatAccess(jobId: number, candidateId: string, examAttemptId: number, ranking: number): Promise<ChatRoom>;
-  
-  // Activity operations
   createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog>;
   getActivityLogs(userId: string, limit?: number): Promise<ActivityLog[]>;
-  
-  // Application tracking operations
   getApplicationsWithStatus(candidateId: string): Promise<any[]>;
   updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any>;
   getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any>;
   createJobApplication(application: any): Promise<any>;
-  getApplicationById(applicationId: number): Promise<any>;
-  
-  // Application Intelligence operations (Revolutionary feedback system)
-  createApplicationEvent(event: any): Promise<any>;
-  getApplicationEvents(applicationId: number): Promise<any[]>;
-  getApplicationInsights(applicationId: number): Promise<any>;
-  createApplicationInsights(insights: any): Promise<any>;
-  updateApplicationIntelligence(applicationId: string, updates: any): Promise<any>;
-  getApplicationsForTalent(talentId: string): Promise<any[]>;
-  updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
-  storeExamResult(result: any): Promise<any>;
-  
-  // Statistics
   getCandidateStats(candidateId: string): Promise<{
     totalApplications: number;
     activeMatches: number;
@@ -148,34 +92,20 @@ export interface IStorage {
     hires: number;
   }>;
   getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]>;
-  
-  // Notification preferences
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
-  
-  // Notification operations
   getNotifications(userId: string): Promise<any[]>;
   markNotificationAsRead(notificationId: number, userId: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
   createNotification(notification: any): Promise<any>;
-  
-  // Enhanced candidate operations
   getApplicationsForCandidate(candidateId: string): Promise<any[]>;
   getActivityForCandidate(candidateId: string): Promise<any[]>;
-  
-  
+  getCandidateProfile(userId: string): Promise<any>;
+  upsertCandidateProfile(profile: any): Promise<any>;
+  createOrUpdateCandidateProfile(profile: any): Promise<any>;
 }
 
-/**
- * Database Storage Implementation
- * 
- * Implements the IStorage interface using Drizzle ORM for PostgreSQL.
- * Provides production-ready data access with proper error handling,
- * transaction support, and optimized queries.
- */
 export class DatabaseStorage implements IStorage {
-  
-  // User operations (required for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
     try {
       const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -234,7 +164,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Candidate operations
   async getCandidateUser(userId: string): Promise<CandidateUser | undefined> {
     try {
       const [profile] = await db
@@ -273,7 +202,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAllCandidateUsers(): Promise<CandidateUser[]> {
+  async getAllCandidateProfiles(): Promise<CandidateUser[]> {
     try {
       return await db.select().from(candidateProfiles);
     } catch (error) {
@@ -292,7 +221,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Job operations
   async createJobPosting(job: InsertJobPosting): Promise<JobPosting> {
     try {
       const [result] = await db.insert(jobPostings).values({
@@ -311,7 +239,6 @@ export class DatabaseStorage implements IStorage {
   async getJobPostings(talentOwnerId: string): Promise<JobPosting[]> {
     try {
       if (!talentOwnerId) {
-        // Return all job postings if no specific owner requested
         return await db
           .select()
           .from(jobPostings)
@@ -366,9 +293,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  
-
-  // Matching operations
   async createJobMatch(match: InsertJobMatch): Promise<JobMatch> {
     try {
       const [result] = await db.insert(jobMatches).values({
@@ -387,7 +311,6 @@ export class DatabaseStorage implements IStorage {
     try {
       const results = await db
         .select({
-          // Job match fields
           id: jobMatches.id,
           jobId: jobMatches.jobId,
           candidateId: jobMatches.candidateId,
@@ -403,7 +326,6 @@ export class DatabaseStorage implements IStorage {
           feedbackReason: jobMatches.feedbackReason,
           viewedAt: jobMatches.viewedAt,
           appliedAt: jobMatches.appliedAt,
-          // Job fields
           job: {
             id: jobPostings.id,
             title: jobPostings.title,
@@ -420,7 +342,6 @@ export class DatabaseStorage implements IStorage {
             examPassingScore: jobPostings.examPassingScore,
             talentOwnerId: jobPostings.talentOwnerId
           },
-          // Talent owner fields
           talentOwner: {
             id: users.id,
             firstName: users.firstName,
@@ -508,7 +429,6 @@ export class DatabaseStorage implements IStorage {
 
   async storeExamResult(result: any): Promise<void> {
     try {
-      // First get the exam ID for this job
       const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
       if (!exam) {
         throw new Error('No exam found for this job');
@@ -525,7 +445,7 @@ export class DatabaseStorage implements IStorage {
         answers: result.answers,
         status: 'completed',
         passedExam: result.score >= (exam.passingScore || 70),
-        qualifiedForChat: false, // Will be set during ranking
+        qualifiedForChat: false,
         completedAt: new Date(),
       });
     } catch (error) {
@@ -534,7 +454,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Chat operations
   async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
     try {
       const [result] = await db.insert(chatMessages).values(message).returning();
@@ -559,7 +478,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Activity operations
   async createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog> {
     try {
       const [result] = await db
@@ -587,7 +505,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Statistics and analytics
   async getCandidateStats(candidateId: string): Promise<{
     totalApplications: number;
     activeMatches: number;
@@ -610,9 +527,9 @@ export class DatabaseStorage implements IStorage {
       return {
         totalApplications: applications.length,
         activeMatches: matches.filter(m => m.status === 'pending' || m.status === 'viewed').length,
-        profileViews: 0, // Would need to implement view tracking
-        profileStrength: 75, // Would calculate based on profile completeness
-        responseRate: 0.8, // Would calculate from actual data
+        profileViews: 0, 
+        profileStrength: 75, 
+        responseRate: 0.8, 
         avgMatchScore: matches.reduce((acc, m) => acc + parseFloat(m.matchScore || '0'), 0) / matches.length || 0
       };
     } catch (error) {
@@ -642,8 +559,8 @@ export class DatabaseStorage implements IStorage {
       return {
         activeJobs: jobs.filter(j => j.status === 'active').length,
         totalMatches: matches.length,
-        activeChats: 0, // Would count active chat rooms
-        hires: 0 // Would count hired candidates
+        activeChats: 0, 
+        hires: 0 
       };
     } catch (error) {
       console.error('Error fetching recruiter stats:', error);
@@ -672,7 +589,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Application operations
   async getApplicationsWithStatus(candidateId: string): Promise<any[]> {
     try {
       return await db
@@ -747,7 +663,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Notification operations
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
     try {
       const [prefs] = await db
@@ -827,7 +742,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Exam operations
   async createJobExam(exam: any): Promise<any> {
     try {
       const [result] = await db.insert(jobExams).values(exam).returning();
@@ -890,7 +804,6 @@ export class DatabaseStorage implements IStorage {
         ))
         .orderBy(desc(examAttempts.score));
 
-      // Update rankings and grant chat access to top candidates
       for (let i = 0; i < attempts.length; i++) {
         const ranking = i + 1;
         const qualifiedForChat = ranking <= job.maxChatCandidates;
@@ -904,7 +817,6 @@ export class DatabaseStorage implements IStorage {
           })
           .where(eq(examAttempts.id, attempts[i].id));
 
-        // Grant chat access to top candidates
         if (qualifiedForChat && job.hiringManagerId) {
           await this.grantChatAccess(jobId, attempts[i].candidateId, attempts[i].id, ranking);
         }
@@ -915,7 +827,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Chat room operations
   async getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined> {
     try {
       const [room] = await db
@@ -1000,7 +911,6 @@ export class DatabaseStorage implements IStorage {
         ranking
       });
 
-      // Create notification for chat access
       await this.createNotification({
         userId: candidateId,
         type: 'chat_access_granted',
@@ -1029,7 +939,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Enhanced candidate operations
   async getApplicationsForCandidate(candidateId: string): Promise<any[]> {
     try {
       return await db
@@ -1057,16 +966,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  
-
-  
-
   async getAvailableNotificationUsers(): Promise<string[]> {
     const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
     return result.map(r => r.userId);
   }
 
-  // Application Intelligence operations (Revolutionary feedback system)
   async getApplicationById(applicationId: number): Promise<any> {
     try {
       const [application] = await db
@@ -1087,187 +991,6 @@ export class DatabaseStorage implements IStorage {
 
   async createApplicationEvent(event: any): Promise<any> {
     try {
-      // Import the applicationEvents table from schema
-      const { applicationEvents } = await import("@shared/schema");
-      
-      const [result] = await db.insert(applicationEvents).values({
-        applicationId: event.applicationId,
-        eventType: event.eventType,
-        actorRole: event.actorRole,
-        actorName: event.actorName,
-        actorTitle: event.actorTitle,
-        viewDuration: event.viewDuration,
-        candidateScore: event.candidateScore,
-        candidateRanking: event.candidateRanking,
-        totalApplicants: event.totalApplicants,
-        feedback: event.feedback,
-        nextSteps: event.nextSteps,
-        competitorUser: event.competitorUser,
-        visible: event.visible ?? true
-      }).returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error creating application event:', error);
-      throw error;
-    }
-  }
-
-  async getApplicationEvents(applicationId: number): Promise<any[]> {
-    try {
-      const { applicationEvents } = await import("@shared/schema");
-      
-      return await db
-        .select()
-        .from(applicationEvents)
-        .where(eq(applicationEvents.applicationId, applicationId))
-        .orderBy(desc(applicationEvents.createdAt));
-    } catch (error) {
-      console.error('Error fetching application events:', error);
-      return [];
-    }
-  }
-
-  async getApplicationInsights(applicationId: number): Promise<any> {
-    try {
-      const { applicationInsights } = await import("@shared/schema");
-      
-      const [insights] = await db
-        .select()
-        .from(applicationInsights)
-        .where(eq(applicationInsights.applicationId, applicationId))
-        .orderBy(desc(applicationInsights.createdAt))
-        .limit(1);
-        
-      return insights;
-    } catch (error) {
-      console.error('Error fetching application insights:', error);
-      return null;
-    }
-  }
-
-  async createApplicationInsights(insights: any): Promise<any> {
-    try {
-      const { applicationInsights } = await import("@shared/schema");
-      
-      const [result] = await db.insert(applicationInsights).values({
-        candidateId: insights.candidateId,
-        applicationId: insights.applicationId,
-        strengthsIdentified: insights.strengthsIdentified,
-        improvementAreas: insights.improvementAreas,
-        benchmarkViewTime: insights.benchmarkViewTime,
-        actualViewTime: insights.actualViewTime,
-        benchmarkScore: insights.benchmarkScore,
-        actualScore: insights.actualScore,
-        similarSuccessfulUsers: insights.similarSuccessfulUsers,
-        recommendedActions: insights.recommendedActions,
-        successProbability: insights.successProbability,
-        supportiveMessage: insights.supportiveMessage
-      }).returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error creating application insights:', error);
-      throw error;
-    }
-  }
-
-  async getApplicationsForTalent(talentId: string): Promise<any[]> {
-    try {
-      // Get all applications for jobs owned by this talent
-      const results = await db
-        .select({
-          application: jobApplications,
-          candidate: candidateProfiles,
-          job: jobPostings,
-          user: users
-        })
-        .from(jobApplications)
-        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
-        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .leftJoin(users, eq(candidateProfiles.userId, users.id))
-        .where(eq(jobPostings.talentOwnerId, talentId));
-
-      return results.map(({ application, candidate, job, user }) => ({
-        id: application.id.toString(),
-        candidateId: user?.id,
-        jobId: job?.id,
-        candidateName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email?.split('@')[0] || 'Unknown',
-        candidateEmail: user?.email,
-        jobTitle: job?.title,
-        appliedAt: application.appliedAt?.toISOString(),
-        status: application.status,
-        matchScore: candidate?.matchScore || 0,
-        skills: candidate?.skills || [],
-        experience: candidate?.experience || '',
-        location: candidate?.location || '',
-        resumeUrl: candidate?.resumeUrl,
-        // Intelligence data stored in application
-        viewedAt: application.viewedAt?.toISOString(),
-        viewDuration: application.viewDuration,
-        ranking: application.ranking,
-        totalApplicants: application.totalApplicants,
-        feedback: application.feedback,
-        rating: application.rating,
-        nextSteps: application.nextSteps,
-        transparencyLevel: application.transparencyLevel || 'partial'
-      }));
-    } catch (error) {
-      console.error('Error getting applications for talent:', error);
-      throw error;
-    }
-  }
-
-  async updateTalentTransparencySettings(talentId: string, settings: any): Promise<any> {
-    try {
-      // Store talent transparency preferences in user profile
-      const [result] = await db
-        .update(users)
-        .set({
-          transparencySettings: JSON.stringify(settings),
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, talentId))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error updating transparency settings:', error);
-      throw error;
-    }
-  }
-
-  async storeExamResult(result: any): Promise<any> {
-    try {
-      // First get the exam ID for this job
-      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
-      if (!exam) {
-        throw new Error('No exam found for this job');
-      }
-
-      await db.insert(examAttempts).values({
-        examId: exam.id,
-        candidateId: result.candidateId,
-        jobId: result.jobId,
-        score: result.score,
-        totalQuestions: result.totalQuestions,
-        correctAnswers: result.correctAnswers,
-        timeSpent: result.timeSpent,
-        answers: result.answers,
-        status: 'completed',
-        passedExam: result.score >= (exam.passingScore || 70),
-        qualifiedForChat: false, // Will be set during ranking
-        completedAt: new Date(),
-      });
-    } catch (error) {
-      console.error('Error storing exam result:', error);
-      throw error;
-    }
-  }
-
-  async createApplicationEvent(event: any): Promise<any> {
-    try {
-      // Import the applicationEvents table from schema
       const { applicationEvents } = await import("@shared/schema");
       
       const [result] = await db.insert(applicationEvents).values({
@@ -1354,64 +1077,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateApplicationIntelligence(applicationId: string | number, updates: any): Promise<any> {
     try {
-      // Ensure applicationId is a valid integer
       const validApplicationId = typeof applicationId === 'string' ? parseInt(applicationId) : applicationId;
       if (isNaN(validApplicationId)) {
         throw new Error('Invalid application ID');
       }
 
-      // For demo purposes, using the jobApplications table to store intelligence data
-      // In production, this would be a dedicated application_intelligence table
-      const [result] = await db
-        .update(jobApplications)
-        .set({
-          ...updates,
-          updatedAt: new Date()
-        })
-        .where(eq(jobApplications.id, validApplicationId))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error updating application intelligence:', error);
-      throw error;
-    }
-  }
-
-  async getAvailableNotificationUsers(): Promise<string[]> {
-    const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
-    return result.map(r => r.userId);
-  }
-
-  async getApplicationById(applicationId: number): Promise<any> {
-    try {
-      const [application] = await db
-        .select()
-        .from(jobApplications)
-        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .where(eq(jobApplications.id, applicationId));
-      
-      return application ? {
-        ...(application as any).job_applications,
-        job: (application as any).job_postings
-      } : undefined;
-    } catch (error) {
-      console.error('Error fetching application by ID:', error);
-      throw error;
-    }
-  }
-
-  // Application Intelligence methods for talent dashboard transparency
-  async updateApplicationIntelligence(applicationId: string | number, updates: any): Promise<any> {
-    try {
-      // Ensure applicationId is a valid integer
-      const validApplicationId = typeof applicationId === 'string' ? parseInt(applicationId) : applicationId;
-      if (isNaN(validApplicationId)) {
-        throw new Error('Invalid application ID');
-      }
-
-      // For demo purposes, using the jobApplications table to store intelligence data
-      // In production, this would be a dedicated application_intelligence table
       const [result] = await db
         .update(jobApplications)
         .set({
@@ -1430,7 +1100,6 @@ export class DatabaseStorage implements IStorage {
 
   async getApplicationsForTalent(talentId: string): Promise<any[]> {
     try {
-      // Get all applications for jobs owned by this talent
       const results = await db
         .select({
           application: jobApplications,
@@ -1458,7 +1127,6 @@ export class DatabaseStorage implements IStorage {
         experience: candidate?.experience || '',
         location: candidate?.location || '',
         resumeUrl: candidate?.resumeUrl,
-        // Intelligence data stored in application
         viewedAt: application.viewedAt?.toISOString(),
         viewDuration: application.viewDuration,
         ranking: application.ranking,
@@ -1476,7 +1144,6 @@ export class DatabaseStorage implements IStorage {
 
   async updateTalentTransparencySettings(talentId: string, settings: any): Promise<any> {
     try {
-      // Store talent transparency preferences in user profile
       const [result] = await db
         .update(users)
         .set({
@@ -1491,6 +1158,25 @@ export class DatabaseStorage implements IStorage {
       console.error('Error updating transparency settings:', error);
       throw error;
     }
+  }
+
+  async updateUserInfo(userId: string, userInfo: any): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+
+  async getCandidateProfile(userId: string): Promise<any> {
+    // TODO: Implement
+    return Promise.resolve(undefined);
+  }
+
+  async upsertCandidateProfile(profile: any): Promise<any> {
+    // TODO: Implement
+    return Promise.resolve(undefined);
+  }
+
+  async createOrUpdateCandidateProfile(profile: any): Promise<any> {
+    // TODO: Implement
+    return Promise.resolve(undefined);
   }
 }
 

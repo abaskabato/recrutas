@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql } from "drizzle-orm/sql";
 
 async function resetDatabase() {
   try {
