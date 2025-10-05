@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx watch server/index.ts",
+    "dev:server": "tsx watch standalone-server.js",
     "build": "npm install && vite build && mkdir -p api && echo \"import app from '../server/index.js'; export const handler = app;\" > api/index.js",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
