@@ -46,6 +46,14 @@ export default function CompanyProfileStep() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!formData.companyName.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Company name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
     mutation.mutate();
   };
 
