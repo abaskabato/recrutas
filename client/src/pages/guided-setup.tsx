@@ -1,3 +1,4 @@
+
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -8,54 +9,30 @@ import BasicInfoStep from '@/components/guided-setup/BasicInfoStep';
 import SkillsStep from '@/components/guided-setup/SkillsStep';
 import CompanyProfileStep from '@/components/guided-setup/CompanyProfileStep';
 import JobPostStep from '@/components/guided-setup/JobPostStep';
-import { useMutation } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
 
 function GuidedSetupContent() {
   const { step, role, setRole, setStep } = useGuidedSetup();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
-
-  const setRoleMutation = useMutation({
-    mutationFn: async (role: 'candidate' | 'talent_owner') => {
-      await apiRequest('POST', '/api/auth/role', { role });
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Role selected!',
-        description: 'Your profile has been updated.',
-      });
-      window.location.reload();
-    },
-    onError: () => {
-      toast({
-        title: 'Error',
-        description: 'Failed to save your role. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
 
   const handleRoleSelect = (selectedRole: 'candidate' | 'talent_owner') => {
     setRole(selectedRole);
-    setRoleMutation.mutate(selectedRole);
+    setStep(2);
   };
 
   const candidateSteps = [
-    { name: 'Role', component: <RoleSelectionStep setRoleMutation={handleRoleSelect} /> },
+    { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Resume', component: <ResumeUploadStep /> },
     { name: 'Info', component: <BasicInfoStep /> },
     { name: 'Skills', component: <SkillsStep /> },
   ];
 
   const talentOwnerSteps = [
-    { name: 'Role', component: <RoleSelectionStep setRoleMutation={handleRoleSelect} /> },
+    { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Company', component: <CompanyProfileStep /> },
     { name: 'Job Post', component: <JobPostStep /> },
   ];
 
-  const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep setRoleMutation={handleRoleSelect} /> }];
+  const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep /> }];
   const currentStep = steps[step - 1];
   const progress = (step / steps.length) * 100;
 

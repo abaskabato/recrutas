@@ -26,7 +26,7 @@ import {
   chatRooms,
   chatMessages
 } from "@shared/schema";
-import { sql } from "drizzle-orm/sql";
+import { eq, sql } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";

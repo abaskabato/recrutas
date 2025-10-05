@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 interface GuidedSetupContextType {
   step: number;
@@ -10,7 +10,7 @@ interface GuidedSetupContextType {
 
 const GuidedSetupContext = createContext<GuidedSetupContextType | undefined>(undefined);
 
-export const GuidedSetupProvider: React.FC = ({ children }) => {
+export function GuidedSetupProvider({ children }: { children: React.ReactNode }) {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<'candidate' | 'talent_owner' | null>(null);
 
@@ -19,12 +19,12 @@ export const GuidedSetupProvider: React.FC = ({ children }) => {
       {children}
     </GuidedSetupContext.Provider>
   );
-};
+}
 
-export const useGuidedSetup = () => {
+export function useGuidedSetup() {
   const context = useContext(GuidedSetupContext);
   if (!context) {
     throw new Error('useGuidedSetup must be used within a GuidedSetupProvider');
   }
   return context;
-};
+}

@@ -1,26 +1,21 @@
 
-import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building } from 'lucide-react';
 import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 
-interface RoleSelectionStepProps {
-  setRoleMutation: (role: 'candidate' | 'talent_owner') => void;
-}
-
-export default function RoleSelectionStep({ setRoleMutation }: RoleSelectionStepProps) {
+export default function RoleSelectionStep() {
   const { setRole, setStep } = useGuidedSetup();
 
   const handleSelectRole = (role: 'candidate' | 'talent_owner') => {
     setRole(role);
-    setRoleMutation(role);
+    setStep(2);
   };
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-center mb-6">Choose Your Role</h2>
       <div className="grid md:grid-cols-2 gap-8">
-        <Card
+        <Card 
           className="cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border hover:ring-2 hover:ring-primary"
           onClick={() => handleSelectRole('candidate')}
         >
@@ -33,7 +28,7 @@ export default function RoleSelectionStep({ setRoleMutation }: RoleSelectionStep
           </CardHeader>
         </Card>
 
-        <Card
+        <Card 
           className="cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border hover:ring-2 hover:ring-primary"
           onClick={() => handleSelectRole('talent_owner')}
         >
