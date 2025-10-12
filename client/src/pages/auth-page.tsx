@@ -11,18 +11,23 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signInLoading, setSignInLoading] = useState(false);
-  const [signUpLoading, setSignUpLoading] = useState(false);
+
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("AuthPage useEffect triggered. Session:", session);
     if (session) {
       const userRole = session.user?.user_metadata?.role;
+      console.log("User role:", userRole);
       if (userRole === 'candidate') {
-        setLocation("/candidate-dashboard");
+        console.log("Redirecting to /candidate-dashboard");
+        window.location.href = "/candidate-dashboard";
       } else if (userRole === 'talent_owner') {
-        setLocation("/talent-dashboard");
+        console.log("Redirecting to /talent-dashboard");
+        window.location.href = "/talent-dashboard";
       } else {
-        setLocation("/role-selection");
+        console.log("Redirecting to /role-selection");
+        window.location.href = "/role-selection";
       }
     }
   }, [session, setLocation]);
@@ -49,32 +54,7 @@ export default function AuthPage() {
     }
   };
 
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    setSignUpLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/role-selection`,
-        },
-      });
-      if (error) throw error;
-      toast({
-        title: "Account created",
-        description: "Please check your email to verify your account.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error signing up",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setSignUpLoading(false);
-    }
-  };
+
 
   if (session) {
     // Render a loading state or null while redirecting
@@ -138,21 +118,25 @@ export default function AuthPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col items-center space-y-4">
               <button
                 onClick={handleSignIn}
-                disabled={signInLoading || signUpLoading}
+                disabled={signInLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
                 {signInLoading ? 'Signing in...' : 'Sign in'}
               </button>
-              <button
-                onClick={handleSignUp}
-                disabled={signInLoading || signUpLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring ml-4"
-              >
-                {signUpLoading ? 'Signing up...' : 'Sign up'}
-              </button>
+              <div className="text-center text-sm">
+                <p className="text-muted-foreground mb-4">Don't have an account?</p>
+                <div className="flex flex-col space-y-2">
+                  <a href="/signup/candidate" className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600">
+                    Sign up as a Candidate
+                  </a>
+                  <a href="/signup/talent-owner" className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600">
+                    Sign up as a Talent Owner
+                  </a>
+                </div>
+              </div>
             </div>
           </form>
         </div>

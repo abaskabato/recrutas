@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useRoleBasedAuth";
+import { useRoleBasedAuth } from "@/hooks/useRoleBasedAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, BriefcaseIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

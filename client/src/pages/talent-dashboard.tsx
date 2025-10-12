@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { signOut } from "@/lib/auth-client";
+
 import { 
   getStatusColor, 
   formatSalary, 
@@ -56,6 +56,7 @@ import {
 import RecrutasLogo from "@/components/recrutas-logo";
 import JobPostingWizard from "@/components/job-posting-wizard";
 import TalentOwnerProfileCompletion from "@/components/talent-owner-profile-completion";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 
 interface JobPosting {
   id: number;
@@ -100,10 +101,12 @@ interface DashboardStats {
 }
 
 export default function TalentDashboard() {
-  const { data: session, isPending: isLoading } = useSession();
+  const session = useSession();
   const user = session?.user;
+  const isLoading = !session;
   const isAuthenticated = !!user;
   const { toast } = useToast();
+  const supabase = useSupabaseClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [showJobWizard, setShowJobWizard] = useState(false);
@@ -270,8 +273,17 @@ export default function TalentDashboard() {
     createJobMutation.mutate(jobData);
   };
 
-  const handleLogout = () => {
-    signOut();
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error signing out",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      window.location.href = "/auth";
+    }
   };
 
   const filteredJobs = jobs.filter(job => {
@@ -293,8 +305,8 @@ export default function TalentDashboard() {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -302,7 +314,7 @@ export default function TalentDashboard() {
   // Show profile completion if profile is not complete
   if (!user.profileComplete) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <TalentOwnerProfileCompletion
           user={user}
           onComplete={() => {
@@ -313,21 +325,16 @@ export default function TalentDashboard() {
               description: "Welcome to your talent dashboard!",
             });
           }}
-          onCancel={() => {
-            // Allow them to sign out if they don't want to complete profile
-            signOut().then(() => {
-              window.location.href = "/";
-            });
-          }}
+          onCancel={handleSignOut}
         />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile Header */}
-      <div className="lg:hidden bg-card border-b border-border sticky top-0 z-40">
+      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center space-x-3">
             <Button
@@ -342,8 +349,9 @@ export default function TalentDashboard() {
           </div>
           
           <div className="flex items-center space-x-2">
+            <ThemeToggleButton />
             <RealTimeNotifications />
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
@@ -351,12 +359,12 @@ export default function TalentDashboard() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="border-t border-border bg-card">
+          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="p-4 space-y-2">
               {['overview', 'jobs', 'candidates', 'analytics'].map((tab) => (
                 <Button
                   key={tab}
-                  variant={activeTab === tab ? "default" : "ghost"}
+                  variant={activeTab === tab ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => {
                     setActiveTab(tab as any);
@@ -376,7 +384,7 @@ export default function TalentDashboard() {
       </div>
 
       {/* Desktop Header */}
-      <div className="hidden lg:block bg-card border-b border-border sticky top-0 z-40">
+      <div className="hidden lg:block bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
@@ -385,7 +393,7 @@ export default function TalentDashboard() {
                 {['overview', 'jobs', 'candidates', 'analytics'].map((tab) => (
                   <Button
                     key={tab}
-                    variant={activeTab === tab ? "default" : "ghost"}
+                    variant={activeTab === tab ? "secondary" : "ghost"}
                     onClick={() => setActiveTab(tab as any)}
                     className="capitalize"
                   >
@@ -400,6 +408,7 @@ export default function TalentDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              <ThemeToggleButton />
               <RealTimeNotifications />
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
@@ -407,11 +416,11 @@ export default function TalentDashboard() {
                     {user.firstName?.[0] || user.email?.[0] || 'U'}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {user.firstName || user.email?.split('@')[0] || 'User'}
                 </span>
               </div>
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-5 w-5" />
               </Button>
             </div>
@@ -423,157 +432,161 @@ export default function TalentDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Welcome Header */}
-            <div className="bg-card rounded-xl p-6 shadow-sm">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-                    Welcome back, {user.firstName || 'Talent Owner'}!
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    Manage your job postings and connect with top candidates
-                  </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Welcome Header */}
+              <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+                      Welcome back, {user.firstName || 'Talent Owner'}!
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                      Manage your job postings and connect with top candidates
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => setShowJobWizard(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Job with Exam
+                  </Button>
                 </div>
-                <Button 
-                  onClick={() => setShowJobWizard(true)}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Job with Exam
-                </Button>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="bg-white dark:bg-gray-800 shadow-md">
+                  <CardContent className="p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Briefcase className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Jobs</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {statsLoading ? "..." : stats?.activeJobs || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white dark:bg-gray-800 shadow-md">
+                  <CardContent className="p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <Users className="h-6 w-6 text-green-500" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Matches</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {statsLoading ? "..." : stats?.totalMatches || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white dark:bg-gray-800 shadow-md">
+                  <CardContent className="p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-purple-500/10 rounded-lg">
+                        <MessageSquare className="h-6 w-6 text-purple-500" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {statsLoading ? "..." : stats?.activeChats || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white dark:bg-gray-800 shadow-md">
+                  <CardContent className="p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                        <Star className="h-6 w-6 text-orange-500" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Hires Made</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {statsLoading ? "..." : stats?.hires || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Briefcase className="h-6 w-6 text-primary" />
+            <div className="space-y-6">
+              {/* Recent Jobs */}
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="text-gray-900 dark:text-white">Recent Job Postings</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveTab('jobs')}
+                    >
+                      View All
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {jobsLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="animate-pulse">
+                          <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
+                          <div className="h-3 bg-muted rounded w-1/2"></div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-muted-foreground">Active Jobs</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {statsLoading ? "..." : stats?.activeJobs || 0}
-                      </p>
+                  ) : jobs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Briefcase className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No job postings yet</h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6">Create your first job posting to start finding great candidates.</p>
+                      <Button onClick={() => setShowJobDialog(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Post Your First Job
+                      </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-500/10 rounded-lg">
-                      <Users className="h-6 w-6 text-green-500" />
+                  ) : (
+                    <div className="space-y-4">
+                      {jobs.slice(0, 3).map((job) => (
+                        <div key={job.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 dark:text-white">{job.title}</h4>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{job.company} • {job.location}</p>
+                            <div className="flex items-center space-x-4 mt-2">
+                              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                <Eye className="h-3 w-3 mr-1" />
+                                {job.viewCount} views
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                <Users className="h-3 w-3 mr-1" />
+                                {job.applicationCount} applications
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant={job.status === 'active' ? 'default' : 'secondary'}>
+                            {job.status}
+                          </Badge>
+                        </div>
+                      ))}
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-muted-foreground">Total Matches</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {statsLoading ? "..." : stats?.totalMatches || 0}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-purple-500/10 rounded-lg">
-                      <MessageSquare className="h-6 w-6 text-purple-500" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-muted-foreground">Active Chats</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {statsLoading ? "..." : stats?.activeChats || 0}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-orange-500/10 rounded-lg">
-                      <Star className="h-6 w-6 text-orange-500" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-muted-foreground">Hires Made</p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {statsLoading ? "..." : stats?.hires || 0}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
-
-            {/* Recent Jobs */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Recent Job Postings</span>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setActiveTab('jobs')}
-                  >
-                    View All
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {jobsLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-muted rounded w-1/2"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : jobs.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">No job postings yet</h3>
-                    <p className="text-muted-foreground mb-6">Create your first job posting to start finding great candidates.</p>
-                    <Button onClick={() => setShowJobDialog(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Post Your First Job
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {jobs.slice(0, 3).map((job) => (
-                      <div key={job.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-foreground">{job.title}</h4>
-                          <p className="text-sm text-muted-foreground">{job.company} • {job.location}</p>
-                          <div className="flex items-center space-x-4 mt-2">
-                            <span className="text-xs text-muted-foreground flex items-center">
-                              <Eye className="h-3 w-3 mr-1" />
-                              {job.viewCount} views
-                            </span>
-                            <span className="text-xs text-muted-foreground flex items-center">
-                              <Users className="h-3 w-3 mr-1" />
-                              {job.applicationCount} applications
-                            </span>
-                          </div>
-                        </div>
-                        <Badge variant={job.status === 'active' ? 'default' : 'secondary'}>
-                          {job.status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         )}
 
@@ -583,12 +596,12 @@ export default function TalentDashboard() {
             {/* Jobs Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-foreground">Job Postings</h2>
-                <p className="text-muted-foreground">Manage your job listings and track applications</p>
+                <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Job Postings</h2>
+                <p className="text-gray-500 dark:text-gray-400">Manage your job listings and track applications</p>
               </div>
               <Button 
                 onClick={() => setShowJobDialog(true)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Post New Job
@@ -599,7 +612,7 @@ export default function TalentDashboard() {
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
                   <Input
                     placeholder="Search jobs..."
                     value={searchQuery}
@@ -627,7 +640,7 @@ export default function TalentDashboard() {
               {jobsLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
+                    <Card key={i} className="animate-pulse bg-white dark:bg-gray-800 shadow-md">
                       <CardContent className="p-6">
                         <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
                         <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
@@ -637,13 +650,13 @@ export default function TalentDashboard() {
                   ))}
                 </div>
               ) : filteredJobs.length === 0 ? (
-                <Card>
+                <Card className="bg-white dark:bg-gray-800 shadow-md">
                   <CardContent className="p-12 text-center">
-                    <Briefcase className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium text-foreground mb-2">
+                    <Briefcase className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                       {searchQuery || filterStatus !== 'all' ? 'No jobs found' : 'No job postings yet'}
                     </h3>
-                    <p className="text-muted-foreground mb-6">
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">
                       {searchQuery || filterStatus !== 'all' 
                         ? 'Try adjusting your search or filters' 
                         : 'Create your first job posting to start finding great candidates'}
@@ -658,18 +671,18 @@ export default function TalentDashboard() {
                 </Card>
               ) : (
                 filteredJobs.map((job) => (
-                  <Card key={job.id} className="hover:shadow-md transition-shadow">
+                  <Card key={job.id} className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-start justify-between mb-3">
-                            <h3 className="text-lg font-semibold text-foreground">{job.title}</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{job.title}</h3>
                             <Badge variant={job.status === 'active' ? 'default' : 'secondary'}>
                               {job.status}
                             </Badge>
                           </div>
                           
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-3">
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
                             <span className="flex items-center">
                               <Building2 className="h-4 w-4 mr-1" />
                               {job.company}
@@ -691,7 +704,7 @@ export default function TalentDashboard() {
                             )}
                           </div>
 
-                          <p className="text-muted-foreground mb-4 line-clamp-2">
+                          <p className="text-gray-500 dark:text-gray-400 mb-4 line-clamp-2">
                             {job.description}
                           </p>
 
@@ -708,7 +721,7 @@ export default function TalentDashboard() {
                             )}
                           </div>
 
-                          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+                          <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
                             <span className="flex items-center">
                               <Eye className="h-4 w-4 mr-1" />
                               {job.viewCount} views
@@ -779,7 +792,7 @@ export default function TalentDashboard() {
             {candidatesLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
+                  <Card key={i} className="animate-pulse bg-white dark:bg-gray-800 shadow-md">
                     <CardContent className="p-6">
                       <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
                       <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
@@ -789,11 +802,11 @@ export default function TalentDashboard() {
                 ))}
               </div>
             ) : filteredCandidates.length === 0 ? (
-              <Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
                 <CardContent className="p-12 text-center">
-                  <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No candidate applications yet</h3>
-                  <p className="text-muted-foreground">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
+                  <Users className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No candidate applications yet</h3>
+                  <p className="text-gray-500 dark:text-gray-400">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
                 </CardContent>
               </Card>
             ) : (
@@ -827,14 +840,14 @@ export default function TalentDashboard() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl lg:text-3xl font-bold text-foreground">Analytics</h2>
-              <p className="text-muted-foreground">Track your hiring performance and metrics</p>
+              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Analytics</h2>
+              <p className="text-gray-500 dark:text-gray-400">Track your hiring performance and metrics</p>
             </div>
 
             {/* Analytics Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Job Performance Chart */}
-              <Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <BarChart3 className="h-5 w-5 mr-2" />
@@ -849,7 +862,7 @@ export default function TalentDashboard() {
                         <div key={job.id} className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium truncate">{job.title}</span>
-                            <span className="text-muted-foreground">{Math.round(performance)}%</span>
+                            <span className="text-gray-500 dark:text-gray-400">{Math.round(performance)}%</span>
                           </div>
                           <div className="w-full bg-muted rounded-full h-2">
                             <div 
@@ -857,7 +870,7 @@ export default function TalentDashboard() {
                               style={{ width: `${performance}%` }}
                             />
                           </div>
-                          <div className="flex justify-between text-xs text-muted-foreground">
+                          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                             <span>{job.viewCount} views</span>
                             <span>{job.applicationCount} applications</span>
                           </div>
@@ -869,7 +882,7 @@ export default function TalentDashboard() {
               </Card>
 
               {/* Application Trends */}
-              <Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <TrendingUp className="h-5 w-5 mr-2" />
@@ -887,7 +900,7 @@ export default function TalentDashboard() {
                         <div key={period} className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="font-medium">{period}</span>
-                            <span className="text-muted-foreground">{applications} applications</span>
+                            <span className="text-gray-500 dark:text-gray-400">{applications} applications</span>
                           </div>
                           <div className="w-full bg-muted rounded-full h-2">
                             <div 
@@ -903,7 +916,7 @@ export default function TalentDashboard() {
               </Card>
 
               {/* Top Skills in Demand */}
-              <Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Target className="h-5 w-5 mr-2" />
@@ -927,7 +940,7 @@ export default function TalentDashboard() {
                             <Badge variant="outline" className="text-xs">
                               {skill}
                             </Badge>
-                            <span className="text-sm text-muted-foreground">{count} jobs</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{count} jobs</span>
                           </div>
                         ));
                     })()}
@@ -936,7 +949,7 @@ export default function TalentDashboard() {
               </Card>
 
               {/* Response Time Analysis */}
-              <Card>
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Clock className="h-5 w-5 mr-2" />
@@ -947,7 +960,7 @@ export default function TalentDashboard() {
                   <div className="space-y-4">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-green-600">2.3 hrs</div>
-                      <div className="text-sm text-muted-foreground">Average Response Time</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">Average Response Time</div>
                     </div>
                     
                     <div className="space-y-3">
@@ -962,7 +975,7 @@ export default function TalentDashboard() {
                           <div key={range} className="space-y-1">
                             <div className="flex justify-between text-sm">
                               <span>{range}</span>
-                              <span className="text-muted-foreground">{count} responses</span>
+                              <span className="text-gray-500 dark:text-gray-400">{count} responses</span>
                             </div>
                             <div className="w-full bg-muted rounded-full h-2">
                               <div 
@@ -980,7 +993,7 @@ export default function TalentDashboard() {
             </div>
 
             {/* Hiring Funnel */}
-            <Card>
+            <Card className="bg-white dark:bg-gray-800 shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Users className="h-5 w-5 mr-2" />
@@ -1002,7 +1015,7 @@ export default function TalentDashboard() {
                         <div className="text-sm opacity-90">{stage}</div>
                       </div>
                       {stage !== 'Hired' && (
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           {candidates.length > 0 ? Math.round((count / candidates.length) * 100) : 0}% conversion
                         </div>
                       )}
@@ -1023,7 +1036,7 @@ export default function TalentDashboard() {
               <Briefcase className="h-5 w-5 mr-2" />
               Post New Job - Advanced Job Posting
             </DialogTitle>
-            <p className="text-sm text-muted-foreground">Create a comprehensive job posting to attract the right candidates</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Create a comprehensive job posting to attract the right candidates</p>
           </DialogHeader>
           
           <div className="space-y-8 py-4">
@@ -1232,7 +1245,7 @@ export default function TalentDashboard() {
                     skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
                   })}
                 />
-                <p className="text-xs text-muted-foreground mt-1">These skills will be used for AI-powered candidate matching</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">These skills will be used for AI-powered candidate matching</p>
               </div>
 
               <div>
@@ -1307,7 +1320,7 @@ export default function TalentDashboard() {
               <Button 
                 onClick={handleJobSubmit}
                 disabled={createJobMutation.isPending}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {createJobMutation.isPending ? (
                   <>

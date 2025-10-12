@@ -12,6 +12,8 @@ import TalentDashboard from "@/pages/talent-dashboard";
 import ExamPage from "@/pages/exam-page";
 import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
+import SignUpCandidatePage from "@/pages/signup-candidate";
+import SignUpTalentPage from "@/pages/signup-talent";
 import { TopRightButtons } from '@/components/TopRightButtons';
 
 
@@ -23,6 +25,8 @@ function App() {
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/auth" component={AuthPage} />
+          <Route path="/signup/candidate" component={SignUpCandidatePage} />
+          <Route path="/signup/talent-owner" component={SignUpTalentPage} />
           <Route path="/forgot-password" component={ForgotPasswordPage} />
           <Route path="/role-selection" component={GuidedSetup} />
           <Route path="/candidate-dashboard" component={CandidateDashboard} />

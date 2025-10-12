@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import InstantMatchModal from "@/components/instant-match-modal";
+import RedditIcon from "@/components/RedditIcon";
 
 export default function LandingResponsive() {
   const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
@@ -346,26 +347,14 @@ export default function LandingResponsive() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <a href="#" target="_blank" rel="noopener noreferrer" className="block">
+          <div className="grid grid-cols-1 max-w-md mx-auto">
+            <a href="https://www.reddit.com/r/recrutas/" target="_blank" rel="noopener noreferrer" className="block">
               <Card className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 hover:border-blue-500 dark:hover:border-blue-500 transition-all">
                 <CardContent className="p-6 text-center">
-                  <p className="w-12 h-12 mx-auto mb-4 text-blue-500">Reddit</p>
+                  <RedditIcon className="w-12 h-12 mx-auto mb-4 text-blue-500" />
                   <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Reddit</h3>
                   <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                     Join the conversation on our subreddit. Ask questions, share your success stories, and help others.
-                  </p>
-                </CardContent>
-              </Card>
-            </a>
-
-            <a href="#" target="_blank" rel="noopener noreferrer" className="block">
-              <Card className="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 hover:border-purple-500 dark:hover:border-purple-500 transition-all">
-                <CardContent className="p-6 text-center">
-                  <p className="w-12 h-12 mx-auto mb-4 text-purple-500">Discord</p>
-                  <h3 className="text-2xl font-bold text-black dark:text-white mb-4">Discord</h3>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Chat with other members of the community in real-time. Get help, find collaborators, and make friends.
                   </p>
                 </CardContent>
               </Card>

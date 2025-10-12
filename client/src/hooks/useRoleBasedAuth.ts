@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useSession } from '@/lib/auth-client';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 
 export function useRoleBasedAuth() {
-  const { user, isAuthenticated, isLoading } = useSession();
+  const { session, isLoading } = useSessionContext();
+  const user = session?.user;
+  const isAuthenticated = !!session?.user;
   const [location, setLocation] = useLocation();
 
   useEffect(() => {

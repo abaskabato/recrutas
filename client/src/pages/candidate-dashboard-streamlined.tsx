@@ -1,951 +1,518 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { useSession, signOut } from "@/lib/auth-client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useEffect, useState } from "react";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  getStatusColor, 
-  formatSalary, 
-  formatWorkType, 
-  timeAgo 
-} from "@/lib/dashboard-utils";
+import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import RealTimeChat from "@/components/real-time-chat";
-import AdvancedNotificationCenter from "@/components/advanced-notification-center";
-import InstantJobSearch from "@/components/instant-job-search";
-import EnhancedProfileCompletion from "@/components/enhanced-profile-completion";
-import { JobExam } from "@/components/job-exam";
 import { 
-  Briefcase, 
-  MessageSquare, 
-  Star, 
-  TrendingUp,
-  Eye,
-  Clock,
-  Building,
+  Bell, 
+  User, 
+  Upload, 
+  Search, 
+  Briefcase,
   MapPin,
+  Building,
   DollarSign,
-  User,
+  TrendingUp,
+  Clock,
+  Star,
   CheckCircle,
-  XCircle,
   AlertCircle,
+  FileText,
+  BarChart3,
+  Calendar,
+  Target,
+  Zap,
+  MessageCircle,
+  Eye,
   ExternalLink,
+  Filter,
   Settings,
-  BookOpen
+  LogOut
 } from "lucide-react";
-import { 
-  JobMatchCard, 
-  ApplicationCard, 
-  ActivityItem, 
-  EmptyState, 
-  LoadingSkeleton 
-} from "@/components/candidate-dashboard-components";
-import ApplicationIntelligenceDemo from "@/components/application-intelligence-demo";
+import RecrutasLogo from "@/components/recrutas-logo";
+import AIJobFeed from "@/components/ai-job-feed";
+import ProfileUpload from "@/components/profile-upload";
+import ApplicationTracker from "@/components/application-tracker";
+import RealTimeNotifications from "@/components/real-time-notifications";
+import JobMatchesModal from "@/components/job-matches-modal";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 
-interface CandidateStats {
-  totalApplications: number;
-  activeMatches: number;
-  profileViews: number;
-  profileStrength: number;
-  responseRate: number;
-  avgMatchScore: number;
+interface DashboardStats {
   newMatches: number;
+  profileViews: number;
   activeChats: number;
-}
-
-interface JobMatch {
-  id: number;
-  jobId: number;
-  candidateId: string;
-  matchScore: string;
-  status: string;
-  createdAt: string;
-  aiExplanation?: string;
-  job: {
-    id: number;
-    title: string;
-    company: string;
-    location: string;
-    description: string;
-    workType: string;
-    salaryMin?: number;
-    salaryMax?: number;
-    source: string;
-    externalUrl?: string;
-    careerPageUrl?: string;
-    hasExam?: boolean;
-  };
-  recruiter?: {
-    firstName: string;
-    lastName: string;
-  };
-}
-
-interface Application {
-  id: number;
-  jobId: number;
-  status: string;
-  appliedAt: string;
-  job: {
-    title: string;
-    company: string;
-    location: string;
-  };
+  applicationsPending: number;
+  applicationsRejected: number;
+  applicationsAccepted: number;
 }
 
 interface Activity {
   id: number;
+  type: string;
   description: string;
   createdAt: string;
+  metadata?: any;
+}
+
+interface Application {
+  id: number;
+  status: string;
+  jobTitle: string;
+  company: string;
+  appliedAt: string;
+  updatedAt: string;
 }
 
 export default function CandidateStreamlinedDashboard() {
-  const { data: session } = useSession();
+  const session = useSession();
   const user = session?.user;
-  const queryClient = useQueryClient();
+  const supabase = useSupabaseClient();
+  const isAuthenticated = !!user;
+  const isLoading = !session;
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'applications' | 'profile'>('overview');
+  const [showJobMatchesModal, setShowJobMatchesModal] = useState(false);
 
-  const [showChat, setShowChat] = useState(false);
-  const [selectedChatRoom, setSelectedChatRoom] = useState<number | undefined>(undefined);
-  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
-  const [showExam, setShowExam] = useState(false);
-  const [selectedJobId, setSelectedJobId] = useState<number | undefined>(undefined);
-  const [selectedJobTitle, setSelectedJobTitle] = useState<string>("");
-  const [appliedJobsSet, setAppliedJobsSet] = useState<Set<string>>(new Set());
-  const [continuationJob, setContinuationJob] = useState<any>(null);
-  const [selectedMatch, setSelectedMatch] = useState<JobMatch | null>(null);
-
-  // Track applied external jobs in localStorage using stable identifiers
-  const getAppliedJobs = (): Set<string> => {
-    if (typeof window === 'undefined') return new Set<string>();
-    const stored = localStorage.getItem(`appliedJobs_${user?.id}`);
-    return new Set<string>(stored ? JSON.parse(stored) : []);
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/auth";
   };
 
-  const getJobStableId = (match: any) => {
-    // For external jobs, use company + title + location as stable identifier
-    if (match.job?.source === 'external' || match.job?.externalUrl) {
-      return `${match.job?.company || 'unknown'}-${match.job?.title || 'unknown'}-${match.job?.location || 'unknown'}`.replace(/\s+/g, '-').toLowerCase();
-    }
-    // For internal jobs, use the actual match ID
-    return match.id.toString();
-  };
-
-  const markJobAsApplied = (match: any) => {
-    if (typeof window === 'undefined') return;
-    const appliedJobs = getAppliedJobs();
-    const stableId = getJobStableId(match);
-    appliedJobs.add(stableId);
-    localStorage.setItem(`appliedJobs_${user?.id}`, JSON.stringify(Array.from(appliedJobs)));
-    // Update state to trigger re-render
-    setAppliedJobsSet(new Set<string>(appliedJobs));
-  };
-
-  const isJobApplied = (match: any) => {
-    const stableId = getJobStableId(match);
-    return appliedJobsSet.has(stableId);
-  };
-
-  // Handle continuing a job application from localStorage
-  const handleContinueJobApplication = (jobData: any) => {
-    console.log('Continue button clicked! Job data:', jobData);
-    console.log('External URL:', jobData.externalUrl);
-    
-    setContinuationJob(null);
-    localStorage.removeItem('continuationJob');
-    sessionStorage.removeItem('pendingJobApplication');
-    
-    // If it's an external job, open the external URL
-    if (jobData.externalUrl) {
-      console.log('Opening external URL:', jobData.externalUrl);
-      window.open(jobData.externalUrl, '_blank');
-      
-      // Show success toast
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
       toast({
-        title: "Continuing Application",
-        description: `Opening ${jobData.jobData.title} at ${jobData.jobData.company}`,
+        title: "Session Expired",
+        description: "Please sign in to continue",
+        variant: "destructive",
       });
-    } else {
-      console.log('No external URL found in job data');
-      // For internal jobs, navigate to the job details
-      toast({
-        title: "Job Continued",
-        description: `Continuing with ${jobData.jobData.title} at ${jobData.jobData.company}`,
-      });
+      setTimeout(() => {
+        window.location.href = "/auth";
+      }, 1000);
+      return;
     }
-  };
-
-  // Initialize applied jobs set from localStorage when user loads
-  useEffect(() => {
-    if (user?.id) {
-      setAppliedJobsSet(new Set<string>(getAppliedJobs()));
-    }
-  }, [user?.id]);
-
-  // Check for job continuation after user logs in
-  useEffect(() => {
-    if (user && !showProfileCompletion) {
-      const continuationJobData = localStorage.getItem('continuationJob');
-      const pendingApplication = sessionStorage.getItem('pendingJobApplication');
-      
-      if (continuationJobData) {
-        try {
-          const jobData = JSON.parse(continuationJobData);
-          
-          // Check if the job data is recent (within last 30 minutes)
-          const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-          
-          if (jobData.timestamp > thirtyMinutesAgo) {
-            setContinuationJob(jobData);
-            
-            // Show a clickable toast notification about continuing the job application
-            toast({
-              title: "Continue Job Application",
-              description: `Click here to continue applying to ${jobData.jobData.title} at ${jobData.jobData.company}`,
-              duration: 10000, // Keep visible longer
-              onClick: () => handleContinueJobApplication(jobData),
-              action: (
-                <Button 
-                  size="sm" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleContinueJobApplication(jobData);
-                  }}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  Continue
-                </Button>
-              ),
-            });
-          } else {
-            // Clean up old continuation data
-            localStorage.removeItem('continuationJob');
-            sessionStorage.removeItem('pendingJobApplication');
-          }
-        } catch (error) {
-          localStorage.removeItem('continuationJob');
-        }
-      } else if (pendingApplication) {
-        try {
-          const appData = JSON.parse(pendingApplication);
-          toast({
-            title: "Welcome back!",
-            description: `Ready to apply to ${appData.title} at ${appData.company}?`,
-            action: (
-              <Button 
-                size="sm" 
-                onClick={() => {
-                  // Scroll to job matches section
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="bg-primary hover:bg-primary/90"
-              >
-                View Jobs
-              </Button>
-            ),
-          });
-          sessionStorage.removeItem('pendingJobApplication');
-        } catch (error) {
-          console.error('Error parsing pending application:', error);
-          sessionStorage.removeItem('pendingJobApplication');
-        }
-      }
-    }
-  }, [user, showProfileCompletion, toast]);
-
-  // Handle continuation from instant modal
-  useEffect(() => {
-    if (user?.id) {
-      // Check for pending job application from instant modal
-      const pendingJob = sessionStorage.getItem('pendingJobApplication');
-      const continuationJob = localStorage.getItem('continuationJob');
-      
-      if (pendingJob) {
-        try {
-          const jobData = JSON.parse(pendingJob);
-          sessionStorage.removeItem('pendingJobApplication');
-          
-          toast({
-            title: "Welcome back!",
-            description: `Ready to continue with your application to ${jobData.title} at ${jobData.company}?`,
-            duration: 5000,
-          });
-        } catch (error) {
-          console.error('Error parsing pending job data:', error);
-        }
-      }
-      
-      if (continuationJob) {
-        try {
-          const jobData = JSON.parse(continuationJob);
-          // Check if job is recent (within 1 hour)
-          if (Date.now() - jobData.timestamp < 3600000) {
-            localStorage.removeItem('continuationJob');
-            
-            toast({
-              title: "Let's continue where you left off",
-              description: `You were interested in ${jobData.jobData?.title} at ${jobData.jobData?.company}. Check your matches to apply!`,
-              duration: 6000,
-            });
-          }
-        } catch (error) {
-          console.error('Error parsing continuation job data:', error);
-        }
-      }
-    }
-  }, [user?.id, toast]);
+  }, [isAuthenticated, isLoading, toast]);
 
   // Fetch candidate stats
-  const { data: stats } = useQuery<CandidateStats>({
+  const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/candidates/stats'],
+    retry: false,
+    meta: {
+      onError: (error: Error) => {
+        if (isUnauthorizedError(error)) {
+          window.location.href = "/api/login";
+        }
+      },
+    },
   });
 
-  // Fetch matches
-  const { data: matches = [], isLoading: matchesLoading } = useQuery<JobMatch[]>({
-    queryKey: ['/api/candidates/matches'],
+  // Fetch profile
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['/api/candidate/profile'],
+    retry: false,
+  });
+
+  // Fetch recent activity
+  const { data: activities } = useQuery<Activity[]>({ 
+    queryKey: ['/api/candidates/activity'],
+    retry: false,
   });
 
   // Fetch applications
-  const { data: applications = [], isLoading: applicationsLoading } = useQuery<Application[]>({
+  const { data: applications } = useQuery<Application[]>({ 
     queryKey: ['/api/candidates/applications'],
+    retry: false,
   });
 
-  // Fetch activity feed
-  const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
-    queryKey: ['/api/candidates/activity'],
-  });
 
-  // Apply to job mutation
-  const applyToJobMutation = useMutation({
-    mutationFn: async (jobId: number) => {
-      const response = await apiRequest("POST", `/api/candidates/apply/${jobId}`, {});
-      if (!response.ok) {
-        throw new Error('Failed to apply to job');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Application Submitted",
-        description: "Your application has been submitted successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidates/applications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
-    },
-    onError: () => {
-      toast({
-        title: "Application Failed",
-        description: "Unable to submit application. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
 
-  // Mark external application mutation
-  const markExternalApplicationMutation = useMutation({
-    mutationFn: async (matchId: string | number) => {
-      const response = await apiRequest("POST", `/api/candidates/mark-applied/${matchId}`, {});
-      if (!response.ok) {
-        throw new Error('Failed to mark as applied');
-      }
-      return { matchId, ...(await response.json()) };
-    },
-    onSuccess: (data, variables) => {
-      // Find the match object to mark as applied
-      const currentMatches = queryClient.getQueryData(['/api/candidates/matches']) as any[];
-      const match = currentMatches?.find(m => m.id === variables);
-      
-      if (match) {
-        // Mark job as applied in localStorage for persistence
-        markJobAsApplied(match);
-        
-        // Update the local cache immediately
-        queryClient.setQueryData(['/api/candidates/matches'], (oldData: any) => {
-          if (!oldData) return oldData;
-          return oldData.map((m: any) => 
-            m.id === variables ? { ...m, status: 'applied' } : m
-          );
-        });
-      }
-      
-      toast({
-        title: "Marked as Applied",
-        description: "We've noted that you applied to this position.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update status. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Handle exam taking - navigate to dedicated exam page
-  const handleTakeExam = (jobId: number, jobTitle: string) => {
-    const encodedTitle = encodeURIComponent(jobTitle);
-    setLocation(`/exam/${jobId}/${encodedTitle}`);
-  };
-
-  // Handle exam completion
-  const handleExamComplete = (score: number, passed: boolean) => {
-    setShowExam(false);
+  // Calculate profile completion
+  const getProfileCompletion = () => {
+    if (!profile) return 0;
+    let completed = 0;
+    const total = 5;
     
-    if (passed) {
-      toast({
-        title: "Exam Passed!",
-        description: `You scored ${score}%. You can now chat with the hiring manager.`,
-      });
-      // Refresh matches to update status
-      queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
-    } else {
-      toast({
-        title: "Exam Complete",
-        description: `You scored ${score}%. Unfortunately, this didn't meet the passing threshold.`,
-        variant: "destructive",
-      });
-    }
+    if ((profile as any).skills && (profile as any).skills.length > 0) completed++;
+    if ((profile as any).experience) completed++;
+    if ((profile as any).location) completed++;
+    if ((profile as any).workType) completed++;
+    if ((profile as any).salaryMin && (profile as any).salaryMax) completed++;
+    
+    return Math.round((completed / total) * 100);
   };
 
-  // Chat initiation mutation (only for internal jobs after screening)
-  const startChatMutation = useMutation({
-    mutationFn: async (matchId: number) => {
-      const response = await apiRequest("POST", `/api/chat/start/${matchId}`, {});
-      if (!response.ok) {
-        throw new Error('Failed to start chat');
-      }
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setSelectedChatRoom(data.roomId);
-      setShowChat(true);
-      toast({
-        title: "Chat Started",
-        description: "You can now chat with the hiring manager",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Chat Failed",
-        description: "Unable to start chat. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
+  const profileCompletion = getProfileCompletion();
+  const hasResume = (profile as any)?.resumeUrl || false;
 
-  const handleStartChat = (matchId: number) => {
-    startChatMutation.mutate(matchId);
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'applied': return <CheckCircle className="w-4 h-4" />;
-      case 'rejected': return <XCircle className="w-4 h-4" />;
-      case 'screening': return <AlertCircle className="w-4 h-4" />;
-      case 'interview': return <MessageSquare className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <p className="text-gray-500 dark:text-gray-400">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b border-border">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Navigation Header */}
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-4 sm:py-0 sm:h-16 gap-4 sm:gap-0">
-            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {user?.email?.[0]?.toUpperCase() || 'C'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
-                  Welcome back, {user?.email?.split('@')[0] || 'Candidate'}
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                  Let's find your next opportunity
-                </p>
-              </div>
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <RecrutasLogo size={32} />
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Recrutas</h1>
             </div>
-            
-            <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-end">
-              <div className="hidden sm:block">
-                <AdvancedNotificationCenter />
+
+            {/* User Menu */}
+            <div className="flex items-center space-x-4">
+              <ThemeToggleButton />
+              <RealTimeNotifications />
+              
+              <div className="flex items-center space-x-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-sm font-medium">
+                    {(user as any)?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {(user as any)?.firstName || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Candidate</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowProfileCompletion(true)}
-                className="flex-shrink-0"
-              >
-                <User className="w-4 h-4 mr-1" />
-                Profile
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => signOut()}
-                className="flex-shrink-0"
-              >
-                Sign Out
-              </Button>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className={`grid gap-6 ${showChat ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
-          <div className={showChat ? 'lg:col-span-2' : 'lg:col-span-1'}>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Briefcase className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Applications</p>
-                      <p className="text-lg font-semibold">{stats?.totalApplications || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Star className="w-4 h-4 text-green-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Active Matches</p>
-                      <p className="text-lg font-semibold">{stats?.activeMatches || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Eye className="w-4 h-4 text-purple-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Profile Views</p>
-                      <p className="text-lg font-semibold">{stats?.profileViews || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-orange-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Avg Match</p>
-                      <p className="text-lg font-semibold">{stats?.avgMatchScore || 0}%</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Welcome back, {(user as any)?.firstName || 'there'}!
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400">
+            Here's what's happening with your job search today.
+          </p>
+        </div>
 
-            {/* Job Continuation Card */}
-            {continuationJob && (
-              <Card className="mb-6 border-primary bg-primary/10">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                      <div>
-                        <h3 className="font-semibold text-primary">Continue Job Application</h3>
-                        <p className="text-sm text-primary/80">
-                          Complete your application to {continuationJob.jobData?.title} at {continuationJob.jobData?.company}
-                        </p>
-                      </div>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">New Matches</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newMatches || 0}</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                  <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-500 bg-white dark:bg-gray-800 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Profile Views</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.profileViews || 0}</p>
+                </div>
+                <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                  <Eye className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-purple-500 bg-white dark:bg-gray-800 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</p>
+                </div>
+                <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                  <MessageCircle className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-orange-500 bg-white dark:bg-gray-800 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Applications</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{applications?.length || 0}</p>
+                </div>
+                <div className="h-12 w-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                  <Briefcase className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Profile Setup Section - Show if profile incomplete */}
+        {profileCompletion < 100 && (
+          <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 border-blue-200 dark:border-blue-800">
+            <CardContent className="p-6">
+              <div className="flex items-start space-x-4">
+                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Complete Your Profile
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    A complete profile gets 3x more job matches. You're {profileCompletion}% done!
+                  </p>
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Profile Completion</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{profileCompletion}%</span>
                     </div>
+                    <Progress value={profileCompletion} className="h-2" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {!hasResume && (
+                      <Button 
+                        size="sm" 
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => setActiveTab('profile')}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Resume
+                      </Button>
+                    )}
                     <Button 
-                      onClick={() => handleContinueJobApplication(continuationJob)}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveTab('profile')}
                     >
-                      Continue Application
+                      Complete Profile
                     </Button>
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Navigation Tabs */}
+        <div className="mb-8">
+          <nav className="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4 mr-2 inline" />
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('jobs')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'jobs'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <Search className="h-4 w-4 mr-2 inline" />
+              Job Feed
+            </button>
+            <button
+              onClick={() => setActiveTab('applications')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'applications'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <Briefcase className="h-4 w-4 mr-2 inline" />
+              Applications
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'profile'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              <User className="h-4 w-4 mr-2 inline" />
+              Profile
+            </button>
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Recent Activity */}
+            <div className="lg:col-span-2">
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                    <span>Recent Activity</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {activities && activities.length > 0 ? (
+                    <div className="space-y-4">
+                      {activities.slice(0, 10).map((activity) => (
+                        <div key={activity.id} className="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="h-2 w-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{activity.description}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {new Date(activity.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Clock className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                      <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500">Start exploring jobs to see activity here</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            )}
-
-            {/* Main Tabs */}
-            <Tabs defaultValue="matches" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="matches">Job Matches</TabsTrigger>
-                <TabsTrigger value="applications">Applications</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-              </TabsList>
-
-              {/* Job Matches Tab */}
-              <TabsContent value="matches" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Matched Jobs</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {matchesLoading ? (
-                      <LoadingSkeleton count={3} />
-                    ) : matches?.length > 0 ? (
-                      <div className="space-y-4">
-                        {matches.filter(match => match.status !== 'applied' && !isJobApplied(match) && match.job).map((match) => {
-                          // Only render if match.job exists
-                          if (!match.job) return null;
-                          
-                          // Debug SDE job data
-                          if (match.job?.title === 'SDE') {
-                            console.log('DEBUG: SDE Job on frontend:', {
-                              id: match.id,
-                              jobId: match.jobId,
-                              title: match.job?.title,
-                              hasExam: match.job?.hasExam,
-                              source: match.job?.source,
-                              company: match.job?.company
-                            });
-                          }
-                          
-                          return (
-                            <div key={match.id} className={`border rounded-lg p-6 transition-colors ${
-                              match.job?.source === 'internal' 
-                                ? 'border-primary/20 bg-primary/5' 
-                                : 'border-border hover:border-orange-500/50'
-                            }`}>
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-2">
-                                  {(() => {
-                                    if (match.job?.title === 'SDE') {
-                                      console.log('SDE Badge Logic:', {
-                                        source: match.job?.source,
-                                        sourceCheck: match.job?.source === 'internal',
-                                        hasExam: match.job?.hasExam,
-                                        examCheck: match.job?.source === 'internal' && match.job?.hasExam
-                                      });
-                                    }
-                                    return match.job?.source === 'internal' ? (
-                                      <Badge className="bg-primary/10 text-primary border-primary/20">
-                                        🎯 Platform Job
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20">
-                                        🌐 External
-                                      </Badge>
-                                    );
-                                  })()}
-                                  {match.job?.source === 'internal' && match.job?.hasExam && (
-                                    <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20">
-                                      📝 Has Exam
-                                    </Badge>
-                                  )}
-                                  <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                                    {match.matchScore}% match
-                                  </Badge>
-                                  <Badge className={getStatusColor(match.status)}>
-                                    {getStatusIcon(match.status)}
-                                    <span className="ml-1 capitalize">{match.status}</span>
-                                  </Badge>
-                                </div>
-                                <h3 className="font-semibold text-lg text-foreground mb-2">
-                                  {match.job?.title || 'Job Title Unavailable'}
-                                </h3>
-                                
-                                <div className="flex items-center space-x-1 text-muted-foreground mb-2">
-                                  <Building className="w-4 h-4" />
-                                  <span className="font-medium">{match.job?.company || 'Company Unavailable'}</span>
-                                </div>
-                                
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-4">
-                                  <div className="flex items-center space-x-1">
-                                    <MapPin className="w-4 h-4" />
-                                    <span>{match.job?.location || 'Location Unavailable'}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <DollarSign className="w-4 h-4" />
-                                    <span>{formatSalary(match.job?.salaryMin, match.job?.salaryMax)}</span>
-                                  </div>
-                                  <Badge variant="outline" className="text-xs">
-                                    {match.job?.workType || 'Remote'}
-                                  </Badge>
-                                </div>
-                                
-                                {match.job?.source === 'internal' && match.recruiter && (
-                                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                    <User className="w-4 h-4" />
-                                    <span>{match.recruiter.firstName} {match.recruiter.lastName}</span>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="flex flex-col items-end space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  {match.job?.source === 'internal' ? (
-                                    // Internal jobs: Apply first, then exam, then chat after AI ranking
-                                    <>
-                                      {match.status === 'pending' && (
-                                        <Button
-                                          size="sm"
-                                          onClick={() => {
-                                            // For jobs with exams, go directly to exam
-                                            if (match.job?.hasExam) {
-                                              handleTakeExam(match.jobId, match.job.title);
-                                            } else {
-                                              applyToJobMutation.mutate(match.jobId);
-                                            }
-                                          }}
-                                          disabled={applyToJobMutation.isPending}
-                                          className={match.job?.hasExam ? "bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg border-2 border-purple-500" : ""}
-                                        >
-                                          {match.job?.hasExam ? '📝 Take Exam' : 'Apply Now'}
-                                        </Button>
-                                      )}
-                                      {match.status === 'applied' && match.job?.hasExam && (
-                                        <Button
-                                          size="sm"
-                                          className="bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg border-2 border-purple-500"
-                                          onClick={() => handleTakeExam(match.jobId, match.job.title)}
-                                        >
-                                          📝 Take Exam
-                                        </Button>
-                                      )}
-                                      {match.status === 'applied' && !match.job?.hasExam && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          disabled
-                                        >
-                                          <Clock className="w-4 h-4 mr-1" />
-                                          Awaiting Review
-                                        </Button>
-                                      )}
-                                      {(match.status === 'screening' || match.status === 'interview') && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleStartChat(match.id)}
-                                        >
-                                          <MessageSquare className="w-4 h-4 mr-1" />
-                                          Chat with Hiring Manager
-                                        </Button>
-                                      )}
-                                    </>
-                                  ) : (
-                                    // External jobs: View career page and mark applied
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => window.open(match.job?.externalUrl || match.job?.careerPageUrl, '_blank')}
-                                      >
-                                        <ExternalLink className="w-4 h-4 mr-1" />
-                                        View Job
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => markExternalApplicationMutation.mutate(match.id)}
-                                        disabled={match.status === 'applied' || isJobApplied(match) || markExternalApplicationMutation.isPending}
-                                      >
-                                        {match.status === 'applied' || isJobApplied(match) ? 'Applied' : 'Mark Applied'}
-                                      </Button>
-                                    </>
-                                  )}
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Matched {new Date(match.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <EmptyState
-                        icon={Star}
-                        title="Discover Live Job Opportunities"
-                        description="Search thousands of real job openings from top companies"
-                      >
-                        <InstantJobSearch />
-                      </EmptyState>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Applications Tab - Revolutionary Transparency & Feedback */}
-              <TabsContent value="applications" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Your Applications</CardTitle>
-                    <CardDescription>Track your job applications and their status</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {matchesLoading ? (
-                      <LoadingSkeleton count={3} />
-                    ) : (() => {
-                      const appliedJobs = matches?.filter(match => (match.status === 'applied' || isJobApplied(match)) && match.job) || [];
-                      return appliedJobs.length > 0 ? (
-                        <div className="space-y-4">
-                          {appliedJobs.map((match) => {
-                            // Only render if match.job exists
-                            if (!match.job) return null;
-                            return (
-                            <div key={match.id} className="border rounded-lg p-6 bg-green-500/10 border-green-500/20">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="font-medium text-foreground">
-                                      {match.job?.title || 'Job Title'}
-                                    </h3>
-                                    <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                                      Applied
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mb-1">
-                                    {match.job?.company || 'Company Name'} • {match.job?.location || 'Location'}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground mb-3">
-                                    {match.job?.workType || 'Work Type'} • 
-                                    {match.job?.salaryMin && match.job?.salaryMax && ` $${match.job.salaryMin.toLocaleString()} - $${match.job.salaryMax.toLocaleString()}`}
-                                  </p>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="font-medium text-purple-500">
-                                      {match.matchScore}% match
-                                    </span>
-                                    <span>•</span>
-                                    <span>Applied {new Date(match.createdAt).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  {match.job?.source === 'external' && match.job?.externalUrl && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => window.open(match.job.externalUrl, '_blank')}
-                                    >
-                                      <ExternalLink className="w-4 h-4 mr-1" />
-                                      View Original
-                                    </Button>
-                                  )}
-
-                                </div>
-                              </div>
-                            </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <EmptyState
-                          icon={Briefcase}
-                          title="No Applications Yet"
-                          description="Start applying to jobs from your matches to track them here"
-                        />
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-                
-                {/* Application Intelligence - shows authentic transparency data */}
-                <ApplicationIntelligenceDemo />
-              </TabsContent>
-
-              {/* Activity Tab */}
-              <TabsContent value="activity" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {activitiesLoading ? (
-                      <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-16 bg-muted rounded"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : activities?.length > 0 ? (
-                      <div className="space-y-4">
-                        {activities.map((activity) => (
-                          <div key={activity.id} className="flex items-start space-x-3 p-3 border-l-4 border-l-primary bg-primary/5 rounded-r">
-                            <div className="flex-1">
-                              <p className="text-sm text-foreground">{activity.description}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(activity.createdAt).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <Clock className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-muted-foreground">No recent activity</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Chat Sidebar */}
-          {showChat && (
-            <div className="lg:col-span-1">
-              <div className="sticky top-4 lg:top-8">
-                <RealTimeChat 
-                  roomId={selectedChatRoom} 
-                  onClose={() => setShowChat(false)}
-                />
-              </div>
             </div>
-          )}
-        </div>
+
+            {/* Quick Actions */}
+            <div>
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Zap className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                    <span>Quick Actions</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={() => setShowJobMatchesModal(true)}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Find Job Matches
+                  </Button>
+                  
+                  <Button 
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={() => setActiveTab('profile')}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Update Profile
+                  </Button>
+                  
+                  <Button 
+                    className="w-full justify-start"
+                    variant="outline"
+                    onClick={() => setActiveTab('applications')}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Track Applications
+                  </Button>
+
+                  {!hasResume && (
+                    <Button 
+                      className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => setActiveTab('profile')}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Resume
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Application Status Summary */}
+              {applications && applications.length > 0 && (
+                <Card className="mt-6 bg-white dark:bg-gray-800 shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Application Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Pending</span>
+                        <Badge variant="secondary">
+                          {applications.filter(app => app.status === 'pending').length}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">In Review</span>
+                        <Badge variant="outline">
+                          {applications.filter(app => app.status === 'viewed').length}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Interviews</span>
+                        <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800">
+                          {applications.filter(app => app.status === 'interested').length}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'jobs' && (
+          <div>
+            <AIJobFeed />
+          </div>
+        )}
+
+        {activeTab === 'applications' && (
+          <div>
+            <ApplicationTracker />
+          </div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="max-w-4xl">
+            <ProfileUpload />
+          </div>
+        )}
       </div>
 
-      {/* Enhanced Profile Completion Modal */}
-      {showProfileCompletion && user && (
-        <EnhancedProfileCompletion
-          user={user}
-          onComplete={() => {
-            setShowProfileCompletion(false);
-            queryClient.invalidateQueries({ queryKey: ['/api/session'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/candidates/stats'] });
-          }}
-          onCancel={() => setShowProfileCompletion(false)}
-        />
-      )}
-
-      {/* Job Exam Modal */}
-      {showExam && selectedJobId && (
-        <JobExam
-          jobId={selectedJobId}
-          onComplete={() => {
-            setShowExam(false);
-            queryClient.invalidateQueries({ queryKey: ['/api/candidates/matches'] });
-            toast({
-              title: "Exam Completed",
-              description: "Your exam has been submitted for review.",
-            });
-          }}
-          onCancel={() => setShowExam(false)}
-        />
-      )}
+      {/* Job Matches Modal */}
+      <JobMatchesModal
+        isOpen={showJobMatchesModal}
+        onClose={() => setShowJobMatchesModal(false)}
+      />
     </div>
   );
 }
