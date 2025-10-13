@@ -122,7 +122,7 @@ export default function LandingResponsive() {
                 className="bg-black text-white hover:bg-gray-800 text-xl px-8 py-4"
                 onClick={handleQuickMatch}
               >
-                Try Instant Match
+                Try Agentic Search
               </Button>
             </div>
           </div>
@@ -234,7 +234,7 @@ export default function LandingResponsive() {
               <div className="flex items-center justify-center w-16 h-16 mx-auto bg-purple-500/10 text-purple-500 rounded-full">
                 <span className="text-2xl font-bold">2</span>
               </div>
-              <h3 className="text-2xl font-bold text-black dark:text-white">See Your Matches</h3>
+              <h3 className="text-2xl font-bold text-black dark:text-white">See Your Opportunities</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                 Our AI finds the best jobs for you. No more endless scrolling through irrelevant job postings.
               </p>
@@ -270,9 +270,9 @@ export default function LandingResponsive() {
               <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-blue-500/10 text-blue-500 rounded-full">
                 <Brain className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">AI-Powered Matching</h3>
+              <h3 className="text-2xl font-bold text-black dark:text-white mb-4">AI-Powered Agentic Search</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                AI-powered job matching that understands your skills and preferences to deliver personalized opportunities.
+                AI-powered agentic search that understands your skills and preferences to deliver personalized opportunities.
               </p>
             </div>
 
@@ -304,17 +304,17 @@ export default function LandingResponsive() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 md:mb-20">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black dark:text-white mb-4">
-              Get Instant Matches
+              Get Instant Opportunities
             </h2>
             <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-              Enter your skills to see a personalized feed of jobs that match your experience.
+              Enter your skills and let your agent find opportunities for you.
             </p>
           </div>
             <div className="max-w-2xl mx-auto">
               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 md:p-6 lg:p-8 shadow-lg">
                 <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                   <Input
-                    placeholder="Enter your skills to see instant matches..."
+                    placeholder="Enter your skills for your agent to find opportunities..."
                     className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg rounded-xl border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-900/50 text-black dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:bg-white/70 dark:focus:bg-gray-800/70"
                     value={quickSkills}
                     onChange={(e) => setQuickSkills(e.target.value)}
@@ -327,7 +327,7 @@ export default function LandingResponsive() {
                     disabled={!quickSkills.trim()}
                   >
                     <Sparkles className="w-4 h-4 md:w-5 md:h-5 mr-2" />
-                    Match Jobs
+                    Agentic Search
                   </Button>
                 </div>
               </div>

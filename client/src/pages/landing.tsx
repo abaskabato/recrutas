@@ -135,8 +135,8 @@ export default function Landing() {
   const features: FeatureCard[] = [
     {
       icon: Brain,
-      title: "AI-Powered Matching",
-      description: "Our advanced AI analyzes skills, experience, and preferences to find perfect job matches in seconds.",
+      title: "AI-Powered Agentic Search",
+      description: "Our advanced AI analyzes skills, experience, and preferences to find perfect job opportunities in seconds.",
       gradient: "from-blue-500 to-cyan-500"
     },
     {
@@ -154,7 +154,7 @@ export default function Landing() {
     {
       icon: Target,
       title: "Perfect Fit Guarantee",
-      description: "Our matching algorithm ensures 95% compatibility between candidates and job requirements.",
+      description: "Our agentic algorithm ensures 95% compatibility between candidates and job requirements.",
       gradient: "from-orange-500 to-red-500"
     }
   ];
@@ -178,7 +178,7 @@ export default function Landing() {
       name: "Elena Rodriguez",
       role: "Designer",
       company: "Figma",
-      content: "The AI matching is incredibly accurate. Got matched with companies I never would have found.",
+      content: "The AI agent is incredibly accurate. Got connected with companies I never would have found.",
       avatar: "ER"
     }
   ];
@@ -244,7 +244,7 @@ export default function Landing() {
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-xl px-12 py-4"
                 onClick={() => setShowInstantMatch(true)}
               >
-                Try Instant Match
+                Try Agentic Search
               </Button>
             </div>
           </div>
@@ -280,7 +280,7 @@ export default function Landing() {
                     className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-6"
                     onClick={() => setShowInstantMatch(true)}
                   >
-                    Try Instant Match
+                    Try Agentic Search
                   </Button>
                 </>
               ) : (
@@ -338,7 +338,7 @@ export default function Landing() {
                 onClick={() => setShowInstantMatch(true)}
               >
                 <Sparkles className="w-5 h-5 mr-2" />
-                Try Instant Match
+                Try Agentic Search
               </Button>
               
               <Button 
@@ -370,7 +370,7 @@ export default function Landing() {
                 <div className="text-3xl md:text-4xl font-bold text-white mb-2">
                   {(platformStats as any)?.totalMatches || '50,000'}+
                 </div>
-                <div className="text-slate-400">Successful Matches</div>
+                <div className="text-slate-400">Successful Connections</div>
               </div>
               <div>
                 <div className="text-3xl md:text-4xl font-bold text-white mb-2">
@@ -580,7 +580,7 @@ export default function Landing() {
           >
             <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
               Ready to Find Your
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Perfect Match?</span>
+              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Perfect Opportunity?</span>
             </h2>
             
             <p className="text-xl text-slate-300 mb-12 max-w-3xl mx-auto">
@@ -594,7 +594,7 @@ export default function Landing() {
                 onClick={() => setShowInstantMatch(true)}
               >
                 <Sparkles className="w-5 h-5 mr-2" />
-                Start Matching Now
+                Start Agentic Search Now
               </Button>
               
               <Button 
