@@ -39,73 +39,47 @@ export default function AIJobFeed() {
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
 
-  // Fetch jobs with instant filtering
-  const { data: jobsResponse, isLoading } = useQuery({
-    queryKey: ['/api/external-jobs', { limit: 50 }],
+  const { data: rawMatches, isLoading } = useQuery<AIJobMatch[]>({
+    queryKey: ['/api/ai-matches'],
     queryFn: async () => {
-      const response = await fetch('/api/external-jobs?limit=50');
-      if (!response.ok) throw new Error('Failed to fetch jobs');
+      const response = await fetch('/api/ai-matches');
+      if (!response.ok) {
+        if (response.status === 404) {
+          return [];
+        }
+        throw new Error('Failed to fetch AI matches');
+      }
       return response.json();
     },
     refetchInterval: 300000, // Refresh every 5 minutes
   });
 
-  const rawJobs = jobsResponse?.jobs || [];
-  
-  // Instant filtering logic (no confirmation needed)
-  const filteredJobs = useMemo(() => {
-    return rawJobs.filter((job: any) => {
-      const matchesSearch = !searchTerm || 
+  const aiMatches = rawMatches || [];
+
+  const filteredMatches = useMemo(() => {
+    return aiMatches.filter((match: AIJobMatch) => {
+      const job = match.job;
+      const matchesSearch = !searchTerm ||
         job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         job.company.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesLocation = !locationFilter || 
+
+      const matchesLocation = locationFilter === "all" ||
         job.location.toLowerCase().includes(locationFilter.toLowerCase());
-      
-      const matchesCompany = !companyFilter || 
+
+      const matchesCompany = companyFilter === "all" ||
         job.company.toLowerCase().includes(companyFilter.toLowerCase());
-      
-      const matchesWorkType = !workTypeFilter || 
-        job.type?.toLowerCase() === workTypeFilter.toLowerCase();
-      
+
+      const matchesWorkType = workTypeFilter === "all" ||
+        job.workType?.toLowerCase() === workTypeFilter.toLowerCase();
+
       return matchesSearch && matchesLocation && matchesCompany && matchesWorkType;
     });
-  }, [rawJobs, searchTerm, locationFilter, companyFilter, workTypeFilter]);
+  }, [aiMatches, searchTerm, locationFilter, companyFilter, workTypeFilter]);
 
-  const aiMatches: AIJobMatch[] = filteredJobs.map((job: any, index: number) => ({
-    id: job.id || index,
-    job: {
-      id: job.id || index,
-      title: job.title,
-      company: job.company,
-      location: job.location,
-      workType: job.type || 'hybrid',
-      salaryMin: 0,
-      salaryMax: 0,
-      description: job.description,
-      requirements: [],
-      skills: job.skills || [],
-      aiCurated: true,
-      confidenceScore: parseInt(job.match) || 85,
-      externalSource: job.source,
-      externalUrl: job.externalUrl,
-    },
-    matchScore: job.match || '85%',
-    confidenceLevel: 0.85,
-    skillMatches: job.skills?.slice(0, 3) || [],
-    aiExplanation: job.aiInsights || 'Great match for your profile',
-    status: job.applicationStatus || 'pending',
-    createdAt: new Date().toISOString()
-  }));
+  const locations = useMemo(() => [...new Set(aiMatches.map(m => m.job.location).filter(Boolean))], [aiMatches]);
+  const companies = useMemo(() => [...new Set(aiMatches.map(m => m.job.company).filter(Boolean))], [aiMatches]);
+  const workTypes = useMemo(() => [...new Set(aiMatches.map(m => m.job.workType).filter(Boolean))], [aiMatches]);
 
-  // Extract unique values for filter options
-  const locations = rawJobs.map((job: any) => job.location).filter(Boolean) as string[];
-  const companies = rawJobs.map((job: any) => job.company).filter(Boolean) as string[];
-  const workTypes = rawJobs.map((job: any) => job.type).filter(Boolean) as string[];
-  
-  const uniqueLocations = locations.filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
-  const uniqueCompanies = companies.filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
-  const uniqueWorkTypes = workTypes.filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
 
   // Actions - simplified and direct
   const handleJobView = (match: AIJobMatch) => {
@@ -149,7 +123,7 @@ export default function AIJobFeed() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Locations</SelectItem>
-              {uniqueLocations.slice(0, 10).map((location: string) => (
+              {locations.slice(0, 10).map((location: string) => (
                 <SelectItem key={location} value={location}>{location}</SelectItem>
               ))}
             </SelectContent>
@@ -161,7 +135,7 @@ export default function AIJobFeed() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              {uniqueWorkTypes.map((type: string) => (
+              {workTypes.map((type: string) => (
                 <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>
               ))}
             </SelectContent>
@@ -174,13 +148,13 @@ export default function AIJobFeed() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Companies</SelectItem>
-                {uniqueCompanies.slice(0, 15).map((company: string) => (
+                {companies.slice(0, 15).map((company: string) => (
                   <SelectItem key={company} value={company}>{company}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             
-            {(searchTerm || locationFilter || workTypeFilter || companyFilter) && (
+            {(searchTerm || locationFilter !== "all" || workTypeFilter !== "all" || companyFilter !== "all") && (
               <Button variant="outline" size="sm" onClick={clearFilters}>
                 Clear
               </Button>
@@ -189,7 +163,7 @@ export default function AIJobFeed() {
         </div>
         
         <div className="mt-3 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-          <span>{aiMatches.length} jobs found</span>
+          <span>{filteredMatches.length} jobs found</span>
           <span>Updated every 5 minutes</span>
         </div>
       </div>
@@ -204,7 +178,7 @@ export default function AIJobFeed() {
             </div>
           ))}
         </div>
-      ) : aiMatches.length === 0 ? (
+      ) : filteredMatches.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border">
           <Filter className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No jobs match your filters</h3>
@@ -213,7 +187,7 @@ export default function AIJobFeed() {
         </div>
       ) : (
         <div className="space-y-3">
-          {aiMatches.map((match) => (
+          {filteredMatches.map((match) => (
             <Card key={match.id} className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150 cursor-pointer" onClick={() => handleJobView(match)}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">

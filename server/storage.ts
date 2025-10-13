@@ -50,6 +50,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or } from "drizzle-orm";
+import { supabaseAdmin } from "./lib/supabase-admin";
 
 /**
  * Storage Interface Definition
@@ -208,11 +209,28 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User> {
     try {
+      // First, update the user's metadata in Supabase Auth
+      const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        { app_metadata: { role } }
+      );
+
+      if (authError) {
+        console.error('Error updating Supabase auth user:', authError);
+        throw new Error(authError.message);
+      }
+
+      // Then, update the local database for consistency
       const [user] = await db
         .update(users)
         .set({ role: role as any, updatedAt: new Date() })
         .where(eq(users.id, userId))
         .returning();
+        
+      if (!user) {
+        throw new Error("User not found in local database after role update.");
+      }
+
       return user;
     } catch (error) {
       console.error('Error updating user role:', error);
@@ -1168,262 +1186,6 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error creating application insights:', error);
-      throw error;
-    }
-  }
-
-  async getApplicationsForTalent(talentId: string): Promise<any[]> {
-    try {
-      // Get all applications for jobs owned by this talent
-      const results = await db
-        .select({
-          application: jobApplications,
-          candidate: candidateProfiles,
-          job: jobPostings,
-          user: users
-        })
-        .from(jobApplications)
-        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
-        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .leftJoin(users, eq(candidateProfiles.userId, users.id))
-        .where(eq(jobPostings.talentOwnerId, talentId));
-
-      return results.map(({ application, candidate, job, user }) => ({
-        id: application.id.toString(),
-        candidateId: user?.id,
-        jobId: job?.id,
-        candidateName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email?.split('@')[0] || 'Unknown',
-        candidateEmail: user?.email,
-        jobTitle: job?.title,
-        appliedAt: application.appliedAt?.toISOString(),
-        status: application.status,
-        matchScore: candidate?.matchScore || 0,
-        skills: candidate?.skills || [],
-        experience: candidate?.experience || '',
-        location: candidate?.location || '',
-        resumeUrl: candidate?.resumeUrl,
-        // Intelligence data stored in application
-        viewedAt: application.viewedAt?.toISOString(),
-        viewDuration: application.viewDuration,
-        ranking: application.ranking,
-        totalApplicants: application.totalApplicants,
-        feedback: application.feedback,
-        rating: application.rating,
-        nextSteps: application.nextSteps,
-        transparencyLevel: application.transparencyLevel || 'partial'
-      }));
-    } catch (error) {
-      console.error('Error getting applications for talent:', error);
-      throw error;
-    }
-  }
-
-  async updateTalentTransparencySettings(talentId: string, settings: any): Promise<any> {
-    try {
-      // Store talent transparency preferences in user profile
-      const [result] = await db
-        .update(users)
-        .set({
-          transparencySettings: JSON.stringify(settings),
-          updatedAt: new Date()
-        })
-        .where(eq(users.id, talentId))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error updating transparency settings:', error);
-      throw error;
-    }
-  }
-
-  async storeExamResult(result: any): Promise<any> {
-    try {
-      // First get the exam ID for this job
-      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
-      if (!exam) {
-        throw new Error('No exam found for this job');
-      }
-
-      await db.insert(examAttempts).values({
-        examId: exam.id,
-        candidateId: result.candidateId,
-        jobId: result.jobId,
-        score: result.score,
-        totalQuestions: result.totalQuestions,
-        correctAnswers: result.correctAnswers,
-        timeSpent: result.timeSpent,
-        answers: result.answers,
-        status: 'completed',
-        passedExam: result.score >= (exam.passingScore || 70),
-        qualifiedForChat: false, // Will be set during ranking
-        completedAt: new Date(),
-      });
-    } catch (error) {
-      console.error('Error storing exam result:', error);
-      throw error;
-    }
-  }
-
-  async createApplicationEvent(event: any): Promise<any> {
-    try {
-      // Import the applicationEvents table from schema
-      const { applicationEvents } = await import("@shared/schema");
-      
-      const [result] = await db.insert(applicationEvents).values({
-        applicationId: event.applicationId,
-        eventType: event.eventType,
-        actorRole: event.actorRole,
-        actorName: event.actorName,
-        actorTitle: event.actorTitle,
-        viewDuration: event.viewDuration,
-        candidateScore: event.candidateScore,
-        candidateRanking: event.candidateRanking,
-        totalApplicants: event.totalApplicants,
-        feedback: event.feedback,
-        nextSteps: event.nextSteps,
-        competitorUser: event.competitorUser,
-        visible: event.visible ?? true
-      }).returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error creating application event:', error);
-      throw error;
-    }
-  }
-
-  async getApplicationEvents(applicationId: number): Promise<any[]> {
-    try {
-      const { applicationEvents } = await import("@shared/schema");
-      
-      return await db
-        .select()
-        .from(applicationEvents)
-        .where(eq(applicationEvents.applicationId, applicationId))
-        .orderBy(desc(applicationEvents.createdAt));
-    } catch (error) {
-      console.error('Error fetching application events:', error);
-      return [];
-    }
-  }
-
-  async getApplicationInsights(applicationId: number): Promise<any> {
-    try {
-      const { applicationInsights } = await import("@shared/schema");
-      
-      const [insights] = await db
-        .select()
-        .from(applicationInsights)
-        .where(eq(applicationInsights.applicationId, applicationId))
-        .orderBy(desc(applicationInsights.createdAt))
-        .limit(1);
-        
-      return insights;
-    } catch (error) {
-      console.error('Error fetching application insights:', error);
-      return null;
-    }
-  }
-
-  async createApplicationInsights(insights: any): Promise<any> {
-    try {
-      const { applicationInsights } = await import("@shared/schema");
-      
-      const [result] = await db.insert(applicationInsights).values({
-        candidateId: insights.candidateId,
-        applicationId: insights.applicationId,
-        strengthsIdentified: insights.strengthsIdentified,
-        improvementAreas: insights.improvementAreas,
-        benchmarkViewTime: insights.benchmarkViewTime,
-        actualViewTime: insights.actualViewTime,
-        benchmarkScore: insights.benchmarkScore,
-        actualScore: insights.actualScore,
-        similarSuccessfulUsers: insights.similarSuccessfulUsers,
-        recommendedActions: insights.recommendedActions,
-        successProbability: insights.successProbability,
-        supportiveMessage: insights.supportiveMessage
-      }).returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error creating application insights:', error);
-      throw error;
-    }
-  }
-
-  async updateApplicationIntelligence(applicationId: string | number, updates: any): Promise<any> {
-    try {
-      // Ensure applicationId is a valid integer
-      const validApplicationId = typeof applicationId === 'string' ? parseInt(applicationId) : applicationId;
-      if (isNaN(validApplicationId)) {
-        throw new Error('Invalid application ID');
-      }
-
-      // For demo purposes, using the jobApplications table to store intelligence data
-      // In production, this would be a dedicated application_intelligence table
-      const [result] = await db
-        .update(jobApplications)
-        .set({
-          ...updates,
-          updatedAt: new Date()
-        })
-        .where(eq(jobApplications.id, validApplicationId))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error updating application intelligence:', error);
-      throw error;
-    }
-  }
-
-  async getAvailableNotificationUsers(): Promise<string[]> {
-    const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
-    return result.map(r => r.userId);
-  }
-
-  async getApplicationById(applicationId: number): Promise<any> {
-    try {
-      const [application] = await db
-        .select()
-        .from(jobApplications)
-        .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .where(eq(jobApplications.id, applicationId));
-      
-      return application ? {
-        ...(application as any).job_applications,
-        job: (application as any).job_postings
-      } : undefined;
-    } catch (error) {
-      console.error('Error fetching application by ID:', error);
-      throw error;
-    }
-  }
-
-  // Application Intelligence methods for talent dashboard transparency
-  async updateApplicationIntelligence(applicationId: string | number, updates: any): Promise<any> {
-    try {
-      // Ensure applicationId is a valid integer
-      const validApplicationId = typeof applicationId === 'string' ? parseInt(applicationId) : applicationId;
-      if (isNaN(validApplicationId)) {
-        throw new Error('Invalid application ID');
-      }
-
-      // For demo purposes, using the jobApplications table to store intelligence data
-      // In production, this would be a dedicated application_intelligence table
-      const [result] = await db
-        .update(jobApplications)
-        .set({
-          ...updates,
-          updatedAt: new Date()
-        })
-        .where(eq(jobApplications.id, validApplicationId))
-        .returning();
-      
-      return result;
-    } catch (error) {
-      console.error('Error updating application intelligence:', error);
       throw error;
     }
   }

@@ -30,13 +30,17 @@ async function runAllTestSuites() {
   console.log('=====================================');
 
   const startTime = Date.now();
-  let serverProcess;
+  let serverProcess, frontendProcess;
 
   try {
     console.log('Starting server for tests...');
     serverProcess = spawn('npm', ['run', 'dev:server'], { stdio: 'inherit', detached: true });
 
+    console.log('Starting frontend server for tests...');
+    frontendProcess = spawn('npm', ['run', 'dev'], { stdio: 'inherit', detached: true });
+
     await waitForServer();
+    await waitForFrontend();
 
     console.log('\n🔧 Phase 1: API Tests');
     console.log('---------------------');
@@ -52,8 +56,11 @@ async function runAllTestSuites() {
   } finally {
     if (serverProcess) {
       console.log('\nShutting down server...');
-      // Kill the entire process group
       process.kill(-serverProcess.pid);
+    }
+    if (frontendProcess) {
+      console.log('Shutting down frontend server...');
+      process.kill(-frontendProcess.pid);
     }
     const endTime = Date.now();
     const duration = Math.round((endTime - startTime) / 1000);
@@ -63,6 +70,25 @@ async function runAllTestSuites() {
     process.exit(0); // Exit successfully
   }
 }
+
+async function waitForFrontend() {
+  console.log('Waiting for frontend server to start...');
+  for (let i = 0; i < 30; i++) {
+    try {
+      const response = await fetch(`http://localhost:5173`);
+      if (response.ok) {
+        console.log('Frontend server is ready!');
+        return;
+      }
+    } catch (e) {
+      // Ignore connection errors and retry
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error('Frontend server did not start in time');
+}
+
+
 
 // Run if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {

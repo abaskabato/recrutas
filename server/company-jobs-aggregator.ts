@@ -159,11 +159,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Google Careers API returned ${response.status}`);
-        return this.getGoogleFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Google Careers:', (error as Error).message);
-      return this.getGoogleFallbackJobs();
+      return [];
     }
   }
 
@@ -326,11 +326,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Microsoft Careers API returned ${response.status}`);
-        return this.getMicrosoftFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Microsoft Careers:', (error as Error).message);
-      return this.getMicrosoftFallbackJobs();
+      return [];
     }
   }
 
@@ -358,11 +358,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Tesla Careers API returned ${response.status}`);
-        return this.getTeslaFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Tesla Careers:', (error as Error).message);
-      return this.getTeslaFallbackJobs();
+      return [];
     }
   }
 
@@ -394,11 +394,11 @@ export class CompanyJobsAggregator {
         return jobs;
       } else {
         console.log(`Netflix Jobs API returned ${response.status}`);
-        return this.getNetflixFallbackJobs();
+        return [];
       }
     } catch (error) {
       console.log('Error fetching from Netflix Jobs:', (error as Error).message);
-      return this.getNetflixFallbackJobs();
+      return [];
     }
   }
 
@@ -734,8 +734,22 @@ export class CompanyJobsAggregator {
       console.log('Error fetching from job APIs:', error);
     }
 
+    // Filter out old jobs
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const recentJobs = allJobs.filter(job => {
+      if (!job.postedDate) return true; // Keep jobs without a posted date for now
+      try {
+        const postedDate = new Date(job.postedDate);
+        return postedDate > threeMonthsAgo;
+      } catch (e) {
+        return true; // Keep jobs with invalid date formats
+      }
+    });
+
     // Remove duplicates and apply limit
-    const uniqueJobs = this.removeDuplicates(allJobs);
+    const uniqueJobs = this.removeDuplicates(recentJobs);
     const limitedJobs = uniqueJobs.slice(0, targetLimit);
     
     // Cache for future requests
