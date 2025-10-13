@@ -92,7 +92,7 @@ interface Candidate {
 export default function RecruiterDashboardRefactored() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics' | 'connections'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics' | 'connections' | 'agent'>('overview');
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [showJobPostingWizard, setShowJobPostingWizard] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
@@ -424,6 +424,17 @@ export default function RecruiterDashboardRefactored() {
             >
               <MessageCircle className="h-4 w-4 mr-2 inline" />
               Direct Connections
+            </button>
+            <button
+              onClick={() => setActiveTab('agent')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'agent'
+                  ? 'border-purple-500 text-purple-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              <User className="h-4 w-4 mr-2 inline" />
+              Recrutas Agent
             </button>
           </nav>
         </div>
@@ -836,6 +847,12 @@ export default function RecruiterDashboardRefactored() {
                 });
               }}
             />
+          </div>
+        )}
+        {activeTab === 'agent' && (
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Recrutas Agent Dashboard</h2>
+            <p className="text-slate-500">This is where you can manage your Recrutas agent. Coming soon!</p>
           </div>
         )}
       </div>
