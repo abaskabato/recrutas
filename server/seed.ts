@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, candidateProfiles, jobPostings, jobMatches, activityLogs } from "@shared/schema";
+import { users, candidateProfiles, jobPostings, jobMatches, activityLogs, jobApplications } from "@shared/schema";
 
 export async function seedDatabase() {
   try {
@@ -125,6 +125,13 @@ export async function seedDatabase() {
       userId: "recruiter_1",
       type: "job_posted",
       description: "Posted new job: Senior Full Stack Developer",
+    });
+
+    // Create a sample application
+    await db.insert(jobApplications).values({
+      candidateId: candidate1[0].id,
+      jobId: job1[0].id,
+      status: "submitted",
     });
 
     console.log("Database seeded successfully!");

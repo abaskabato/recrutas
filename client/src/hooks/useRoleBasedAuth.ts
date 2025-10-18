@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useSessionContext } from '@supabase/auth-helpers-react';
+import { useAuth } from './use-auth';
 
 export function useRoleBasedAuth() {
-  const { session, isLoading } = useSessionContext();
-  const user = session?.user;
-  const isAuthenticated = !!session?.user;
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
@@ -22,6 +20,12 @@ export function useRoleBasedAuth() {
       if (location !== '/role-selection') {
         setLocation('/role-selection');
       }
+      return;
+    }
+
+    // If authenticated but profile is not complete, redirect to guided setup
+    if (isAuthenticated && user?.profile_complete === false && location !== '/guided-setup') {
+      setLocation('/guided-setup');
       return;
     }
 

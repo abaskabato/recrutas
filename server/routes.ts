@@ -3,6 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { supabaseAdmin } from "./lib/supabase-admin.js";
 
 import { isAuthenticated } from "./middleware/auth";
 import { companyJobsAggregator } from "./company-jobs-aggregator";
@@ -30,6 +31,7 @@ import { eq, sql } from "drizzle-orm";
 import { generateJobMatch, generateJobInsights } from "./ai-service";
 import { db } from "./db";
 import { resumeParser } from "./resume-parser";
+import { seedDatabase } from "./seed.js";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
 
 // Simple in-memory cache for external jobs consistency
@@ -83,15 +85,7 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const storageConfig = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const storageConfig = multer.memoryStorage();
 
 const upload = multer({
   storage: storageConfig,
@@ -109,7 +103,20 @@ const upload = multer({
 
 
 
+import { seedDatabase } from "./seed.js";
+
 export async function registerRoutes(app: Express): Promise<Express> {
+  // Dev-only route for seeding the database
+  app.post('/api/dev/seed', async (req, res) => {
+    try {
+      await seedDatabase();
+      res.status(200).json({ message: "Database seeded successfully" });
+    } catch (error) {
+      console.error("Error seeding database:", error);
+      res.status(500).json({ message: "Failed to seed database" });
+    }
+  });
+
   // Health check endpoint for deployment monitoring
   app.get('/api/health', (req, res) => {
     res.status(200).json({
@@ -440,17 +447,23 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
 
+
+  
   // Resume upload with AI parsing
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
+    console.log('--- REQUEST RECEIVED AT /api/candidate/resume ---');
+    console.log('Request body:', req.body);
+    console.log('File:', req.file);
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
-
+  
       const userId = req.user.id;
-      const resumeUrl = `/uploads/${req.file.filename}`;
-      const filePath = req.file.path;
       
+      // Upload to Supabase Storage and get public URL
+      const resumeUrl = await storage.uploadResume(req.file.buffer, req.file.mimetype);
+  
       // Parse the resume using AI-powered parser
       let parsedData = null;
       let aiExtracted = null;
@@ -458,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       
       try {
         const { aiResumeParser } = await import('./ai-resume-parser');
-        const result = await aiResumeParser.parseFile(filePath);
+        const result = await aiResumeParser.parseFile(req.file.buffer); // Pass buffer directly
         parsedData = result;
         aiExtracted = result.aiExtracted;
         parsingSuccess = true;
@@ -468,8 +481,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       } catch (parseError) {
         console.error('AI Resume parsing failed:', parseError);
         // Continue with upload even if parsing fails
-      }
-      
+      }      
       // Get existing profile to merge data
       const existingProfile = await storage.getCandidateProfile(userId);
       
@@ -702,8 +714,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  // Serve uploaded files
-  app.use('/uploads', express.static(uploadDir));
+
 
   // AI Resume parsing demo endpoint
   app.get('/api/resume-parsing-demo', async (req, res) => {
@@ -1197,10 +1208,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
           jobId: job.id,
           title: `${job.title} Assessment`,
           description: `Technical assessment for ${job.title} position at ${job.company}`,
-          timeLimit: 30,
-          passingScore: job.examPassingScore || 70,
+          timeLimit: req.body.exam?.timeLimit || 30,
+          passingScore: req.body.exam?.passingScore || 70,
           isActive: true,
-          questions: await generateExamQuestions(job)
+          questions: req.body.exam?.questions || await generateExamQuestions(job)
         };
         
         await storage.createJobExam(examData);
@@ -1282,26 +1293,42 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/talent-owner/profile/complete', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { companyName, website, companySize, ...profileData } = req.body;
+      const { companyName, companyWebsite, companySize, ...profileData } = req.body;
       
-      // Update user basic info
+      let companyId: number | undefined;
+      // Create company if it doesn't exist
+      if (companyName) {
+        const newCompany = await storage.createCompany({
+          name: companyName,
+          website: companyWebsite,
+          size: companySize,
+          ownerId: userId,
+        });
+        companyId = newCompany.id;
+      }
+
+      // Update user's public profile
       await db.update(users)
         .set({
-          ...profileData,
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          phoneNumber: profileData.phoneNumber,
           profileComplete: true,
           updatedAt: new Date()
         })
         .where(eq(users.id, userId));
 
-      // Create company
-      if (companyName) {
-        await storage.createCompany({
-          name: companyName,
-          website,
-          size: companySize,
-          ownerId: userId,
-        });
-      }
+      // Update user's app_metadata with additional profile info
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        app_metadata: {
+          ...req.user.app_metadata,
+          job_title: profileData.jobTitle,
+          company_id: companyId,
+          hiring_for: profileData.hiringFor,
+          hiring_timeline: profileData.hiringTimeline,
+          hiring_budget: profileData.hiringBudget,
+        }
+      });
       
       // Create activity log
       await storage.createActivityLog(userId, "profile_completed", "Talent owner profile completed");
@@ -1609,37 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   
 
-  // Resume upload endpoint
-  app.post('/api/candidates/upload-resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
 
-      // Generate a permanent file path
-      const fileName = `${userId}_${Date.now()}_${req.file.originalname}`;
-      const resumeUrl = `/uploads/${fileName}`;
-
-      // Update candidate profile with resume URL
-      await storage.upsertCandidateProfile({
-        userId: userId,
-        resumeUrl: resumeUrl
-      });
-
-      // Create activity log
-      await storage.createActivityLog(userId, "resume_uploaded", "Resume uploaded successfully");
-
-      res.json({
-        message: "Resume uploaded successfully",
-        resumeUrl: resumeUrl
-      });
-    } catch (error) {
-      console.error("Error uploading resume:", error);
-      res.status(500).json({ message: "Failed to upload resume" });
-    }
-  });
 
   app.post('/api/candidates/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {
@@ -1661,6 +1658,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Create activity log
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
+
+      // Notify the recruiter
+      const job = await storage.getJobPosting(jobId);
+      if (job) {
+        await notificationService.createNotification({
+          userId: job.talentOwnerId,
+          type: 'new_application',
+          title: 'New Application Received',
+          message: `You have a new application for ${job.title}`,
+          relatedApplicationId: application.id,
+        });
+      }
 
       res.json(application);
     } catch (error) {

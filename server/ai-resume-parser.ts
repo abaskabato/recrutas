@@ -215,12 +215,11 @@ English (Native), Spanish (Conversational)`;
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
     try {
-      // Use OpenAI API for proper AI extraction
-      const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const Groq = (await import('groq-sdk')).default;
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      const response = await groq.chat.completions.create({
+        model: "llama3-8b-8192",
         messages: [
           {
             role: "system",

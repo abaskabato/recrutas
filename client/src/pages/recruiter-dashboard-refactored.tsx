@@ -865,7 +865,21 @@ export default function RecruiterDashboardRefactored() {
           </DialogHeader>
           <JobPostingWizard 
             onSubmit={(jobData) => {
-              createJobMutation.mutate(jobData);
+              // Transform frontend data to match backend schema
+              const transformedData = {
+                title: jobData.title,
+                company: jobData.company,
+                description: jobData.description,
+                requirements: jobData.requirements,
+                skills: jobData.skills,
+                location: jobData.location,
+                workType: jobData.workType,
+                salaryMin: jobData.salaryMin,
+                salaryMax: jobData.salaryMax,
+                hasExam: jobData.enableFiltering,
+                exam: jobData.enableFiltering ? jobData.filteringExam : null,
+              };
+              createJobMutation.mutate(transformedData);
             }}
             onCancel={() => setShowJobPostingWizard(false)}
           />

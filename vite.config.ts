@@ -26,6 +26,7 @@ export default {
     },
   },
   server: {
+    port: 3000,
     fs: {
       strict: true,
       deny: ["**/.*"],

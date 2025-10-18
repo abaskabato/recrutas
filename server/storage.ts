@@ -49,7 +49,7 @@ import {
   type InsertNotificationPreferences
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, and, or, inArray } from "drizzle-orm";
 import { supabaseAdmin } from "./lib/supabase-admin";
 
 /**
@@ -234,6 +234,37 @@ export class DatabaseStorage implements IStorage {
       return user;
     } catch (error) {
       console.error('Error updating user role:', error);
+      throw error;
+    }
+  }
+
+  async uploadResume(fileBuffer: Buffer, fileType: string): Promise<string> {
+    try {
+      const bucket = 'resumes';
+      const fileName = `resume-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const { data, error } = await supabaseAdmin.storage
+        .from(bucket)
+        .upload(fileName, fileBuffer, {
+          contentType: fileType,
+          upsert: true,
+        });
+
+      if (error) {
+        console.error('Error uploading to Supabase Storage:', error);
+        throw new Error('Failed to upload resume to storage.');
+      }
+
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      if (!publicUrlData) {
+        throw new Error('Failed to get public URL for resume.');
+      }
+      
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      console.error('Error in uploadResume:', error);
       throw error;
     }
   }
@@ -606,14 +637,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Statistics and analytics
-  async getCandidateStats(candidateId: string): Promise<{
-    totalApplications: number;
-    activeMatches: number;
-    profileViews: number;
-    profileStrength: number;
-    responseRate: number;
-    avgMatchScore: number;
-  }> {
+  async getCandidateStats(candidateId: string): Promise<any> {
     try {
       const applications = await db
         .select()
@@ -624,14 +648,21 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(jobMatches)
         .where(eq(jobMatches.candidateId, candidateId));
+        
+      const profile = await this.getCandidateUser(candidateId);
+
+      const activeChats = await db
+        .select()
+        .from(chatRooms)
+        .where(eq(chatRooms.candidateId, candidateId));
 
       return {
-        totalApplications: applications.length,
-        activeMatches: matches.filter(m => m.status === 'pending' || m.status === 'viewed').length,
-        profileViews: 0, // Would need to implement view tracking
-        profileStrength: 75, // Would calculate based on profile completeness
-        responseRate: 0.8, // Would calculate from actual data
-        avgMatchScore: matches.reduce((acc, m) => acc + parseFloat(m.matchScore || '0'), 0) / matches.length || 0
+        newMatches: matches.filter(m => m.status === 'pending').length,
+        profileViews: profile?.profileViews || 0,
+        activeChats: activeChats.length,
+        applicationsPending: applications.filter(a => a.status === 'submitted' || a.status === 'viewed').length,
+        applicationsRejected: applications.filter(a => a.status === 'rejected').length,
+        applicationsAccepted: applications.filter(a => a.status === 'offer').length,
       };
     } catch (error) {
       console.error('Error fetching candidate stats:', error);
@@ -639,29 +670,37 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getRecruiterStats(talentOwnerId: string): Promise<{
-    activeJobs: number;
-    totalMatches: number;
-    activeChats: number;
-    hires: number;
-  }> {
+  async getRecruiterStats(talentOwnerId: string): Promise<any> {
     try {
       const jobs = await db
         .select()
         .from(jobPostings)
         .where(eq(jobPostings.talentOwnerId, talentOwnerId));
 
-      const matches = await db
+      const jobIds = jobs.map(j => j.id);
+
+      const applications = jobIds.length > 0 ? await db
+        .select()
+        .from(jobApplications)
+        .where(inArray(jobApplications.jobId, jobIds)) : [];
+
+      const matches = jobIds.length > 0 ? await db
         .select()
         .from(jobMatches)
-        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-        .where(eq(jobPostings.talentOwnerId, talentOwnerId));
+        .where(inArray(jobMatches.jobId, jobIds)) : [];
+
+      const activeChats = jobIds.length > 0 ? await db
+        .select()
+        .from(chatRooms)
+        .where(inArray(chatRooms.jobId, jobIds)) : [];
 
       return {
         activeJobs: jobs.filter(j => j.status === 'active').length,
         totalMatches: matches.length,
-        activeChats: 0, // Would count active chat rooms
-        hires: 0 // Would count hired candidates
+        activeChats: activeChats.length,
+        hires: applications.filter(a => a.status === 'offer').length,
+        pendingApplications: applications.filter(a => a.status === 'submitted').length,
+        viewedApplications: applications.filter(a => a.status === 'viewed').length,
       };
     } catch (error) {
       console.error('Error fetching recruiter stats:', error);
@@ -671,19 +710,26 @@ export class DatabaseStorage implements IStorage {
 
   async getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]> {
     try {
+      const jobs = await this.getJobPostings(talentOwnerId);
+      const jobIds = jobs.map(j => j.id);
+
+      if (jobIds.length === 0) {
+        return [];
+      }
+
       return await db
         .select({
+          application: jobApplications,
           candidate: users,
           profile: candidateProfiles,
-          match: jobMatches,
           job: jobPostings
         })
-        .from(jobMatches)
-        .innerJoin(users, eq(jobMatches.candidateId, users.id))
-        .leftJoin(candidateProfiles, eq(users.id, candidateProfiles.userId))
-        .innerJoin(jobPostings, eq(jobMatches.jobId, jobPostings.id))
-        .where(eq(jobPostings.talentOwnerId, talentOwnerId))
-        .orderBy(desc(jobMatches.createdAt));
+        .from(jobApplications)
+        .innerJoin(users, eq(jobApplications.candidateId, users.id))
+        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
+        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(inArray(jobApplications.jobId, jobIds))
+        .orderBy(desc(jobApplications.createdAt));
     } catch (error) {
       console.error('Error fetching candidates for recruiter:', error);
       throw error;

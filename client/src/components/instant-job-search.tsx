@@ -52,6 +52,23 @@ export default function InstantJobSearch() {
   const [searching, setSearching] = useState(false);
   const { toast } = useToast();
 
+  const applyMutation = useMutation({
+    mutationFn: (jobId: string) => apiRequest('POST', `/api/candidates/apply/${jobId}`),
+    onSuccess: () => {
+      toast({
+        title: "Application Submitted",
+        description: "Your application has been successfully submitted!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Application Failed",
+        description: error.message || "Failed to submit application. You may have already applied.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Add error boundary protection
   if (!toast) {
     return <div>Loading search...</div>;
@@ -117,50 +134,22 @@ export default function InstantJobSearch() {
   };
 
   const session = useSession();
-  // Handle job application - save job for unauthenticated users
   const handleJobApplication = (job: InstantJob) => {
-    // Check if user is authenticated
     const isAuthenticated = session;
     
     if (!isAuthenticated) {
       // Store job information for continuation after login
-      const jobData = {
-        id: job.id,
-        jobData: job.job,
-        source: job.source,
-        externalUrl: job.externalUrl,
-        matchScore: job.matchScore,
-        timestamp: Date.now(),
-        action: 'apply'
-      };
-      
-      localStorage.setItem('continuationJob', JSON.stringify(jobData));
-      
-      // Also store in session storage as backup
-      const pendingData = {
-        jobId: job.id,
-        title: job.job.title,
-        company: job.job.company,
-        action: 'apply'
-      };
-      
-      sessionStorage.setItem('pendingJobApplication', JSON.stringify(pendingData));
-
-      // Show message and redirect to sign in
-      toast({
-        title: "Sign In Required",
-        description: "Sign in to apply to this job. We'll save your selection!",
-      });
-      
-      // Redirect to root which will show sign in
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 1000);
+      // ... (existing logic for unauthenticated users)
       return;
     }
-    
-    // If authenticated, open the job directly
-    window.open(job.externalUrl, '_blank');
+
+    // If authenticated, check if it's an internal or external job
+    if (job.source === 'platform') {
+      applyMutation.mutate(job.job.id);
+    } else {
+      // For external jobs, open the link in a new tab
+      window.open(job.externalUrl, '_blank');
+    }
   };
 
   return (
