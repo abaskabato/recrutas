@@ -724,23 +724,23 @@ export class JobAggregator {
       const [
         jsearchJobs,
         arbeitNowJobs,
-        joobleJobs,
-        indeedJobs,
-        usaJobs,
+        // joobleJobs,
+        // indeedJobs,
+        // usaJobs,
         museJobs,
-        adzunaJobs,
-        githubJobs,
+        // adzunaJobs,
+        // githubJobs,
         remoteOKJobs,
         jsonJobs
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
         this.fetchFromArbeitNow(),
-        this.fetchFromJoobleAPI(userSkills),
-        this.fetchFromIndeedRSS(userSkills),
-        this.fetchFromUSAJobs(userSkills),
+        // this.fetchFromJoobleAPI(userSkills),
+        // this.fetchFromIndeedRSS(userSkills),
+        // this.fetchFromUSAJobs(userSkills),
         this.fetchFromTheMuse(),
-        this.fetchFromAdzunaDemo(userSkills),
-        this.fetchGitHubJobs(),
+        // this.fetchFromAdzunaDemo(userSkills),
+        // this.fetchGitHubJobs(),
         this.fetchRemoteOKJobs(),
         this.generateRelevantJobs(userSkills)
       ]);
@@ -748,12 +748,12 @@ export class JobAggregator {
       // Add jobs from successful fetches including new sources
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
       if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
-      if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
-      if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
-      if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
+      // if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
+      // if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
+      // if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
       if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
-      if (adzunaJobs.status === 'fulfilled') allJobs.push(...adzunaJobs.value);
-      if (githubJobs.status === 'fulfilled') allJobs.push(...githubJobs.value);
+      // if (adzunaJobs.status === 'fulfilled') allJobs.push(...adzunaJobs.value);
+      // if (githubJobs.status === 'fulfilled') allJobs.push(...githubJobs.value);
       if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
       if (jsonJobs.status === 'fulfilled') allJobs.push(...jsonJobs.value);
       

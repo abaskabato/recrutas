@@ -179,7 +179,9 @@ export class DatabaseStorage implements IStorage {
   // User operations (required for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
     try {
+      console.log(`[storage] Getting user with id: ${id}`);
       const [user] = await db.select().from(users).where(eq(users.id, id));
+      console.log(`[storage] Found user:`, user);
       return user;
     } catch (error) {
       console.error('Error fetching user:', error);
@@ -286,10 +288,12 @@ export class DatabaseStorage implements IStorage {
   // Candidate operations
   async getCandidateUser(userId: string): Promise<CandidateUser | undefined> {
     try {
+      console.log(`[storage] Getting candidate profile for user id: ${userId}`);
       const [profile] = await db
         .select()
         .from(candidateProfiles)
         .where(eq(candidateProfiles.userId, userId));
+      console.log(`[storage] Found candidate profile:`, profile);
       return profile;
     } catch (error) {
       console.error('Error fetching candidate profile:', error);

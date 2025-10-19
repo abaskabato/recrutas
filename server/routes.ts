@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const userId = req.user.id;
       
       console.log('AI matches endpoint accessed for user:', userId);
-      const candidateProfile = await storage.getCandidateProfile(userId);
+      const candidateProfile = await storage.getCandidateUser(userId);
       
       if (!candidateProfile) {
         return res.status(404).json({ message: "Please complete your profile first" });
@@ -263,6 +263,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error('Error generating AI matches:', error);
       res.status(500).json({ message: "Failed to generate job matches" });
+    }
+  });
+
+  // Universal job scraper endpoint
+  app.get('/api/external-jobs', async (req, res) => {
+    try {
+      console.log('External jobs endpoint hit');
+      const skills = req.query.skills ? (req.query.skills as string).split(',') : [];
+      const jobs = await jobAggregator.getAllJobs(skills);
+      res.json({ jobs });
+    } catch (error) {
+      console.error('Error scraping external jobs:', error);
+      res.status(500).json({ message: 'Failed to scrape external jobs' });
     }
   });
 

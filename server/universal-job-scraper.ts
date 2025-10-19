@@ -1,3 +1,5 @@
+import Groq from "groq-sdk";
+
 interface UniversalJob {
   id: string;
   title: string;
@@ -16,10 +18,15 @@ interface UniversalJob {
 
 export class UniversalJobScraper {
   private readonly USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  private readonly groq: Groq;
+
+  constructor() {
+    this.groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
   
   async scrapeCompanyJobs(companyUrl: string, companyName?: string): Promise<UniversalJob[]> {
     try {
-      console.log(`Scraping jobs from: ${companyUrl}`);
+      console.log(`[scraper] Scraping jobs from: ${companyUrl}`);
       
       const response = await fetch(companyUrl, {
         headers: {
@@ -31,24 +38,28 @@ export class UniversalJobScraper {
         }
       });
 
+      console.log(`[scraper] Fetched ${companyUrl} with status: ${response.status}`);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const html = await response.text();
-      console.log(`Fetched ${html.length} characters from ${companyUrl}`);
+      console.log(`[scraper] Fetched ${html.length} characters from ${companyUrl}`);
 
       const jobs = this.parseJobsFromHTML(html, companyUrl, companyName);
-      console.log(`Extracted ${jobs.length} jobs from ${companyUrl}`);
+      console.log(`[scraper] Extracted ${jobs.length} jobs from ${companyUrl}`);
       
+      console.log('[scraper] Enhancing jobs with AI...');
       const enhancedJobs = await Promise.all(jobs.map(async (job) => {
         const enhancedDetails = await this.getEnhancedJobDetails(job.description);
         return { ...job, ...enhancedDetails };
       }));
+      console.log('[scraper] Finished enhancing jobs.');
 
       return enhancedJobs;
     } catch (error) {
-      console.error(`Failed to scrape ${companyUrl}:`, error);
+      console.error(`[scraper] Failed to scrape ${companyUrl}:`, error.message);
       return []; // Only return authentic scraped data
     }
   }
@@ -490,29 +501,24 @@ export class UniversalJobScraper {
 
   async getEnhancedJobDetails(description: string): Promise<{ summary: string; skills: string[] }> {
     try {
-      const summaryResponse = await this.runGemini('Summarize this job description: ' + description);
-      const skillsResponse = await this.runGemini('Extract the skills from this job description: ' + description);
+      const summaryResponse = await this.runGroq('Summarize this job description: ' + description);
+      const skillsResponse = await this.runGroq('Extract the skills from this job description: ' + description);
 
       const skills = skillsResponse.split(',').map(skill => skill.trim());
 
       return { summary: summaryResponse, skills };
     } catch (error) {
-      console.error('Failed to get enhanced job details from Gemini:', error);
+      console.error('Failed to get enhanced job details from Groq:', error);
       return { summary: '', skills: [] };
     }
   }
 
-  private async runGemini(prompt: string): Promise<string> {
-    const { exec } = await import('child_process');
-    return new Promise((resolve, reject) => {
-      exec(`gemini "${prompt}"`, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(stdout.trim());
-        }
-      });
+  private async runGroq(prompt: string): Promise<string> {
+    const chatCompletion = await this.groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'mixtral-8x7b-32768',
     });
+    return chatCompletion.choices[0]?.message?.content || '';
   }
 }
 
