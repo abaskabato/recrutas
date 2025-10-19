@@ -2,6 +2,7 @@ import { createServer } from "http";
 import { configureApp } from "./server/index.js";
 import { WebSocketServer } from "ws";
 import { notificationService } from "./server/notification-service.js";
+import { client } from "./server/db.js";
 
 const port = 5000;
 
@@ -35,6 +36,21 @@ configureApp().then(app => {
   server.listen(port, () => {
     console.log(`🚀 Server listening at http://localhost:${port}`);
   });
+
+  const gracefulShutdown = () => {
+    console.log('\nShutting down gracefully...');
+    server.close(() => {
+      console.log('HTTP server closed.');
+      client.end().then(() => {
+        console.log('Database connection closed.');
+        process.exit(0);
+      });
+    });
+  };
+
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
+
 }).catch(error => {
   console.error("Failed to configure and start the server:", error);
   process.exit(1);

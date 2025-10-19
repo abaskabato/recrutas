@@ -35,9 +35,11 @@ async function runAllTestSuites() {
   try {
     console.log('Starting server for tests...');
     serverProcess = spawn('npm', ['run', 'dev:server'], { stdio: 'inherit', detached: true });
+    console.log(`Server process started with PID: ${serverProcess.pid}`);
 
     console.log('Starting frontend server for tests...');
     frontendProcess = spawn('npm', ['run', 'dev'], { stdio: 'inherit', detached: true });
+    console.log(`Frontend process started with PID: ${frontendProcess.pid}`);
 
     await waitForServer();
     await waitForFrontend();
@@ -55,13 +57,24 @@ async function runAllTestSuites() {
     process.exit(1);
   } finally {
     if (serverProcess) {
-      console.log('\nShutting down server...');
-      process.kill(-serverProcess.pid);
+      console.log(`\nShutting down server (PID: ${serverProcess.pid})...`);
+      try {
+        process.kill(-serverProcess.pid, 'SIGINT');
+      } catch (e) {
+        console.error('Failed to kill server process:', e);
+      }
     }
     if (frontendProcess) {
-      console.log('Shutting down frontend server...');
-      process.kill(-frontendProcess.pid);
+      console.log(`Shutting down frontend server (PID: ${frontendProcess.pid})...`);
+      try {
+        process.kill(-frontendProcess.pid, 'SIGINT');
+      } catch (e) {
+        console.error('Failed to kill frontend process:', e);
+      }
     }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     const endTime = Date.now();
     const duration = Math.round((endTime - startTime) / 1000);
 

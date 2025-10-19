@@ -18,7 +18,7 @@ const connectionString = process.env.DATABASE_URL;
 const maskedConnectionString = connectionString.replace(/:([^:]+)@/, ':********@');
 console.log(`🔗 Using database connection: ${maskedConnectionString}`);
 
-let client;
+export let client;
 try {
   // Create connection to PostgreSQL with optimized settings for serverless environments
   client = postgres(connectionString, {
