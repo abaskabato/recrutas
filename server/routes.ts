@@ -106,6 +106,7 @@ const upload = multer({
 import { seedDatabase } from "./seed.js";
 
 export async function registerRoutes(app: Express): Promise<Express> {
+  console.log('registerRoutes called!'); // Confirm this function is executed
   // Dev-only route for seeding the database
   app.post('/api/dev/seed', async (req, res) => {
     try {
@@ -464,9 +465,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
   
   // Resume upload with AI parsing
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
-    console.log('--- REQUEST RECEIVED AT /api/candidate/resume ---');
-    console.log('Request body:', req.body);
-    console.log('File:', req.file);
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -489,8 +487,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         aiExtracted = result.aiExtracted;
         parsingSuccess = true;
         
-        console.log(`AI Resume parsing completed with ${result.confidence}% confidence in ${result.processingTime}ms`);
-        console.log(`Extracted: ${aiExtracted.skills.technical.length} technical skills, ${aiExtracted.experience.totalYears} years experience`);
       } catch (parseError) {
         console.error('AI Resume parsing failed:', parseError);
         // Continue with upload even if parsing fails
@@ -527,11 +523,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
         
         // Set bio from AI-extracted summary
-        if (aiExtracted.summary && aiExtracted.summary.length > 20) {
-          profileData.bio = aiExtracted.summary;
-        }
-        
-        // Store contact info
         if (aiExtracted.personalInfo.linkedin) {
           profileData.linkedinUrl = aiExtracted.personalInfo.linkedin;
         }
@@ -636,7 +627,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
           }
         }
         
-        console.log(`Generated AI matches for user ${userId} after resume upload`);
       } catch (matchError) {
         console.error('Error generating automatic matches after resume upload:', matchError);
         // Don't fail the resume upload if matching fails

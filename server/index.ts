@@ -6,7 +6,13 @@ import { registerRoutes } from "./routes";
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
 
-export const app = express();
+import express from 'express';
+import cors from 'cors';
+import { setupRoutes } from './routes';
+import { setupMiddleware } from './middleware';
+import { setupWebSocket } from './notifications';
+
+const app = express();
 
 // Function to initialize Supabase Storage
 async function initializeSupabase() {
@@ -52,7 +58,23 @@ export async function configureApp() {
   });
 
   await initializeSupabase();
+  console.log('configureApp: app instance (before routes)', app); // Log 1
   await registerRoutes(app);
+  console.log('configureApp: app instance (after routes)', app); // Log 2
+
+  console.log('Registered routes stack:');
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) { // Routes registered directly on the app
+      console.log(middleware.route.path, middleware.route.methods);
+    } else if (middleware.name === 'router') { // Routers mounted as middleware
+      console.log('  Router mounted at:', middleware.regexp);
+      middleware.handle.stack.forEach((handler: any) => {
+        if (handler.route) {
+          console.log('    ', handler.route.path, handler.route.methods);
+        }
+      });
+    }
+  });
 
   // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

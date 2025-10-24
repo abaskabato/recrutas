@@ -53,7 +53,7 @@ export class JobAggregator {
       // Using RapidAPI free tier for JSearch
       const response = await fetch(`https://jsearch.p.rapidapi.com/search?${params}`, {
         headers: {
-          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || 'demo-key',
+          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
           'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
           'User-Agent': 'JobPlatform/1.0'
         }

@@ -22,7 +22,7 @@ export async function seedDatabase() {
 
     // Create a specific user
     const { data: { user }, error } = await supabaseAdmin.auth.admin.createUser({
-      email: "test.candidate@recrutas.com",
+      email: "abaskabato@gmail.com",
       password: "123456",
       email_confirm: true,
       user_metadata: { role: 'candidate' }

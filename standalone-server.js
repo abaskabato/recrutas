@@ -1,10 +1,10 @@
 import { createServer } from "http";
-import { configureApp } from "./server/index.js";
+import { configureApp } from "./server/index.ts";
 import { WebSocketServer } from "ws";
 import { notificationService } from "./server/notification-service.js";
 import { client } from "./server/db.js";
 
-const port = 5000;
+const port = process.env.NODE_ENV === 'test' ? 5001 : 5000;
 
 configureApp().then(app => {
   const server = createServer(app);
