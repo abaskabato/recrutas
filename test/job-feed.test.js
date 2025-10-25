@@ -29,7 +29,7 @@ export async function runJobFeedAPITest() {
     location: 'San Francisco, CA',
   });
 
-  const response = await fetch('http://localhost:5001/api/ai-matches', {
+  const response = await fetch('http://localhost:5000/api/ai-matches', {
     headers: {
       'Authorization': `Bearer ${token}`,
     },
