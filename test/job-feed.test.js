@@ -1,7 +1,5 @@
 import assert from 'node:assert';
 import { supabase } from '../server/lib/supabase-client.ts';
-import assert from 'node:assert';
-import { supabase } from '../server/lib/supabase-client.ts';
 import { DatabaseStorage } from '../server/storage.ts';
 
 export async function runJobFeedAPITest() {
