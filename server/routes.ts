@@ -91,8 +91,10 @@ const upload = multer({
   storage: storageConfig,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
+    console.log('fileFilter received file:', file);
     const allowedTypes = ['.pdf', '.doc', '.docx'];
     const ext = path.extname(file.originalname).toLowerCase();
+    console.log('File extension:', ext);
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
@@ -464,7 +466,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   
   // Resume upload with AI parsing
-  app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
+  app.post('/api/candidate/resume', isAuthenticated, (req, res, next) => {
+    upload.single('resume')(req, res, (err) => {
+      if (err) {
+        console.error('Multer error:', err);
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  }, async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -482,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       
       try {
         const { aiResumeParser } = await import('./ai-resume-parser');
-        const result = await aiResumeParser.parseFile(req.file.buffer); // Pass buffer directly
+        const result = await aiResumeParser.parseFile(req.file.buffer, req.file.mimetype); // Pass buffer and mimetype
         parsedData = result;
         aiExtracted = result.aiExtracted;
         parsingSuccess = true;
@@ -492,7 +502,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         // Continue with upload even if parsing fails
       }      
       // Get existing profile to merge data
-      const existingProfile = await storage.getCandidateProfile(userId);
+      const existingProfile = await storage.getCandidateUser(userId);
       
       // Prepare profile data with parsed information
       const profileData: any = {
@@ -551,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       
       // Update candidate profile with resume URL and parsed data
-      const profile = await storage.upsertCandidateProfile(profileData);
+      const profile = await storage.upsertCandidateUser(profileData);
 
       // Create activity log with AI parsing details
       let activityMessage = "Resume uploaded successfully";

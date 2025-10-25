@@ -90,12 +90,12 @@ export class AIResumeParser {
     'Strategic Planning', 'Decision Making', 'Negotiation', 'Presentation Skills', 'Customer Service'
   ];
 
-  async parseFile(filePath: string): Promise<ParsedResume> {
+  async parseFile(fileContent: Buffer | string, mimeType: string): Promise<ParsedResume> {
     const startTime = Date.now();
     
     try {
       // Extract text from file or use sample for demo
-      const text = filePath === 'text-input' ? this.getSampleResumeText() : await this.extractText(filePath);
+      const text = typeof fileContent === 'string' && fileContent === 'text-input' ? this.getSampleResumeText() : await this.extractText(fileContent as Buffer, mimeType);
       
       // Use AI-powered extraction
       const aiExtracted = await this.extractWithAI(text);
@@ -141,16 +141,14 @@ export class AIResumeParser {
     }
   }
 
-  private async extractText(filePath: string): Promise<string> {
-    const ext = path.extname(filePath).toLowerCase();
-    
-    if (ext === '.pdf') {
-      // For demonstration, return sample resume text for PDF files
-      // In production, you'd integrate with pdf-parse or similar library
-      return this.getSampleResumeText();
-    } else if (ext === '.docx' || ext === '.doc') {
+  private async extractText(fileBuffer: Buffer, mimeType: string): Promise<string> {
+    if (mimeType === 'application/pdf') {
+      const pdf = (await import('pdf-parse')).default;
+      const data = await pdf(fileBuffer);
+      return data.text;
+    } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
       try {
-        const result = await mammoth.extractRawText({ path: filePath });
+        const result = await mammoth.extractRawText({ buffer: fileBuffer });
         return result.value;
       } catch (error) {
         // Fallback to sample text if document parsing fails
