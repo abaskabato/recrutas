@@ -43,6 +43,7 @@ async function initializeSupabase() {
 }
 
 export async function configureApp() {
+  app.use(cors()); // Add this line
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 

@@ -16,15 +16,25 @@ export async function apiRequest(
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
-  const headers: HeadersInit = data ? { "Content-Type": "application/json" } : {};
+  const headers: HeadersInit = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let body: BodyInit | undefined;
+  if (data) {
+    if (data instanceof FormData) {
+      body = data;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(data);
+    }
   }
 
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body,
     credentials: "include",
   });
 

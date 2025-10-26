@@ -7,8 +7,9 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "vite",
-    "dev:server": "tsx watch standalone-server.js",
+    "dev": "vite --host",
+    "dev:server:start": "tsx standalone-server.js",
+    "dev:server:stop": "pkill -f 'tsx standalone-server.js' || true",
     "dev:server-no-watch": "NODE_ENV=test tsx standalone-server.js",
     "build": "npm install && vite build && mkdir -p api && echo \"import app from '../server/index.js'; export const handler = app;\" > api/index.js",
     "postbuild": "ls -R dist",
@@ -19,6 +20,15 @@
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint",
     "db:push": "drizzle-kit push"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "server/"
+    ],
+    "ext": "ts,json",
+    "exec": "tsx standalone-server.js",
+    "signal": "SIGTERM",
+    "delay": "2500"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -57,10 +67,12 @@
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.57.0",
     "@tanstack/react-query": "^5.60.5",
+    "@types/cors": "^2.8.19",
     "@types/multer": "^1.4.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.39.1",
@@ -108,8 +120,11 @@
     "@types/ws": "^8.5.13",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.21",
+    "cross-port-killer": "^1.4.0",
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.31.0",
+    "kill-port": "^2.0.1",
+    "nodemon": "^3.1.10",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
