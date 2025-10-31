@@ -42,13 +42,7 @@ export default function AIJobFeed() {
   const { data: rawMatches, isLoading } = useQuery<AIJobMatch[]>({
     queryKey: ['/api/ai-matches'],
     queryFn: async () => {
-      const response = await fetch('/api/ai-matches');
-      if (!response.ok) {
-        if (response.status === 404) {
-          return [];
-        }
-        throw new Error('Failed to fetch AI matches');
-      }
+      const response = await apiRequest("GET", '/api/ai-matches');
       return response.json();
     },
     refetchInterval: 300000, // Refresh every 5 minutes

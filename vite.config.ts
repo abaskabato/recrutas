@@ -1,4 +1,3 @@
-
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import react from "@vitejs/plugin-react";
 import path from "path";
@@ -33,7 +32,7 @@ export default {
     },
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5000',
+        target: 'https://5000-cs-269820720335-default.cs-us-west1-ijlt.cloudshell.dev',
         changeOrigin: true,
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
@@ -42,7 +41,7 @@ export default {
         },
       },
       '/ws': {
-        target: 'ws://127.0.0.1:5000',
+        target: 'wss://5000-cs-269820720335-default.cs-us-west1-ijlt.cloudshell.dev',
         ws: true,
       },
     },

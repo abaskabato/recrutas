@@ -422,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const profile = await storage.getCandidateProfile(userId);
+      const profile = await storage.getCandidateUser(userId);
       res.json(profile);
     } catch (error) {
       console.error("Error fetching candidate profile:", error);
@@ -454,7 +454,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         userId,
       };
       
-      const profile = await storage.upsertCandidateProfile(profileData);
+      const profile = await storage.upsertCandidateUser(profileData);
       res.json(profile);
     } catch (error) {
       console.error("Error updating candidate profile links:", error);
@@ -793,7 +793,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.log('Fetching job matches for user:', userId);
       
       // Get candidate profile for external job matching
-      const candidateProfile = await storage.getCandidateProfile(userId);
+      const candidateProfile = await storage.getCandidateUser(userId);
       
       // Get database matches (internal jobs with exams) - only show authentic matches
       const dbMatches = await storage.getMatchesForCandidate(userId);

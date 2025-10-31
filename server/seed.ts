@@ -59,6 +59,49 @@ export async function seedDatabase() {
       bio: "Passionate full-stack developer with expertise in modern web technologies",
     });
 
+    // Create job postings
+    await db.insert(jobPostings).values([
+      {
+        title: "Software Engineer",
+        company: "Google",
+        location: "Mountain View, CA",
+        description: "Design, develop, test, deploy, maintain and improve software.",
+        requirements: ["BS degree in Computer Science", "2 years of experience"],
+        skills: ["C++", "Java", "Python"],
+        workType: "Full-time",
+        salaryMin: 120000,
+        salaryMax: 180000,
+        status: "active",
+        talentOwnerId: user.id,
+      },
+      {
+        title: "Frontend Developer",
+        company: "Facebook",
+        location: "Menlo Park, CA",
+        description: "Build amazing user experiences.",
+        requirements: ["BS degree in Computer Science", "Experience with React"],
+        skills: ["JavaScript", "React", "HTML", "CSS"],
+        workType: "Full-time",
+        salaryMin: 110000,
+        salaryMax: 170000,
+        status: "active",
+        talentOwnerId: user.id,
+      },
+      {
+        title: "Data Scientist",
+        company: "Netflix",
+        location: "Los Gatos, CA",
+        description: "Help shape the future of entertainment.",
+        requirements: ["MS or PhD in a quantitative field", "Experience with machine learning"],
+        skills: ["Python", "R", "SQL", "Machine Learning"],
+        workType: "Full-time",
+        salaryMin: 130000,
+        salaryMax: 200000,
+        status: "active",
+        talentOwnerId: user.id,
+      },
+    ]);
+
     console.log("Database seeded successfully!");
   } catch (error) {
     console.error("Error seeding database:", error);

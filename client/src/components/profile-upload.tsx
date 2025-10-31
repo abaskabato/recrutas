@@ -73,18 +73,7 @@ export default function ProfileUpload() {
       const formData = new FormData();
       formData.append('resume', file);
       
-      const response = await fetch('/api/candidate/resume', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Upload failed');
-      }
-      
-      return response.json();
+      return await apiRequest('POST', '/api/candidate/resume', formData);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/candidate/profile"] });

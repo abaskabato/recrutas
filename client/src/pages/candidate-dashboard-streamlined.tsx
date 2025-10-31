@@ -102,6 +102,10 @@ export default function CandidateStreamlinedDashboard() {
   // Fetch candidate stats
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['/api/candidates/stats'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/candidates/stats');
+      return response.json();
+    },
     retry: false,
     meta: {
       onError: (error: Error) => {
@@ -115,18 +119,30 @@ export default function CandidateStreamlinedDashboard() {
   // Fetch profile
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['/api/candidate/profile'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/candidate/profile');
+      return response.json();
+    },
     retry: false,
   });
 
   // Fetch recent activity
   const { data: activities } = useQuery<Activity[]>({ 
     queryKey: ['/api/candidates/activity'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/candidates/activity');
+      return response.json();
+    },
     retry: false,
   });
 
   // Fetch applications
   const { data: applications } = useQuery<Application[]>({ 
     queryKey: ['/api/candidates/applications'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/candidates/applications');
+      return response.json();
+    },
     retry: false,
   });
 
