@@ -160,18 +160,39 @@ export default function TalentDashboard() {
     enabled: !!user,
   });
 
-  // Fetch job postings
+  // Fetch job postings for the logged-in talent owner
   const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<JobPosting[]>({ 
-    queryKey: ['/api/jobs'],
+    queryKey: ['/api/talent-owner/jobs'],
     retry: false,
     enabled: !!user,
   });
 
-  // Fetch candidates
-  const { data: candidates = [], isLoading: candidatesLoading } = useQuery<Candidate[]>({ 
-    queryKey: ['/api/recruiter/candidates'],
-    retry: false,
-    enabled: !!user,
+  // Fetch applicants for a selected job
+  const { data: applicants = [], isLoading: applicantsLoading } = useQuery<any[]>({
+    queryKey: ['/api/jobs', selectedJob?.id, 'applicants'],
+    enabled: !!selectedJob,
+    queryFn: () => apiRequest('GET', `/api/jobs/${selectedJob!.id}/applicants`),
+  });
+
+  // Update application status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ applicationId, status }: { applicationId: number, status: string }) => {
+      return await apiRequest('PUT', `/api/applications/${applicationId}/status`, { status });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Applicant status updated!",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs', selectedJob?.id, 'applicants'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    },
   });
 
   // Create job mutation
@@ -206,7 +227,7 @@ export default function TalentDashboard() {
         companySize: "",
         companyDescription: ""
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
     },
     onError: (error) => {
@@ -228,7 +249,7 @@ export default function TalentDashboard() {
         title: "Success",
         description: "Job deleted successfully!",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
     },
     onError: (error) => {
@@ -273,6 +294,10 @@ export default function TalentDashboard() {
     createJobMutation.mutate(jobData);
   };
 
+  const handleUpdateStatus = (applicationId: number, status: string) => {
+    updateStatusMutation.mutate({ applicationId, status });
+  };
+
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -293,13 +318,13 @@ export default function TalentDashboard() {
     return matchesSearch && matchesStatus;
   });
 
-  const filteredCandidates = candidates.filter(candidate => {
+  const filteredCandidates = applicants.filter(applicant => {
+    const candidate = applicant.candidate;
     const matchesSearch = searchQuery === "" || 
       candidate.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      candidate.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus = filterStatus === "all" || candidate.status === filterStatus;
+      candidate.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = filterStatus === "all" || applicant.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -695,10 +720,10 @@ export default function TalentDashboard() {
                               <span className="flex items-center">
                                 <DollarSign className="h-4 w-4 mr-1" />
                                 {job.salaryMin && job.salaryMax 
-                                  ? `$${job.salaryMin.toLocaleString()} - $${job.salaryMax.toLocaleString()}`
+                                  ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()}`
                                   : job.salaryMin 
-                                    ? `From $${job.salaryMin.toLocaleString()}`
-                                    : `Up to $${job.salaryMax?.toLocaleString()}`
+                                    ? `From ${job.salaryMin.toLocaleString()}`
+                                    : `Up to ${job.salaryMax?.toLocaleString()}`
                                 }
                               </span>
                             )}
@@ -738,6 +763,18 @@ export default function TalentDashboard() {
                         </div>
 
                         <div className="flex lg:flex-col gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 lg:flex-none"
+                            onClick={() => {
+                              setSelectedJob(job);
+                              setActiveTab('candidates'); // Switch to candidates/applicants view
+                            }}
+                          >
+                            <Users className="h-4 w-4 mr-2" />
+                            View Applicants
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -784,54 +821,84 @@ export default function TalentDashboard() {
           </div>
         )}
 
-        {/* Candidates Tab - Application Intelligence */}
+        {/* Candidates Tab - Now for Applicants */}
         {activeTab === 'candidates' && (
           <div className="space-y-6">
-
-
-            {candidatesLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse bg-white dark:bg-gray-800 shadow-md">
-                    <CardContent className="p-6">
-                      <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
-                      <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
-                      <div className="h-4 bg-muted rounded w-2/3"></div>
+            {selectedJob ? (
+              <>
+                <div>
+                  <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+                    Applicants for {selectedJob.title}
+                  </h2>
+                  <p className="text-gray-500 dark:text-gray-400">Review and manage candidates for this role.</p>
+                </div>
+                {applicantsLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i} className="animate-pulse bg-white dark:bg-gray-800 shadow-md">
+                        <CardContent className="p-6">
+                          <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
+                          <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
+                          <div className="h-4 bg-muted rounded w-2/3"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : applicants.length === 0 ? (
+                  <Card className="bg-white dark:bg-gray-800 shadow-md">
+                    <CardContent className="p-12 text-center">
+                      <Users className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No applicants yet</h3>
+                      <p className="text-gray-500 dark:text-gray-400">As soon as candidates apply, you'll see them here.</p>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            ) : filteredCandidates.length === 0 ? (
+                ) : (
+                  <div className="space-y-4">
+                    {filteredCandidates.map((applicant) => (
+                      <Card key={applicant.applicationId}>
+                        <CardContent className="p-6">
+                          <div className="flex justify-between">
+                            <div>
+                              <h3 className="font-semibold">{applicant.candidate.firstName} {applicant.candidate.lastName}</h3>
+                              <p className="text-sm text-gray-500">{applicant.candidate.email}</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {applicant.profile.skills.map((skill: string) => (
+                                  <Badge key={skill} variant="secondary">{skill}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <Select
+                                defaultValue={applicant.status}
+                                onValueChange={(newStatus) => handleUpdateStatus(applicant.applicationId, newStatus)}
+                              >
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="applied">Applied</SelectItem>
+                                  <SelectItem value="screening">Screening</SelectItem>
+                                  <SelectItem value="interview">Interview</SelectItem>
+                                  <SelectItem value="rejected">Rejected</SelectItem>
+                                  <SelectItem value="hired">Hired</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
               <Card className="bg-white dark:bg-gray-800 shadow-md">
                 <CardContent className="p-12 text-center">
-                  <Users className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No candidate applications yet</h3>
-                  <p className="text-gray-500 dark:text-gray-400">When candidates apply to your jobs, you'll be able to provide transparent feedback and track application intelligence here.</p>
+                  <Briefcase className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Select a Job to View Applicants</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Go to the 'Jobs' tab and click 'View Applicants' on a job posting.</p>
                 </CardContent>
               </Card>
-            ) : (
-              <TalentApplicationIntelligence 
-                applications={filteredCandidates.map(candidate => ({
-                  id: candidate.id,
-                  candidateId: candidate.id,
-                  jobId: candidate.jobId || 0,
-                  candidateName: `${candidate.firstName} ${candidate.lastName}`,
-                  candidateEmail: candidate.email,
-                  jobTitle: candidate.jobTitle || "Unknown Position",
-                  appliedAt: candidate.createdAt || new Date().toISOString(),
-                  status: candidate.status as any,
-                  matchScore: candidate.matchScore || 0,
-                  skills: candidate.skills || [],
-                  experience: candidate.experience || "",
-                  location: candidate.location || "",
-                  resumeUrl: candidate.resumeUrl,
-                  transparencyLevel: 'partial' as const,
-                  viewedAt: candidate.status !== 'applied' ? new Date().toISOString() : undefined,
-                  viewDuration: candidate.status !== 'applied' ? Math.floor(Math.random() * 180) + 30 : undefined,
-                  ranking: candidate.status !== 'applied' ? Math.floor(Math.random() * 10) + 1 : undefined,
-                  totalApplicants: Math.floor(Math.random() * 50) + 10
-                }))}
-              />
             )}
           </div>
         )}
@@ -965,12 +1032,12 @@ export default function TalentDashboard() {
                     
                     <div className="space-y-3">
                       {[ 
-                        { range: '< 1 hour', count: Math.floor(candidates.length * 0.4), color: 'bg-green-500' },
-                        { range: '1-4 hours', count: Math.floor(candidates.length * 0.35), color: 'bg-yellow-500' },
-                        { range: '4-24 hours', count: Math.floor(candidates.length * 0.2), color: 'bg-orange-500' },
-                        { range: '> 24 hours', count: Math.floor(candidates.length * 0.05), color: 'bg-red-500' }
+                        { range: '< 1 hour', count: Math.floor(applicants.length * 0.4), color: 'bg-green-500' },
+                        { range: '1-4 hours', count: Math.floor(applicants.length * 0.35), color: 'bg-yellow-500' },
+                        { range: '4-24 hours', count: Math.floor(applicants.length * 0.2), color: 'bg-orange-500' },
+                        { range: '> 24 hours', count: Math.floor(applicants.length * 0.05), color: 'bg-red-500' }
                       ].map(({ range, count, color }) => {
-                        const percentage = candidates.length > 0 ? (count / candidates.length) * 100 : 0;
+                        const percentage = applicants.length > 0 ? (count / applicants.length) * 100 : 0;
                         return (
                           <div key={range} className="space-y-1">
                             <div className="flex justify-between text-sm">
@@ -1003,10 +1070,10 @@ export default function TalentDashboard() {
               <CardContent>
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                   {[ 
-                    { stage: 'Applied', count: candidates.length, color: 'bg-blue-500' },
-                    { stage: 'Viewed', count: candidates.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
-                    { stage: 'Interested', count: candidates.filter(c => c.status === 'interested').length, color: 'bg-yellow-500' },
-                    { stage: 'Interviewed', count: Math.floor(candidates.length * 0.1), color: 'bg-orange-500' },
+                    { stage: 'Applied', count: applicants.length, color: 'bg-blue-500' },
+                    { stage: 'Viewed', count: applicants.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
+                    { stage: 'Interested', count: applicants.filter(c => c.status === 'interested').length, color: 'bg-yellow-500' },
+                    { stage: 'Interviewed', count: Math.floor(applicants.length * 0.1), color: 'bg-orange-500' },
                     { stage: 'Hired', count: stats?.hires || 0, color: 'bg-purple-500' }
                   ].map(({ stage, count, color }) => (
                     <div key={stage} className="text-center">
@@ -1016,7 +1083,7 @@ export default function TalentDashboard() {
                       </div>
                       {stage !== 'Hired' && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {candidates.length > 0 ? Math.round((count / candidates.length) * 100) : 0}% conversion
+                          {applicants.length > 0 ? Math.round((count / applicants.length) * 100) : 0}% conversion
                         </div>
                       )}
                     </div>
@@ -1361,7 +1428,7 @@ export default function TalentDashboard() {
                     hasExam: jobData.enableFiltering,
                     exam: jobData.enableFiltering ? {
                       questions: jobData.filteringExam?.questions || [],
-                      timeLimit: jobData.filteringExam?.timeLimit || 30,
+                      timeLimit: job.filteringExam?.timeLimit || 30,
                       passingScore: jobData.filteringExam?.passingScore || 70
                     } : null
                   };

@@ -463,11 +463,68 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
 
+// ... (existing candidate routes)
+
+  app.get('/api/candidate/recommendations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const recommendations = await storage.getJobRecommendations(userId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error fetching job recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  // Talent Owner Dashboard Routes
+  app.get('/api/talent-owner/jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      // The storage function is now secured to only return jobs for this user
+      const jobs = await storage.getJobPostings(userId);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error fetching talent owner jobs:", error);
+      res.status(500).json({ message: "Failed to fetch job postings" });
+    }
+  });
+
+  app.get('/api/jobs/:jobId/applicants', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseInt(req.params.jobId);
+      const applicants = await storage.getApplicantsForJob(jobId, userId);
+      res.json(applicants);
+    } catch (error) {
+      console.error("Error fetching applicants:", error);
+      res.status(500).json({ message: "Failed to fetch applicants" });
+    }
+  });
+
+  app.put('/api/applications/:applicationId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const applicationId = parseInt(req.params.applicationId);
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required." });
+      }
+
+      const updatedApplication = await storage.updateApplicationStatus(applicationId, status, userId);
+      res.json(updatedApplication);
+    } catch (error) {
+      console.error("Error updating application status:", error);
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
 
   
   // Resume upload with AI parsing
   app.post('/api/candidate/resume', isAuthenticated, (req, res, next) => {
     upload.single('resume')(req, res, (err) => {
+// ... (rest of the file)
+
       if (err) {
         console.error('Multer error:', err);
         return res.status(400).json({ message: err.message });

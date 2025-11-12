@@ -42,7 +42,7 @@ const statusConfig: Record<string, { label: string; color: string; progress: num
 
 export default function ApplicationTracker() {
   const { data: applications, isLoading } = useQuery<ApplicationStatus[]>({
-    queryKey: ["/api/applications/status"],
+    queryKey: ["/api/candidate/applications"],
   });
 
   const getStatusBadge = (status: string) => {

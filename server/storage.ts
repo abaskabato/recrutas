@@ -85,6 +85,7 @@ export interface IStorage {
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
+  getJobRecommendations(candidateId: string): Promise<JobPosting[]>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
   deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
   
@@ -118,7 +119,8 @@ export interface IStorage {
   
   // Application tracking operations
   getApplicationsWithStatus(candidateId: string): Promise<any[]>;
-  updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any>;
+  getApplicantsForJob(jobId: number, talentOwnerId: string): Promise<any[]>;
+  updateApplicationStatus(applicationId: number, status: string, talentOwnerId: string): Promise<any>;
   getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any>;
   createJobApplication(application: any): Promise<any>;
   getApplicationById(applicationId: number): Promise<any>;
@@ -364,12 +366,9 @@ export class DatabaseStorage implements IStorage {
   async getJobPostings(talentOwnerId: string): Promise<JobPosting[]> {
     try {
       if (!talentOwnerId) {
-        // Return all job postings if no specific owner requested
-        return await db
-          .select()
-          .from(jobPostings)
-          .orderBy(desc(jobPostings.createdAt))
-          .limit(50);
+        // This case should ideally not be reached if endpoints are secure
+        console.warn('[storage] getJobPostings called without a talentOwnerId.');
+        return [];
       }
       
       return await db
@@ -393,6 +392,28 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getJobRecommendations(candidateId: string): Promise<JobPosting[]> {
+    try {
+      const candidate = await this.getCandidateUser(candidateId);
+      if (!candidate || !candidate.skills || candidate.skills.length === 0) {
+        return [];
+      }
+
+      // Find jobs that have at least one of the candidate's skills.
+      // This is a simplified recommendation engine.
+      const recommendedJobs = await db
+        .select()
+        .from(jobPostings)
+        .where(or(...candidate.skills.map(skill => sql`'${skill}' = ANY(skills)`)))
+        .limit(10);
+
+      return recommendedJobs;
+    } catch (error) {
+      console.error('Error fetching job recommendations:', error);
+      throw error;
+    }
+  }
+
   async updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting> {
     try {
       const updateData = { ...updates, updatedAt: new Date() };
@@ -407,7 +428,7 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
-
+  
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
       await db
@@ -664,7 +685,7 @@ export class DatabaseStorage implements IStorage {
         newMatches: matches.filter(m => m.status === 'pending').length,
         profileViews: profile?.profileViews || 0,
         activeChats: activeChats.length,
-        applicationsPending: applications.filter(a => a.status === 'submitted' || a.status === 'viewed').length,
+        applicationsPending: applications.filter(a => a.status === 'submitted' || a => a.status === 'viewed').length,
         applicationsRejected: applications.filter(a => a.status === 'rejected').length,
         applicationsAccepted: applications.filter(a => a.status === 'offer').length,
       };
@@ -768,18 +789,72 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateApplicationStatus(applicationId: number, status: string, data?: any): Promise<any> {
+  async getApplicantsForJob(jobId: number, talentOwnerId: string): Promise<any[]> {
     try {
+      // First, verify ownership of the job posting
+      const [job] = await db
+        .select()
+        .from(jobPostings)
+        .where(and(eq(jobPostings.id, jobId), eq(jobPostings.talentOwnerId, talentOwnerId)));
+
+      if (!job) {
+        console.warn(`[storage] Unauthorized attempt to access applicants for job ${jobId} by user ${talentOwnerId}`);
+        return []; // Return empty array if user does not own the job
+      }
+
+      // If ownership is confirmed, fetch applicants
+      return await db
+        .select({
+          applicationId: jobApplications.id,
+          status: jobApplications.status,
+          appliedAt: jobApplications.appliedAt,
+          candidate: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          },
+          profile: {
+            skills: candidateProfiles.skills,
+            experience: candidateProfiles.experience,
+            resumeUrl: candidateProfiles.resumeUrl,
+          }
+        })
+        .from(jobApplications)
+        .innerJoin(users, eq(jobApplications.candidateId, users.id))
+        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
+        .where(eq(jobApplications.jobId, jobId))
+        .orderBy(desc(jobApplications.appliedAt));
+    } catch (error) {
+      console.error(`Error fetching applicants for job ${jobId}:`, error);
+      throw error;
+    }
+  }
+
+  async updateApplicationStatus(applicationId: number, status: string, talentOwnerId: string): Promise<any> {
+    try {
+      // Verify that the talent owner has permission to update this application
       const [application] = await db
+        .select({
+          jobOwnerId: jobPostings.talentOwnerId
+        })
+        .from(jobApplications)
+        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
+        .where(eq(jobApplications.id, applicationId));
+
+      if (!application || application.jobOwnerId !== talentOwnerId) {
+        throw new Error("Unauthorized: You do not have permission to update this application.");
+      }
+
+      const [updatedApplication] = await db
         .update(jobApplications)
         .set({ 
           status: status as any, 
           updatedAt: new Date(),
-          ...(data || {})
         })
         .where(eq(jobApplications.id, applicationId))
         .returning();
-      return application;
+      return updatedApplication;
     } catch (error) {
       console.error('Error updating application status:', error);
       throw error;

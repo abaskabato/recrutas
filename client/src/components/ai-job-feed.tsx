@@ -40,9 +40,9 @@ export default function AIJobFeed() {
   const [companyFilter, setCompanyFilter] = useState("all");
 
   const { data: rawMatches, isLoading } = useQuery<AIJobMatch[]>({
-    queryKey: ['/api/ai-matches'],
+    queryKey: ['/api/candidate/recommendations'],
     queryFn: async () => {
-      const response = await apiRequest("GET", '/api/ai-matches');
+      const response = await apiRequest("GET", '/api/candidate/recommendations');
       return response.json();
     },
     refetchInterval: 300000, // Refresh every 5 minutes
