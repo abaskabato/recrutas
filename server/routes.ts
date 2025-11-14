@@ -521,7 +521,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   
   // Resume upload with AI parsing
-  app.post('/api/candidate/resume', isAuthenticated, (req, res, next) => {
+  app.options('/api/candidate/resume', cors()); // enable pre-flight request
+  app.post('/api/candidate/resume', cors(), isAuthenticated, (req, res, next) => {
     upload.single('resume')(req, res, (err) => {
 // ... (rest of the file)
 
