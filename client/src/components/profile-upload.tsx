@@ -28,6 +28,10 @@ export default function ProfileUpload() {
   // Fetch existing profile data
   const { data: profile } = useQuery({
     queryKey: ['/api/candidate/profile'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/candidate/profile');
+      return response.json();
+    },
     retry: false,
   });
 
@@ -73,7 +77,8 @@ export default function ProfileUpload() {
       const formData = new FormData();
       formData.append('resume', file);
       
-      return await apiRequest('POST', '/api/candidate/resume', formData);
+      const response = await apiRequest('POST', '/api/candidate/resume', formData);
+      return await response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/candidate/profile"] });
