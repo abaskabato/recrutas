@@ -392,22 +392,47 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getJobRecommendations(candidateId: string): Promise<JobPosting[]> {
+  async getJobRecommendations(candidateId: string): Promise<any[]> {
     try {
       const candidate = await this.getCandidateUser(candidateId);
       if (!candidate || !candidate.skills || candidate.skills.length === 0) {
         return [];
       }
 
-      // Find jobs that have at least one of the candidate's skills.
-      // This is a simplified recommendation engine.
-      const recommendedJobs = await db
+      // 1. Fetch internal jobs
+      const internalJobs = await db
         .select()
         .from(jobPostings)
         .where(or(...candidate.skills.map(skill => sql`'${skill}' = ANY(skills)`)))
-        .limit(10);
+        .limit(20);
 
-      return recommendedJobs;
+      // 2. Fetch external jobs
+      const { jobAggregator } = await import("./job-aggregator");
+      const externalJobs = await jobAggregator.getAllJobs(candidate.skills);
+
+      // 3. Combine and de-duplicate
+      const allJobs = [...internalJobs, ...externalJobs];
+      const uniqueJobs = Array.from(new Map(allJobs.map(job => [job.title.toLowerCase() + job.company.toLowerCase(), job])).values());
+
+      // 4. Generate AI-powered recommendations
+      const { generateJobMatch } = await import("./ai-service");
+      const recommendations = [];
+      for (const job of uniqueJobs) {
+        const match = await generateJobMatch(candidate, job);
+        if (match.score > 50) { // Only include jobs with a match score > 50
+          recommendations.push({
+            ...job,
+            matchScore: match.score,
+            aiExplanation: match.aiExplanation,
+            skillMatches: match.skillMatches,
+          });
+        }
+      }
+
+      // 5. Sort by match score
+      recommendations.sort((a, b) => b.matchScore - a.matchScore);
+
+      return recommendations.slice(0, 20); // Return top 20 recommendations
     } catch (error) {
       console.error('Error fetching job recommendations:', error);
       throw error;
@@ -685,7 +710,7 @@ export class DatabaseStorage implements IStorage {
         newMatches: matches.filter(m => m.status === 'pending').length,
         profileViews: profile?.profileViews || 0,
         activeChats: activeChats.length,
-        applicationsPending: applications.filter(a => a.status === 'submitted' || a => a.status === 'viewed').length,
+        applicationsPending: applications.filter(a => a.status === 'submitted' || a.status === 'viewed').length,
         applicationsRejected: applications.filter(a => a.status === 'rejected').length,
         applicationsAccepted: applications.filter(a => a.status === 'offer').length,
       };

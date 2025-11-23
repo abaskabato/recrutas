@@ -21,10 +21,13 @@ async function runResumeUploadTest() {
   assert(token, 'Access token should be present.');
 
   // 2. Create a dummy resume file
-  const resumeContent = 'This is a dummy resume file.';
-  const resumeFileName = 'dummy-resume.pdf';
-  const resumeFilePath = path.join('/tmp', resumeFileName);
-  fs.writeFileSync(resumeFilePath, resumeContent);
+  // const resumeContent = 'This is a dummy resume file.';
+  // const resumeFileName = 'dummy-resume.pdf';
+  // const resumeFilePath = path.join('/tmp', resumeFileName);
+  // fs.writeFileSync(resumeFilePath, resumeContent);
+
+  const resumeFileName = 'test-resume.pdf';
+  const resumeFilePath = path.join(process.cwd(), resumeFileName);
 
   // 3. Prepare the form data
   const form = new FormData();

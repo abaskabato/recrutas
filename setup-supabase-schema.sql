@@ -25,9 +25,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- =============================================================================
 
 -- Extended user profiles for candidates
-CREATE TABLE IF NOT EXISTS public.candidates (
+CREATE TABLE IF NOT EXISTS public.candidate_users (
   id serial PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  first_name text,
+  last_name text,
+  email text,
   skills text[] DEFAULT '{}',
   experience_level varchar(20),
   location varchar(255),
@@ -89,7 +92,7 @@ CREATE TABLE IF NOT EXISTS public.jobs (
 -- Job applications
 CREATE TABLE IF NOT EXISTS public.applications (
   id serial PRIMARY KEY,
-  candidate_id integer NOT NULL REFERENCES public.candidates(id) ON DELETE CASCADE,
+  candidate_id integer NOT NULL REFERENCES public.candidate_users(id) ON DELETE CASCADE,
   job_id integer NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
   status varchar(50) DEFAULT 'submitted',
   cover_letter text,
@@ -121,7 +124,7 @@ CREATE TABLE IF NOT EXISTS public.exams (
 CREATE TABLE IF NOT EXISTS public.exam_submissions (
   id serial PRIMARY KEY,
   exam_id integer NOT NULL REFERENCES public.exams(id) ON DELETE CASCADE,
-  candidate_id integer NOT NULL REFERENCES public.candidates(id) ON DELETE CASCADE,
+  candidate_id integer NOT NULL REFERENCES public.candidate_users(id) ON DELETE CASCADE,
   answers jsonb NOT NULL,
   score numeric(5,2),
   passed boolean DEFAULT false,
@@ -180,7 +183,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 -- Saved jobs
 CREATE TABLE IF NOT EXISTS public.saved_jobs (
   id serial PRIMARY KEY,
-  candidate_id integer NOT NULL REFERENCES public.candidates(id) ON DELETE CASCADE,
+  candidate_id integer NOT NULL REFERENCES public.candidate_users(id) ON DELETE CASCADE,
   job_id integer NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
   saved_at timestamp DEFAULT NOW(),
   UNIQUE(candidate_id, job_id)

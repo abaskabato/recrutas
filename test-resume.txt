@@ -1,0 +1,14 @@
+This is a dummy resume for testing.
+It contains some keywords like:
+- JavaScript
+- React
+- Node.js
+- Python
+- AWS
+- Docker
+- SQL
+- Problem Solving
+- Communication
+- 5 years of experience
+- Senior Software Engineer
+- San Francisco, CA
