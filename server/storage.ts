@@ -47,7 +47,7 @@ import {
   type ActivityLog,
   type NotificationPreferences,
   type InsertNotificationPreferences
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { db } from "./db";
 import { eq, desc, and, or, inArray } from "drizzle-orm";
 import { supabaseAdmin } from "./lib/supabase-admin";
