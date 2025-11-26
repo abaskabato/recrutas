@@ -11,6 +11,7 @@ import {
   boolean,
   numeric,
   uuid,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -32,15 +33,7 @@ export const users = pgTable("users", {
   profile_complete: boolean("profile_complete").default(false),
 });
 
-export const companies = pgTable("companies", {
-  id: serial("id").primaryKey(),
-  name: varchar("name").notNull(),
-  website: varchar("website"),
-  size: varchar("size"),
-  ownerId: uuid("owner_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+// The 'companies' table has been temporarily removed to resolve a migration conflict.
 
 export const candidateProfiles = pgTable("candidate_users", {
   id: serial("id").primaryKey(),
@@ -346,24 +339,40 @@ export const interviews = pgTable("interviews", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const savedJobs = pgTable("saved_jobs", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.jobId] }),
+  }
+});
+
+export const hiddenJobs = pgTable("hidden_jobs", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.jobId] }),
+  }
+});
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   candidateProfile: one(candidateProfiles, {
     fields: [users.id],
     references: [candidateProfiles.userId],
   }),
-  companies: many(companies),
   jobPostings: many(jobPostings),
   matches: many(jobMatches),
   chatMessages: many(chatMessages),
   activityLogs: many(activityLogs),
+  savedJobs: many(savedJobs),
+  hiddenJobs: many(hiddenJobs),
 }));
 
-export const companiesRelations = relations(companies, ({ one }) => ({
-  owner: one(users, {
-    fields: [companies.ownerId],
-    references: [users.id],
-  }),
-}));
+// The 'companiesRelations' has been temporarily removed.
 
 export const candidateProfilesRelations = relations(candidateProfiles, ({ one }) => ({
   user: one(users, {
@@ -379,6 +388,8 @@ export const jobPostingsRelations = relations(jobPostings, ({ one, many }) => ({
   }),
   matches: many(jobMatches),
   applications: many(jobApplications),
+  savedBy: many(savedJobs),
+  hiddenBy: many(hiddenJobs),
 }));
 
 export const jobMatchesRelations = relations(jobMatches, ({ one, many }) => ({
@@ -469,6 +480,28 @@ export const interviewsRelations = relations(interviews, ({ one }) => ({
   application: one(jobApplications, {
     fields: [interviews.applicationId],
     references: [jobApplications.id],
+  }),
+}));
+
+export const savedJobsRelations = relations(savedJobs, ({ one }) => ({
+  user: one(users, {
+    fields: [savedJobs.userId],
+    references: [users.id],
+  }),
+  job: one(jobPostings, {
+    fields: [savedJobs.jobId],
+    references: [jobPostings.id],
+  }),
+}));
+
+export const hiddenJobsRelations = relations(hiddenJobs, ({ one }) => ({
+  user: one(users, {
+    fields: [hiddenJobs.userId],
+    references: [users.id],
+  }),
+  job: one(jobPostings, {
+    fields: [hiddenJobs.jobId],
+    references: [jobPostings.id],
   }),
 }));
 

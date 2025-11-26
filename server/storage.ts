@@ -33,6 +33,8 @@ import {
   notificationPreferences,
   jobApplications,
   companies,
+  savedJobs,
+  hiddenJobs,
   type User,
   type UpsertUser,
   type CandidateUser,
@@ -165,6 +167,11 @@ export interface IStorage {
   // Enhanced candidate operations
   getApplicationsForCandidate(candidateId: string): Promise<any[]>;
   getActivityForCandidate(candidateId: string): Promise<any[]>;
+  saveJob(userId: string, jobId: number): Promise<void>;
+  unsaveJob(userId: string, jobId: number): Promise<void>;
+  hideJob(userId: string, jobId: number): Promise<void>;
+  getSavedJobIds(userId: string): Promise<number[]>;
+  getHiddenJobIds(userId: string): Promise<number[]>;
   
   
 }
@@ -333,6 +340,53 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(candidateProfiles);
     } catch (error) {
       console.error('Error fetching all candidate profiles:', error);
+      throw error;
+    }
+  }
+
+  async saveJob(userId: string, jobId: number): Promise<void> {
+    try {
+      await db.insert(savedJobs).values({ userId, jobId }).onConflictDoNothing();
+    } catch (error) {
+      console.error('Error saving job:', error);
+      throw error;
+    }
+  }
+
+  async unsaveJob(userId: string, jobId: number): Promise<void> {
+    try {
+      await db.delete(savedJobs).where(and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)));
+    } catch (error) {
+      console.error('Error unsaving job:', error);
+      throw error;
+    }
+  }
+
+  async hideJob(userId: string, jobId: number): Promise<void> {
+    try {
+      await db.insert(hiddenJobs).values({ userId, jobId }).onConflictDoNothing();
+    } catch (error) {
+      console.error('Error hiding job:', error);
+      throw error;
+    }
+  }
+
+  async getSavedJobIds(userId: string): Promise<number[]> {
+    try {
+      const results = await db.select({ jobId: savedJobs.jobId }).from(savedJobs).where(eq(savedJobs.userId, userId));
+      return results.map(r => r.jobId);
+    } catch (error) {
+      console.error('Error getting saved job ids:', error);
+      throw error;
+    }
+  }
+
+  async getHiddenJobIds(userId: string): Promise<number[]> {
+    try {
+      const results = await db.select({ jobId: hiddenJobs.jobId }).from(hiddenJobs).where(eq(hiddenJobs.userId, userId));
+      return results.map(r => r.jobId);
+    } catch (error) {
+      console.error('Error getting hidden job ids:', error);
       throw error;
     }
   }
@@ -843,11 +897,19 @@ export class DatabaseStorage implements IStorage {
             skills: candidateProfiles.skills,
             experience: candidateProfiles.experience,
             resumeUrl: candidateProfiles.resumeUrl,
+          },
+          match: {
+            matchScore: jobMatches.matchScore,
+            aiExplanation: jobMatches.aiExplanation,
           }
         })
         .from(jobApplications)
         .innerJoin(users, eq(jobApplications.candidateId, users.id))
         .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
+        .leftJoin(jobMatches, and(
+          eq(jobMatches.candidateId, jobApplications.candidateId),
+          eq(jobMatches.jobId, jobApplications.jobId)
+        ))
         .where(eq(jobApplications.jobId, jobId))
         .orderBy(desc(jobApplications.appliedAt));
     } catch (error) {

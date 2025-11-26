@@ -108,35 +108,13 @@ export default function TalentDashboard() {
   const { toast } = useToast();
   const supabase = useSupabaseClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
-  const [showJobDialog, setShowJobDialog] = useState(false);
   const [showJobWizard, setShowJobWizard] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-
-  // Job form state
-  const [jobForm, setJobForm] = useState({
-    title: "",
-    company: "",
-    description: "",
-    requirements: [] as string[],
-    skills: [] as string[],
-    location: "",
-    salaryMin: "",
-    salaryMax: "",
-    workType: "remote" as const,
-    industry: "",
-    urgency: "medium" as const,
-    benefits: [] as string[],
-    experienceLevel: "",
-    department: "",
-    isRemoteFriendly: true,
-    applicationDeadline: "",
-    contactEmail: "",
-    companySize: "",
-    companyDescription: ""
-  });
+  const [expandedApplicantId, setExpandedApplicantId] = useState<number | null>(null);
+  const [screeningQuestions, setScreeningQuestions] = useState<{[key: number]: string[]}>({});
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -261,38 +239,29 @@ export default function TalentDashboard() {
     }
   });
 
-  const handleJobSubmit = () => {
-    if (!jobForm.title || !jobForm.company || !jobForm.description) {
+  const generateQuestionsMutation = useMutation({
+    mutationFn: async ({ jobId, candidateId }: { jobId: number, candidateId: string }) => {
+      const response = await apiRequest('POST', '/api/ai/screening-questions', { jobId, candidateId });
+      return await response.json();
+    },
+    onSuccess: (data, variables) => {
+      setScreeningQuestions(prev => ({
+        ...prev,
+        [variables.candidateId]: data.questions,
+      }));
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
+        title: "AI Questions Generated",
+        description: "Suggested screening questions are now available.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Generation Failed",
+        description: error.message,
         variant: "destructive",
       });
-      return;
-    }
-
-    const jobData = {
-      title: jobForm.title,
-      company: jobForm.company,
-      description: jobForm.description,
-      location: jobForm.location || null,
-      workType: jobForm.workType,
-      industry: jobForm.industry || null,
-      salaryMin: jobForm.salaryMin ? parseInt(jobForm.salaryMin) : null,
-      salaryMax: jobForm.salaryMax ? parseInt(jobForm.salaryMax) : null,
-      requirements: jobForm.requirements.filter(r => r.trim()),
-      skills: jobForm.skills.filter(s => s.trim()),
-      urgency: jobForm.urgency,
-      // Internal job settings - automatically include exam and chat
-      hasExam: true,
-      examPassingScore: 70,
-      hiringManagerId: user?.id, // Current user as hiring manager
-      autoRankCandidates: true,
-      maxChatCandidates: 5,
-    };
-
-    createJobMutation.mutate(jobData);
-  };
+    },
+  });
 
   const handleUpdateStatus = (applicationId: number, status: string) => {
     updateStatusMutation.mutate({ applicationId, status });
@@ -480,69 +449,69 @@ export default function TalentDashboard() {
                 </div>
               </div>
 
-              {/* Stats Grid */}
+              {/* Actionable Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="bg-white dark:bg-gray-800 shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Briefcase className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Jobs</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statsLoading ? "..." : stats?.activeJobs || 0}
-                        </p>
-                      </div>
+                <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Jobs</CardTitle>
+                    <Briefcase className="h-5 w-5 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {statsLoading ? "..." : stats?.activeJobs || 0}
                     </div>
+                    <p className="text-xs text-muted-foreground pt-1">Jobs you are actively hiring for.</p>
+                    <Button className="mt-4 w-full" size="sm" onClick={() => setActiveTab('jobs')}>
+                      Manage Jobs
+                    </Button>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white dark:bg-gray-800 shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-green-500/10 rounded-lg">
-                        <Users className="h-6 w-6 text-green-500" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Matches</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statsLoading ? "..." : stats?.totalMatches || 0}
-                        </p>
-                      </div>
+                <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Matches</CardTitle>
+                    <Users className="h-5 w-5 text-green-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {statsLoading ? "..." : stats?.totalMatches || 0}
                     </div>
+                    <p className="text-xs text-muted-foreground pt-1">Potential candidates matched by AI.</p>
+                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('candidates')}>
+                      View Candidates
+                    </Button>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white dark:bg-gray-800 shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-purple-500/10 rounded-lg">
-                        <MessageSquare className="h-6 w-6 text-purple-500" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statsLoading ? "..." : stats?.activeChats || 0}
-                        </p>
-                      </div>
+                <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</CardTitle>
+                    <MessageSquare className="h-5 w-5 text-purple-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {statsLoading ? "..." : stats?.activeChats || 0}
                     </div>
+                    <p className="text-xs text-muted-foreground pt-1">Conversations with top candidates.</p>
+                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => { /* Navigate to chat page */ }}>
+                      Open Chats
+                    </Button>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white dark:bg-gray-800 shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-center">
-                      <div className="p-2 bg-orange-500/10 rounded-lg">
-                        <Star className="h-6 w-6 text-orange-500" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Hires Made</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {statsLoading ? "..." : stats?.hires || 0}
-                        </p>
-                      </div>
+                <Card className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Hires Made</CardTitle>
+                    <Star className="h-5 w-5 text-orange-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {statsLoading ? "..." : stats?.hires || 0}
                     </div>
+                    <p className="text-xs text-muted-foreground pt-1">Successful hires from this platform.</p>
+                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('analytics')}>
+                      View Analytics
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
@@ -625,7 +594,7 @@ export default function TalentDashboard() {
                 <p className="text-gray-500 dark:text-gray-400">Manage your job listings and track applications</p>
               </div>
               <Button 
-                onClick={() => setShowJobDialog(true)}
+                onClick={() => setShowJobWizard(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -854,40 +823,83 @@ export default function TalentDashboard() {
                   </Card>
                 ) : (
                   <div className="space-y-4">
-                    {filteredCandidates.map((applicant) => (
-                      <Card key={applicant.applicationId}>
-                        <CardContent className="p-6">
-                          <div className="flex justify-between">
-                            <div>
-                              <h3 className="font-semibold">{applicant.candidate.firstName} {applicant.candidate.lastName}</h3>
-                              <p className="text-sm text-gray-500">{applicant.candidate.email}</p>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {applicant.profile.skills.map((skill: string) => (
-                                  <Badge key={skill} variant="secondary">{skill}</Badge>
-                                ))}
+                    {filteredCandidates.map((applicant) => {
+                      const isExpanded = expandedApplicantId === applicant.applicationId;
+                      const questions = screeningQuestions[applicant.candidate.id];
+                      return (
+                        <Card key={applicant.applicationId}>
+                          <CardContent className="p-6">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-4">
+                                  <h3 className="font-semibold text-lg">{applicant.candidate.firstName} {applicant.candidate.lastName}</h3>
+                                  {applicant.match?.matchScore && (
+                                    <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
+                                      <Star className="h-3 w-3 mr-1" />
+                                      {applicant.match.matchScore} Match
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-500">{applicant.candidate.email}</p>
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  {applicant.profile.skills.map((skill: string) => (
+                                    <Badge key={skill} variant="secondary">{skill}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                <Select
+                                  defaultValue={applicant.status}
+                                  onValueChange={(newStatus) => handleUpdateStatus(applicant.applicationId, newStatus)}
+                                >
+                                  <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="applied">Applied</SelectItem>
+                                    <SelectItem value="screening">Screening</SelectItem>
+                                    <SelectItem value="interview">Interview</SelectItem>
+                                    <SelectItem value="rejected">Rejected</SelectItem>
+                                    <SelectItem value="hired">Hired</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {applicant.match?.aiExplanation && (
+                                  <Button size="sm" variant="link" onClick={() => setExpandedApplicantId(isExpanded ? null : applicant.applicationId)}>
+                                    {isExpanded ? 'Hide' : 'Show'} AI Insights
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            <div>
-                              <Select
-                                defaultValue={applicant.status}
-                                onValueChange={(newStatus) => handleUpdateStatus(applicant.applicationId, newStatus)}
-                              >
-                                <SelectTrigger className="w-[180px]">
-                                  <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="applied">Applied</SelectItem>
-                                  <SelectItem value="screening">Screening</SelectItem>
-                                  <SelectItem value="interview">Interview</SelectItem>
-                                  <SelectItem value="rejected">Rejected</SelectItem>
-                                  <SelectItem value="hired">Hired</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            {isExpanded && (
+                              <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                                {applicant.match?.aiExplanation && (
+                                  <div className="mb-4">
+                                    <h4 className="font-semibold text-sm mb-2 text-gray-800 dark:text-gray-200">AI Insights:</h4>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{applicant.match.aiExplanation}</p>
+                                  </div>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => generateQuestionsMutation.mutate({ jobId: selectedJob!.id, candidateId: applicant.candidate.id })}
+                                  disabled={generateQuestionsMutation.isPending}
+                                >
+                                  Generate AI Screening Questions
+                                </Button>
+                                {questions && (
+                                  <div className="mt-4">
+                                    <h5 className="font-semibold text-sm mb-2">Suggested Questions:</h5>
+                                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                      {questions.map((q, i) => <li key={i}>{q}</li>)}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -1095,316 +1107,7 @@ export default function TalentDashboard() {
         )}
       </div>
 
-      {/* Enhanced Job Creation Dialog */}
-      <Dialog open={showJobDialog} onOpenChange={setShowJobDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Briefcase className="h-5 w-5 mr-2" />
-              Post New Job - Advanced Job Posting
-            </DialogTitle>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Create a comprehensive job posting to attract the right candidates</p>
-          </DialogHeader>
-          
-          <div className="space-y-8 py-4">
-            {/* Basic Information Section */}
-            <div className="border rounded-lg p-6 space-y-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <Building2 className="h-4 w-4 mr-2" />
-                Basic Information
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Job Title *</label>
-                  <Input
-                    value={jobForm.title}
-                    onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
-                    placeholder="e.g., Senior Software Engineer"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Company *</label>
-                  <Input
-                    value={jobForm.company}
-                    onChange={(e) => setJobForm({ ...jobForm, company: e.target.value })}
-                    placeholder="e.g., Recrutas Technologies"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Department</label>
-                  <Input
-                    value={jobForm.department}
-                    onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })}
-                    placeholder="e.g., Engineering, Marketing, Sales"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Industry</label>
-                  <Select value={jobForm.industry} onValueChange={(value) => setJobForm({ ...jobForm, industry: value }) }>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select industry" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="technology">Technology</SelectItem>
-                      <SelectItem value="finance">Finance</SelectItem>
-                      <SelectItem value="healthcare">Healthcare</SelectItem>
-                      <SelectItem value="education">Education</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                      <SelectItem value="consulting">Consulting</SelectItem>
-                      <SelectItem value="startup">Startup</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Job Description *</label>
-                <Textarea
-                  value={jobForm.description}
-                  onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
-                  placeholder="Join our team! Describe the role, responsibilities, team culture, and what makes this opportunity exciting..."
-                  rows={4}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Company Description</label>
-                <Textarea
-                  value={jobForm.companyDescription}
-                  onChange={(e) => setJobForm({ ...jobForm, companyDescription: e.target.value })}
-                  placeholder="Tell candidates about your company, mission, values, and what makes it a great place to work..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            {/* Location & Work Details */}
-            <div className="border rounded-lg p-6 space-y-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <MapPin className="h-4 w-4 mr-2" />
-                Location & Work Details
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Location</label>
-                  <Input
-                    value={jobForm.location}
-                    onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
-                    placeholder="e.g., San Francisco, CA or Remote"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Work Type</label>
-                  <Select value={jobForm.workType} onValueChange={(value: any) => setJobForm({ ...jobForm, workType: value }) }>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="remote">Remote</SelectItem>
-                      <SelectItem value="hybrid">Hybrid</SelectItem>
-                      <SelectItem value="onsite">On-site</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Experience Level</label>
-                  <Select value={jobForm.experienceLevel} onValueChange={(value) => setJobForm({ ...jobForm, experienceLevel: value }) }>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select experience level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="entry">Entry Level (0-2 years)</SelectItem>
-                      <SelectItem value="mid">Mid Level (3-5 years)</SelectItem>
-                      <SelectItem value="senior">Senior Level (6-10 years)</SelectItem>
-                      <SelectItem value="lead">Lead/Principal (10+ years)</SelectItem>
-                      <SelectItem value="executive">Executive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Company Size</label>
-                  <Select value={jobForm.companySize} onValueChange={(value) => setJobForm({ ...jobForm, companySize: value }) }>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select company size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="startup">Startup (1-10)</SelectItem>
-                      <SelectItem value="small">Small (11-50)</SelectItem>
-                      <SelectItem value="medium">Medium (51-200)</SelectItem>
-                      <SelectItem value="large">Large (201-1000)</SelectItem>
-                      <SelectItem value="enterprise">Enterprise (1000+)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Compensation & Benefits */}
-            <div className="border rounded-lg p-6 space-y-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Compensation & Benefits
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Min Salary (Annual)</label>
-                  <Input
-                    type="number"
-                    value={jobForm.salaryMin}
-                    onChange={(e) => setJobForm({ ...jobForm, salaryMin: e.target.value })}
-                    placeholder="50000"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Max Salary (Annual)</label>
-                  <Input
-                    type="number"
-                    value={jobForm.salaryMax}
-                    onChange={(e) => setJobForm({ ...jobForm, salaryMax: e.target.value })}
-                    placeholder="100000"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Benefits & Perks</label>
-                <Textarea
-                  placeholder="• Health, dental, vision insurance
-• 401(k) with company match
-• Unlimited PTO
-• Remote work flexibility
-• Professional development budget
-• Stock options/equity
-• Gym membership
-• Free lunch"
-                  rows={3}
-                  onChange={(e) => setJobForm({ 
-                    ...jobForm, 
-                    benefits: e.target.value.split('\n').map(b => b.trim()).filter(b => b)
-                  })}
-                />
-              </div>
-            </div>
-
-            {/* Requirements & Skills */}
-            <div className="border rounded-lg p-6 space-y-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <Target className="h-4 w-4 mr-2" />
-                Requirements & Skills
-              </h3>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Required Skills *</label>
-                <Input
-                  placeholder="React, Node.js, Python, JavaScript, TypeScript, AWS... (comma separated)"
-                  onChange={(e) => setJobForm({ 
-                    ...jobForm, 
-                    skills: e.target.value.split(',').map(s => s.trim()).filter(s => s)
-                  })}
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">These skills will be used for AI-powered candidate matching</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Requirements & Qualifications</label>
-                <Textarea
-                  placeholder="• 3+ years of professional software development experience
-• Bachelor's degree in Computer Science or related field
-• Experience with modern web technologies
-• Strong problem-solving and analytical skills
-• Excellent communication and collaboration abilities
-• Experience with agile development methodologies"
-                  rows={4}
-                  onChange={(e) => setJobForm({ 
-                    ...jobForm, 
-                    requirements: e.target.value.split('\n').map(r => r.trim()).filter(r => r)
-                  })}
-                />
-              </div>
-            </div>
-
-            {/* Application Details */}
-            <div className="border rounded-lg p-6 space-y-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <Clock className="h-4 w-4 mr-2" />
-                Application Details
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Contact Email</label>
-                  <Input
-                    type="email"
-                    value={jobForm.contactEmail}
-                    onChange={(e) => setJobForm({ ...jobForm, contactEmail: e.target.value })}
-                    placeholder="hiring@company.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Application Deadline</label>
-                  <Input
-                    type="date"
-                    value={jobForm.applicationDeadline}
-                    onChange={(e) => setJobForm({ ...jobForm, applicationDeadline: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Urgency Level</label>
-                <Select value={jobForm.urgency} onValueChange={(value: any) => setJobForm({ ...jobForm, urgency: value }) }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low - Standard hiring timeline</SelectItem>
-                    <SelectItem value="medium">Medium - Looking to fill soon</SelectItem>
-                    <SelectItem value="high">High - Urgent need, fast hiring</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowJobDialog(false)}
-                disabled={createJobMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleJobSubmit}
-                disabled={createJobMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {createJobMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating Job...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Post Job
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* The Enhanced Job Creation Dialog has been removed in favor of the JobPostingWizard */}
 
       {/* Job Posting Wizard with Exam Creation */}
       {showJobWizard && (

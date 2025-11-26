@@ -339,3 +339,21 @@ function analyzeSkillGaps(currentSkills: string[]): string[] {
     !currentSkillsLower.some(cs => cs.includes(skill.toLowerCase()))
   );
 }
+
+// Generate AI-powered screening questions
+export async function generateScreeningQuestions(candidate: CandidateProfile, job: JobPosting): Promise<string[]> {
+  console.log("Generating screening questions for:", { candidate, job });
+
+  const questions = [
+    `Tell me about your experience with ${job.skills[0] || 'the primary technology'} for this role.`,
+    `This job requires experience in ${job.industry || 'our industry'}. Can you describe a project where you've worked in this area?`,
+    `One of the key requirements is "${job.requirements[0] || 'a key requirement'}". How have you demonstrated this in your past work?`,
+    `Based on your resume, you have experience with ${candidate.skills[0] || 'a key skill'}. How would you apply that to the responsibilities of this job?`,
+    `What interests you most about this role at ${job.company}?`
+  ];
+
+  // Simulate AI generation delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  return questions;
+}

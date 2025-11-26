@@ -42,6 +42,7 @@ import ApplicationTracker from "@/components/application-tracker";
 import RealTimeNotifications from "@/components/real-time-notifications";
 import JobMatchesModal from "@/components/job-matches-modal";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
+import LayoffNews from "@/components/layoff-news";
 
 interface DashboardStats {
   newMatches: number;
@@ -77,7 +78,6 @@ export default function CandidateStreamlinedDashboard() {
   const isLoading = !session;
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'applications' | 'profile' | 'agent'>('overview');
-  const [showJobMatchesModal, setShowJobMatchesModal] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -232,103 +232,93 @@ export default function CandidateStreamlinedDashboard() {
           </p>
         </div>
 
-        {/* Quick Stats */}
+        {/* Actionable Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">New Matches</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newMatches || 0}</p>
-                </div>
-                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                  <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
+          <Card className="border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">New Matches</CardTitle>
+              <Target className="h-5 w-5 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newMatches || 0}</div>
+              <p className="text-xs text-muted-foreground pt-2">High-quality jobs matched to your profile.</p>
+              <Button className="mt-4 w-full" size="sm" onClick={() => setActiveTab('jobs')}>
+                <Search className="h-4 w-4 mr-2" />
+                Review Matches
+              </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500 bg-white dark:bg-gray-800 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Profile Views</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.profileViews || 0}</p>
-                </div>
-                <div className="h-12 w-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                  <Eye className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
+          <Card className="border-l-4 border-l-green-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Profile Views</CardTitle>
+              <Eye className="h-5 w-5 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.profileViews || 0}</div>
+              <p className="text-xs text-muted-foreground pt-2">Times your profile appeared in recruiter searches.</p>
+              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('profile')}>
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Enhance Profile
+              </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500 bg-white dark:bg-gray-800 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</p>
-                </div>
-                <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                  <MessageCircle className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
+          <Card className="border-l-4 border-l-purple-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</CardTitle>
+              <MessageCircle className="h-5 w-5 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</div>
+              <p className="text-xs text-muted-foreground pt-2">Direct conversations with hiring managers.</p>
+              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => { /* Navigate to chat page if it exists */ }}>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                View Chats
+              </Button>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500 bg-white dark:bg-gray-800 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Applications</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{applications?.length || 0}</p>
-                </div>
-                <div className="h-12 w-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                  <Briefcase className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                </div>
-              </div>
+          <Card className="border-l-4 border-l-orange-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Applications</CardTitle>
+              <Briefcase className="h-5 w-5 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{applications?.length || 0}</div>
+              <p className="text-xs text-muted-foreground pt-2">Track your application statuses.</p>
+              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('applications')}>
+                <FileText className="h-4 w-4 mr-2" />
+                Track Applications
+              </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Profile Setup Section - Show if profile incomplete */}
+        {/* Simplified Profile Setup Section */}
         {profileCompletion < 100 && (
           <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 border-blue-200 dark:border-blue-800">
             <CardContent className="p-6">
-              <div className="flex items-start space-x-4">
+              <div className="flex items-center space-x-4">
                 <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
                   <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    Complete Your Profile
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    Complete Your Profile to Unlock Better Matches
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    A complete profile gets 3x more job matches. You're {profileCompletion}% done!
+                    You're {profileCompletion}% done! A complete profile gets noticed more.
                   </p>
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Profile Completion</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{profileCompletion}%</span>
-                    </div>
-                    <Progress value={profileCompletion} className="h-2" />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {!hasResume && (
-                      <Button 
-                        size="sm" 
-                        className="bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setActiveTab('profile')}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Resume
-                      </Button>
-                    )}
+                  <div className="flex items-center gap-4">
+                    <Progress value={profileCompletion} className="h-2 flex-1" />
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => setActiveTab('profile')}
+                      className="bg-white dark:bg-gray-800"
                     >
+                      <TrendingUp className="h-4 w-4 mr-2" />
                       Complete Profile
                     </Button>
                   </div>
@@ -431,86 +421,8 @@ export default function CandidateStreamlinedDashboard() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* Quick Actions */}
-            <div>
-              <Card className="bg-white dark:bg-gray-800 shadow-md">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Zap className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                    <span>Quick Actions</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button 
-                    className="w-full justify-start"
-                    variant="outline"
-                    onClick={() => setShowJobMatchesModal(true)}
-                  >
-                    <Search className="h-4 w-4 mr-2" />
-                    Find Job Matches
-                  </Button>
-                  
-                  <Button 
-                    className="w-full justify-start"
-                    variant="outline"
-                    onClick={() => setActiveTab('profile')}
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    Update Profile
-                  </Button>
-                  
-                  <Button 
-                    className="w-full justify-start"
-                    variant="outline"
-                    onClick={() => setActiveTab('applications')}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Track Applications
-                  </Button>
-
-                  {!hasResume && (
-                    <Button 
-                      className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => setActiveTab('profile')}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Resume
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Application Status Summary */}
-              {applications && applications.length > 0 && (
-                <Card className="mt-6 bg-white dark:bg-gray-800 shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Application Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Pending</span>
-                        <Badge variant="secondary">
-                          {applications.filter(app => app.status === 'pending').length}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">In Review</span>
-                        <Badge variant="outline">
-                          {applications.filter(app => app.status === 'viewed').length}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Interviews</span>
-                        <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-800">
-                          {applications.filter(app => app.status === 'interested').length}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+            <div className="lg:col-span-1">
+              <LayoffNews />
             </div>
           </div>
         )}
@@ -541,11 +453,6 @@ export default function CandidateStreamlinedDashboard() {
         )}
       </div>
 
-      {/* Job Matches Modal */}
-      <JobMatchesModal
-        isOpen={showJobMatchesModal}
-        onClose={() => setShowJobMatchesModal(false)}
-      />
     </div>
   );
 }

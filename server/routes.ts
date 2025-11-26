@@ -10,11 +10,12 @@ import { companyJobsAggregator } from "./company-jobs-aggregator";
 import { universalJobScraper } from "./universal-job-scraper";
 import { jobAggregator } from "./job-aggregator";
 import { notificationService } from "./notification-service";
+import { newsService } from './news-service';
 import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
 } from "@shared/schema";
-import { generateJobMatch } from "./ai-service";
+import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
 import { db } from "./db";
 import { seedDatabase } from "./seed.js";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
@@ -142,6 +143,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
     });
   });
 
+  // Layoff news endpoint
+  app.get('/api/news/layoffs', async (req, res) => {
+    try {
+      const articles = await newsService.getLayoffNews();
+      res.json(articles);
+    } catch (error) {
+      console.error("Error fetching layoff news:", error);
+      res.status(500).json({ message: "Failed to fetch layoff news" });
+    }
+  });
+
   // AI-powered job matching
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
     try {
@@ -152,13 +164,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(404).json({ message: "Please complete your profile first" });
       }
 
+      const hiddenJobIds = await storage.getHiddenJobIds(userId);
+
       const externalJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills, 50);
       const internalJobs = await db.query.jobPostings.findMany({ where: eq(jobPostings.status, 'active'), limit: 25 });
 
       const allJobs = [
         ...externalJobs.map(job => ({ ...job, id: Math.floor(Math.random() * 1000000), aiCurated: true })),
         ...internalJobs.map(job => ({ ...job, aiCurated: false }))
-      ];
+      ].filter(job => !hiddenJobIds.includes(job.id));
 
       const aiMatches = [];
       for (const job of allJobs.slice(0, 15)) {
@@ -185,6 +199,29 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error('Error generating AI matches:', error);
       res.status(500).json({ message: "Failed to generate job matches" });
+    }
+  });
+
+  // AI-powered screening questions
+  app.post('/api/ai/screening-questions', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jobId, candidateId } = req.body;
+      if (!jobId || !candidateId) {
+        return res.status(400).json({ message: "jobId and candidateId are required" });
+      }
+
+      const job = await storage.getJobPosting(jobId);
+      const candidate = await storage.getCandidateUser(candidateId);
+
+      if (!job || !candidate) {
+        return res.status(404).json({ message: "Job or Candidate not found" });
+      }
+
+      const questions = await generateScreeningQuestions(candidate, job);
+      res.json({ questions });
+    } catch (error) {
+      console.error("Error generating screening questions:", error);
+      res.status(500).json({ message: "Failed to generate screening questions" });
     }
   });
 
@@ -284,6 +321,101 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Candidate specific stats
+  app.get('/api/candidate/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = await storage.getCandidateStats(req.user.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching candidate stats:", error);
+      res.status(500).json({ message: "Failed to fetch candidate stats" });
+    }
+  });
+
+  // Candidate activity
+  app.get('/api/candidate/activity', isAuthenticated, async (req: any, res) => {
+    try {
+      const activity = await storage.getActivityLogs(req.user.id);
+      res.json(activity);
+    } catch (error) {
+      console.error("Error fetching candidate activity:", error);
+      res.status(500).json({ message: "Failed to fetch candidate activity" });
+    }
+  });
+
+  // Candidate applications
+  app.get('/api/candidate/applications', isAuthenticated, async (req: any, res) => {
+    try {
+      const applications = await storage.getApplicationsWithStatus(req.user.id);
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching candidate applications:", error);
+      res.status(500).json({ message: "Failed to fetch candidate applications" });
+    }
+  });
+
+  // Save a job for a candidate
+  app.post('/api/candidate/saved-jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jobId } = req.body;
+      if (!jobId) {
+        return res.status(400).json({ message: "jobId is required" });
+      }
+      await storage.saveJob(req.user.id, jobId);
+      res.status(201).json({ message: "Job saved successfully" });
+    } catch (error) {
+      console.error("Error saving job:", error);
+      res.status(500).json({ message: "Failed to save job" });
+    }
+  });
+
+  // Unsave a job for a candidate
+  app.delete('/api/candidate/saved-jobs/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      if (!jobId) {
+        return res.status(400).json({ message: "jobId is required" });
+      }
+      await storage.unsaveJob(req.user.id, jobId);
+      res.status(200).json({ message: "Job unsaved successfully" });
+    } catch (error) {
+      console.error("Error unsaving job:", error);
+      res.status(500).json({ message: "Failed to unsave job" });
+    }
+  });
+
+  // Hide a job for a candidate
+  app.post('/api/candidate/hidden-jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jobId } = req.body;
+      if (!jobId) {
+        return res.status(400).json({ message: "jobId is required" });
+      }
+      await storage.hideJob(req.user.id, jobId);
+      res.status(201).json({ message: "Job hidden successfully" });
+    } catch (error) {
+      console.error("Error hiding job:", error);
+      res.status(500).json({ message: "Failed to hide job" });
+    }
+  });
+
+  // Get all job actions for a candidate
+  app.get('/api/candidate/job-actions', isAuthenticated, async (req: any, res) => {
+    try {
+      const savedJobIds = await storage.getSavedJobIds(req.user.id);
+      const applications = await storage.getApplicationsForCandidate(req.user.id);
+      const appliedJobIds = applications.map(app => app.jobId);
+      
+      res.json({
+        saved: savedJobIds,
+        applied: appliedJobIds,
+      });
+    } catch (error) {
+      console.error("Error fetching job actions:", error);
+      res.status(500).json({ message: "Failed to fetch job actions" });
+    }
+  });
+
   // Job application
   app.post('/api/candidates/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {
@@ -320,6 +452,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error fetching talent owner jobs:", error);
       res.status(500).json({ message: "Failed to fetch job postings" });
+    }
+  });
+
+  // Recruiter specific stats
+  app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const stats = await storage.getRecruiterStats(req.user.id);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching recruiter stats:", error);
+      res.status(500).json({ message: "Failed to fetch recruiter stats" });
     }
   });
 
