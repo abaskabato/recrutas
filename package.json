@@ -7,12 +7,12 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "vite --host",
+    "dev": "cd client && vite --host",
     "dev:all": "npm run dev:server:start & npm run dev",
     "dev:server:start": "tsx standalone-server.js",
     "dev:server:stop": "pkill -f 'tsx standalone-server.js' || true",
     "dev:server-no-watch": "NODE_ENV=test tsx standalone-server.js",
-    "build": "npm install && vite build && node scripts/generate-api-handler.js",
+    "build": "npm install && cd client && vite build && cd .. && node scripts/generate-api-handler.js",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
     "lint": "echo \"Linter is currently disabled\"",
