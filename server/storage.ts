@@ -97,6 +97,7 @@ export interface IStorage {
   getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateUser?: CandidateUser })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
   clearJobMatches(jobId: number): Promise<void>;
+  updateJobMatchStatus(candidateId: string, jobId: number, status: string): Promise<void>;
   
   // Exam operations
   createJobExam(exam: any): Promise<any>;

@@ -5,11 +5,11 @@ import { spawn } from 'child_process';
 import { runAPITests } from './test-auth-api.js';
 import { runAllTests } from './test-auth-e2e.js';
 
-const PORT = 5000;
+const PORT = 5001;
 
 // Function to wait for the server to be ready
 async function waitForServer() {
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     try {
       const response = await fetch(`http://localhost:${PORT}/api/health`);
       if (response.ok) {
@@ -75,7 +75,7 @@ async function runAllTestSuites() {
 }
 
 async function waitForFrontend() {
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     try {
       const response = await fetch(`http://localhost:5173`);
       if (response.ok) {

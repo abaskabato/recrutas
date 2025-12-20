@@ -20,6 +20,7 @@ import { db } from "./db";
 import { seedDatabase } from "./seed.js";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
+import { ExamService } from './services/exam.service';
 import { aiResumeParser } from './ai-resume-parser';
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { users, jobPostings, jobApplications, JobPosting } from "@shared/schema";
@@ -37,8 +38,9 @@ interface AIMatch {
   createdAt: string;
 }
 
-// Instantiate ResumeService
+// Instantiate services
 const resumeService = new ResumeService(storage, aiResumeParser);
+const examService = new ExamService(storage, notificationService);
 
 // Configure multer for file uploads
 const uploadDir = "uploads";
@@ -540,6 +542,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error updating application status:", error);
       res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+
+  app.post('/api/jobs/:jobId/exam/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jobId } = req.params;
+      const { answers } = req.body;
+      const result = await examService.submitExam(parseInt(jobId), req.user.id, answers);
+      res.json(result);
+    } catch (error) {
+      console.error("Error submitting exam:", error);
+      res.status(500).json({ message: "Failed to submit exam" });
     }
   });
 
