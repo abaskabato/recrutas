@@ -48,7 +48,7 @@ if (!fs.existsSync(uploadDir)) {
 const storageConfig = multer.memoryStorage();
 const upload = multer({
   storage: storageConfig,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 4 * 1024 * 1024 }, // 4MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['.pdf', '.doc', '.docx'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -322,7 +322,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Resume upload
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
-      if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+      if (!req.file) {
+        console.error("Resume upload error: No file uploaded or file too large/wrong type.");
+        return res.status(400).json({ message: "No file uploaded or file too large/wrong type" });
+      }
+      console.log("Received file:", {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+      });
       const result = await resumeService.uploadAndProcessResume(req.user.id, req.file.buffer, req.file.mimetype);
       res.json(result);
     } catch (error) {
