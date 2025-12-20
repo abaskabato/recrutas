@@ -1,6 +1,19 @@
 import { JobAggregator } from './job-aggregator';
 
-interface CompanyJob {
+interface NetflixJob {
+  id: string;
+  title: string;
+  location: string;
+  description: string;
+  requirements: string[];
+  postedDate: string;
+}
+
+interface NetflixApiResponse {
+  results?: NetflixJob[];
+}
+
+interface ExternalJob {
   id: string;
   title: string;
   company: string;
@@ -388,7 +401,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: NetflixApiResponse = await response.json();
         const jobs = this.transformNetflixJobs(data.results || []);
         console.log(`Fetched ${jobs.length} jobs from Netflix Jobs`);
         return jobs;

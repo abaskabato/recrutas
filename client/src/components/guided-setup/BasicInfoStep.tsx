@@ -18,7 +18,7 @@ export default function BasicInfoStep() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/auth/complete-profile', formData);
+      const response = await apiRequest('POST', '/api/candidate/profile', formData);
       return response.json();
     },
     onSuccess: () => {

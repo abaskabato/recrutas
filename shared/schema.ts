@@ -10,7 +10,6 @@ import {
   integer,
   boolean,
   numeric,
-  uuid,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -37,7 +36,7 @@ export const users = pgTable("users", {
 
 export const candidateProfiles = pgTable("candidate_users", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().unique().references(() => users.id),
+  userId: text("user_id").notNull().unique().references(() => users.id),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   email: varchar("email"),
@@ -68,8 +67,8 @@ export const candidateProfiles = pgTable("candidate_users", {
 
 export const jobPostings = pgTable("job_postings", {
   id: serial("id").primaryKey(),
-  talentOwnerId: uuid("talent_owner_id").notNull().references(() => users.id),
-  hiringManagerId: uuid("hiring_manager_id").references(() => users.id),
+  talentOwnerId: text("talent_owner_id").notNull().references(() => users.id),
+  hiringManagerId: text("hiring_manager_id").references(() => users.id),
   title: varchar("title").notNull(),
   company: varchar("company").notNull(),
   description: text("description").notNull(),
@@ -114,7 +113,7 @@ export const jobExams = pgTable("job_exams", {
 export const examAttempts = pgTable("exam_attempts", {
   id: serial("id").primaryKey(),
   examId: integer("exam_id").notNull().references(() => jobExams.id),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  candidateId: text("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   score: integer("score"),
   totalQuestions: integer("total_questions"),
@@ -133,7 +132,7 @@ export const examAttempts = pgTable("exam_attempts", {
 export const jobMatches = pgTable("job_matches", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  candidateId: text("candidate_id").notNull().references(() => users.id),
   matchScore: varchar("match_score").notNull(),
   confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
   matchReasons: jsonb("match_reasons").default([] as any),
@@ -151,8 +150,8 @@ export const jobMatches = pgTable("job_matches", {
 export const chatRooms = pgTable("chat_rooms", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
-  hiringManagerId: uuid("hiring_manager_id").notNull().references(() => users.id),
+  candidateId: text("candidate_id").notNull().references(() => users.id),
+  hiringManagerId: text("hiring_manager_id").notNull().references(() => users.id),
   examAttemptId: integer("exam_attempt_id").references(() => examAttempts.id),
   status: varchar("status", { enum: ["active", "closed"] }).default("active"),
   candidateRanking: integer("candidate_ranking"),
@@ -164,14 +163,14 @@ export const chatRooms = pgTable("chat_rooms", {
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   chatRoomId: integer("chat_room_id").notNull().references(() => chatRooms.id),
-  senderId: uuid("sender_id").notNull().references(() => users.id),
+  senderId: text("sender_id").notNull().references(() => users.id),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const jobApplications = pgTable("job_applications", {
   id: serial("id").primaryKey(),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  candidateId: text("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   matchId: integer("match_id").references(() => jobMatches.id),
   status: varchar("status", { 
@@ -195,7 +194,7 @@ export const applicationUpdates = pgTable("application_updates", {
   previousStatus: varchar("previous_status"),
   newStatus: varchar("new_status").notNull(),
   message: text("message"),
-  updatedBy: uuid("updated_by"),
+  updatedBy: text("updated_by"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -222,7 +221,7 @@ export const applicationEvents = pgTable("application_events", {
 
 export const applicationInsights = pgTable("application_insights", {
   id: serial("id").primaryKey(),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  candidateId: text("candidate_id").notNull().references(() => users.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   strengthsIdentified: jsonb("strengths_identified").default([] as any),
   improvementAreas: jsonb("improvement_areas").default([] as any),
@@ -240,7 +239,7 @@ export const applicationInsights = pgTable("application_insights", {
 
 export const matchFeedback = pgTable("match_feedback", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id),
   matchId: integer("match_id").notNull().references(() => jobMatches.id),
   rating: integer("rating").notNull(),
   feedbackType: varchar("feedback_type", { enum: ["match_quality", "job_relevance", "timing", "requirements"] }),
@@ -251,7 +250,7 @@ export const matchFeedback = pgTable("match_feedback", {
 
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id),
   type: varchar("type").notNull(),
   description: text("description").notNull(),
   metadata: jsonb("metadata"),
@@ -260,7 +259,7 @@ export const activityLogs = pgTable("activity_logs", {
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().references(() => users.id),
   type: varchar("type", { 
     enum: [
       "application_viewed", 
@@ -291,7 +290,7 @@ export const notifications = pgTable("notifications", {
 
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().unique().references(() => users.id),
+  userId: text("user_id").notNull().unique().references(() => users.id),
   inAppNotifications: boolean("in_app_notifications").default(true),
   emailNotifications: boolean("email_notifications").default(true),
   pushNotifications: boolean("push_notifications").default(false),
@@ -306,7 +305,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
 
 export const connectionStatus = pgTable("connection_status", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().unique().references(() => users.id),
+  userId: text("user_id").notNull().unique().references(() => users.id),
   isOnline: boolean("is_online").default(false),
   lastSeen: timestamp("last_seen").defaultNow(),
   socketId: varchar("socket_id"),
@@ -317,8 +316,8 @@ export const connectionStatus = pgTable("connection_status", {
 
 export const interviews = pgTable("interviews", {
   id: serial("id").primaryKey(),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
-  interviewerId: uuid("interviewer_id").notNull().references(() => users.id),
+  candidateId: text("candidate_id").notNull().references(() => users.id),
+  interviewerId: text("interviewer_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   scheduledAt: timestamp("scheduled_at").notNull(),
@@ -340,7 +339,7 @@ export const interviews = pgTable("interviews", {
 });
 
 export const savedJobs = pgTable("saved_jobs", {
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {
@@ -350,7 +349,7 @@ export const savedJobs = pgTable("saved_jobs", {
 });
 
 export const hiddenJobs = pgTable("hidden_jobs", {
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {

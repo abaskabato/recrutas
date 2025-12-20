@@ -5,12 +5,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
-
-import express from 'express';
 import cors from 'cors';
-import { setupRoutes } from './routes';
-import { setupMiddleware } from './middleware';
-import { setupWebSocket } from './notifications';
 
 const app = express();
 

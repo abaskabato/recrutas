@@ -1,0 +1,97 @@
+Fix the following end-to-end use cases and user journeys in the Recrutas platform. Test each flow systematically and fix any issues found:
+
+## CANDIDATE JOURNEY
+
+1. **Resume Upload & AI Parsing**
+   - User uploads PDF/DOCX resume (max 5MB)
+   - File validated and uploaded to Supabase Storage bucket "resumes"
+   - Text extracted (PDF via pdf-parse, DOCX via mammoth)
+   - AI parsing via Groq API extracts: skills, experience, education, projects
+   - Parsed data updates candidate profile (skills array, experience text, resumeUrl)
+   - Profile strength score updates
+   - Error handling for failures
+   - Verify: POST /api/candidate/resume, ResumeService, aiResumeParser, Supabase Storage
+
+2. **Job Feed Population (Internal + External Jobs)**
+   - Candidate dashboard loads AI matches: GET /api/ai-matches
+   - Fetches internal jobs from jobPostings table (status='active')
+   - Fetches external jobs from companyJobsAggregator.getAllCompanyJobs() (Google, Apple, Amazon, Meta, etc.)
+   - Fetches external jobs from jobAggregator.getAllJobs() (JSearch, ArbeitNow, RemoteOK, The Muse)
+   - Filters out hidden jobs (hiddenJobs table)
+   - Runs AI matching (generateJobMatch) for each job:
+     - Semantic skill matching (cosine similarity)
+     - Match score calculation (0-100%)
+     - Confidence level assignment
+     - AI explanation generation
+   - Shows only matches with score >= 60%
+   - Sorts by match score (highest first)
+   - Displays top 10 matches
+   - External jobs marked as "AI Curated", internal as "Platform Job"
+   - Verify: AIJobFeed component, match cards, error handling, caching
+
+3. **Job Actions (Save, Hide, Apply)**
+   - Save job: POST /api/candidate/saved-jobs → saves to savedJobs table
+   - Hide job: POST /api/candidate/hidden-jobs → saves to hiddenJobs table, removes from feed
+   - Apply to job: POST /api/candidates/apply/:jobId → creates jobApplication, sends notification
+   - If job has exam: redirect to exam page
+   - State persists across reloads
+   - Verify: GET /api/candidate/job-actions returns correct saved/applied lists
+
+4. **Layoff News Tab**
+   - LayoffNews component renders in dashboard
+   - GET /api/news/layoffs called
+   - newsService.getLayoffNews() fetches from News API (NEWS_API_KEY required)
+   - News cached for 45 seconds
+   - Articles display: title, description, source, date, link
+   - Error handling for missing API key or API failures
+   - Verify: NEWS_API_KEY in .env, news-service.ts, LayoffNews component
+
+## TALENT OWNER JOURNEY
+
+5. **Company Profile Setup**
+   - Talent owner signup: /signup/talent-owner
+   - Role set to "talent_owner" via POST /api/auth/role
+   - Company profile form: name, description, website, industry, location
+   - Profile saves and persists
+   - Verify: TalentOwnerProfileCompletion component, profile data storage
+
+6. **Job Posting Creation**
+   - JobPostingWizard component opens
+   - Form fields: title, company, description, requirements[], skills[], location, salary, workType, industry
+   - Exam configuration: hasExam checkbox, passingScore (default 70), autoRankCandidates, maxChatCandidates (default 5)
+   - Submit: POST /api/jobs
+   - Job created in jobPostings table
+   - If hasExam=true: exam created with auto-generated questions (generateExamQuestions)
+   - Auto-matching triggers: findMatchingCandidates() creates jobMatches, sends notifications
+   - Job appears in talent dashboard
+   - Verify: JobPostingWizard, form validation, exam creation, auto-matching, notifications
+
+## COMMON ISSUES TO CHECK
+
+- Authentication: Session persistence, token expiration, role setting
+- Database: Foreign keys, required fields, type mismatches, constraints
+- API: Missing request body, validation failures, error handling
+- External APIs: Missing API keys (GROQ_API_KEY, RAPIDAPI_KEY, NEWS_API_KEY), rate limits, network errors
+- State Management: Stale data, cache invalidation, optimistic updates
+- Real-time: WebSocket connection (/ws endpoint), notifications, heartbeat
+- File Upload: Multer config, file size limits, Supabase Storage bucket permissions
+- Error Messages: User-friendly error messages, loading states, toast notifications
+
+## TESTING CHECKLIST
+
+For each use case:
+1. Check server logs for errors
+2. Check browser console for errors
+3. Check network requests (DevTools → Network)
+4. Verify database records (Supabase dashboard)
+5. Test API endpoints directly (curl or Postman)
+6. Verify environment variables (.env file)
+7. Check WebSocket connections (DevTools → Network → WS)
+
+## PRIORITY ORDER
+
+1. Critical: Resume upload, job feed, job application
+2. High: Job posting, applicant management, notifications
+3. Medium: Exams, chat, layoff news
+
+Fix issues systematically, starting with critical paths. Ensure all API endpoints exist, database tables are correct, components render properly, and error handling is in place.

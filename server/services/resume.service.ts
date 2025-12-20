@@ -56,9 +56,7 @@ export class ResumeService {
       throw new ResumeProcessingError('Failed to upload resume to storage', error);
     }
 
-    let parsedData = null;
-    let aiExtracted = null;
-    let parsingSuccess = false;
+
 
     // Temporarily bypass AI resume parsing for debugging, as it was in routes.ts
     // When re-enabling, ensure aiResumeParser is properly integrated and handles errors
@@ -82,11 +80,38 @@ export class ResumeService {
       throw new ResumeProcessingError('Failed to fetch candidate profile', error);
     }
     
+    let parsedData: any = { text: '', aiExtracted: null, confidence: 0, processingTime: 0 };
+    let aiExtracted: any = null;
+    let parsingSuccess = false;
+
+    // Resume parsing using external libraries like pdf-parse and mammoth
+    // and AI-powered extraction
+    try {
+      const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      parsedData = result;
+      aiExtracted = result.aiExtracted;
+      parsingSuccess = true;
+    } catch (parseError) {
+      console.error('ResumeService: AI Resume parsing failed:', parseError);
+      // Continue with upload even if parsing fails, but log the error
+      // Fallback: If AI parsing fails, ensure aiExtracted is still an object to avoid crashes
+      aiExtracted = aiExtracted || {
+        personalInfo: {}, summary: '', skills: { technical: [], soft: [], tools: [] },
+        experience: { totalYears: 0, level: 'entry', positions: [] },
+        education: [], certifications: [], projects: [], languages: []
+      };
+      // Keep parsingSuccess as false
+    }
+
     const profileData: any = {
-      userId,
-      resumeUrl,
       ...(existingProfile || {}),
+      userId,
+      resumeUrl, // Always override with new resumeUrl
     };
+
+    if (parsedData?.text) {
+      profileData.resumeText = parsedData.text;
+    }
 
     if (aiExtracted && parsingSuccess) {
       // Merge technical skills with existing skills

@@ -22,7 +22,20 @@ import { advancedMatchingEngine } from "./advanced-matching-engine";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
 import { aiResumeParser } from './ai-resume-parser';
 import { supabaseAdmin } from "./lib/supabase-admin";
-import { users, jobPostings, jobApplications } from "@shared/schema";
+import { users, jobPostings, jobApplications, JobPosting } from "@shared/schema";
+import { CompanyJob } from '../server/company-jobs-aggregator';
+
+type AggregatedJob = (JobPosting | CompanyJob) & { aiCurated: boolean };
+
+interface AIMatch {
+  id: number;
+  job: (JobPosting | CompanyJob) & { confidenceScore: number };
+  matchScore: string;
+  confidenceLevel: string;
+  aiExplanation: string;
+  status: string;
+  createdAt: string;
+}
 
 // Instantiate ResumeService
 const resumeService = new ResumeService(storage, aiResumeParser);
@@ -110,7 +123,7 @@ for (const candidate of allCandidates) {
 
     if (score > 0) {
     matches.push({
-        candidateId: candidate.user_id,
+        candidateId: candidate.userId,
         matchScore: score.toString(),
         matchReasons: [`Shared skills: ${job.skills.filter((s: any) => candidate.skills.includes(s)).join(", ")}`],
     });
@@ -169,12 +182,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const externalJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills, 50);
       const internalJobs = await db.query.jobPostings.findMany({ where: eq(jobPostings.status, 'active'), limit: 25 });
 
-      const allJobs = [
-        ...externalJobs.map(job => ({ ...job, id: Math.floor(Math.random() * 1000000), aiCurated: true })),
-        ...internalJobs.map(job => ({ ...job, aiCurated: false }))
+      const allJobs: AggregatedJob[] = [
+        ...externalJobs.map((job: CompanyJob) => ({ ...job, id: Math.floor(Math.random() * 1000000), aiCurated: true })),
+        ...internalJobs.map((job: JobPosting) => ({ ...job, aiCurated: false }))
       ].filter(job => !hiddenJobIds.includes(job.id));
 
-      const aiMatches = [];
+      const aiMatches: AIMatch[] = [];
       for (const job of allJobs.slice(0, 15)) {
         try {
           const aiResult = await generateJobMatch(candidateProfile, job);
@@ -190,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
             });
           }
         } catch (error) {
-          console.error('Error generating AI match for job:', job.title, error);
+          console.error('Error generating AI match for job:', job?.title, error);
         }
       }
 

@@ -18,7 +18,7 @@ export default function SkillsStep() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('PATCH', '/api/candidate/profile', { skills });
+      const response = await apiRequest('POST', '/api/candidate/profile', { skills });
       return response.json();
     },
     onSuccess: () => {

@@ -14,6 +14,139 @@ interface ExternalJob {
   postedDate: string;
 }
 
+interface JSearchJob {
+  job_id: string;
+  job_title: string;
+  employer_name: string;
+  job_city?: string;
+  job_state?: string;
+  job_country?: string;
+  job_description: string;
+  job_highlights?: {
+    Qualifications?: string[];
+    Responsibilities?: string[];
+  };
+  job_is_remote: boolean;
+  job_min_salary?: number;
+  job_max_salary?: number;
+  job_apply_link?: string;
+  job_google_link?: string;
+  job_posted_at_datetime_utc?: string;
+}
+
+interface JSearchApiResponse {
+  data?: JSearchJob[];
+}
+
+interface RemoteOKJob {
+  id: string;
+  position: string;
+  company: string;
+  location?: string;
+  description?: string;
+  tags?: string[];
+  salary_min?: number;
+  salary_max?: number;
+  url: string;
+  date: string;
+}
+
+interface MuseJob {
+  id: string;
+  name: string;
+  company?: {
+    name: string;
+  };
+  locations?: {
+    name: string;
+  }[];
+  contents: string;
+  refs?: {
+    landing_page: string;
+  };
+  publication_date: string;
+}
+
+interface MuseApiResponse {
+  results?: MuseJob[];
+}
+
+interface USAJobsJob {
+  PositionID: string;
+  PositionTitle: string;
+  OrganizationName: string;
+  PositionLocationDisplay: string;
+  QualificationSummary: string;
+  PositionSummary: string;
+  PositionRemuneration: {
+    MinimumRange: number;
+    MaximumRange: number;
+  }[];
+  PositionURI: string;
+  PublicationStartDate: string;
+}
+
+interface USAJobsApiResponse {
+  SearchResult?: {
+    SearchResultItems?: USAJobsJob[];
+  };
+}
+
+interface JoobleJob {
+  title: string;
+  company: string;
+  location: string;
+  snippet: string;
+  type: string;
+  salary?: string;
+  link: string;
+  updated: string;
+}
+
+interface JoobleApiResponse {
+  jobs?: JoobleJob[];
+}
+
+interface ArbeitNowJob {
+  slug: string;
+  title: string;
+  company_name: string;
+  location: string;
+  description: string;
+  tags: string[];
+  remote: boolean;
+  url: string;
+  created_at: string;
+}
+
+interface ArbeitNowApiResponse {
+  data?: ArbeitNowJob[];
+}
+
+interface AdzunaJob {
+  id: string;
+  title: string;
+  company: {
+    display_name: string;
+  };
+  location: {
+    display_name: string;
+  };
+  description: string;
+  redirect_url: string;
+  created: string;
+  salary_min?: number;
+  salary_max?: number;
+  contract_type?: string;
+  category?: {
+    label: string;
+  };
+}
+
+interface AdzunaApiResponse {
+  results?: AdzunaJob[];
+}
+
 export class JobAggregator {
 
   // Add new open source job sources
@@ -60,7 +193,7 @@ export class JobAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: JSearchApiResponse = await response.json();
         const jobs = this.transformJSearchJobs(data.data || []);
         console.log(`Fetched ${jobs.length} real jobs from JSearch API`);
         return jobs;
@@ -86,7 +219,7 @@ export class JobAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: ArbeitNowApiResponse = await response.json();
         const jobs = this.transformArbeitNowJobs(data.data || []);
         console.log(`Fetched ${jobs.length} real jobs from ArbeitNow`);
         return jobs;
@@ -124,7 +257,7 @@ export class JobAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: JoobleApiResponse = await response.json();
         const jobs = this.transformJoobleJobs(data.jobs || []);
         console.log(`Fetched ${jobs.length} real jobs from Jooble`);
         return jobs;
@@ -197,7 +330,7 @@ export class JobAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: USAJobsApiResponse = await response.json();
         const jobs = this.transformUSAJobs(data.SearchResult?.SearchResultItems || []);
         console.log(`Fetched ${jobs.length} real jobs from USAJobs.gov`);
         return jobs;
@@ -229,7 +362,7 @@ export class JobAggregator {
           });
 
           if (response.ok) {
-            const data = await response.json();
+            const data: JSearchApiResponse = await response.json();
             const jobs = this.transformJSearchJobs(data.data || []);
             allJobs.push(...jobs.slice(0, 5)); // Take 5 jobs per query
             
@@ -410,8 +543,26 @@ export class JobAggregator {
     }));
   }
 
+  private transformAdzunaJobs(jobs: AdzunaJob[]): ExternalJob[] {
+    return jobs.map(job => ({
+      id: `adzuna_${job.id}`,
+      title: job.title,
+      company: job.company.display_name,
+      location: job.location.display_name,
+      description: job.description,
+      requirements: [],
+      skills: [],
+      workType: 'onsite',
+      salaryMin: job.salary_min,
+      salaryMax: job.salary_max,
+      source: 'Adzuna',
+      externalUrl: job.redirect_url,
+      postedDate: job.created,
+    }));
+  }
+
   private transformUSAJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((item: any) => {
+    return jobs.filter(item => item && item.MatchedObjectDescriptor).map((item: any) => {
       const job = item.MatchedObjectDescriptor;
       return {
         id: `usa_${job.PositionID}`,
@@ -813,7 +964,7 @@ export class JobAggregator {
       });
       
       if (response.ok) {
-        const data = await response.json();
+        const data: RemoteOKJob[] = await response.json();
         // Skip first item which is legal notice
         const jobs = data.slice(1);
         const transformedJobs = this.transformRemoteOKJobs(jobs || []);
@@ -844,7 +995,7 @@ export class JobAggregator {
           });
           
           if (response.ok) {
-            const data = await response.json();
+            const data: MuseApiResponse = await response.json();
             const jobs = this.transformMuseJobs(data.results || []);
             allJobs.push(...jobs.slice(0, 5));
           }
@@ -884,8 +1035,8 @@ export class JobAggregator {
           const response = await fetch(url);
           
           if (response.ok) {
-            const data = await response.json();
-            const jobs = this.transformUSAJobs(data.results || []);
+            const data: AdzunaApiResponse = await response.json();
+            const jobs = this.transformAdzunaJobs(data.results || []);
             allJobs.push(...jobs.slice(0, 3));
           }
           

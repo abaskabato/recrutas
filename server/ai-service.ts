@@ -1,27 +1,6 @@
 // Open source ML-powered job matching using semantic embeddings
 
-interface CandidateProfile {
-  skills: string[];
-  experience: string;
-  industry?: string;
-  workType?: string;
-  salaryMin?: number;
-  salaryMax?: number;
-  location?: string;
-}
-
-interface JobPosting {
-  title: string;
-  company: string;
-  skills: string[];
-  requirements: string[];
-  industry?: string;
-  workType?: string;
-  salaryMin?: number;
-  salaryMax?: number;
-  location?: string;
-  description: string;
-}
+import { type CandidateProfile, type JobPosting } from '@shared/schema';
 
 interface AIMatchResult {
   confidenceLevel: number;
