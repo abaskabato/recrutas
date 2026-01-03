@@ -23,11 +23,15 @@ export default function CompanyProfileStep() {
     onSuccess: () => {
       console.log('Company profile update successful');
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      // Invalidate session/auth explicitly
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+
       toast({
         title: 'Profile Updated',
-        description: 'Your company profile has been saved.',
+        description: 'Your company profile has been saved. Redirecting to dashboard...',
       });
-      setStep((prev) => prev + 1);
+      // Redirect to dashboard as requested, skipping Job Post step in setup
+      window.location.href = '/talent-dashboard';
     },
     onError: (error) => {
       console.error('Company profile update failed:', error);
