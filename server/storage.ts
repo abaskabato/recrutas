@@ -19,10 +19,10 @@
  * - Uses dependency injection pattern for testability
  */
 
-import { 
-  users, 
-  candidateProfiles, 
-  jobPostings, 
+import {
+  users,
+  candidateProfiles,
+  jobPostings,
   jobMatches,
   chatRooms,
   chatMessages,
@@ -34,10 +34,13 @@ import {
   jobApplications,
   savedJobs,
   hiddenJobs,
+  talentOwnerProfiles,
   type User,
   type UpsertUser,
-  type CandidateUser,
-  type InsertCandidateUser,
+  type CandidateProfile,
+  type InsertCandidateProfile,
+  type TalentOwnerProfile,
+  type InsertTalentOwnerProfile,
   type JobPosting,
   type InsertJobPosting,
   type JobMatch,
@@ -50,7 +53,7 @@ import {
   type InsertNotificationPreferences
 } from "../shared/schema.js";
 import { db } from "./db";
-import { eq, desc, and, or, inArray } from "drizzle-orm";
+import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
 import { supabaseAdmin } from "./lib/supabase-admin";
 
 /**
@@ -63,25 +66,22 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-    updateUserInfo(userId: string, userInfo: any): Promise<any>;
-  getApplicationsForTalent(talentId: string): Promise<any[]>;
-  updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
-  storeExamResult(result: any): Promise<any>;
-  createApplicationEvent(event: any): Promise<any>;
-  getApplicationEvents(applicationId: number): Promise<any[]>;
-  getApplicationInsights(applicationId: number): Promise<any>;
-  createApplicationInsights(insights: any): Promise<any>;
-  updateApplicationIntelligence(applicationId: string, updates: any): Promise<any>;
-  getAvailableNotificationUsers(): Promise<string[]>;
-  getApplicationById(applicationId: number): Promise<any>;
+  updateUserInfo(userId: string, userInfo: any): Promise<any>;
   updateUserRole(userId: string, role: 'candidate' | 'talent_owner'): Promise<User>;
 
-  
+
+
+
   // Candidate operations
-  getCandidateUser(userId: string): Promise<CandidateUser | undefined>;
-  upsertCandidateUser(profile: InsertCandidateUser): Promise<CandidateUser>;
-  getAllCandidateUsers(): Promise<CandidateUser[]>;
-  
+  getCandidateUser(userId: string): Promise<CandidateProfile | undefined>;
+  upsertCandidateUser(profile: InsertCandidateProfile): Promise<CandidateProfile>;
+  getAllCandidateUsers(): Promise<CandidateProfile[]>;
+
+  // Talent Owner operations
+  getTalentOwnerProfile(userId: string): Promise<TalentOwnerProfile | undefined>;
+  upsertTalentOwnerProfile(profile: InsertTalentOwnerProfile): Promise<TalentOwnerProfile>;
+
+
   // Job operations
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
@@ -89,16 +89,16 @@ export interface IStorage {
   getJobRecommendations(candidateId: string): Promise<JobPosting[]>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
   deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
-  
-  
+
+
   // Matching operations
   createJobMatch(match: InsertJobMatch): Promise<JobMatch>;
   getMatchesForCandidate(candidateId: string): Promise<(JobMatch & { job: JobPosting; talentOwner: User })[]>;
-  getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateUser?: CandidateUser })[]>;
+  getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]>;
   updateMatchStatus(matchId: number, status: string): Promise<JobMatch>;
   clearJobMatches(jobId: number): Promise<void>;
   updateJobMatchStatus(candidateId: string, jobId: number, status: string): Promise<void>;
-  
+
   // Exam operations
   createJobExam(exam: any): Promise<any>;
   getJobExam(jobId: number): Promise<any>;
@@ -106,7 +106,7 @@ export interface IStorage {
   updateExamAttempt(attemptId: number, data: any): Promise<any>;
   getExamAttempts(jobId: number): Promise<any[]>;
   rankCandidatesByExamScore(jobId: number): Promise<void>;
-  
+
   // Chat operations (controlled by exam performance)
   createChatRoom(data: any): Promise<ChatRoom>;
   getChatRoom(jobId: number, candidateId: string): Promise<ChatRoom | undefined>;
@@ -114,11 +114,11 @@ export interface IStorage {
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatRoomsForUser(userId: string): Promise<(ChatRoom & { job: JobPosting; hiringManager: User })[]>;
   grantChatAccess(jobId: number, candidateId: string, examAttemptId: number, ranking: number): Promise<ChatRoom>;
-  
+
   // Activity operations
   createActivityLog(userId: string, type: string, description: string, metadata?: any): Promise<ActivityLog>;
   getActivityLogs(userId: string, limit?: number): Promise<ActivityLog[]>;
-  
+
   // Application tracking operations
   getApplicationsWithStatus(candidateId: string): Promise<any[]>;
   getApplicantsForJob(jobId: number, talentOwnerId: string): Promise<any[]>;
@@ -126,17 +126,17 @@ export interface IStorage {
   getApplicationByJobAndCandidate(jobId: number, candidateId: string): Promise<any>;
   createJobApplication(application: any): Promise<any>;
   getApplicationById(applicationId: number): Promise<any>;
-  
-  // Application Intelligence operations (Revolutionary feedback system)
   createApplicationEvent(event: any): Promise<any>;
   getApplicationEvents(applicationId: number): Promise<any[]>;
   getApplicationInsights(applicationId: number): Promise<any>;
   createApplicationInsights(insights: any): Promise<any>;
-  updateApplicationIntelligence(applicationId: string, updates: any): Promise<any>;
+  updateApplicationIntelligence(applicationId: number, updates: any): Promise<any>;
   getApplicationsForTalent(talentId: string): Promise<any[]>;
   updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
   storeExamResult(result: any): Promise<any>;
-  
+  getAvailableNotificationUsers(): Promise<string[]>;
+
+
   // Statistics
   getCandidateStats(candidateId: string): Promise<{
     totalApplications: number;
@@ -153,17 +153,17 @@ export interface IStorage {
     hires: number;
   }>;
   getCandidatesForRecruiter(talentOwnerId: string): Promise<any[]>;
-  
+
   // Notification preferences
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
-  
+
   // Notification operations
   getNotifications(userId: string): Promise<any[]>;
   markNotificationAsRead(notificationId: number, userId: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
   createNotification(notification: any): Promise<any>;
-  
+
   // Enhanced candidate operations
   getApplicationsForCandidate(candidateId: string): Promise<any[]>;
   getActivityForCandidate(candidateId: string): Promise<any[]>;
@@ -172,8 +172,8 @@ export interface IStorage {
   hideJob(userId: string, jobId: number): Promise<void>;
   getSavedJobIds(userId: string): Promise<number[]>;
   getHiddenJobIds(userId: string): Promise<number[]>;
-  
-  
+
+
 }
 
 /**
@@ -184,7 +184,7 @@ export interface IStorage {
  * transaction support, and optimized queries.
  */
 export class DatabaseStorage implements IStorage {
-  
+
   // User operations (required for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
     try {
@@ -237,7 +237,7 @@ export class DatabaseStorage implements IStorage {
         .set({ role: role as any, updatedAt: new Date() })
         .where(eq(users.id, userId))
         .returning();
-        
+
       if (!user) {
         throw new Error("User not found in local database after role update.");
       }
@@ -272,7 +272,7 @@ export class DatabaseStorage implements IStorage {
       if (!publicUrlData) {
         throw new Error('Failed to get public URL for resume.');
       }
-      
+
       return publicUrlData.publicUrl;
     } catch (error) {
       console.error('Error in uploadResume:', error);
@@ -335,7 +335,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAllCandidateUsers(): Promise<CandidateUser[]> {
+  async getAllCandidateUsers(): Promise<CandidateProfile[]> {
     try {
       return await db.select().from(candidateProfiles);
     } catch (error) {
@@ -343,6 +343,44 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
+  // Talent Owner operations
+  async getTalentOwnerProfile(userId: string): Promise<TalentOwnerProfile | undefined> {
+    try {
+      const [profile] = await db
+        .select()
+        .from(talentOwnerProfiles)
+        .where(eq(talentOwnerProfiles.userId, userId));
+      return profile;
+    } catch (error) {
+      console.error('Error fetching talent owner profile:', error);
+      throw error;
+    }
+  }
+
+  async upsertTalentOwnerProfile(profile: InsertTalentOwnerProfile): Promise<TalentOwnerProfile> {
+    try {
+      const [result] = await db
+        .insert(talentOwnerProfiles)
+        .values({
+          ...profile,
+          updatedAt: new Date()
+        })
+        .onConflictDoUpdate({
+          target: talentOwnerProfiles.userId,
+          set: {
+            ...profile,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error upserting talent owner profile:', error);
+      throw error;
+    }
+  }
+
 
   async saveJob(userId: string, jobId: number): Promise<void> {
     try {
@@ -416,7 +454,7 @@ export class DatabaseStorage implements IStorage {
         console.warn('[storage] getJobPostings called without a talentOwnerId.');
         return [];
       }
-      
+
       return await db
         .select()
         .from(jobPostings)
@@ -499,7 +537,7 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
-  
+
   async deleteJobPosting(id: number, talentOwnerId: string): Promise<void> {
     try {
       await db
@@ -511,7 +549,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  
+
 
   // Matching operations
   async createJobMatch(match: InsertJobMatch): Promise<JobMatch> {
@@ -578,7 +616,7 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(users, eq(jobPostings.talentOwnerId, users.id))
         .where(eq(jobMatches.candidateId, candidateId))
         .orderBy(desc(jobMatches.createdAt));
-      
+
       return results as any;
     } catch (error) {
       console.error('Error fetching matches for candidate:', error);
@@ -744,7 +782,7 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(jobMatches)
         .where(eq(jobMatches.candidateId, candidateId));
-        
+
       const profile = await this.getCandidateUser(candidateId);
 
       const activeChats = await db
@@ -927,8 +965,8 @@ export class DatabaseStorage implements IStorage {
 
       const [updatedApplication] = await db
         .update(jobApplications)
-        .set({ 
-          status: status as any, 
+        .set({
+          status: status as any,
           updatedAt: new Date(),
         })
         .where(eq(jobApplications.id, applicationId))
@@ -1119,7 +1157,7 @@ export class DatabaseStorage implements IStorage {
 
         await db
           .update(examAttempts)
-          .set({ 
+          .set({
             ranking,
             qualifiedForChat,
             updatedAt: new Date()
@@ -1190,7 +1228,7 @@ export class DatabaseStorage implements IStorage {
       for (const room of rooms) {
         const job = await this.getJobPosting(room.jobId);
         const hiringManager = await this.getUser(room.hiringManagerId);
-        
+
         if (job && hiringManager) {
           enrichedRooms.push({
             ...room,
@@ -1199,7 +1237,7 @@ export class DatabaseStorage implements IStorage {
           });
         }
       }
-      
+
       return enrichedRooms;
     } catch (error) {
       console.error('Error fetching chat rooms for user:', error);
@@ -1279,9 +1317,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  
 
-  
+
+
 
   async getAvailableNotificationUsers(): Promise<string[]> {
     const result = await db.selectDistinct({ userId: notifications.userId }).from(notifications);
@@ -1296,7 +1334,7 @@ export class DatabaseStorage implements IStorage {
         .from(jobApplications)
         .leftJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
         .where(eq(jobApplications.id, applicationId));
-      
+
       return application ? {
         ...(application as any).job_applications,
         job: (application as any).job_postings
@@ -1311,7 +1349,7 @@ export class DatabaseStorage implements IStorage {
     try {
       // Import the applicationEvents table from schema
       const { applicationEvents } = await import("@shared/schema");
-      
+
       const [result] = await db.insert(applicationEvents).values({
         applicationId: event.applicationId,
         eventType: event.eventType,
@@ -1327,7 +1365,7 @@ export class DatabaseStorage implements IStorage {
         competitorUser: event.competitorUser,
         visible: event.visible ?? true
       }).returning();
-      
+
       return result;
     } catch (error) {
       console.error('Error creating application event:', error);
@@ -1338,7 +1376,7 @@ export class DatabaseStorage implements IStorage {
   async getApplicationEvents(applicationId: number): Promise<any[]> {
     try {
       const { applicationEvents } = await import("@shared/schema");
-      
+
       return await db
         .select()
         .from(applicationEvents)
@@ -1353,14 +1391,14 @@ export class DatabaseStorage implements IStorage {
   async getApplicationInsights(applicationId: number): Promise<any> {
     try {
       const { applicationInsights } = await import("@shared/schema");
-      
+
       const [insights] = await db
         .select()
         .from(applicationInsights)
         .where(eq(applicationInsights.applicationId, applicationId))
         .orderBy(desc(applicationInsights.createdAt))
         .limit(1);
-        
+
       return insights;
     } catch (error) {
       console.error('Error fetching application insights:', error);
@@ -1371,7 +1409,7 @@ export class DatabaseStorage implements IStorage {
   async createApplicationInsights(insights: any): Promise<any> {
     try {
       const { applicationInsights } = await import("@shared/schema");
-      
+
       const [result] = await db.insert(applicationInsights).values({
         candidateId: insights.candidateId,
         applicationId: insights.applicationId,
@@ -1386,7 +1424,7 @@ export class DatabaseStorage implements IStorage {
         successProbability: insights.successProbability,
         supportiveMessage: insights.supportiveMessage
       }).returning();
-      
+
       return result;
     } catch (error) {
       console.error('Error creating application insights:', error);
@@ -1451,13 +1489,32 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(users.id, talentId))
         .returning();
-      
+
       return result;
     } catch (error) {
       console.error('Error updating transparency settings:', error);
       throw error;
     }
   }
+
+  async updateApplicationIntelligence(applicationId: number, updates: any): Promise<any> {
+    try {
+      const [result] = await db
+        .update(jobApplications)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(jobApplications.id, applicationId))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating application intelligence:', error);
+      throw error;
+    }
+  }
+
 }
 
 export const storage = new DatabaseStorage();
+

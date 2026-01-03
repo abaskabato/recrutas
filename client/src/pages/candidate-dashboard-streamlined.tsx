@@ -9,11 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  Bell, 
-  User, 
-  Upload, 
-  Search, 
+import {
+  Bell,
+  User,
+  Upload,
+  Search,
   Briefcase,
   MapPin,
   Building,
@@ -101,9 +101,9 @@ export default function CandidateStreamlinedDashboard() {
 
   // Fetch candidate stats
   const { data: stats } = useQuery<DashboardStats>({
-    queryKey: ['/api/candidates/stats'],
+    queryKey: ['/api/candidate/stats'],
     queryFn: async () => {
-      const response = await apiRequest("GET", '/api/candidates/stats');
+      const response = await apiRequest("GET", '/api/candidate/stats');
       return response.json();
     },
     retry: false,
@@ -127,20 +127,20 @@ export default function CandidateStreamlinedDashboard() {
   });
 
   // Fetch recent activity
-  const { data: activities } = useQuery<Activity[]>({ 
-    queryKey: ['/api/candidates/activity'],
+  const { data: activities } = useQuery<Activity[]>({
+    queryKey: ['/api/candidate/activity'],
     queryFn: async () => {
-      const response = await apiRequest("GET", '/api/candidates/activity');
+      const response = await apiRequest("GET", '/api/candidate/activity');
       return response.json();
     },
     retry: false,
   });
 
   // Fetch applications
-  const { data: applications } = useQuery<Application[]>({ 
-    queryKey: ['/api/candidates/applications'],
+  const { data: applications } = useQuery<Application[]>({
+    queryKey: ['/api/candidate/applications'],
     queryFn: async () => {
-      const response = await apiRequest("GET", '/api/candidates/applications');
+      const response = await apiRequest("GET", '/api/candidate/applications');
       return response.json();
     },
     retry: false,
@@ -153,13 +153,13 @@ export default function CandidateStreamlinedDashboard() {
     if (!profile) return 0;
     let completed = 0;
     const total = 5;
-    
+
     if ((profile as any).skills && (profile as any).skills.length > 0) completed++;
     if ((profile as any).experience) completed++;
     if ((profile as any).location) completed++;
     if ((profile as any).workType) completed++;
     if ((profile as any).salaryMin && (profile as any).salaryMax) completed++;
-    
+
     return Math.round((completed / total) * 100);
   };
 
@@ -193,7 +193,7 @@ export default function CandidateStreamlinedDashboard() {
             <div className="flex items-center space-x-4">
               <ThemeToggleButton />
               <RealTimeNotifications />
-              
+
               <div className="flex items-center space-x-3">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-sm font-medium">
@@ -312,8 +312,8 @@ export default function CandidateStreamlinedDashboard() {
                   </p>
                   <div className="flex items-center gap-4">
                     <Progress value={profileCompletion} className="h-2 flex-1" />
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => setActiveTab('profile')}
                       className="bg-white dark:bg-gray-800"
@@ -334,9 +334,9 @@ export default function CandidateStreamlinedDashboard() {
             <button
               onClick={() => setActiveTab('overview')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'overview'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-              }`}
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+                }`}
             >
               <BarChart3 className="h-4 w-4 mr-2 inline" />
               Overview
@@ -344,9 +344,9 @@ export default function CandidateStreamlinedDashboard() {
             <button
               onClick={() => setActiveTab('jobs')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'jobs'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-              }`}
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+                }`}
             >
               <Search className="h-4 w-4 mr-2 inline" />
               Job Feed
@@ -354,9 +354,9 @@ export default function CandidateStreamlinedDashboard() {
             <button
               onClick={() => setActiveTab('applications')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'applications'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-              }`}
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+                }`}
             >
               <Briefcase className="h-4 w-4 mr-2 inline" />
               Applications
@@ -364,9 +364,9 @@ export default function CandidateStreamlinedDashboard() {
             <button
               onClick={() => setActiveTab('profile')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'profile'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-              }`}
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+                }`}
             >
               <User className="h-4 w-4 mr-2 inline" />
               Profile
@@ -374,9 +374,9 @@ export default function CandidateStreamlinedDashboard() {
             <button
               onClick={() => setActiveTab('agent')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'agent'
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-              }`}
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+                }`}
             >
               <Zap className="h-4 w-4 mr-2 inline" />
               Recrutas Agent

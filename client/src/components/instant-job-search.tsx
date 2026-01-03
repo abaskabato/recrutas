@@ -8,12 +8,12 @@ import { useSession } from "@supabase/auth-helpers-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-import { 
-  Search, 
-  MapPin, 
-  Building, 
-  DollarSign, 
-  Clock, 
+import {
+  Search,
+  MapPin,
+  Building,
+  DollarSign,
+  Clock,
   ExternalLink,
   Zap,
   TrendingUp,
@@ -53,7 +53,7 @@ export default function InstantJobSearch() {
   const { toast } = useToast();
 
   const applyMutation = useMutation({
-    mutationFn: (jobId: string) => apiRequest('POST', `/api/candidates/apply/${jobId}`),
+    mutationFn: (jobId: string) => apiRequest('POST', `/api/candidate/apply/${jobId}`),
     onSuccess: () => {
       toast({
         title: "Application Submitted",
@@ -136,7 +136,7 @@ export default function InstantJobSearch() {
   const session = useSession();
   const handleJobApplication = (job: InstantJob) => {
     const isAuthenticated = session;
-    
+
     if (!isAuthenticated) {
       // Store job information for continuation after login
       // ... (existing logic for unauthenticated users)
@@ -184,7 +184,7 @@ export default function InstantJobSearch() {
                 onKeyPress={(e) => e.key === 'Enter' && handleInstantSearch()}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Job Title
@@ -196,7 +196,7 @@ export default function InstantJobSearch() {
                 onKeyPress={(e) => e.key === 'Enter' && handleInstantSearch()}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Location
@@ -208,7 +208,7 @@ export default function InstantJobSearch() {
                 onKeyPress={(e) => e.key === 'Enter' && handleInstantSearch()}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Work Type
@@ -226,8 +226,8 @@ export default function InstantJobSearch() {
               </Select>
             </div>
           </div>
-          
-          <Button 
+
+          <Button
             onClick={handleInstantSearch}
             disabled={loading}
             className="w-full md:w-auto"
@@ -272,7 +272,7 @@ export default function InstantJobSearch() {
               Live Results
             </Badge>
           </div>
-          
+
           <div className="grid gap-4">
             {jobs.map((job) => {
               // Safely access job properties with fallbacks
@@ -282,7 +282,7 @@ export default function InstantJobSearch() {
               const location = jobData.location || 'Location TBD';
               const urgency = job.urgency || 'medium';
               const matchScore = job.matchScore || '0%';
-              
+
               return (
                 <Card key={job.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
                   <CardContent className="p-6">
@@ -299,7 +299,7 @@ export default function InstantJobSearch() {
                             {matchScore} match
                           </Badge>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                           <div className="flex items-center gap-1">
                             <Building className="w-4 h-4" />
@@ -309,70 +309,70 @@ export default function InstantJobSearch() {
                             <MapPin className="w-4 h-4" />
                             <span>{location}</span>
                           </div>
-                        {(jobData.salaryMin || jobData.salaryMax) && (
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="w-4 h-4" />
-                            <span>
-                              {jobData.salaryMin && jobData.salaryMax 
-                                ? `$${jobData.salaryMin.toLocaleString()} - $${jobData.salaryMax.toLocaleString()}`
-                                : jobData.salaryMin 
-                                ? `$${jobData.salaryMin.toLocaleString()}+`
-                                : `Up to $${jobData.salaryMax?.toLocaleString()}`
-                              }
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{new Date(job.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      
-                      <p className="text-gray-700 mb-4 line-clamp-2">
-                        {jobData.description || 'No description available'}
-                      </p>
-                      
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className="text-sm font-medium text-gray-700">Skills:</span>
-                        <div className="flex flex-wrap gap-2">
-                          {(jobData.skills || []).slice(0, 5).map((skill, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {skill}
-                            </Badge>
-                          ))}
-                          {(jobData.skills || []).length > 5 && (
-                            <Badge variant="secondary" className="text-xs">
-                              +{(jobData.skills || []).length - 5} more
-                            </Badge>
+                          {(jobData.salaryMin || jobData.salaryMax) && (
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="w-4 h-4" />
+                              <span>
+                                {jobData.salaryMin && jobData.salaryMax
+                                  ? `$${jobData.salaryMin.toLocaleString()} - $${jobData.salaryMax.toLocaleString()}`
+                                  : jobData.salaryMin
+                                    ? `$${jobData.salaryMin.toLocaleString()}+`
+                                    : `Up to $${jobData.salaryMax?.toLocaleString()}`
+                                }
+                              </span>
+                            </div>
                           )}
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{new Date(job.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-gray-700 mb-4 line-clamp-2">
+                          {jobData.description || 'No description available'}
+                        </p>
+
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="text-sm font-medium text-gray-700">Skills:</span>
+                          <div className="flex flex-wrap gap-2">
+                            {(jobData.skills || []).slice(0, 5).map((skill, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {skill}
+                              </Badge>
+                            ))}
+                            {(jobData.skills || []).length > 5 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{(jobData.skills || []).length - 5} more
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>Source: {job.source}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {jobData.workType || 'Not specified'}
-                      </Badge>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <span>Source: {job.source}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {jobData.workType || 'Not specified'}
+                        </Badge>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          Save Job
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleJobApplication(job)}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          Apply Now
+                        </Button>
+                      </div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        Save Job
-                      </Button>
-                      <Button 
-                        size="sm"
-                        onClick={() => handleJobApplication(job)}
-                      >
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        Apply Now
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>

@@ -26,7 +26,7 @@ function GuidedSetupContent() {
         title: 'Role selected!',
         description: 'Your profile has been updated.',
       });
-      window.location.reload();
+      setStep(2);
     },
     onError: () => {
       toast({

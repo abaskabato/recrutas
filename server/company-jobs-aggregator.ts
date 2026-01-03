@@ -13,7 +13,7 @@ interface NetflixApiResponse {
   results?: NetflixJob[];
 }
 
-interface ExternalJob {
+export interface CompanyJob {
   id: string;
   title: string;
   company: string;
@@ -29,6 +29,7 @@ interface ExternalJob {
   postedDate: string;
 }
 
+
 interface CachedJobData {
   jobs: CompanyJob[];
   timestamp: number;
@@ -42,7 +43,7 @@ export class CompanyJobsAggregator {
   constructor() {
     this.jobAggregator = new JobAggregator();
   }
-  
+
   private companyCareerPages = [
     {
       name: 'Google',
@@ -149,7 +150,7 @@ export class CompanyJobsAggregator {
   async fetchGoogleJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Google Careers...');
-      
+
       const params = new URLSearchParams({
         'distance': '50',
         'hl': 'en_US',
@@ -166,7 +167,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const jobs = this.transformGoogleJobs(data.jobs || []);
         console.log(`Fetched ${jobs.length} jobs from Google Careers`);
         return jobs;
@@ -183,7 +184,7 @@ export class CompanyJobsAggregator {
   async fetchAmazonJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Amazon Jobs...');
-      
+
       const params = new URLSearchParams({
         'facets': JSON.stringify(['normalized_country_code', 'normalized_state_name', 'normalized_city_name', 'location', 'business_category', 'category', 'schedule_type_id', 'employee_class', 'normalized_location', 'job_family']),
         'hits': '20',
@@ -204,7 +205,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const jobs = this.transformAmazonJobs(data.hits || []);
         console.log(`Fetched ${jobs.length} jobs from Amazon Jobs`);
         return jobs;
@@ -221,7 +222,7 @@ export class CompanyJobsAggregator {
   async fetchAppleJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Apple Jobs...');
-      
+
       const searchQuery = userSkills?.join(' ') || 'software engineer';
       const response = await fetch('https://jobs.apple.com/api/role/search', {
         method: 'POST',
@@ -253,7 +254,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const jobs = this.transformAppleJobs(data.searchResults || []);
         console.log(`Fetched ${jobs.length} jobs from Apple Jobs`);
         return jobs;
@@ -270,7 +271,7 @@ export class CompanyJobsAggregator {
   async fetchMetaJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Meta Careers...');
-      
+
       const params = new URLSearchParams({
         'q': userSkills?.join(' ') || 'software engineer',
         'divisions': '',
@@ -288,7 +289,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const jobs = this.transformMetaJobs(data.data || []);
         console.log(`Fetched ${jobs.length} jobs from Meta Careers`);
         return jobs;
@@ -305,7 +306,7 @@ export class CompanyJobsAggregator {
   async fetchMicrosoftJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Microsoft Careers...');
-      
+
       const searchQuery = userSkills?.join(' ') || 'software engineer';
       const response = await fetch('https://careers.microsoft.com/api/v1/jobs', {
         method: 'POST',
@@ -333,7 +334,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const jobs = this.transformMicrosoftJobs(data.operationResult?.searchResults || []);
         console.log(`Fetched ${jobs.length} jobs from Microsoft Careers`);
         return jobs;
@@ -350,7 +351,7 @@ export class CompanyJobsAggregator {
   async fetchTeslaJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Tesla Careers...');
-      
+
       const params = new URLSearchParams({
         'query': userSkills?.join(' ') || 'software engineer',
         'country': 'US',
@@ -365,7 +366,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as any;
         const jobs = this.transformTeslaJobs(data.results || []);
         console.log(`Fetched ${jobs.length} jobs from Tesla Careers`);
         return jobs;
@@ -382,7 +383,7 @@ export class CompanyJobsAggregator {
   async fetchNetflixJobs(userSkills?: string[]): Promise<CompanyJob[]> {
     try {
       console.log('Fetching jobs directly from Netflix Jobs...');
-      
+
       const searchQuery = userSkills?.join(' ') || 'software engineer';
       const response = await fetch('https://jobs.netflix.com/api/search', {
         method: 'POST',
@@ -401,7 +402,7 @@ export class CompanyJobsAggregator {
       });
 
       if (response.ok) {
-        const data: NetflixApiResponse = await response.json();
+        const data: NetflixApiResponse = await response.json() as any;
         const jobs = this.transformNetflixJobs(data.results || []);
         console.log(`Fetched ${jobs.length} jobs from Netflix Jobs`);
         return jobs;
@@ -547,9 +548,9 @@ export class CompanyJobsAggregator {
       'CI/CD', 'Linux', 'Redis', 'Machine Learning', 'AI', 'TensorFlow',
       'PyTorch', 'Data Science', 'Scala', 'Kotlin', 'Swift', 'Objective-C'
     ];
-    
+
     const lowerText = text.toLowerCase();
-    return techSkills.filter(skill => 
+    return techSkills.filter(skill =>
       lowerText.includes(skill.toLowerCase())
     ).slice(0, 8);
   }
@@ -715,17 +716,17 @@ export class CompanyJobsAggregator {
     // Check cache first for instant response
     const cacheKey = `${userSkills?.join(',') || 'general'}_${limit || 20}`;
     const cached = this.cache.get(cacheKey);
-    
+
     if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
       console.log(`Returning ${cached.jobs.length} cached jobs instantly`);
       return cached.jobs;
     }
 
     console.log('Getting jobs from FAANG+ APIs and universal scraping...');
-    
+
     const allJobs: CompanyJob[] = [];
     const targetLimit = Math.min(limit || 20, 50);
-    
+
     // Fetch authentic job data from real company APIs
     console.log('Fetching only authentic job data from real company APIs...');
 
@@ -764,15 +765,15 @@ export class CompanyJobsAggregator {
     // Remove duplicates and apply limit
     const uniqueJobs = this.removeDuplicates(recentJobs);
     const limitedJobs = uniqueJobs.slice(0, targetLimit);
-    
+
     // Cache for future requests
     this.cache.set(cacheKey, {
       jobs: limitedJobs,
       timestamp: Date.now()
     });
-    
+
     console.log(`Returned ${limitedJobs.length} jobs from FAANG+ APIs + universal scraping`);
-    
+
     return limitedJobs;
   }
 

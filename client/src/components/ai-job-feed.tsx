@@ -69,7 +69,7 @@ export default function AIJobFeed() {
   const appliedJobIds = userJobActions?.applied ?? new Set();
 
   const applyMutation = useMutation({
-    mutationFn: (jobId: number) => apiRequest("POST", `/api/candidates/apply/${jobId}`, {}),
+    mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/apply/${jobId}`, {}),
     onSuccess: (data, variables) => {
       toast({ title: "Application Tracked!", description: "We've marked this job as applied." });
       queryClient.setQueryData(['userJobActions'], (oldData: any) => ({

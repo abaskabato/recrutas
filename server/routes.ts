@@ -32,11 +32,12 @@ interface AIMatch {
   id: number;
   job: (JobPosting | CompanyJob) & { confidenceScore: number };
   matchScore: string;
-  confidenceLevel: string;
+  confidenceLevel: number;
   aiExplanation: string;
   status: string;
   createdAt: string;
 }
+
 
 // Instantiate services
 const resumeService = new ResumeService(storage, aiResumeParser);
@@ -63,76 +64,76 @@ const upload = multer({
 });
 
 async function generateExamQuestions(job: any) {
-    const questions = [];
-    const skills = job.skills || [];
-    const requirements = job.requirements || [];
-    
-    // Generate skill-based questions
-    for (let i = 0; i < Math.min(skills.length, 5); i++) {
-      const skill = skills[i];
-      questions.push({
-        id: `skill_${i + 1}`,
-        question: `What is your experience level with ${skill}?`,
-        type: 'multiple-choice' as const,
-        options: [
-          'Beginner (0-1 years)',
-          'Intermediate (2-3 years)', 
-          'Advanced (4-5 years)',
-          'Expert (5+ years)'
-        ],
-        correctAnswer: 2, // Intermediate or higher
-        points: 20
-      });
-    }
-    
-    // Generate requirement-based questions
-    for (let i = 0; i < Math.min(requirements.length, 3); i++) {
-      const requirement = requirements[i];
-      questions.push({
-        id: `req_${i + 1}`,
-        question: `How would you approach: ${requirement}?`,
-        type: 'short-answer' as const,
-        points: 15
-      });
-    }
-    
-    // Add general questions
+  const questions = [];
+  const skills = job.skills || [];
+  const requirements = job.requirements || [];
+
+  // Generate skill-based questions
+  for (let i = 0; i < Math.min(skills.length, 5); i++) {
+    const skill = skills[i];
     questions.push({
-      id: 'general_1',
-      question: `Why are you interested in the ${job.title} position?`,
-      type: 'short-answer' as const,
-      points: 25
+      id: `skill_${i + 1}`,
+      question: `What is your experience level with ${skill}?`,
+      type: 'multiple-choice' as const,
+      options: [
+        'Beginner (0-1 years)',
+        'Intermediate (2-3 years)',
+        'Advanced (4-5 years)',
+        'Expert (5+ years)'
+      ],
+      correctAnswer: 2, // Intermediate or higher
+      points: 20
     });
-    
-    return questions;
   }
 
-async function findMatchingCandidates(job: any) {
-// This is a placeholder function. In a real application, this would
-// involve a more complex matching algorithm.
-const allCandidates = await storage.getAllCandidateUsers();
-const matches = [];
+  // Generate requirement-based questions
+  for (let i = 0; i < Math.min(requirements.length, 3); i++) {
+    const requirement = requirements[i];
+    questions.push({
+      id: `req_${i + 1}`,
+      question: `How would you approach: ${requirement}?`,
+      type: 'short-answer' as const,
+      points: 15
+    });
+  }
 
-for (const candidate of allCandidates) {
+  // Add general questions
+  questions.push({
+    id: 'general_1',
+    question: `Why are you interested in the ${job.title} position?`,
+    type: 'short-answer' as const,
+    points: 25
+  });
+
+  return questions;
+}
+
+async function findMatchingCandidates(job: any) {
+  // This is a placeholder function. In a real application, this would
+  // involve a more complex matching algorithm.
+  const allCandidates = await storage.getAllCandidateUsers();
+  const matches = [];
+
+  for (const candidate of allCandidates) {
     let score = 0;
     if (candidate.skills && job.skills) {
-    for (const skill of job.skills) {
+      for (const skill of job.skills) {
         if (candidate.skills.includes(skill)) {
-        score += 10;
+          score += 10;
         }
-    }
+      }
     }
 
     if (score > 0) {
-    matches.push({
+      matches.push({
         candidateId: candidate.userId,
         matchScore: score.toString(),
         matchReasons: [`Shared skills: ${job.skills.filter((s: any) => candidate.skills.includes(s)).join(", ")}`],
-    });
+      });
     }
-}
+  }
 
-return matches;
+  return matches;
 }
 
 export async function registerRoutes(app: Express): Promise<Express> {
@@ -174,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const userId = req.user.id;
       const candidateProfile = await storage.getCandidateUser(userId);
-      
+
       if (!candidateProfile) {
         return res.status(404).json({ message: "Please complete your profile first" });
       }
@@ -276,13 +277,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-        if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-        const user = await storage.getUser(req.user.id);
-        if (!user) return res.status(404).json({ message: "User not found" });
-        res.json(user);
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      const user = await storage.getUser(req.user.id);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json(user);
     } catch (error) {
-        console.error("Error fetching user:", error);
-        res.status(500).json({ message: "Failed to fetch user" });
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
@@ -428,7 +429,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const savedJobIds = await storage.getSavedJobIds(req.user.id);
       const applications = await storage.getApplicationsForCandidate(req.user.id);
       const appliedJobIds = applications.map(app => app.jobId);
-      
+
       res.json({
         saved: savedJobIds,
         applied: appliedJobIds,
@@ -440,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Job application
-  app.post('/api/candidates/apply/:jobId', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseInt(req.params.jobId);
@@ -449,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const application = await storage.createJobApplication({ jobId, candidateId: userId, status: 'applied' });
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
-      
+
       const job = await storage.getJobPosting(jobId);
       if (job) {
         await notificationService.createNotification({
@@ -493,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const jobData = insertJobPostingSchema.parse({ ...req.body, talentOwnerId: req.user.id });
       const job = await storage.createJobPosting(jobData);
-      
+
       if (job.hasExam) {
         const examData = {
           jobId: job.id,
@@ -507,11 +508,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
       for (const candidate of candidates) {
         await storage.createJobMatch({ jobId: job.id, ...candidate });
         await notificationService.createNotification({
-            userId: candidate.candidateId,
-            type: "new_match",
-            title: "New Job Match",
-            message: `You have a new match for the position of ${job.title}`,
-            data: { jobId: job.id },
+          userId: candidate.candidateId,
+          type: "new_match",
+          title: "New Job Match",
+          message: `You have a new match for the position of ${job.title}`,
+          data: { jobId: job.id },
         });
       }
 
@@ -522,6 +523,57 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.status(500).json({ message: "Failed to create job posting" });
     }
   });
+
+  app.post('/api/talent-owner/profile/complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const {
+        firstName,
+        lastName,
+        phoneNumber,
+        jobTitle,
+        companyName,
+        companyWebsite,
+        companySize,
+        industry,
+        companyLocation,
+        companyDescription,
+      } = req.body;
+
+      console.log(`[routes] Completing profile for talent owner ${req.user.id}`);
+
+      // Update basic user info
+      await storage.updateUserInfo(req.user.id, {
+        first_name: firstName,
+        last_name: lastName,
+        phone_number: phoneNumber,
+        profile_complete: true,
+      });
+
+      // Update/Create talent owner profile
+      const updatedProfile = await storage.upsertTalentOwnerProfile({
+        userId: req.user.id,
+        jobTitle,
+        companyName,
+        companyWebsite,
+        companySize,
+        industry,
+        companyLocation,
+        companyDescription,
+        profileComplete: true,
+      });
+
+      res.json({
+        ...updatedProfile,
+        firstName,
+        lastName,
+        phoneNumber,
+      });
+    } catch (error) {
+      console.error("Error completing talent owner profile:", error);
+      res.status(500).json({ message: "Failed to complete profile" });
+    }
+  });
+
 
   app.get('/api/jobs/:jobId/applicants', isAuthenticated, async (req: any, res) => {
     try {

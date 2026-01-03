@@ -20,12 +20,12 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
   const [lastName, setLastName] = useState(user?.lastName || "");
   const [email, setEmail] = useState(user?.email || "");
   const [phoneNumber, setPhoneNumber] = useState("");
-  
+
   // Resume and profile data
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeParsing, setResumeParsing] = useState(false);
   const [parsedData, setParsedData] = useState<any>(null);
-  
+
   // Profile details
   const [title, setTitle] = useState("");
   const [experience, setExperience] = useState("");
@@ -35,24 +35,24 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
   const [bio, setBio] = useState("");
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const handleResumeUpload = async (file: File) => {
     setResumeFile(file);
     setResumeParsing(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('resume', file);
-      
+
       const response = await apiRequest('POST', '/api/resume/parse', formData);
       const result = await response.json();
-      
+
       if (result.aiExtracted) {
         setParsedData(result.aiExtracted);
-        
+
         // Auto-fill form fields from parsed data
         if (result.aiExtracted.personalInfo?.name) {
           const nameParts = result.aiExtracted.personalInfo.name.split(' ');
@@ -79,12 +79,12 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
         if (result.aiExtracted.experience?.level) {
           setExperience(result.aiExtracted.experience.level);
         }
-        
+
         toast({
           title: "Resume Parsed Successfully",
           description: `Extracted ${result.aiExtracted.skills?.technical?.length || 0} skills and ${result.aiExtracted.experience?.totalYears || 0} years of experience.`,
         });
-        
+
         // Move to next step
         setStep(3);
       }
@@ -102,7 +102,7 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
 
   const handleBasicInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
       toast({
         title: "Required Fields Missing",
@@ -160,12 +160,12 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
         parsedResumeData: parsedData,
       };
 
-      const response = await apiRequest('POST', '/api/candidates/profile/complete', profileData);
+      const response = await apiRequest('POST', '/api/candidate/profile/complete', profileData);
 
       if (response.ok) {
         // Trigger AI matching after profile completion
-        await apiRequest('POST', '/api/candidates/generate-matches');
-        
+        await apiRequest('POST', '/api/candidate/generate-matches');
+
         toast({
           title: "Profile Created Successfully",
           description: "AI matching initiated. You'll see personalized job matches shortly!",
@@ -320,7 +320,7 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
               <Button type="button" variant="outline" onClick={() => setStep(1)}>
                 Back
               </Button>
-              <Button 
+              <Button
                 onClick={() => setStep(3)}
                 disabled={resumeParsing}
               >
@@ -486,7 +486,7 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
               <Button type="button" variant="outline" onClick={() => setStep(2)}>
                 Back
               </Button>
-              <Button 
+              <Button
                 onClick={handleFinalSubmit}
                 disabled={isSubmitting}
               >
@@ -510,11 +510,10 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
               {[1, 2, 3].map((stepNum) => (
                 <div
                   key={stepNum}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    step >= stepNum
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step >= stepNum
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 text-gray-600'
-                  }`}
+                    }`}
                 >
                   {stepNum}
                 </div>

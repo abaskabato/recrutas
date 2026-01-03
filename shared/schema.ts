@@ -32,6 +32,26 @@ export const users = pgTable("users", {
   profile_complete: boolean("profile_complete").default(false),
 });
 
+export const talentOwnerProfiles = pgTable("talent_owner_profiles", {
+  userId: text("user_id").primaryKey().references(() => users.id),
+  jobTitle: text("job_title"),
+  companyName: text("company_name"),
+  companyWebsite: text("company_website"),
+  companySize: text("company_size"),
+
+  industry: text("industry"),
+  companyLocation: text("company_location"),
+  companyDescription: text("company_description"),
+  hiringFor: jsonb("hiring_for"),
+  currentHiringRoles: text("current_hiring_roles"),
+  hiringTimeline: text("hiring_timeline"),
+  hiringBudget: text("hiring_budget"),
+  profileComplete: boolean("profile_complete").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+
 // The 'companies' table has been temporarily removed to resolve a migration conflict.
 
 export const candidateProfiles = pgTable("candidate_users", {
@@ -173,8 +193,8 @@ export const jobApplications = pgTable("job_applications", {
   candidateId: text("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   matchId: integer("match_id").references(() => jobMatches.id),
-  status: varchar("status", { 
-    enum: ["submitted", "viewed", "screening", "interview_scheduled", "interview_completed", "offer", "rejected", "withdrawn"] 
+  status: varchar("status", {
+    enum: ["submitted", "viewed", "screening", "interview_scheduled", "interview_completed", "offer", "rejected", "withdrawn"]
   }).default("submitted"),
   appliedAt: timestamp("applied_at").defaultNow(),
   viewedByEmployerAt: timestamp("viewed_by_employer_at"),
@@ -202,8 +222,8 @@ export const applicationUpdates = pgTable("application_updates", {
 export const applicationEvents = pgTable("application_events", {
   id: serial("id").primaryKey(),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
-  eventType: varchar("event_type", { 
-    enum: ["submitted", "viewed", "screened", "shortlisted", "rejected", "interview_scheduled", "interviewed", "decision_pending", "hired", "archived"] 
+  eventType: varchar("event_type", {
+    enum: ["submitted", "viewed", "screened", "shortlisted", "rejected", "interview_scheduled", "interviewed", "decision_pending", "hired", "archived"]
   }).notNull(),
   actorRole: varchar("actor_role", { enum: ["system", "recruiter", "hiring_manager", "team_member"] }).notNull(),
   actorName: varchar("actor_name"),
@@ -260,11 +280,11 @@ export const activityLogs = pgTable("activity_logs", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id),
-  type: varchar("type", { 
+  type: varchar("type", {
     enum: [
-      "application_viewed", 
-      "application_ranked", 
-      "application_accepted", 
+      "application_viewed",
+      "application_ranked",
+      "application_accepted",
       "application_rejected",
       "exam_completed",
       "candidate_message",
@@ -274,7 +294,7 @@ export const notifications = pgTable("notifications", {
       "status_update",
       "new_match",
       "new_application"
-    ] 
+    ]
   }).notNull(),
   title: varchar("title").notNull(),
   message: text("message").notNull(),
@@ -322,8 +342,8 @@ export const interviews = pgTable("interviews", {
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   scheduledAt: timestamp("scheduled_at").notNull(),
   duration: integer("duration").notNull(),
-  platform: varchar("platform", { 
-    enum: ["zoom", "meet", "teams", "phone"] 
+  platform: varchar("platform", {
+    enum: ["zoom", "meet", "teams", "phone"]
   }).notNull().default("zoom"),
   meetingUrl: text("meeting_url"),
   meetingId: varchar("meeting_id"),
@@ -369,7 +389,19 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   activityLogs: many(activityLogs),
   savedJobs: many(savedJobs),
   hiddenJobs: many(hiddenJobs),
+  talentOwnerProfile: one(talentOwnerProfiles, {
+    fields: [users.id],
+    references: [talentOwnerProfiles.userId],
+  }),
 }));
+
+export const talentOwnerProfilesRelations = relations(talentOwnerProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [talentOwnerProfiles.userId],
+    references: [users.id],
+  }),
+}));
+
 
 // The 'companiesRelations' has been temporarily removed.
 
@@ -506,6 +538,7 @@ export const hiddenJobsRelations = relations(hiddenJobs, ({ one }) => ({
 
 export const insertUserSchema = createInsertSchema(users);
 export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles);
+export const insertTalentOwnerProfileSchema = createInsertSchema(talentOwnerProfiles);
 export const insertJobPostingSchema = createInsertSchema(jobPostings);
 export const insertJobMatchSchema = createInsertSchema(jobMatches);
 export const insertChatMessageSchema = createInsertSchema(chatMessages);
@@ -535,3 +568,6 @@ export type NotificationPreferences = typeof notificationPreferences.$inferSelec
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type ConnectionStatus = typeof connectionStatus.$inferSelect;
 export type InsertConnectionStatus = z.infer<typeof insertConnectionStatusSchema>;
+export type TalentOwnerProfile = typeof talentOwnerProfiles.$inferSelect;
+export type InsertTalentOwnerProfile = z.infer<typeof insertTalentOwnerProfileSchema>;
+
