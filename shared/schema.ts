@@ -113,6 +113,7 @@ export const jobPostings = pgTable("job_postings", {
   examPassingScore: integer("exam_passing_score").default(70),
   autoRankCandidates: boolean("auto_rank_candidates").default(true),
   maxChatCandidates: integer("max_chat_candidates").default(5),
+  expiresAt: timestamp("expires_at"), // Job expiration to prevent applying to old jobs
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

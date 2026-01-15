@@ -9,12 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Plus, 
-  X, 
-  Code, 
-  FileText, 
-  CheckCircle, 
+import {
+  Plus,
+  X,
+  Code,
+  FileText,
+  CheckCircle,
   Clock,
   Users,
   Brain,
@@ -61,11 +61,12 @@ interface JobPostingData {
   workType: 'remote' | 'hybrid' | 'onsite';
   salaryMin: number;
   salaryMax: number;
-  
+  expiresAt?: Date; // Job expiration date
+
   // Advanced Filtering
   enableFiltering: boolean;
   filteringExam?: FilteringExam;
-  
+
   // Direct Connection
   hiringManager: {
     name: string;
@@ -76,10 +77,10 @@ interface JobPostingData {
   topCandidateThreshold: number; // top X candidates to auto-connect
 }
 
-export default function JobPostingWizard({ 
-  onSubmit, 
-  onCancel 
-}: { 
+export default function JobPostingWizard({
+  onSubmit,
+  onCancel
+}: {
   onSubmit: (data: JobPostingData) => void;
   onCancel: () => void;
 }) {
@@ -94,6 +95,7 @@ export default function JobPostingWizard({
     workType: 'remote',
     salaryMin: 0,
     salaryMax: 0,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default: 30 days from now
     enableFiltering: false,
     hiringManager: {
       name: '',
@@ -198,7 +200,7 @@ export default function JobPostingWizard({
         return jobData.requirements.length > 0 && jobData.skills.length > 0;
       case 3:
         return !jobData.enableFiltering || (
-          jobData.filteringExam && 
+          jobData.filteringExam &&
           jobData.filteringExam.questions.length > 0 &&
           jobData.filteringExam.timeLimit > 0 &&
           jobData.filteringExam.passingScore > 0
@@ -219,8 +221,8 @@ export default function JobPostingWizard({
             <div key={step} className="flex items-center">
               <div className={`
                 w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
-                ${currentStep >= step 
-                  ? 'bg-purple-600 text-white' 
+                ${currentStep >= step
+                  ? 'bg-purple-600 text-white'
                   : 'bg-gray-200 text-gray-600'
                 }
               `}>
@@ -297,8 +299,8 @@ export default function JobPostingWizard({
               </div>
               <div>
                 <Label htmlFor="workType">Work Type</Label>
-                <Select 
-                  value={jobData.workType} 
+                <Select
+                  value={jobData.workType}
                   onValueChange={(value: any) => setJobData(prev => ({ ...prev, workType: value }))}
                 >
                   <SelectTrigger>
@@ -334,6 +336,23 @@ export default function JobPostingWizard({
                   placeholder="120000"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="expiresAt">Job Expiry Date *</Label>
+              <Input
+                id="expiresAt"
+                type="date"
+                value={jobData.expiresAt ? jobData.expiresAt.toISOString().split('T')[0] : ''}
+                onChange={(e) => {
+                  const date = e.target.value ? new Date(e.target.value) : undefined;
+                  setJobData(prev => ({ ...prev, expiresAt: date }));
+                }}
+                min={new Date().toISOString().split('T')[0]}
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                {jobData.expiresAt && `Job will expire in ${Math.ceil((jobData.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days`}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -427,12 +446,12 @@ export default function JobPostingWizard({
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center space-x-2">
-              <Checkbox 
+              <Checkbox
                 id="enableFiltering"
                 checked={jobData.enableFiltering}
                 onCheckedChange={(checked) => {
-                  setJobData(prev => ({ 
-                    ...prev, 
+                  setJobData(prev => ({
+                    ...prev,
                     enableFiltering: !!checked,
                     filteringExam: checked ? {
                       type: 'custom',
@@ -453,9 +472,9 @@ export default function JobPostingWizard({
                 {/* Exam Type Selection */}
                 <div className="space-y-4">
                   <Label className="text-base font-medium">Assessment Type</Label>
-                  <RadioGroup 
-                    value={jobData.filteringExam?.type || 'custom'} 
-                    onValueChange={(value: 'custom' | 'third-party' | 'template') => 
+                  <RadioGroup
+                    value={jobData.filteringExam?.type || 'custom'}
+                    onValueChange={(value: 'custom' | 'third-party' | 'template') =>
                       setJobData(prev => ({
                         ...prev,
                         filteringExam: { ...prev.filteringExam!, type: value }
@@ -588,13 +607,13 @@ export default function JobPostingWizard({
                 {jobData.filteringExam?.type === 'custom' && (
                   <div className="space-y-4">
                     <h4 className="font-medium">Create Questions</h4>
-                    
+
                     {/* Question Type and Points */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Question Type</Label>
-                        <Select 
-                          value={currentQuestion.type || 'multiple-choice'} 
+                        <Select
+                          value={currentQuestion.type || 'multiple-choice'}
                           onValueChange={(value: any) => setCurrentQuestion(prev => ({ ...prev, type: value }))}
                         >
                           <SelectTrigger>
@@ -648,8 +667,8 @@ export default function JobPostingWizard({
                     {currentQuestion.type === 'coding' && (
                       <div>
                         <Label>Programming Language</Label>
-                        <Select 
-                          value={currentQuestion.codeLanguage || 'javascript'} 
+                        <Select
+                          value={currentQuestion.codeLanguage || 'javascript'}
                           onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, codeLanguage: value }))}
                         >
                           <SelectTrigger>
@@ -685,9 +704,9 @@ export default function JobPostingWizard({
                           <Input
                             type="number"
                             value={currentQuestion.maxFileSize || 10}
-                            onChange={(e) => setCurrentQuestion(prev => ({ 
-                              ...prev, 
-                              maxFileSize: parseInt(e.target.value) 
+                            onChange={(e) => setCurrentQuestion(prev => ({
+                              ...prev,
+                              maxFileSize: parseInt(e.target.value)
                             }))}
                             min="1"
                             max="50"
@@ -702,9 +721,9 @@ export default function JobPostingWizard({
                         <Input
                           type="number"
                           value={currentQuestion.videoMaxDuration || 120}
-                          onChange={(e) => setCurrentQuestion(prev => ({ 
-                            ...prev, 
-                            videoMaxDuration: parseInt(e.target.value) 
+                          onChange={(e) => setCurrentQuestion(prev => ({
+                            ...prev,
+                            videoMaxDuration: parseInt(e.target.value)
                           }))}
                           min="30"
                           max="600"
@@ -719,9 +738,9 @@ export default function JobPostingWizard({
                         <Input
                           type="number"
                           value={currentQuestion.timeLimit || ''}
-                          onChange={(e) => setCurrentQuestion(prev => ({ 
-                            ...prev, 
-                            timeLimit: e.target.value ? parseInt(e.target.value) : undefined 
+                          onChange={(e) => setCurrentQuestion(prev => ({
+                            ...prev,
+                            timeLimit: e.target.value ? parseInt(e.target.value) : undefined
                           }))}
                           placeholder="No limit"
                         />
@@ -730,9 +749,9 @@ export default function JobPostingWizard({
                         <Checkbox
                           id="required"
                           checked={currentQuestion.required !== false}
-                          onCheckedChange={(checked) => setCurrentQuestion(prev => ({ 
-                            ...prev, 
-                            required: !!checked 
+                          onCheckedChange={(checked) => setCurrentQuestion(prev => ({
+                            ...prev,
+                            required: !!checked
                           }))}
                         />
                         <Label htmlFor="required">Required question</Label>
@@ -755,7 +774,7 @@ export default function JobPostingWizard({
                                 }}
                                 placeholder={`Option ${index + 1}`}
                               />
-                              <RadioGroup 
+                              <RadioGroup
                                 value={currentQuestion.correctAnswer?.toString()}
                                 onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, correctAnswer: parseInt(value) }))}
                               >
@@ -791,8 +810,8 @@ export default function JobPostingWizard({
                               {question.timeLimit && ` • ${question.timeLimit} min`}
                             </p>
                           </div>
-                          <Button 
-                            variant="ghost" 
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => removeQuestion(question.id)}
                           >
@@ -867,12 +886,12 @@ export default function JobPostingWizard({
 
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <Checkbox
                   id="autoConnect"
                   checked={jobData.autoConnectTopCandidates}
-                  onCheckedChange={(checked) => setJobData(prev => ({ 
-                    ...prev, 
-                    autoConnectTopCandidates: !!checked 
+                  onCheckedChange={(checked) => setJobData(prev => ({
+                    ...prev,
+                    autoConnectTopCandidates: !!checked
                   }))}
                 />
                 <Label htmlFor="autoConnect">Automatically connect with top-ranked candidates</Label>
@@ -881,11 +900,11 @@ export default function JobPostingWizard({
               {jobData.autoConnectTopCandidates && (
                 <div>
                   <Label htmlFor="threshold">Number of top candidates to auto-connect</Label>
-                  <Select 
-                    value={jobData.topCandidateThreshold.toString()} 
-                    onValueChange={(value) => setJobData(prev => ({ 
-                      ...prev, 
-                      topCandidateThreshold: parseInt(value) 
+                  <Select
+                    value={jobData.topCandidateThreshold.toString()}
+                    onValueChange={(value) => setJobData(prev => ({
+                      ...prev,
+                      topCandidateThreshold: parseInt(value)
                     }))}
                   >
                     <SelectTrigger className="w-32">
@@ -926,8 +945,8 @@ export default function JobPostingWizard({
             </>
           )}
         </Button>
-        <Button 
-          onClick={nextStep} 
+        <Button
+          onClick={nextStep}
           disabled={!canProceed()}
           className="bg-purple-600 hover:bg-purple-700"
         >

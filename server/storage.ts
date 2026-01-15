@@ -483,11 +483,17 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
 
-      // 1. Fetch internal jobs
+      // 1. Fetch internal jobs (excluding expired)
       const internalJobs = await db
         .select()
         .from(jobPostings)
-        .where(or(...candidate.skills.map(skill => sql`'${skill}' = ANY(skills)`)))
+        .where(and(
+          or(...candidate.skills.map(skill => sql`'${skill}' = ANY(skills)`)),
+          or(
+            sql`expires_at IS NULL`, // Jobs without expiry
+            sql`expires_at > NOW()` // Jobs not yet expired
+          )
+        ))
         .limit(20);
 
       // 2. Fetch external jobs

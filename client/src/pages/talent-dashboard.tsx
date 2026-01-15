@@ -5,11 +5,11 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-import { 
-  getStatusColor, 
-  formatSalary, 
-  formatWorkType, 
-  timeAgo, 
+import {
+  getStatusColor,
+  formatSalary,
+  formatWorkType,
+  timeAgo,
   getErrorMessage,
   formatDate
 } from "@/lib/dashboard-utils";
@@ -23,14 +23,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  Plus, 
-  Users, 
-  Briefcase, 
-  MessageSquare, 
-  TrendingUp, 
-  Eye, 
-  Clock, 
+import {
+  Plus,
+  Users,
+  Briefcase,
+  MessageSquare,
+  TrendingUp,
+  Eye,
+  Clock,
   Star,
   Building2,
   MapPin,
@@ -114,7 +114,8 @@ export default function TalentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedApplicantId, setExpandedApplicantId] = useState<number | null>(null);
-  const [screeningQuestions, setScreeningQuestions] = useState<{[key: number]: string[]}>({});
+  const [screeningQuestions, setScreeningQuestions] = useState<{ [key: number]: string[] }>();
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -139,7 +140,7 @@ export default function TalentDashboard() {
   });
 
   // Fetch job postings for the logged-in talent owner
-  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<JobPosting[]>({ 
+  const { data: jobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<JobPosting[]>({
     queryKey: ['/api/talent-owner/jobs'],
     retry: false,
     enabled: !!user,
@@ -282,14 +283,14 @@ export default function TalentDashboard() {
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.company.toLowerCase().includes(searchQuery.toLowerCase());
+      job.company.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === "all" || job.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
   const filteredCandidates = applicants.filter(applicant => {
     const candidate = applicant.candidate;
-    const matchesSearch = searchQuery === "" || 
+    const matchesSearch = searchQuery === "" ||
       candidate.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -305,7 +306,10 @@ export default function TalentDashboard() {
     );
   }
 
-  // Show profile completion if profile is not complete
+  // PROFILE COMPLETION CHECK REMOVED
+  // Users can now access the dashboard immediately
+  // Job-specific information (timeline, budget, roles) will be collected when creating jobs
+  /*
   if (!user.profileComplete) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -324,6 +328,7 @@ export default function TalentDashboard() {
       </div>
     );
   }
+  */
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -341,7 +346,7 @@ export default function TalentDashboard() {
             </Button>
             <RecrutasLogo className="h-8" />
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <ThemeToggleButton />
             <RealTimeNotifications />
@@ -400,7 +405,7 @@ export default function TalentDashboard() {
                 ))}
               </nav>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <ThemeToggleButton />
               <RealTimeNotifications />
@@ -414,6 +419,14 @@ export default function TalentDashboard() {
                   {user.firstName || user.email?.split('@')[0] || 'User'}
                 </span>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowProfileSettings(true)}
+                title="Profile Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -439,7 +452,7 @@ export default function TalentDashboard() {
                       Manage your job postings and connect with top candidates
                     </p>
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => setShowJobWizard(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
@@ -493,7 +506,7 @@ export default function TalentDashboard() {
                       {statsLoading ? "..." : stats?.activeChats || 0}
                     </div>
                     <p className="text-xs text-muted-foreground pt-1">Conversations with top candidates.</p>
-                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => { /* Navigate to chat page */ }}>
+                    <Button className="mt-4 w-full" size="sm" variant="outline" disabled title="Chat feature coming soon">
                       Open Chats
                     </Button>
                   </CardContent>
@@ -523,8 +536,8 @@ export default function TalentDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span className="text-gray-900 dark:text-white">Recent Job Postings</span>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => setActiveTab('jobs')}
                     >
@@ -547,11 +560,7 @@ export default function TalentDashboard() {
                     <div className="text-center py-8">
                       <Briefcase className="mx-auto h-12 w-12 text-gray-500 dark:text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No job postings yet</h3>
-                      <p className="text-gray-500 dark:text-gray-400 mb-6">Create your first job posting to start finding great candidates.</p>
-                      <Button onClick={() => setShowJobDialog(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Post Your First Job
-                      </Button>
+                      <p className="text-gray-500 dark:text-gray-400">Create your first job posting to start finding great candidates.</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -593,7 +602,7 @@ export default function TalentDashboard() {
                 <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">Job Postings</h2>
                 <p className="text-gray-500 dark:text-gray-400">Manage your job listings and track applications</p>
               </div>
-              <Button 
+              <Button
                 onClick={() => setShowJobWizard(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
@@ -651,12 +660,12 @@ export default function TalentDashboard() {
                       {searchQuery || filterStatus !== 'all' ? 'No jobs found' : 'No job postings yet'}
                     </h3>
                     <p className="text-gray-500 dark:text-gray-400 mb-6">
-                      {searchQuery || filterStatus !== 'all' 
-                        ? 'Try adjusting your search or filters' 
+                      {searchQuery || filterStatus !== 'all'
+                        ? 'Try adjusting your search or filters'
                         : 'Create your first job posting to start finding great candidates'}
                     </p>
                     {!searchQuery && filterStatus === 'all' && (
-                      <Button onClick={() => setShowJobDialog(true)}>
+                      <Button onClick={() => setShowJobWizard(true)}>
                         <Plus className="h-4 w-4 mr-2" />
                         Post Your First Job
                       </Button>
@@ -675,7 +684,7 @@ export default function TalentDashboard() {
                               {job.status}
                             </Badge>
                           </div>
-                          
+
                           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
                             <span className="flex items-center">
                               <Building2 className="h-4 w-4 mr-1" />
@@ -688,9 +697,9 @@ export default function TalentDashboard() {
                             {(job.salaryMin || job.salaryMax) && (
                               <span className="flex items-center">
                                 <DollarSign className="h-4 w-4 mr-1" />
-                                {job.salaryMin && job.salaryMax 
+                                {job.salaryMin && job.salaryMax
                                   ? `${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()}`
-                                  : job.salaryMin 
+                                  : job.salaryMin
                                     ? `From ${job.salaryMin.toLocaleString()}`
                                     : `Up to ${job.salaryMax?.toLocaleString()}`
                                 }
@@ -732,9 +741,9 @@ export default function TalentDashboard() {
                         </div>
 
                         <div className="flex lg:flex-col gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="flex-1 lg:flex-none"
                             onClick={() => {
                               setSelectedJob(job);
@@ -744,9 +753,9 @@ export default function TalentDashboard() {
                             <Users className="h-4 w-4 mr-2" />
                             View Applicants
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="flex-1 lg:flex-none"
                             onClick={() => {
                               setSelectedJob(job);
@@ -767,9 +776,9 @@ export default function TalentDashboard() {
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="flex-1 lg:flex-none text-red-600 hover:text-red-700"
                             onClick={() => {
                               if (confirm(`Are you sure you want to delete "${job.title}"?`)) {
@@ -944,7 +953,7 @@ export default function TalentDashboard() {
                             <span className="text-gray-500 dark:text-gray-400">{Math.round(performance)}%</span>
                           </div>
                           <div className="w-full bg-muted rounded-full h-2">
-                            <div 
+                            <div
                               className="bg-primary h-2 rounded-full transition-all duration-300"
                               style={{ width: `${performance}%` }}
                             />
@@ -970,26 +979,54 @@ export default function TalentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {['This Week', 'Last Week', '2 Weeks Ago', '3 Weeks Ago'].map((period, index) => {
-                      const applications = Math.max(1, Math.floor(Math.random() * 25) + (4 - index) * 5);
-                      const maxApps = 30;
-                      const percentage = (applications / maxApps) * 100;
-                      
-                      return (
-                        <div key={period} className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="font-medium">{period}</span>
-                            <span className="text-gray-500 dark:text-gray-400">{applications} applications</span>
+                    {(() => {
+                      // Calculate real application trends from applicant data
+                      const now = new Date();
+                      const getWeekStart = (weeksAgo: number) => {
+                        const date = new Date(now);
+                        date.setDate(date.getDate() - (weeksAgo * 7));
+                        date.setHours(0, 0, 0, 0);
+                        return date;
+                      };
+
+                      const periods = [
+                        { label: 'This Week', start: getWeekStart(0), end: now },
+                        { label: 'Last Week', start: getWeekStart(1), end: getWeekStart(0) },
+                        { label: '2 Weeks Ago', start: getWeekStart(2), end: getWeekStart(1) },
+                        { label: '3 Weeks Ago', start: getWeekStart(3), end: getWeekStart(2) }
+                      ];
+
+                      const maxApps = Math.max(...periods.map(period => {
+                        return applicants.filter(app => {
+                          const appliedDate = new Date(app.appliedAt);
+                          return appliedDate >= period.start && appliedDate < period.end;
+                        }).length;
+                      }), 1); // At least 1 to avoid division by zero
+
+                      return periods.map((period) => {
+                        const applications = applicants.filter(app => {
+                          const appliedDate = new Date(app.appliedAt);
+                          return appliedDate >= period.start && appliedDate < period.end;
+                        }).length;
+
+                        const percentage = (applications / maxApps) * 100;
+
+                        return (
+                          <div key={period.label} className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">{period.label}</span>
+                              <span className="text-gray-500 dark:text-gray-400">{applications} applications</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-2">
+                              <div
+                                className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-muted rounded-full h-2">
-                            <div 
-                              className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -1010,9 +1047,9 @@ export default function TalentDashboard() {
                         acc[skill] = (acc[skill] || 0) + 1;
                         return acc;
                       }, {} as Record<string, number>);
-                      
+
                       return Object.entries(skillCounts)
-                        .sort(([,a], [,b]) => b - a)
+                        .sort(([, a], [, b]) => b - a)
                         .slice(0, 8)
                         .map(([skill, count]) => (
                           <div key={skill} className="flex items-center justify-between">
@@ -1037,35 +1074,66 @@ export default function TalentDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-green-600">2.3 hrs</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">Average Response Time</div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {[ 
-                        { range: '< 1 hour', count: Math.floor(applicants.length * 0.4), color: 'bg-green-500' },
-                        { range: '1-4 hours', count: Math.floor(applicants.length * 0.35), color: 'bg-yellow-500' },
-                        { range: '4-24 hours', count: Math.floor(applicants.length * 0.2), color: 'bg-orange-500' },
-                        { range: '> 24 hours', count: Math.floor(applicants.length * 0.05), color: 'bg-red-500' }
-                      ].map(({ range, count, color }) => {
-                        const percentage = applicants.length > 0 ? (count / applicants.length) * 100 : 0;
-                        return (
-                          <div key={range} className="space-y-1">
-                            <div className="flex justify-between text-sm">
-                              <span>{range}</span>
-                              <span className="text-gray-500 dark:text-gray-400">{count} responses</span>
+                    {(() => {
+                      // Calculate real response times from applicant data
+                      const responseTimes = applicants
+                        .filter(app => app.status !== 'pending' && app.updatedAt && app.appliedAt)
+                        .map(app => {
+                          const applied = new Date(app.appliedAt).getTime();
+                          const responded = new Date(app.updatedAt).getTime();
+                          const diffHours = (responded - applied) / (1000 * 60 * 60);
+                          return diffHours;
+                        });
+
+                      const avgResponseTime = responseTimes.length > 0
+                        ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length
+                        : 0;
+
+                      const formatTime = (hours: number) => {
+                        if (hours < 1) return `${Math.round(hours * 60)} min`;
+                        if (hours < 24) return `${hours.toFixed(1)} hrs`;
+                        return `${(hours / 24).toFixed(1)} days`;
+                      };
+
+                      const buckets = [
+                        { range: '< 1 hour', filter: (h: number) => h < 1, color: 'bg-green-500' },
+                        { range: '1-4 hours', filter: (h: number) => h >= 1 && h < 4, color: 'bg-yellow-500' },
+                        { range: '4-24 hours', filter: (h: number) => h >= 4 && h < 24, color: 'bg-orange-500' },
+                        { range: '> 24 hours', filter: (h: number) => h >= 24, color: 'bg-red-500' }
+                      ];
+
+                      return (
+                        <>
+                          <div className="text-center">
+                            <div className="text-3xl font-bold text-green-600">
+                              {responseTimes.length > 0 ? formatTime(avgResponseTime) : 'N/A'}
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div 
-                                className={`${color} h-2 rounded-full transition-all duration-300`}
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Average Response Time</div>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <div className="space-y-3">
+                            {buckets.map(({ range, filter, color }) => {
+                              const count = responseTimes.filter(filter).length;
+                              const percentage = responseTimes.length > 0 ? (count / responseTimes.length) * 100 : 0;
+                              return (
+                                <div key={range} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span>{range}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">{count} responses</span>
+                                  </div>
+                                  <div className="w-full bg-muted rounded-full h-2">
+                                    <div
+                                      className={`${color} h-2 rounded-full transition-all duration-300`}
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -1081,11 +1149,10 @@ export default function TalentDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                  {[ 
+                  {[
                     { stage: 'Applied', count: applicants.length, color: 'bg-blue-500' },
                     { stage: 'Viewed', count: applicants.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
                     { stage: 'Interested', count: applicants.filter(c => c.status === 'interested').length, color: 'bg-yellow-500' },
-                    { stage: 'Interviewed', count: Math.floor(applicants.length * 0.1), color: 'bg-orange-500' },
                     { stage: 'Hired', count: stats?.hires || 0, color: 'bg-purple-500' }
                   ].map(({ stage, count, color }) => (
                     <div key={stage} className="text-center">
@@ -1127,11 +1194,12 @@ export default function TalentDashboard() {
                     workType: jobData.workType,
                     salaryMin: jobData.salaryMin,
                     salaryMax: jobData.salaryMax,
+                    expiresAt: jobData.expiresAt ? new Date(jobData.expiresAt) : null, // Convert to Date object
                     // Add exam data if filtering is enabled
                     hasExam: jobData.enableFiltering,
                     exam: jobData.enableFiltering ? {
                       questions: jobData.filteringExam?.questions || [],
-                      timeLimit: job.filteringExam?.timeLimit || 30,
+                      timeLimit: jobData.filteringExam?.timeLimit || 30,
                       passingScore: jobData.filteringExam?.passingScore || 70
                     } : null
                   };
@@ -1146,6 +1214,24 @@ export default function TalentDashboard() {
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Profile Settings Dialog */}
+      {showProfileSettings && (
+        <TalentOwnerProfileCompletion
+          user={user}
+          onComplete={() => {
+            setShowProfileSettings(false);
+            queryClient.invalidateQueries({ queryKey: ['/api/session'] });
+            toast({
+              title: "Profile Updated",
+              description: "Your profile has been successfully updated.",
+            });
+            // Reload to refresh user data
+            window.location.reload();
+          }}
+          onCancel={() => setShowProfileSettings(false)}
+        />
       )}
     </div>
   );

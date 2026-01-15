@@ -1,3 +1,6 @@
+import { storage } from "./storage";
+import { notificationService } from "./notification-service";
+
 interface ApplicationEvent {
   id: string;
   applicationId: string;
@@ -105,7 +108,7 @@ export class ApplicationIntelligenceEngine {
           actionable: latestEvent.details.duration! < 30,
           emotionalTone: latestEvent.details.duration! > 60 ? 'positive' : 'constructive'
         };
-      
+
       case 'screened':
         return {
           humanReadableUpdate: `Your application scored ${latestEvent.details.score}/100. You ranked #${latestEvent.details.competitorInfo?.yourRanking} out of ${latestEvent.details.competitorInfo?.totalApplicants} candidates.`,
@@ -144,7 +147,7 @@ export class ApplicationIntelligenceEngine {
   }> {
     const applications = await this.getCandidateApplications(candidateId);
     const rejectedApps = applications.filter(app => app.status === 'rejected');
-    
+
     const patterns = this.analyzeRejectionPatterns(rejectedApps);
     const recommendations = await this.generatePersonalizedRecommendations(patterns);
     const successStories = await this.findSimilarSuccessStories(candidateId);
@@ -176,13 +179,13 @@ export class ApplicationIntelligenceEngine {
     switch (eventType) {
       case 'rejected':
         return `This rejection isn't about your worth. You're making progress - ${candidateProfile.recentApplications?.filter((a: any) => a.viewTime > 60).length} applications got serious consideration this month. Keep going.`;
-      
+
       case 'viewed':
         return `Your application caught their attention! The fact they spent time reviewing your profile means your approach is working.`;
-      
+
       case 'shortlisted':
         return `Excellent work! You beat ${candidateProfile.competitorCount - candidateProfile.ranking} other candidates. Your efforts are paying off.`;
-      
+
       default:
         return `Progress is happening, even when it doesn't feel like it. Each application teaches you something new.`;
     }
@@ -202,7 +205,7 @@ export class ApplicationIntelligenceEngine {
   private compareToAverage(duration: number): string {
     const averageViewTime = 45; // seconds
     const percentage = Math.round(((duration - averageViewTime) / averageViewTime) * 100);
-    
+
     if (percentage > 20) return `${percentage}% longer`;
     if (percentage < -20) return `${Math.abs(percentage)}% shorter`;
     return 'about average';
@@ -242,7 +245,7 @@ export class ApplicationIntelligenceEngine {
     insights: ApplicationIntelligence['insights']
   ): Promise<ApplicationIntelligence['nextActions']> {
     const latestEvent = events[events.length - 1];
-    
+
     if (latestEvent.eventType === 'rejected') {
       return {
         recommended: [
@@ -264,30 +267,90 @@ export class ApplicationIntelligenceEngine {
 
   // Placeholder methods for database operations
   private async storeEvent(event: ApplicationEvent): Promise<void> {
-    // Store in database
+    await storage.createApplicationEvent({
+      applicationId: parseInt(event.applicationId),
+      eventType: event.eventType,
+      actorRole: event.actor.role,
+      actorName: event.actor.name,
+      actorTitle: event.actor.title,
+      viewDuration: event.details.duration,
+      candidateScore: event.details.score,
+      candidateRanking: event.details.competitorInfo?.yourRanking,
+      totalApplicants: event.details.competitorInfo?.totalApplicants,
+      feedback: event.details.feedback,
+      nextSteps: event.details.nextSteps,
+      competitorProfile: event.details.competitorInfo?.topCandidateProfile,
+      visible: event.visible
+    });
   }
 
   private async notifyCandidate(event: ApplicationEvent): Promise<void> {
-    // Send real-time notification
+    const application = await storage.getApplicationById(parseInt(event.applicationId));
+    if (!application) return;
+
+    await notificationService.createNotification({
+      userId: application.candidateId,
+      type: 'status_update',
+      title: `Application Update: ${event.eventType.charAt(0).toUpperCase() + event.eventType.slice(1)}`,
+      message: await this.generateSupportiveMessaging(event.eventType, {
+        recentApplications: [], // Could fetch more stats here if needed
+        competitorCount: event.details.competitorInfo?.totalApplicants || 0,
+        ranking: event.details.competitorInfo?.yourRanking || 0
+      }),
+      relatedApplicationId: parseInt(event.applicationId)
+    });
   }
 
   private async updateIntelligence(applicationId: string): Promise<void> {
-    // Update intelligence dashboard
+    const application = await storage.getApplicationById(parseInt(applicationId));
+    if (!application) return;
+
+    const events = await this.getApplicationEvents(applicationId);
+    const insights = await this.generateInsights(application, events);
+    const nextActions = await this.generateNextActions(application, events, insights);
+
+    await storage.createApplicationInsights({
+      candidateId: application.candidateId,
+      applicationId: parseInt(applicationId),
+      ...insights,
+      similarSuccessfulUsers: insights.similarSuccessfulProfiles,
+      recommendedActions: nextActions.recommended
+    });
   }
 
   private async getApplication(applicationId: string): Promise<any> {
-    // Fetch application details
-    return {};
+    return await storage.getApplicationById(parseInt(applicationId));
   }
 
   private async getApplicationEvents(applicationId: string): Promise<ApplicationEvent[]> {
-    // Fetch application events
-    return [];
+    const dbEvents = await storage.getApplicationEvents(parseInt(applicationId));
+    return dbEvents.map(e => ({
+      id: e.id.toString(),
+      applicationId: e.applicationId.toString(),
+      timestamp: e.createdAt,
+      eventType: e.eventType as any,
+      actor: {
+        role: e.actorRole as any,
+        name: e.actorName,
+        title: e.actorTitle
+      },
+      details: {
+        duration: e.viewDuration,
+        score: e.candidateScore,
+        feedback: e.feedback,
+        nextSteps: e.nextSteps,
+        competitorInfo: e.totalApplicants ? {
+          totalApplicants: e.totalApplicants,
+          yourRanking: e.candidateRanking,
+          topCandidateProfile: e.competitorProfile
+        } : undefined
+      },
+      visible: e.visible
+    }));
   }
 
   private async getCandidateApplications(candidateId: string): Promise<any[]> {
-    // Fetch all candidate applications
-    return [];
+    return await storage.getApplicationsForCandidate(candidateId);
   }
 
   private analyzeRejectionPatterns(applications: any[]): string[] {

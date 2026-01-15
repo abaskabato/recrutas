@@ -22,6 +22,7 @@ import { advancedMatchingEngine } from "./advanced-matching-engine";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
 import { ExamService } from './services/exam.service';
 import { aiResumeParser } from './ai-resume-parser';
+import { applicationIntelligence } from "./application-intelligence";
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { users, jobPostings, jobApplications, JobPosting } from "@shared/schema";
 import { CompanyJob } from '../server/company-jobs-aggregator';
@@ -479,6 +480,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Get talent owner profile
+  app.get('/api/talent-owner/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const profile = await storage.getTalentOwnerProfile(req.user.id);
+      res.json(profile || null);
+    } catch (error) {
+      console.error("Error fetching talent owner profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
   // Recruiter specific stats
   app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
     try {
@@ -590,6 +602,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const { status } = req.body;
       if (!status) return res.status(400).json({ message: "Status is required." });
       const updatedApplication = await storage.updateApplicationStatus(parseInt(req.params.applicationId), status, req.user.id);
+
+      // Track AI event for status change
+      try {
+        await applicationIntelligence.trackApplicationEvent(
+          req.params.applicationId,
+          status as any,
+          { role: 'recruiter', name: req.user.firstName || 'Recruiter' },
+          { feedback: req.body.feedback || `Status updated to ${status}` }
+        );
+      } catch (error) {
+        console.error("Error tracking application event:", error);
+      }
+
       res.json(updatedApplication);
     } catch (error) {
       console.error("Error updating application status:", error);

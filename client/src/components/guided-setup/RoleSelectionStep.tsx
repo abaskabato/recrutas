@@ -13,13 +13,20 @@ export default function RoleSelectionStep() {
   const setRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'talent_owner') => {
       await apiRequest('POST', '/api/auth/role', { role });
+      return role;
     },
-    onSuccess: () => {
+    onSuccess: (role) => {
       toast({
         title: 'Role selected!',
         description: 'Your profile has been updated.',
       });
-      window.location.reload();
+
+      // Redirect to appropriate dashboard based on role
+      if (role === 'talent_owner') {
+        window.location.href = '/talent-dashboard';
+      } else if (role === 'candidate') {
+        window.location.href = '/candidate-dashboard';
+      }
     },
     onError: () => {
       toast({
