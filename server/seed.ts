@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '/home/abaskabato/recrutas/.env' });
 
 import { db } from "./db";
-import { users, candidateProfiles, jobPostings, jobMatches, activityLogs, jobApplications } from "@shared/schema";
+import { users, candidateProfiles, jobPostings, jobMatches, activityLogs, jobApplications } from "../shared/schema.js";
 import { supabaseAdmin } from "./lib/supabase-admin";
 
 export async function seedDatabase() {

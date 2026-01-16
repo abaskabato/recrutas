@@ -53,7 +53,8 @@ import {
   type InsertNotificationPreferences
 } from "../shared/schema.js";
 import { db } from "./db";
-import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
+import * as d from "drizzle-orm";
+const { eq, desc, and, or, inArray, sql } = d;
 import { supabaseAdmin } from "./lib/supabase-admin";
 
 /**
@@ -172,8 +173,8 @@ export interface IStorage {
   hideJob(userId: string, jobId: number): Promise<void>;
   getSavedJobIds(userId: string): Promise<number[]>;
   getHiddenJobIds(userId: string): Promise<number[]>;
-
-
+  // Discover operations
+  findMatchingCandidates(jobId: number): Promise<any[]>;
 }
 
 /**
@@ -295,7 +296,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Candidate operations
-  async getCandidateUser(userId: string): Promise<CandidateUser | undefined> {
+  async getCandidateUser(userId: string): Promise<CandidateProfile | undefined> {
     try {
       console.log(`[storage] Getting candidate profile for user id: ${userId}`);
       const [profile] = await db
@@ -310,7 +311,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async upsertCandidateUser(profile: InsertCandidateUser): Promise<CandidateUser> {
+  async upsertCandidateUser(profile: InsertCandidateProfile): Promise<CandidateProfile> {
     try {
       const [result] = await db
         .insert(candidateProfiles)
@@ -488,31 +489,48 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(jobPostings)
         .where(and(
-          or(...candidate.skills.map(skill => sql`'${skill}' = ANY(skills)`)),
+          or(...candidate.skills.map(skill => sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`)),
           or(
-            sql`expires_at IS NULL`, // Jobs without expiry
-            sql`expires_at > NOW()` // Jobs not yet expired
+            sql`${jobPostings.expiresAt} IS NULL`,
+            sql`${jobPostings.expiresAt} > NOW()`
           )
         ))
-        .limit(20);
+        .limit(50);
+
+      const internalJobsWithSource = internalJobs.map((job: any) => ({
+        ...job,
+        source: 'internal',
+        requirements: Array.isArray(job.requirements) ? job.requirements : [],
+        skills: Array.isArray(job.skills) ? job.skills : []
+      }));
+
+      console.log(`Found ${internalJobsWithSource.length} internal matching jobs`);
 
       // 2. Fetch external jobs
       const { jobAggregator } = await import("./job-aggregator");
-      const externalJobs = await jobAggregator.getAllJobs(candidate.skills);
+      const { companyJobsAggregator } = await import("./company-jobs-aggregator");
+
+      const [aggregatorJobs, companyJobs] = await Promise.all([
+        jobAggregator.getAllJobs(candidate.skills),
+        companyJobsAggregator.getAllCompanyJobs(candidate.skills)
+      ]);
 
       // 3. Combine and de-duplicate
-      const allJobs = [...internalJobs, ...externalJobs];
-      const uniqueJobs = Array.from(new Map(allJobs.map(job => [job.title.toLowerCase() + job.company.toLowerCase(), job])).values());
+      const allJobs = [...internalJobsWithSource, ...aggregatorJobs, ...companyJobs];
+      const uniqueJobs = Array.from(new Map(allJobs.map(job => [
+        (job.title.toLowerCase() + job.company.toLowerCase()).replace(/\s/g, ''),
+        job
+      ])).values());
 
       // 4. Generate AI-powered recommendations
       const { generateJobMatch } = await import("./ai-service");
       const recommendations = [];
       for (const job of uniqueJobs) {
-        const match = await generateJobMatch(candidate, job);
-        if (match.score > 50) { // Only include jobs with a match score > 50
+        const match = await generateJobMatch(candidate, job as any);
+        if (match.score > 0.4) { // Only include jobs with a match score > 40%
           recommendations.push({
             ...job,
-            matchScore: match.score,
+            matchScore: Math.round(match.score * 100),
             aiExplanation: match.aiExplanation,
             skillMatches: match.skillMatches,
           });
@@ -522,9 +540,57 @@ export class DatabaseStorage implements IStorage {
       // 5. Sort by match score
       recommendations.sort((a, b) => b.matchScore - a.matchScore);
 
-      return recommendations.slice(0, 20); // Return top 20 recommendations
+      return recommendations.slice(0, 20);
     } catch (error) {
       console.error('Error fetching job recommendations:', error);
+      throw error;
+    }
+  }
+
+  async findMatchingCandidates(jobId: number): Promise<any[]> {
+    try {
+      const job = await this.getJobPosting(jobId);
+      if (!job || !job.skills || job.skills.length === 0) {
+        return [];
+      }
+
+      // 1. Fetch candidates with overlapping skills
+      const candidates = await db
+        .select()
+        .from(candidateProfiles)
+        .innerJoin(users, eq(candidateProfiles.userId, users.id))
+        .where(
+          or(...job.skills.map(skill => sql`${candidateProfiles.skills} @> ARRAY[${skill}]::text[]`))
+        )
+        .limit(50);
+
+      // 2. Score them using AI engine
+      const { generateJobMatch } = await import("./ai-service");
+      const matches = [];
+
+      for (const { candidate_profiles: profile, users: user } of candidates as any) {
+        const match = await generateJobMatch(profile, job);
+        if (match.score > 0.4) {
+          matches.push({
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            profileImageUrl: user.profileImageUrl,
+            skills: profile.skills,
+            experience: profile.experience,
+            matchScore: Math.round(match.score * 100),
+            aiExplanation: match.aiExplanation,
+            skillMatches: match.skillMatches
+          });
+        }
+      }
+
+      // 3. Sort by score
+      matches.sort((a, b) => b.matchScore - a.matchScore);
+      return matches.slice(0, 20);
+    } catch (error) {
+      console.error('Error finding matching candidates:', error);
       throw error;
     }
   }
@@ -630,15 +696,20 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateUser?: CandidateUser })[]> {
+  async getMatchesForJob(jobId: number): Promise<(JobMatch & { candidate: User; candidateProfile?: CandidateProfile })[]> {
     try {
-      return await db
+      const matches = await db
         .select()
         .from(jobMatches)
         .innerJoin(users, eq(jobMatches.candidateId, users.id))
         .leftJoin(candidateProfiles, eq(jobMatches.candidateId, candidateProfiles.userId))
-        .where(eq(jobMatches.jobId, jobId))
-        .orderBy(desc(jobMatches.createdAt)) as any;
+        .where(eq(jobMatches.jobId, jobId));
+
+      return matches.map((m: any) => ({
+        ...m.job_matches,
+        candidate: m.users,
+        candidateProfile: m.candidate_profiles
+      }));
     } catch (error) {
       console.error('Error fetching matches for job:', error);
       throw error;

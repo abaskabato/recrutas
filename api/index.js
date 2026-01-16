@@ -1,11 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const apiHandlerContent = `import { configureApp } from '../server/index.ts';
+import { configureApp } from '../server/index.js';
 
 let appInstance = null;
 
@@ -67,16 +60,3 @@ export default async function handler(req, res) {
     }
   }
 }
-`;
-
-const apiDir = path.join(__dirname, '..', 'api');
-const apiFile = path.join(apiDir, 'index.js');
-
-// Ensure api directory exists
-if (!fs.existsSync(apiDir)) {
-  fs.mkdirSync(apiDir, { recursive: true });
-}
-
-// Write the file
-fs.writeFileSync(apiFile, apiHandlerContent, 'utf8');
-console.log('Generated api/index.js successfully');

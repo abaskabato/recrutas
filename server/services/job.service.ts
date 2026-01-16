@@ -8,14 +8,15 @@
  * - External job aggregation coordination
  */
 
-import { eq, and, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { 
-  jobPostings, 
-  jobMatches, 
+import * as d from "drizzle-orm";
+const { sql, ilike, inArray, eq, and, or, desc, asc } = d;
+import {
+  jobPostings,
+  jobMatches,
   candidateProfiles,
   type JobPosting,
-  type InsertJobPosting 
+  type InsertJobPosting
 } from "../../shared/schema";
 
 export interface JobSearchFilters {
@@ -97,7 +98,7 @@ export class JobService {
   async deleteJob(id: number): Promise<boolean> {
     const result = await db
       .update(jobPostings)
-      .set({ 
+      .set({
         status: 'closed',
         updatedAt: new Date(),
       })
@@ -110,14 +111,14 @@ export class JobService {
    * Search jobs with advanced filtering
    */
   async searchJobs(
-    filters: JobSearchFilters = {}, 
+    filters: JobSearchFilters = {},
     options: JobSearchOptions = {}
   ): Promise<{ jobs: JobPosting[]; total: number }> {
-    const { 
-      limit = 20, 
-      offset = 0, 
-      sortBy = 'created', 
-      sortOrder = 'desc' 
+    const {
+      limit = 20,
+      offset = 0,
+      sortBy = 'created',
+      sortOrder = 'desc'
     } = options;
 
     let query = db.select().from(jobPostings);
@@ -172,8 +173,8 @@ export class JobService {
 
     // Apply sorting
     const sortColumn = sortBy === 'created' ? jobPostings.createdAt :
-                      sortBy === 'salary' ? jobPostings.salaryMax :
-                      jobPostings.createdAt;
+      sortBy === 'salary' ? jobPostings.salaryMax :
+        jobPostings.createdAt;
 
     query = query.orderBy(
       sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn)
@@ -331,7 +332,7 @@ export class JobService {
    * Update job urgency level
    */
   async updateJobUrgency(
-    jobId: number, 
+    jobId: number,
     urgency: 'low' | 'medium' | 'high'
   ): Promise<boolean> {
     const result = await db

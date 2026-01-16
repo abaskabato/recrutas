@@ -175,46 +175,38 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const candidateProfile = await storage.getCandidateUser(userId);
+      const recommendations = await storage.getJobRecommendations(userId);
 
-      if (!candidateProfile) {
-        return res.status(404).json({ message: "Please complete your profile first" });
-      }
+      const aiMatches = recommendations.map((job, index) => ({
+        id: index + 1,
+        job: {
+          ...job,
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          workType: job.workType,
+          salaryMin: job.salaryMin,
+          salaryMax: job.salaryMax,
+          description: job.description,
+          requirements: job.requirements || [],
+          skills: job.skills || [],
+          aiCurated: job.source !== 'internal',
+          confidenceScore: job.matchScore,
+          externalSource: job.source,
+          externalUrl: job.externalUrl
+        },
+        matchScore: `${job.matchScore}%`,
+        confidenceLevel: job.matchScore > 80 ? 3 : (job.matchScore > 60 ? 2 : 1),
+        skillMatches: job.skillMatches || [],
+        aiExplanation: job.aiExplanation,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      }));
 
-      const hiddenJobIds = await storage.getHiddenJobIds(userId);
-
-      const externalJobs = await companyJobsAggregator.getAllCompanyJobs(candidateProfile.skills, 50);
-      const internalJobs = await db.query.jobPostings.findMany({ where: eq(jobPostings.status, 'active'), limit: 25 });
-
-      const allJobs: AggregatedJob[] = [
-        ...externalJobs.map((job: CompanyJob) => ({ ...job, id: Math.floor(Math.random() * 1000000), aiCurated: true })),
-        ...internalJobs.map((job: JobPosting) => ({ ...job, aiCurated: false }))
-      ].filter(job => !hiddenJobIds.includes(job.id));
-
-      const aiMatches: AIMatch[] = [];
-      for (const job of allJobs.slice(0, 15)) {
-        try {
-          const aiResult = await generateJobMatch(candidateProfile, job);
-          if (aiResult.score >= 0.6) {
-            aiMatches.push({
-              id: Math.floor(Math.random() * 1000000),
-              job: { ...job, confidenceScore: Math.round(aiResult.score * 100) },
-              matchScore: `${Math.round(aiResult.score * 100)}%`,
-              confidenceLevel: aiResult.confidenceLevel,
-              aiExplanation: aiResult.aiExplanation,
-              status: 'pending',
-              createdAt: new Date().toISOString()
-            });
-          }
-        } catch (error) {
-          console.error('Error generating AI match for job:', job?.title, error);
-        }
-      }
-
-      const sortedMatches = aiMatches.sort((a, b) => parseFloat(b.matchScore) - parseFloat(a.matchScore)).slice(0, 10);
-      res.json(sortedMatches);
+      res.json(aiMatches);
     } catch (error) {
-      console.error('Error generating AI matches:', error);
+      console.error('Error fetching job matches:', error);
       res.status(500).json({ message: "Failed to generate job matches" });
     }
   });
@@ -594,6 +586,23 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error fetching applicants:", error);
       res.status(500).json({ message: "Failed to fetch applicants" });
+    }
+  });
+
+  app.get('/api/jobs/:jobId/discovery', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = await storage.getJobPosting(jobId);
+
+      if (!job || job.talentOwnerId !== req.user.id) {
+        return res.status(403).json({ message: "Unauthorized to access this job's discovery" });
+      }
+
+      const matches = await storage.findMatchingCandidates(jobId);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error in job discovery:", error);
+      res.status(500).json({ message: "Failed to fetch matching candidates" });
     }
   });
 

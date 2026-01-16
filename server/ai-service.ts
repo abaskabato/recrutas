@@ -51,36 +51,36 @@ const SKILL_EMBEDDINGS: Record<string, number[]> = {
 
 function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) return 0;
-  
+
   const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
   const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
   const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-  
+
   if (magnitudeA === 0 || magnitudeB === 0) return 0;
   return dotProduct / (magnitudeA * magnitudeB);
 }
 
 function getSkillEmbedding(skill: string): number[] {
   const normalizedSkill = skill.toLowerCase().trim();
-  
+
   // Direct match
   if (SKILL_EMBEDDINGS[normalizedSkill]) {
     return SKILL_EMBEDDINGS[normalizedSkill];
   }
-  
+
   // Partial matches
   for (const [key, embedding] of Object.entries(SKILL_EMBEDDINGS)) {
     if (normalizedSkill.includes(key) || key.includes(normalizedSkill)) {
       return embedding;
     }
   }
-  
+
   // Generate pseudo-embedding for unknown skills based on characteristics
   const hash = normalizedSkill.split('').reduce((a, b) => {
     a = ((a << 5) - a) + b.charCodeAt(0);
     return a & a;
   }, 0);
-  
+
   return [
     Math.abs(Math.sin(hash)) * 0.5 + 0.25,
     Math.abs(Math.cos(hash)) * 0.5 + 0.25,
@@ -99,20 +99,20 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
   const candidateSkills = Array.isArray(candidate.skills) ? candidate.skills : [];
   const jobSkills = Array.isArray(job.skills) ? job.skills : [];
   const jobRequirements = Array.isArray(job.requirements) ? job.requirements : [];
-  
+
   // Semantic skill matching using embeddings
   const candidateSkillEmbeddings = candidateSkills.map(skill => getSkillEmbedding(skill));
   const jobSkillEmbeddings = jobSkills.map(skill => getSkillEmbedding(skill));
   const jobReqEmbeddings = jobRequirements.map(req => getSkillEmbedding(req));
-  
+
   let totalSimilarity = 0;
   let maxSimilarities: Array<{ skill: string; similarity: number; matchedWith: string }> = [];
-  
+
   // Calculate semantic similarities between candidate skills and job requirements
   for (let i = 0; i < candidateSkillEmbeddings.length; i++) {
     let maxSim = 0;
     let bestMatch = '';
-    
+
     // Compare with job skills
     for (let j = 0; j < jobSkillEmbeddings.length; j++) {
       const sim = cosineSimilarity(candidateSkillEmbeddings[i], jobSkillEmbeddings[j]);
@@ -121,7 +121,7 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
         bestMatch = job.skills[j];
       }
     }
-    
+
     // Compare with job requirements
     for (let j = 0; j < jobReqEmbeddings.length; j++) {
       const sim = cosineSimilarity(candidateSkillEmbeddings[i], jobReqEmbeddings[j]);
@@ -130,7 +130,7 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
         bestMatch = job.requirements[j];
       }
     }
-    
+
     if (maxSim > 0.6) { // Threshold for semantic similarity
       maxSimilarities.push({
         skill: candidate.skills[i],
@@ -140,20 +140,26 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
       totalSimilarity += maxSim;
     }
   }
-  
+
   // Semantic analysis of experience vs job description
   const experienceScore = analyzeExperienceSemantics(candidate.experience, job.description, job.title);
-  
+
   // Context-aware scoring
   const contextScore = calculateContextualFit(candidate, job);
-  
+
   // ML-enhanced final score calculation (0-1 range)
-  const skillScore = Math.min(totalSimilarity / Math.max(candidate.skills.length, 1), 1.0);
-  const finalScore = skillScore * 0.4 + experienceScore * 0.3 + contextScore * 0.3;
-  
-  // Generate intelligent explanation using pattern analysis
+  const skillScore = Math.min(totalSimilarity / Math.max(job.skills?.length || 1, 1), 1.0);
+
+  // Calculate final score with weights
+  // Skill: 40%, Experience: 30%, Context (Salary/Loc): 30%
+  let finalScore = (skillScore * 0.4) + (experienceScore * 0.3) + (contextScore * 0.3);
+
+  // Confidence is based on how much data we had to work with
+  const confidence = calculateConfidenceLevel(maxSimilarities.length, job.skills?.length || 0, experienceScore);
+
+  // Generate intelligent explanation
   const explanation = generateMLExplanation(maxSimilarities, experienceScore, contextScore, job);
-  
+
   return {
     score: Math.min(Math.max(finalScore, 0), 1), // Keep score between 0-1
     confidenceLevel: calculateConfidenceLevel(maxSimilarities.length, candidate.skills.length, experienceScore),
@@ -164,81 +170,112 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
 
 function analyzeExperienceSemantics(experience: string, jobDescription: string, jobTitle: string): number {
   if (!experience || !jobDescription) return 0.5;
-  
+
   const expWords = experience.toLowerCase().split(/\s+/);
   const jobWords = jobDescription.toLowerCase().split(/\s+/);
   const titleWords = jobTitle.toLowerCase().split(/\s+/);
-  
+
   // Semantic keyword groups
   const seniorityKeywords = ['senior', 'lead', 'principal', 'architect', 'manager', 'director'];
   const techKeywords = ['developed', 'built', 'implemented', 'designed', 'created', 'optimized'];
-  
+
   let semanticMatches = 0;
   let totalChecks = 0;
-  
+
   // Seniority alignment
   const expSeniority = seniorityKeywords.filter(k => expWords.includes(k)).length;
   const jobSeniority = seniorityKeywords.filter(k => [...jobWords, ...titleWords].includes(k)).length;
   semanticMatches += Math.min(expSeniority, jobSeniority);
   totalChecks += Math.max(expSeniority, jobSeniority, 1);
-  
+
   // Technical experience alignment
   const expTech = techKeywords.filter(k => expWords.includes(k)).length;
   const jobTech = techKeywords.filter(k => jobWords.includes(k)).length;
   semanticMatches += Math.min(expTech / 2, jobTech / 2, 1);
   totalChecks += 1;
-  
+
   // Direct word overlap with context weighting
-  const commonWords = expWords.filter(word => 
+  const commonWords = expWords.filter(word =>
     word.length > 3 && jobWords.includes(word)
   ).length;
   semanticMatches += Math.min(commonWords / 10, 1);
   totalChecks += 1;
-  
+
   return totalChecks > 0 ? semanticMatches / totalChecks : 0.5;
 }
 
 function calculateContextualFit(candidate: CandidateProfile, job: JobPosting): number {
   let contextScore = 0;
   let factors = 0;
-  
-  // Location context
+
+  // 1. Location context (Weight: High)
   if (candidate.location && job.location) {
-    const locMatch = candidate.location.toLowerCase() === job.location.toLowerCase() ||
-                    job.workType?.toLowerCase().includes('remote') ||
-                    candidate.location.toLowerCase().includes('remote');
-    contextScore += locMatch ? 1 : 0.7;
+    const isRemoteJob = job.workType?.toLowerCase().includes('remote') || job.location.toLowerCase().includes('remote');
+    const isRemoteCandidate = candidate.workType?.toLowerCase().includes('remote') || candidate.location.toLowerCase().includes('remote');
+
+    const locMatch = candidate.location.toLowerCase() === job.location.toLowerCase();
+
+    if (isRemoteJob) {
+      contextScore += 1.0; // Perfect fit for remote jobs
+    } else if (locMatch) {
+      contextScore += 1.0; // Local match
+    } else if (isRemoteCandidate && !isRemoteJob) {
+      contextScore += 0.4; // Remote candidate applying for non-remote job (Potential issue)
+    } else {
+      contextScore += 0.6; // Different location, no explicit remote mentioned
+    }
     factors++;
   }
-  
-  // Work type preferences
+
+  // 2. Work type preferences (Weight: Medium)
   if (candidate.workType && job.workType) {
-    const workTypeMatch = candidate.workType.toLowerCase() === job.workType.toLowerCase();
-    contextScore += workTypeMatch ? 1 : 0.6;
+    const candidateWorkType = candidate.workType.toLowerCase();
+    const jobWorkType = job.workType.toLowerCase();
+
+    if (candidateWorkType === jobWorkType) {
+      contextScore += 1.0;
+    } else if (candidateWorkType === 'hybrid' && (jobWorkType === 'remote' || jobWorkType === 'onsite')) {
+      contextScore += 0.8; // Hybrid is flexible
+    } else if (jobWorkType === 'hybrid' && (candidateWorkType === 'remote' || candidateWorkType === 'onsite')) {
+      contextScore += 0.7; // Candidate might be willing to go hybrid
+    } else {
+      contextScore += 0.5; // Mismatch (e.g., Remote only vs Onsite only)
+    }
     factors++;
   }
-  
-  // Salary expectations
-  if (candidate.salaryMin && job.salaryMin) {
-    const salaryFit = job.salaryMin >= candidate.salaryMin * 0.8;
-    contextScore += salaryFit ? 1 : 0.4;
+
+  // 3. Salary expectations (Weight: Critical)
+  if (candidate.salaryMin && (job.salaryMin || job.salaryMax)) {
+    const jobMid = job.salaryMax ? (job.salaryMin ? (job.salaryMin + job.salaryMax) / 2 : job.salaryMax) : job.salaryMin;
+
+    if (jobMid && jobMid >= candidate.salaryMin) {
+      // Job pays at or above minimum
+      const bonus = Math.min((jobMid - candidate.salaryMin) / candidate.salaryMin, 0.2); // Up to 20% bonus
+      contextScore += (1.0 + bonus);
+    } else if (jobMid && jobMid >= candidate.salaryMin * 0.8) {
+      // Job pays within 20% of minimum (acceptable range)
+      contextScore += 0.7;
+    } else if (jobMid) {
+      // Job pays significantly less
+      contextScore += 0.3;
+    }
     factors++;
   }
-  
-  // Industry alignment
-  if (candidate.industry && job.industry) {
-    const industryMatch = candidate.industry.toLowerCase() === job.industry.toLowerCase();
-    contextScore += industryMatch ? 1 : 0.7;
+
+  // 4. Industry alignment (Weight: Low)
+  if (candidate.preferredIndustry && job.industry) {
+    const industryMatch = candidate.preferredIndustry.toLowerCase() === job.industry.toLowerCase();
+    contextScore += industryMatch ? 1.0 : 0.8;
     factors++;
   }
-  
-  return factors > 0 ? contextScore / factors : 0.7;
+
+  return factors > 0 ? Math.min(contextScore / factors, 1.2) : 0.7;
 }
 
 function calculateConfidenceLevel(matches: number, totalSkills: number, experienceScore: number): number {
   const skillCoverage = matches / Math.max(totalSkills, 1);
   const confidence = (skillCoverage * 0.6 + experienceScore * 0.4);
-  
+
   if (confidence >= 0.8) return 0.9;
   if (confidence >= 0.6) return 0.8;
   if (confidence >= 0.4) return 0.7;
@@ -252,7 +289,7 @@ function generateMLExplanation(
   job: JobPosting
 ): string {
   const explanations = [];
-  
+
   if (skillMatches.length > 0) {
     const topSkills = skillMatches
       .sort((a, b) => b.similarity - a.similarity)
@@ -260,61 +297,61 @@ function generateMLExplanation(
       .map(m => m.skill);
     explanations.push(`Strong semantic match in ${topSkills.join(', ')}`);
   }
-  
+
   if (experienceScore > 0.7) {
     explanations.push(`Experience aligns well with ${job.title} requirements`);
   } else if (experienceScore > 0.5) {
     explanations.push(`Relevant experience with growth potential`);
   }
-  
+
   if (contextScore > 0.8) {
     explanations.push(`Excellent cultural and logistical fit`);
   }
-  
+
   if (explanations.length === 0) {
     explanations.push(`Potential match with transferable skills`);
   }
-  
+
   return explanations.join('. ') + '.';
 }
 
 // Generate ML-powered job insights for candidate profile optimization
 export async function generateJobInsights(candidateProfile: CandidateProfile): Promise<string[]> {
   const insights: string[] = [];
-  
+
   // Analyze skill gaps and market demand
   const skillGaps = analyzeSkillGaps(candidateProfile.skills);
   if (skillGaps.length > 0) {
     insights.push(`Consider developing skills in: ${skillGaps.slice(0, 3).join(', ')}`);
   }
-  
+
   // Experience optimization suggestions
   if (candidateProfile.experience.length < 100) {
     insights.push('Expand your experience description to better showcase your achievements');
   }
-  
+
   // Location and work type recommendations
   if (!candidateProfile.workType) {
     insights.push('Specify your work type preference (remote, hybrid, onsite) to get better matches');
   }
-  
+
   // Salary range optimization
   if (!candidateProfile.salaryMin) {
     insights.push('Adding salary expectations helps filter relevant opportunities');
   }
-  
+
   return insights;
 }
 
 function analyzeSkillGaps(currentSkills: string[]): string[] {
   const inDemandSkills = [
-    'React', 'TypeScript', 'Node.js', 'Python', 'AWS', 'Docker', 
+    'React', 'TypeScript', 'Node.js', 'Python', 'AWS', 'Docker',
     'Kubernetes', 'GraphQL', 'MongoDB', 'PostgreSQL', 'Redis',
     'Machine Learning', 'Data Science', 'DevOps', 'Microservices'
   ];
-  
+
   const currentSkillsLower = currentSkills.map(s => s.toLowerCase());
-  return inDemandSkills.filter(skill => 
+  return inDemandSkills.filter(skill =>
     !currentSkillsLower.some(cs => cs.includes(skill.toLowerCase()))
   );
 }

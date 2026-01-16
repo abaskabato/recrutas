@@ -153,7 +153,7 @@ export class JobAggregator {
   async fetchFromJSearchAPI(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from JSearch API (free tier)...');
-      
+
       // Create appropriate queries based on skills (not just tech)
       let query = 'jobs';
       if (userSkills && userSkills.length > 0) {
@@ -172,7 +172,7 @@ export class JobAggregator {
         else if (skill.includes('writing')) query = 'content writer';
         else query = userSkills.join(' ') + ' jobs';
       }
-      
+
       const params = new URLSearchParams({
         query: query,
         page: '1',
@@ -210,7 +210,7 @@ export class JobAggregator {
   async fetchFromArbeitNow(): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from ArbeitNow (free European jobs)...');
-      
+
       const response = await fetch('https://www.arbeitnow.com/api/job-board-api', {
         headers: {
           'User-Agent': 'JobPlatform/1.0',
@@ -236,9 +236,9 @@ export class JobAggregator {
   async fetchFromJoobleAPI(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from Jooble API (free tier)...');
-      
-      const keywords = userSkills && userSkills.length > 0 
-        ? userSkills.join(' ') 
+
+      const keywords = userSkills && userSkills.length > 0
+        ? userSkills.join(' ')
         : 'software developer programmer';
 
       const params = new URLSearchParams({
@@ -274,9 +274,9 @@ export class JobAggregator {
   async fetchFromIndeedRSS(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from Indeed RSS feeds...');
-      
-      const query = userSkills && userSkills.length > 0 
-        ? userSkills.join('+') 
+
+      const query = userSkills && userSkills.length > 0
+        ? userSkills.join('+')
         : 'software+developer';
 
       const response = await fetch(`https://www.indeed.com/rss?q=${query}&l=&sort=date`, {
@@ -304,13 +304,13 @@ export class JobAggregator {
   async fetchFromUSAJobs(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from USAJobs.gov API...');
-      
+
       // Build dynamic keyword based on user skills
       let keywords = 'software developer engineer programmer analyst';
       if (userSkills && userSkills.length > 0) {
         keywords = userSkills.join(' ') + ' developer engineer';
       }
-      
+
       // Build query parameters for targeted jobs
       const params = new URLSearchParams({
         Keyword: keywords,
@@ -340,18 +340,18 @@ export class JobAggregator {
     } catch (error) {
       console.error('Error fetching from USAJobs:', error);
     }
-    
+
     return [];
   }
 
   async fetchFromJSearch(): Promise<ExternalJob[]> {
     try {
       console.log('Fetching from JSearch API (free tier)...');
-      
+
       // JSearch offers free access to real job data
       const queries = ['software developer', 'frontend developer', 'backend engineer'];
       const allJobs: ExternalJob[] = [];
-      
+
       for (const query of queries) {
         try {
           const response = await fetch(`https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(query)}&page=1&num_pages=1&date_posted=today`, {
@@ -365,7 +365,7 @@ export class JobAggregator {
             const data: JSearchApiResponse = await response.json();
             const jobs = this.transformJSearchJobs(data.data || []);
             allJobs.push(...jobs.slice(0, 5)); // Take 5 jobs per query
-            
+
             // Add delay to respect rate limits
             await new Promise(resolve => setTimeout(resolve, 100));
           }
@@ -373,7 +373,7 @@ export class JobAggregator {
           console.log(`Skipping query "${query}":`, queryError);
         }
       }
-      
+
       console.log(`Fetched ${allJobs.length} real jobs from JSearch API`);
       return allJobs;
     } catch (error) {
@@ -457,16 +457,16 @@ export class JobAggregator {
 
   private extractRequirements(text: string): string[] {
     if (!text) return [];
-    
+
     const requirements: string[] = [];
     const lines = text.split('\n').map(line => line.trim());
-    
+
     for (const line of lines) {
       if (line.includes('require') || line.includes('must have') || line.includes('need')) {
         requirements.push(line);
       }
     }
-    
+
     return requirements.slice(0, 5); // Limit to 5 requirements
   }
 
@@ -474,7 +474,7 @@ export class JobAggregator {
     if (Array.isArray(skillsData)) {
       return skillsData.slice(0, 10);
     }
-    
+
     if (typeof skillsData === 'string') {
       // Extract skills from text using common patterns
       const commonSkills = [
@@ -484,20 +484,20 @@ export class JobAggregator {
         'Git', 'CI/CD', 'GraphQL', 'REST', 'API', 'Microservices',
         'Machine Learning', 'AI', 'Data Science', 'Analytics'
       ];
-      
-      const foundSkills = commonSkills.filter(skill => 
+
+      const foundSkills = commonSkills.filter(skill =>
         skillsData.toLowerCase().includes(skill.toLowerCase())
       );
-      
+
       return foundSkills.slice(0, 8);
     }
-    
+
     return [];
   }
 
   private normalizeWorkType(workTypeData: any): string {
     const workTypeStr = String(workTypeData).toLowerCase();
-    
+
     if (workTypeStr.includes('remote') || workTypeStr === 'true') {
       return 'remote';
     } else if (workTypeStr.includes('hybrid')) {
@@ -659,7 +659,7 @@ export class JobAggregator {
 
   private parseHiringCafeHTML(html: string): ExternalJob[] {
     const jobs: ExternalJob[] = [];
-    
+
     // Method 1: Extract JSON-LD structured data
     const jsonLdMatches = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/gs);
     if (jsonLdMatches) {
@@ -667,10 +667,10 @@ export class JobAggregator {
         try {
           const jsonContent = match.replace(/<script[^>]*>|<\/script>/g, '');
           const data = JSON.parse(jsonContent);
-          
+
           if (data['@type'] === 'JobPosting' || (Array.isArray(data) && data.some(item => item['@type'] === 'JobPosting'))) {
             const jobPostings = Array.isArray(data) ? data.filter(item => item['@type'] === 'JobPosting') : [data];
-            
+
             for (const job of jobPostings) {
               jobs.push({
                 id: `hiring_cafe_${job.identifier || Date.now()}_${jobs.length}`,
@@ -743,11 +743,11 @@ export class JobAggregator {
           const titleMatch = match.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>|(?:title|position)["']?[^>]*>([^<]+)/i);
           const companyMatch = match.match(/(?:company|employer)["']?[^>]*>([^<]+)/i);
           const locationMatch = match.match(/(?:location|city)["']?[^>]*>([^<]+)/i);
-          
+
           if (titleMatch && companyMatch) {
             const title = (titleMatch[1] || titleMatch[2] || '').trim();
             const company = companyMatch[1].trim();
-            
+
             if (title && company && title.length > 2 && company.length > 2) {
               jobs.push({
                 id: `hiring_cafe_html_${Date.now()}_${jobs.length}`,
@@ -815,20 +815,20 @@ export class JobAggregator {
     const jobs: ExternalJob[] = [];
     const itemRegex = /<item>(.*?)<\/item>/gs;
     const matches = xmlText.match(itemRegex);
-    
+
     if (matches) {
       matches.slice(0, 20).forEach((item, index) => {
         const titleMatch = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/);
         const linkMatch = item.match(/<link>(.*?)<\/link>/);
         const descMatch = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/);
         const pubDateMatch = item.match(/<pubDate>(.*?)<\/pubDate>/);
-        
+
         if (titleMatch && linkMatch) {
           const fullTitle = titleMatch[1];
           const titleParts = fullTitle.split(' at ');
           const title = titleParts[0] || fullTitle;
           const company = titleParts[1] || 'Company';
-          
+
           jobs.push({
             id: `indeed_rss_${index}`,
             title: title.trim(),
@@ -845,7 +845,7 @@ export class JobAggregator {
         }
       });
     }
-    
+
     return jobs;
   }
 
@@ -858,19 +858,19 @@ export class JobAggregator {
       'C#', '.NET', 'GraphQL', 'REST', 'API', 'DevOps', 'CI/CD', 'Linux',
       'Redis', 'Elasticsearch', 'Machine Learning', 'AI', 'Data Science'
     ];
-    
+
     const lowerText = text.toLowerCase();
-    return commonSkills.filter(skill => 
+    return commonSkills.filter(skill =>
       lowerText.includes(skill.toLowerCase())
     ).slice(0, 8);
   }
 
   async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
-    
+
     try {
       console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
-      
+
       // Fetch from all sources including new ones
       const [
         jsearchJobs,
@@ -899,22 +899,17 @@ export class JobAggregator {
       // Add jobs from successful fetches including new sources
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
       if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
-      // if (joobleJobs.status === 'fulfilled') allJobs.push(...joobleJobs.value);
-      // if (indeedJobs.status === 'fulfilled') allJobs.push(...indeedJobs.value);
-      // if (usaJobs.status === 'fulfilled') allJobs.push(...usaJobs.value);
       if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
-      // if (adzunaJobs.status === 'fulfilled') allJobs.push(...adzunaJobs.value);
-      // if (githubJobs.status === 'fulfilled') allJobs.push(...githubJobs.value);
       if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
       if (jsonJobs.status === 'fulfilled') allJobs.push(...jsonJobs.value);
-      
+
       console.log(`Successfully aggregated ${allJobs.length} jobs from external sources`);
-      
+
       // Remove duplicates based on title and company
-      const uniqueJobs = allJobs.filter((job, index, arr) => 
+      const uniqueJobs = allJobs.filter((job, index, arr) =>
         arr.findIndex(j => j.title === job.title && j.company === job.company) === index
       );
-      
+
       console.log(`After deduplication: ${uniqueJobs.length} unique jobs`);
       return uniqueJobs;
     } catch (error) {
@@ -928,24 +923,24 @@ export class JobAggregator {
     try {
       const queries = ['javascript', 'react', 'node.js', 'python', 'developer'];
       const allJobs: ExternalJob[] = [];
-      
+
       for (const query of queries) {
         try {
           const url = `https://jobs.github.com/positions.json?description=${encodeURIComponent(query)}&location=remote`;
           const response = await fetch(url);
-          
+
           if (response.ok) {
             const jobs = await response.json();
             const transformedJobs = this.transformGitHubJobs(jobs || []);
             allJobs.push(...transformedJobs.slice(0, 5));
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           console.log(`Skipping GitHub query "${query}":`, error);
         }
       }
-      
+
       console.log(`Fetched ${allJobs.length} real jobs from GitHub`);
       return allJobs;
     } catch (error) {
@@ -962,20 +957,20 @@ export class JobAggregator {
           'User-Agent': 'Recrutas-Platform/1.0'
         }
       });
-      
+
       if (response.ok) {
         const data: RemoteOKJob[] = await response.json();
         // Skip first item which is legal notice
         const jobs = data.slice(1);
         const transformedJobs = this.transformRemoteOKJobs(jobs || []);
-        
+
         console.log(`Fetched ${transformedJobs.length} real jobs from RemoteOK`);
         return transformedJobs.slice(0, 15);
       }
     } catch (error) {
       console.error('Error fetching from RemoteOK:', error);
     }
-    
+
     return [];
   }
 
@@ -984,7 +979,7 @@ export class JobAggregator {
     try {
       const categories = ['Software Engineer', 'Data Science', 'Product Management'];
       const allJobs: ExternalJob[] = [];
-      
+
       for (const category of categories) {
         try {
           const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level`;
@@ -993,19 +988,19 @@ export class JobAggregator {
               'User-Agent': 'Recrutas-Platform/1.0'
             }
           });
-          
+
           if (response.ok) {
             const data: MuseApiResponse = await response.json();
             const jobs = this.transformMuseJobs(data.results || []);
             allJobs.push(...jobs.slice(0, 5));
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
           console.log(`Skipping Muse category "${category}":`, error);
         }
       }
-      
+
       console.log(`Fetched ${allJobs.length} real jobs from The Muse`);
       return allJobs;
     } catch (error) {
@@ -1018,34 +1013,34 @@ export class JobAggregator {
   async fetchFromAdzunaDemo(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
       let queries = ['software developer', 'frontend engineer', 'backend developer'];
-      
+
       // Use user skills to create targeted queries
       if (userSkills && userSkills.length > 0) {
         queries = userSkills.map(skill => `${skill} developer`);
         queries.push(...userSkills.map(skill => `${skill} engineer`));
       }
-      
+
       const allJobs: ExternalJob[] = [];
-      
+
       for (const query of queries) {
         try {
           // Using demo credentials that are publicly available
           const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=demo&app_key=demo&results_per_page=50&what=${encodeURIComponent(query)}&content-type=application/json`;
-          
+
           const response = await fetch(url);
-          
+
           if (response.ok) {
             const data: AdzunaApiResponse = await response.json();
             const jobs = this.transformAdzunaJobs(data.results || []);
             allJobs.push(...jobs.slice(0, 3));
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
           console.log(`Skipping Adzuna query "${query}":`, error);
         }
       }
-      
+
       console.log(`Fetched ${allJobs.length} real jobs from Adzuna`);
       return allJobs;
     } catch (error) {
@@ -1075,7 +1070,7 @@ export class JobAggregator {
   // Generate diverse job listings for any skill set
   async generateRelevantJobs(userSkills?: string[]): Promise<ExternalJob[]> {
     const skill = userSkills?.[0]?.toLowerCase() || 'general';
-    
+
     // Job templates for different skill categories
     const jobTemplates = {
       sales: [
@@ -1115,7 +1110,7 @@ export class JobAggregator {
         { title: 'Clinical Specialist', company: 'Medical Center', description: 'Provide specialized clinical expertise and patient education' }
       ]
     };
-    
+
     // Determine which template to use
     let template = jobTemplates.sales; // default
     if (skill.includes('design')) template = jobTemplates.design;
@@ -1123,7 +1118,7 @@ export class JobAggregator {
     else if (skill.includes('finance')) template = jobTemplates.finance;
     else if (skill.includes('hr')) template = jobTemplates.hr;
     else if (skill.includes('healthcare') || skill.includes('medical')) template = jobTemplates.healthcare;
-    
+
     // Generate jobs from template
     return template.map((job, index) => ({
       id: `generated_${skill}_${index}_${Date.now()}`,
@@ -1147,7 +1142,7 @@ export class JobAggregator {
     const roles = ['Senior Software Engineer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'DevOps Engineer'];
     const locations = ['San Francisco, CA', 'New York, NY', 'Seattle, WA', 'Austin, TX', 'Remote', 'London, UK'];
     const workTypes: ('remote' | 'onsite' | 'hybrid')[] = ['remote', 'onsite', 'hybrid'];
-    
+
     const skillSets = [
       ['React', 'TypeScript', 'Node.js', 'GraphQL'],
       ['Python', 'Django', 'PostgreSQL', 'AWS'],
@@ -1162,7 +1157,7 @@ export class JobAggregator {
       const location = locations[index % locations.length];
       const workType = workTypes[index % workTypes.length];
       const skills = skillSets[index % skillSets.length];
-      
+
       return {
         id: `external_${post.id}_${Date.now()}`,
         title: role,
@@ -1185,12 +1180,12 @@ export class JobAggregator {
   private isValidURL(urlString: string): boolean {
     try {
       const url = new URL(urlString);
-      
+
       // Check for valid protocols
       if (!['http:', 'https:'].includes(url.protocol)) {
         return false;
       }
-      
+
       // Block common placeholder URLs
       const invalidPatterns = [
         '#',
@@ -1203,22 +1198,22 @@ export class JobAggregator {
         'undefined',
         'null'
       ];
-      
+
       const lowerUrl = urlString.toLowerCase();
       if (invalidPatterns.some(pattern => lowerUrl.includes(pattern))) {
         return false;
       }
-      
+
       // Ensure hostname exists and is not empty
       if (!url.hostname || url.hostname.length < 3) {
         return false;
       }
-      
+
       // Must have a valid TLD
       if (!url.hostname.includes('.')) {
         return false;
       }
-      
+
       return true;
     } catch {
       return false;
