@@ -1,4 +1,3 @@
-
 import {
   pgTable,
   text,
@@ -10,8 +9,8 @@ import {
   integer,
   boolean,
   numeric,
-  primaryKey,
 } from "drizzle-orm/pg-core";
+import { primaryKey } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";

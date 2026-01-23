@@ -930,7 +930,7 @@ export class JobAggregator {
           const response = await fetch(url);
 
           if (response.ok) {
-            const jobs = await response.json();
+            const jobs = await response.json() as any[];
             const transformedJobs = this.transformGitHubJobs(jobs || []);
             allJobs.push(...transformedJobs.slice(0, 5));
           }
@@ -959,7 +959,7 @@ export class JobAggregator {
       });
 
       if (response.ok) {
-        const data: RemoteOKJob[] = await response.json();
+        const data = await response.json() as RemoteOKJob[];
         // Skip first item which is legal notice
         const jobs = data.slice(1);
         const transformedJobs = this.transformRemoteOKJobs(jobs || []);

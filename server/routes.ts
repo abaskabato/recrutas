@@ -1,6 +1,5 @@
 import type { Express } from "express";
-import * as d from "drizzle-orm";
-const { eq, sql } = d;
+import { eq, sql } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";

@@ -54,8 +54,7 @@ import {
   type InsertNotificationPreferences
 } from "../shared/schema.js";
 import { db } from "./db";
-import * as d from "drizzle-orm";
-const { eq, desc, and, or, inArray, sql } = d;
+import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
 import { supabaseAdmin } from "./lib/supabase-admin";
 
 /**
@@ -179,6 +178,9 @@ export interface IStorage {
 
   // Interview operations
   createInterview(interview: any): Promise<any>;
+
+  // File operations
+  uploadResume(fileBuffer: Buffer, mimetype: string): Promise<string>;
 }
 
 /**

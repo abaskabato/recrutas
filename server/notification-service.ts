@@ -11,8 +11,7 @@ import {
   type NotificationPreferences,
   type User
 } from "@shared/schema";
-import * as d from "drizzle-orm";
-const { eq, and, desc, gt } = d;
+import { eq, and, desc, gt } from "drizzle-orm";
 import { WebSocket } from "ws";
 import { sendApplicationStatusEmail, sendInterviewScheduledEmail, sendNewMatchEmail } from "./email-service";
 import { captureException } from "./error-monitoring";

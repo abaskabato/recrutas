@@ -1,5 +1,5 @@
 import { IStorage } from '../storage';
-import { IAIResumeParser } from '../ai-resume-parser';
+import { AIResumeParser } from '../ai-resume-parser';
 import { User } from '@shared/schema'; // Assuming User type is available from shared schema
 
 // Define a custom error for resume processing failures
@@ -40,7 +40,7 @@ export interface ResumeProcessingResult {
 export class ResumeService {
   constructor(
     private storage: IStorage,
-    private aiResumeParser: IAIResumeParser // Will be used when AI parsing is re-enabled
+    private aiResumeParser: AIResumeParser
   ) {}
 
   async uploadAndProcessResume(

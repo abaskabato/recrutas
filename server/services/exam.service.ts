@@ -1,6 +1,9 @@
+import { IStorage } from "../storage";
 
-import { storage } from "../storage";
-import { notificationService } from '../notification-service';
+// Interface for notification service to avoid circular dependency
+interface INotificationService {
+  notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, timeSpent: number): Promise<void>;
+}
 
 class ExamProcessingError extends Error {
   constructor(message: string) {
@@ -10,7 +13,7 @@ class ExamProcessingError extends Error {
 }
 
 export class ExamService {
-  constructor(private storage: typeof storage, private notificationService: typeof notificationService) {}
+  constructor(private storage: IStorage, private notificationService: INotificationService) {}
 
   async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number }> {
     console.log(`[ExamService] Submitting exam for job ${jobId} and user ${userId}`);

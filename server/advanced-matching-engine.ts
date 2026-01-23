@@ -255,7 +255,7 @@ export class AdvancedMatchingEngine {
   async getPersonalizedJobFeed(candidateId: string, limit: number = 20): Promise<EnhancedJobMatch[]> {
     try {
       // Get candidate profile
-      const profile = await storage.getCandidateProfile(candidateId);
+      const profile = await storage.getCandidateUser(candidateId);
       if (!profile) return [];
 
       const criteria: AdvancedMatchCriteria = {
@@ -277,7 +277,7 @@ export class AdvancedMatchingEngine {
 
   async updateMatchPreferences(candidateId: string, preferences: Partial<AdvancedMatchCriteria>): Promise<void> {
     // Store updated preferences for future matching
-    await storage.upsertCandidateProfile({
+    await storage.upsertCandidateUser({
       userId: candidateId,
       workType: preferences.workType,
       industry: preferences.industry,

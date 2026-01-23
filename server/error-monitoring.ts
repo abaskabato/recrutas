@@ -1,8 +1,8 @@
 /**
  * Error Monitoring Service
- * Provides Sentry integration for error tracking and performance monitoring
+ * Provides error tracking and performance monitoring with optional Sentry integration
  *
- * This module wraps Sentry functionality with graceful degradation
+ * This module wraps monitoring functionality with graceful degradation
  * when Sentry is not configured (development mode or missing API key)
  */
 
@@ -23,51 +23,52 @@ const SENTRY_DSN = process.env.SENTRY_DSN;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SENTRY_ENABLED = !!SENTRY_DSN;
 
-// Sentry lazy initialization - use 'any' to avoid TypeScript issues with dynamic imports
-let sentryInstance: any = null;
+// Sentry module reference (loaded dynamically if available)
+let sentryModule: any = null;
 let sentryInitialized = false;
 
-async function getSentry(): Promise<any> {
-  if (!SENTRY_ENABLED) return null;
+async function initSentry(): Promise<boolean> {
+  if (!SENTRY_ENABLED || sentryInitialized) return sentryModule !== null;
 
-  if (!sentryInitialized) {
-    try {
-      const Sentry = await import('@sentry/node');
-      Sentry.init({
-        dsn: SENTRY_DSN,
-        environment: process.env.NODE_ENV || 'development',
-        release: process.env.npm_package_version || '1.0.0',
-        tracesSampleRate: IS_PRODUCTION ? 0.1 : 1.0, // Sample 10% in production
-        profilesSampleRate: IS_PRODUCTION ? 0.1 : 1.0,
-        integrations: [],
-        beforeSend(event: any) {
-          // Scrub sensitive data
-          if (event.request?.headers) {
-            delete event.request.headers['authorization'];
-            delete event.request.headers['cookie'];
-          }
-          return event;
-        },
-      });
-      sentryInstance = Sentry;
-      sentryInitialized = true;
-      console.log('[ErrorMonitoring] Sentry initialized successfully');
-    } catch (error) {
-      console.warn('[ErrorMonitoring] Failed to initialize Sentry:', (error as Error).message);
-      sentryInitialized = true; // Mark as initialized to prevent retry loops
-      return null;
+  sentryInitialized = true;
+
+  try {
+    // Dynamic import with proper handling
+    const Sentry = await import('@sentry/node').catch(() => null);
+    if (!Sentry) {
+      console.log('[ErrorMonitoring] Sentry not available, using console logging');
+      return false;
     }
-  }
 
-  return sentryInstance;
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      release: process.env.npm_package_version || '1.0.0',
+      tracesSampleRate: IS_PRODUCTION ? 0.1 : 1.0,
+      profilesSampleRate: IS_PRODUCTION ? 0.1 : 1.0,
+      integrations: [],
+      beforeSend(event: any) {
+        if (event.request?.headers) {
+          delete event.request.headers['authorization'];
+          delete event.request.headers['cookie'];
+        }
+        return event;
+      },
+    });
+
+    sentryModule = Sentry;
+    console.log('[ErrorMonitoring] Sentry initialized successfully');
+    return true;
+  } catch (error) {
+    console.log('[ErrorMonitoring] Sentry initialization skipped:', (error as Error).message);
+    return false;
+  }
 }
 
 /**
  * Capture an exception with optional context
  */
 export async function captureException(error: Error, context?: ErrorContext): Promise<string | null> {
-  const sentry = await getSentry();
-
   // Always log errors regardless of Sentry status
   console.error('[Error]', {
     message: error.message,
@@ -75,12 +76,14 @@ export async function captureException(error: Error, context?: ErrorContext): Pr
     ...context
   });
 
-  if (!sentry) {
+  await initSentry();
+
+  if (!sentryModule) {
     return null;
   }
 
   try {
-    sentry.withScope((scope) => {
+    sentryModule.withScope((scope: any) => {
       if (context?.userId) {
         scope.setUser({ id: context.userId });
       }
@@ -95,8 +98,7 @@ export async function captureException(error: Error, context?: ErrorContext): Pr
       }
     });
 
-    const eventId = sentry.captureException(error);
-    return eventId;
+    return sentryModule.captureException(error);
   } catch (sentryError) {
     console.warn('[ErrorMonitoring] Failed to send to Sentry:', (sentryError as Error).message);
     return null;
@@ -111,8 +113,6 @@ export async function captureMessage(
   level: 'info' | 'warning' | 'error' | 'fatal' = 'info',
   context?: ErrorContext
 ): Promise<string | null> {
-  const sentry = await getSentry();
-
   // Log based on level
   switch (level) {
     case 'fatal':
@@ -126,14 +126,15 @@ export async function captureMessage(
       console.info('[Info]', message, context);
   }
 
-  if (!sentry) {
+  await initSentry();
+
+  if (!sentryModule) {
     return null;
   }
 
   try {
-    const eventId = sentry.captureMessage(message, level);
-    return eventId;
-  } catch (sentryError) {
+    return sentryModule.captureMessage(message, level);
+  } catch {
     console.warn('[ErrorMonitoring] Failed to send message to Sentry');
     return null;
   }
@@ -164,9 +165,9 @@ export async function startSpan(name: string, operation: string): Promise<Perfor
  * Set user context for all subsequent events
  */
 export async function setUser(user: { id: string; email?: string; role?: string }): Promise<void> {
-  const sentry = await getSentry();
-  if (sentry) {
-    sentry.setUser(user);
+  await initSentry();
+  if (sentryModule) {
+    sentryModule.setUser(user);
   }
 }
 
@@ -174,9 +175,9 @@ export async function setUser(user: { id: string; email?: string; role?: string 
  * Clear user context (on logout)
  */
 export async function clearUser(): Promise<void> {
-  const sentry = await getSentry();
-  if (sentry) {
-    sentry.setUser(null);
+  await initSentry();
+  if (sentryModule) {
+    sentryModule.setUser(null);
   }
 }
 
@@ -188,9 +189,9 @@ export async function addBreadcrumb(
   message: string,
   data?: Record<string, any>
 ): Promise<void> {
-  const sentry = await getSentry();
-  if (sentry) {
-    sentry.addBreadcrumb({
+  await initSentry();
+  if (sentryModule) {
+    sentryModule.addBreadcrumb({
       category,
       message,
       data,
@@ -204,8 +205,7 @@ export async function addBreadcrumb(
  * Express error handling middleware
  */
 export function errorHandlerMiddleware() {
-  return async (err: Error, req: any, res: any, next: any) => {
-    // Capture the error
+  return async (err: Error, req: any, res: any, _next: any) => {
     await captureException(err, {
       userId: req.user?.id,
       action: `${req.method} ${req.path}`,
@@ -217,7 +217,6 @@ export function errorHandlerMiddleware() {
       }
     });
 
-    // Send error response
     const status = (err as any).status || (err as any).statusCode || 500;
     const message = IS_PRODUCTION ? 'An unexpected error occurred' : err.message;
 
@@ -248,9 +247,8 @@ export function requestTracingMiddleware() {
  * Graceful shutdown handler
  */
 export async function flushAndClose(timeout: number = 2000): Promise<void> {
-  const sentry = await getSentry();
-  if (sentry) {
-    await sentry.close(timeout);
+  if (sentryModule) {
+    await sentryModule.close(timeout);
     console.log('[ErrorMonitoring] Sentry closed');
   }
 }
