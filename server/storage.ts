@@ -54,7 +54,9 @@ import {
   type InsertNotificationPreferences
 } from "../shared/schema.js";
 import { db } from "./db";
-import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
+import { sql } from "drizzle-orm/sql";
+import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
 
 /**

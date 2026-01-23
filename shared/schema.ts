@@ -10,7 +10,7 @@ import {
   boolean,
   numeric,
 } from "drizzle-orm/pg-core";
-import { primaryKey } from "drizzle-orm";
+import { primaryKey } from "drizzle-orm/primary-key";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";

@@ -1,5 +1,6 @@
 import type { Express } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm/sql";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
