@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { 
-  notifications, 
-  notificationPreferences, 
+import {
+  notifications,
+  notificationPreferences,
   connectionStatus,
   users,
   jobPostings,
@@ -9,10 +9,12 @@ import {
   jobMatches,
   type InsertNotification,
   type NotificationPreferences,
-  type User 
+  type User
 } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gt } from "drizzle-orm";
 import { WebSocket } from "ws";
+import { sendApplicationStatusEmail, sendInterviewScheduledEmail, sendNewMatchEmail } from "./email-service";
+import { captureException } from "./error-monitoring";
 
 interface NotificationData {
   userId: string;
@@ -26,6 +28,12 @@ interface NotificationData {
   relatedMatchId?: number;
 }
 
+// Polling state for Vercel serverless compatibility
+interface PollingState {
+  lastPollTime: Date;
+  pendingNotifications: any[];
+}
+
 interface WebSocketClient extends WebSocket {
   userId?: string;
   isAlive?: boolean;
@@ -33,6 +41,9 @@ interface WebSocketClient extends WebSocket {
 
 class NotificationService {
   private connectedClients: Map<string, WebSocketClient[]> = new Map();
+  private pollingClients: Map<string, PollingState> = new Map();
+  private readonly POLLING_TIMEOUT = 30000; // 30 seconds for long-polling
+  private readonly STALE_CONNECTION_TIMEOUT = 60000; // 1 minute
 
   // WebSocket connection management
   addConnection(userId: string, ws: WebSocketClient) {
@@ -208,9 +219,72 @@ class NotificationService {
   }
 
   private async sendEmailNotification(userId: string, data: NotificationData) {
-    // Email notification logic would go here
-    // For now, we'll just log it
-    console.log(`Email notification would be sent to user ${userId}:`, data);
+    try {
+      // Get user email
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user?.email) {
+        console.warn(`Cannot send email notification: No email for user ${userId}`);
+        return;
+      }
+
+      const userName = user.firstName || 'User';
+
+      // Send appropriate email based on notification type
+      switch (data.type) {
+        case 'application_viewed':
+        case 'application_ranked':
+        case 'application_accepted':
+        case 'application_rejected':
+          await sendApplicationStatusEmail(
+            user.email,
+            userName,
+            data.data?.jobTitle || 'Unknown Position',
+            data.data?.companyName || 'Unknown Company',
+            data.type === 'application_viewed' ? 'viewed' :
+            data.type === 'application_ranked' ? 'shortlisted' :
+            data.type === 'application_accepted' ? 'accepted' : 'rejected',
+            { feedback: data.data?.feedback }
+          );
+          break;
+
+        case 'interview_scheduled':
+          await sendApplicationStatusEmail(
+            user.email,
+            userName,
+            data.data?.jobTitle || 'Unknown Position',
+            data.data?.companyName || 'Unknown Company',
+            'interview_scheduled',
+            { interviewDate: data.data?.interviewDate }
+          );
+          break;
+
+        case 'new_match':
+          await sendNewMatchEmail(
+            user.email,
+            userName,
+            data.data?.jobTitle || 'Unknown Position',
+            data.data?.companyName || 'Unknown Company',
+            parseInt(data.data?.matchScore || '0'),
+            data.data?.skills || [],
+            data.relatedJobId || 0
+          );
+          break;
+
+        default:
+          console.log(`Email notification sent to ${user.email}: ${data.title}`);
+      }
+    } catch (error) {
+      await captureException(error as Error, {
+        userId,
+        action: 'sendEmailNotification',
+        component: 'notification-service',
+        metadata: { notificationType: data.type }
+      });
+    }
   }
 
   // Specific notification creators
@@ -434,12 +508,195 @@ class NotificationService {
             this.removeConnection(userId, ws);
             return;
           }
-          
+
           ws.isAlive = false;
           ws.ping();
         });
       });
     }, 30000); // 30 seconds
+
+    // Cleanup stale polling clients
+    setInterval(() => {
+      const now = Date.now();
+      this.pollingClients.forEach((state, userId) => {
+        if (now - state.lastPollTime.getTime() > this.STALE_CONNECTION_TIMEOUT) {
+          this.pollingClients.delete(userId);
+        }
+      });
+    }, 60000); // Every minute
+  }
+
+  // ============================================
+  // POLLING-BASED NOTIFICATIONS (Vercel Compatible)
+  // ============================================
+
+  /**
+   * Get notifications for polling clients (Vercel serverless compatible)
+   * Supports both long-polling and regular polling
+   */
+  async pollNotifications(userId: string, options: {
+    lastNotificationId?: number;
+    longPoll?: boolean;
+    timeout?: number;
+  } = {}): Promise<{
+    notifications: any[];
+    unreadCount: number;
+    hasMore: boolean;
+  }> {
+    const { lastNotificationId, longPoll = false, timeout = this.POLLING_TIMEOUT } = options;
+
+    // Update polling state
+    this.pollingClients.set(userId, {
+      lastPollTime: new Date(),
+      pendingNotifications: []
+    });
+
+    try {
+      // Get new notifications since last poll
+      let query = db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(50);
+
+      if (lastNotificationId) {
+        const results = await db
+          .select()
+          .from(notifications)
+          .where(and(
+            eq(notifications.userId, userId),
+            gt(notifications.id, lastNotificationId)
+          ))
+          .orderBy(desc(notifications.createdAt))
+          .limit(50);
+
+        // If long-polling and no new notifications, wait briefly then return
+        if (longPoll && results.length === 0) {
+          // Short wait to avoid tight polling loops
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Check again
+          const retryResults = await db
+            .select()
+            .from(notifications)
+            .where(and(
+              eq(notifications.userId, userId),
+              gt(notifications.id, lastNotificationId)
+            ))
+            .orderBy(desc(notifications.createdAt))
+            .limit(50);
+
+          const unreadCount = await this.getUnreadCount(userId);
+          return {
+            notifications: retryResults,
+            unreadCount,
+            hasMore: retryResults.length >= 50
+          };
+        }
+
+        const unreadCount = await this.getUnreadCount(userId);
+        return {
+          notifications: results,
+          unreadCount,
+          hasMore: results.length >= 50
+        };
+      }
+
+      // Initial poll - get recent notifications
+      const results = await query;
+      const unreadCount = await this.getUnreadCount(userId);
+
+      return {
+        notifications: results,
+        unreadCount,
+        hasMore: results.length >= 50
+      };
+    } catch (error) {
+      await captureException(error as Error, {
+        userId,
+        action: 'pollNotifications',
+        component: 'notification-service'
+      });
+      return {
+        notifications: [],
+        unreadCount: 0,
+        hasMore: false
+      };
+    }
+  }
+
+  /**
+   * Get real-time status (for polling clients to check connection status)
+   */
+  async getConnectionStatus(userId: string): Promise<{
+    isOnline: boolean;
+    lastSeen: Date | null;
+    connectionType: 'websocket' | 'polling' | 'disconnected';
+  }> {
+    const hasWebSocket = this.connectedClients.has(userId);
+    const hasPolling = this.pollingClients.has(userId);
+
+    let lastSeen: Date | null = null;
+
+    try {
+      const [status] = await db
+        .select()
+        .from(connectionStatus)
+        .where(eq(connectionStatus.userId, userId));
+
+      if (status) {
+        lastSeen = status.lastSeen;
+      }
+    } catch (error) {
+      console.error('Error getting connection status:', error);
+    }
+
+    return {
+      isOnline: hasWebSocket || hasPolling,
+      lastSeen,
+      connectionType: hasWebSocket ? 'websocket' : (hasPolling ? 'polling' : 'disconnected')
+    };
+  }
+
+  /**
+   * Subscribe to notifications via polling (register polling client)
+   */
+  async subscribePolling(userId: string): Promise<{ success: boolean; pollingInterval: number }> {
+    this.pollingClients.set(userId, {
+      lastPollTime: new Date(),
+      pendingNotifications: []
+    });
+
+    await this.updateConnectionStatus(userId, true);
+
+    return {
+      success: true,
+      pollingInterval: 5000 // Recommend 5 second polling interval
+    };
+  }
+
+  /**
+   * Unsubscribe from polling
+   */
+  async unsubscribePolling(userId: string): Promise<void> {
+    this.pollingClients.delete(userId);
+
+    // Only mark offline if no WebSocket connection exists
+    if (!this.connectedClients.has(userId)) {
+      await this.updateConnectionStatus(userId, false);
+    }
+  }
+
+  /**
+   * Check if user has any active connection (WebSocket or polling)
+   */
+  isUserConnected(userId: string): boolean {
+    const hasWebSocket = this.connectedClients.has(userId) &&
+      (this.connectedClients.get(userId)?.length ?? 0) > 0;
+    const hasPolling = this.pollingClients.has(userId);
+
+    return hasWebSocket || hasPolling;
   }
 }
 

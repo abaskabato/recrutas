@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes.js";
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import cors from 'cors';
+import { errorHandlerMiddleware, requestTracingMiddleware, captureException } from './error-monitoring.js';
 
 const app = express();
 
@@ -38,9 +39,12 @@ async function initializeSupabase() {
 }
 
 export async function configureApp() {
-  app.use(cors()); // Add this line
+  app.use(cors());
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
+
+  // Request tracing middleware for performance monitoring (Sentry)
+  app.use(requestTracingMiddleware());
 
   // Middleware for logging
   app.use((req, res, next) => {
@@ -72,12 +76,8 @@ export async function configureApp() {
     }
   });
 
-  // Error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
+  // Error handling middleware with Sentry integration
+  app.use(errorHandlerMiddleware());
 
   return app;
 }

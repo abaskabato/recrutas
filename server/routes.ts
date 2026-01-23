@@ -685,6 +685,55 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Polling-based notification endpoints (Vercel serverless compatible)
+  app.get('/api/notifications/poll', isAuthenticated, async (req: any, res) => {
+    try {
+      const lastNotificationId = req.query.lastId ? parseInt(req.query.lastId as string) : undefined;
+      const longPoll = req.query.longPoll === 'true';
+
+      const result = await notificationService.pollNotifications(req.user.id, {
+        lastNotificationId,
+        longPoll,
+        timeout: 25000 // 25 seconds max for Vercel
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error polling notifications:", error);
+      res.status(500).json({ message: "Failed to poll notifications" });
+    }
+  });
+
+  app.post('/api/notifications/subscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await notificationService.subscribePolling(req.user.id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error subscribing to notifications:", error);
+      res.status(500).json({ message: "Failed to subscribe to notifications" });
+    }
+  });
+
+  app.post('/api/notifications/unsubscribe', isAuthenticated, async (req: any, res) => {
+    try {
+      await notificationService.unsubscribePolling(req.user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unsubscribing from notifications:", error);
+      res.status(500).json({ message: "Failed to unsubscribe from notifications" });
+    }
+  });
+
+  app.get('/api/notifications/connection-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const status = await notificationService.getConnectionStatus(req.user.id);
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting connection status:", error);
+      res.status(500).json({ message: "Failed to get connection status" });
+    }
+  });
+
   // Interview scheduling endpoint
   app.post('/api/interviews/schedule', isAuthenticated, async (req: any, res) => {
     try {

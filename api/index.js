@@ -1,4 +1,5 @@
-import { configureApp } from '../server/index.js';
+import { configureApp } from '../server/index.ts';
+import { captureException, captureMessage } from '../server/error-monitoring.ts';
 
 let appInstance = null;
 
@@ -47,14 +48,21 @@ export default async function handler(req, res) {
       // Timeout after 50 seconds (Vercel limit is 60s)
       setTimeout(() => {
         if (!responseSent) {
-          console.error('Request timeout');
+          captureMessage('Request timeout', 'warning', {
+            action: `${req.method} ${req.url}`,
+            component: 'vercel-handler'
+          });
           res.status(504).json({ error: 'Request timeout' });
           resolve();
         }
       }, 50000);
     });
   } catch (error) {
-    console.error('API Handler Error:', error);
+    await captureException(error, {
+      action: `${req.method} ${req.url}`,
+      component: 'vercel-handler',
+      metadata: { path: req.url }
+    });
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal Server Error', message: error.message });
     }
