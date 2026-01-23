@@ -45,13 +45,21 @@ export class InstantJobDelivery {
       return this.processAndRankJobs(cachedJobs, request);
     }
 
-    // Fetch from multiple sources simultaneously
-    const [externalJobs, companyJobs] = await Promise.all([
+    // Fetch from multiple sources simultaneously with fault tolerance
+    const results = await Promise.allSettled([
       this.fetchExternalJobs(request),
       this.fetchCompanyJobs(request)
     ]);
 
-    const allJobs = [...externalJobs, ...companyJobs];
+    // Collect successful results, ignore failures
+    const allJobs: any[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allJobs.push(...result.value);
+      } else {
+        console.warn('Job source failed:', result.reason);
+      }
+    }
     const rankedJobs = this.processAndRankJobs(allJobs, request);
     
     // Cache results for faster subsequent requests
@@ -62,14 +70,27 @@ export class InstantJobDelivery {
 
   private async fetchExternalJobs(request: InstantJobRequest): Promise<any[]> {
     try {
-      // Use public job sources that don't require API keys
-      const [indeedJobs, usaJobs, githubJobs] = await Promise.all([
+      // Use public job sources that don't require API keys with fault tolerance
+      const results = await Promise.allSettled([
         jobAggregator.fetchFromIndeedRSS(request.skills),
         jobAggregator.fetchFromUSAJobs(request.skills),
         jobAggregator.fetchGitHubJobs()
       ]);
 
-      return [...indeedJobs, ...usaJobs, ...githubJobs];
+      // Collect successful results, log failures but continue
+      const jobs: any[] = [];
+      const sourceNames = ['Indeed RSS', 'USAJobs', 'GitHub Jobs'];
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === 'fulfilled') {
+          jobs.push(...result.value);
+        } else {
+          console.warn(`${sourceNames[i]} failed:`, result.reason?.message || result.reason);
+        }
+      }
+
+      return jobs;
     } catch (error) {
       console.error('Error fetching external jobs:', error);
       return [];

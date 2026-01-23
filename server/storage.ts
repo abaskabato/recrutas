@@ -35,6 +35,7 @@ import {
   savedJobs,
   hiddenJobs,
   talentOwnerProfiles,
+  interviews,
   type User,
   type UpsertUser,
   type CandidateProfile,
@@ -175,6 +176,9 @@ export interface IStorage {
   getHiddenJobIds(userId: string): Promise<number[]>;
   // Discover operations
   findMatchingCandidates(jobId: number): Promise<any[]>;
+
+  // Interview operations
+  createInterview(interview: any): Promise<any>;
 }
 
 /**
@@ -1587,6 +1591,39 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error updating application intelligence:', error);
+      throw error;
+    }
+  }
+
+  // Interview operations
+  async createInterview(interview: any): Promise<any> {
+    try {
+      const [result] = await db.insert(interviews).values({
+        candidateId: interview.candidateId,
+        interviewerId: interview.interviewerId,
+        jobId: interview.jobId,
+        applicationId: interview.applicationId,
+        scheduledAt: new Date(interview.scheduledAt),
+        duration: interview.duration || 60,
+        platform: interview.platform || 'video',
+        meetingLink: interview.meetingLink,
+        notes: interview.notes,
+        status: 'scheduled',
+      }).returning();
+
+      // Update application status to interview_scheduled
+      await db
+        .update(jobApplications)
+        .set({
+          status: 'interview_scheduled',
+          interviewLink: interview.meetingLink,
+          updatedAt: new Date()
+        })
+        .where(eq(jobApplications.id, interview.applicationId));
+
+      return result;
+    } catch (error) {
+      console.error('Error creating interview:', error);
       throw error;
     }
   }

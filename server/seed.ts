@@ -20,10 +20,18 @@ export async function seedDatabase() {
     await db.delete(activityLogs);
     // await db.delete(users);
 
-    // Create a specific user
+    // Create a specific user from environment variables
+    const seedEmail = process.env.SEED_USER_EMAIL;
+    const seedPassword = process.env.SEED_USER_PASSWORD;
+
+    if (!seedEmail || !seedPassword) {
+      console.error('SEED_USER_EMAIL and SEED_USER_PASSWORD environment variables are required for seeding');
+      return;
+    }
+
     const { data: { user }, error } = await supabaseAdmin.auth.admin.createUser({
-      email: "abaskabato@gmail.com",
-      password: "123456",
+      email: seedEmail,
+      password: seedPassword,
       email_confirm: true,
       user_metadata: { role: 'candidate' }
     });
@@ -41,8 +49,8 @@ export async function seedDatabase() {
     await db.insert(users).values({
       id: user.id,
       email: user.email,
-      firstName: "Abas",
-      lastName: "Kabato",
+      firstName: process.env.SEED_USER_FIRST_NAME || "Test",
+      lastName: process.env.SEED_USER_LAST_NAME || "User",
       role: "candidate",
     });
 

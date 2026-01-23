@@ -643,5 +643,173 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Notification endpoints
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const notifications = await notificationService.getAllNotifications(req.user.id);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get('/api/notifications/count', isAuthenticated, async (req: any, res) => {
+    try {
+      const count = await notificationService.getUnreadCount(req.user.id);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+      res.status(500).json({ message: "Failed to fetch notification count" });
+    }
+  });
+
+  app.post('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      await notificationService.markAsRead(notificationId, req.user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.post('/api/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+    try {
+      await notificationService.markAllAsRead(req.user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  // Interview scheduling endpoint
+  app.post('/api/interviews/schedule', isAuthenticated, async (req: any, res) => {
+    try {
+      const { candidateId, jobId, applicationId, scheduledAt, duration, platform, meetingLink, notes } = req.body;
+
+      if (!candidateId || !jobId || !applicationId || !scheduledAt) {
+        return res.status(400).json({ message: "candidateId, jobId, applicationId, and scheduledAt are required" });
+      }
+
+      // Verify the talent owner has permission to schedule interviews for this job
+      const job = await storage.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== req.user.id) {
+        return res.status(403).json({ message: "Unauthorized to schedule interviews for this job" });
+      }
+
+      const interview = await storage.createInterview({
+        candidateId,
+        interviewerId: req.user.id,
+        jobId,
+        applicationId,
+        scheduledAt,
+        duration: duration || 60,
+        platform: platform || 'video',
+        meetingLink,
+        notes
+      });
+
+      // Notify the candidate about the scheduled interview
+      const candidate = await storage.getCandidateUser(candidateId);
+      const formattedDate = new Date(scheduledAt).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      await notificationService.notifyInterviewScheduled(
+        candidateId,
+        job.company,
+        job.title,
+        formattedDate,
+        applicationId
+      );
+
+      res.json(interview);
+    } catch (error) {
+      console.error("Error scheduling interview:", error);
+      res.status(500).json({ message: "Failed to schedule interview" });
+    }
+  });
+
+  // Advanced matching endpoints
+  app.get('/api/advanced-matches/:candidateId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { candidateId } = req.params;
+
+      // Verify the user is requesting their own matches or is a talent owner
+      const user = await storage.getUser(req.user.id);
+      if (candidateId !== req.user.id && user?.role !== 'talent_owner') {
+        return res.status(403).json({ message: "Unauthorized to view these matches" });
+      }
+
+      const matches = await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
+      res.json(matches);
+    } catch (error) {
+      console.error("Error fetching advanced matches:", error);
+      res.status(500).json({ message: "Failed to fetch advanced matches" });
+    }
+  });
+
+  app.put('/api/candidate/match-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const preferences = req.body;
+      await advancedMatchingEngine.updateMatchPreferences(req.user.id, preferences);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating match preferences:", error);
+      res.status(500).json({ message: "Failed to update match preferences" });
+    }
+  });
+
+  // Exam retrieval endpoint
+  app.get('/api/jobs/:jobId/exam', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = await storage.getJobPosting(jobId);
+
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (!job.hasExam) {
+        return res.status(404).json({ message: "This job does not have an exam" });
+      }
+
+      const exam = await storage.getJobExam(jobId);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found for this job" });
+      }
+
+      // Return exam without correct answers for candidates
+      const examForCandidate = {
+        id: exam.id,
+        jobId: exam.jobId,
+        title: exam.title,
+        questions: exam.questions.map((q: any) => ({
+          id: q.id,
+          question: q.question,
+          type: q.type,
+          options: q.options,
+          points: q.points
+          // Note: correctAnswer is intentionally omitted
+        })),
+        timeLimit: exam.timeLimit,
+        passingScore: exam.passingScore
+      };
+
+      res.json(examForCandidate);
+    } catch (error) {
+      console.error("Error fetching exam:", error);
+      res.status(500).json({ message: "Failed to fetch exam" });
+    }
+  });
+
   return app;
 }
