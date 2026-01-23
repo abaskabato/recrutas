@@ -23,23 +23,24 @@ const SENTRY_DSN = process.env.SENTRY_DSN;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SENTRY_ENABLED = !!SENTRY_DSN;
 
-// Sentry lazy initialization
-let sentryInstance: typeof import('@sentry/node') | null = null;
+// Sentry lazy initialization - use 'any' to avoid TypeScript issues with dynamic imports
+let sentryInstance: any = null;
+let sentryInitialized = false;
 
-async function getSentry() {
+async function getSentry(): Promise<any> {
   if (!SENTRY_ENABLED) return null;
 
-  if (!sentryInstance) {
+  if (!sentryInitialized) {
     try {
-      sentryInstance = await import('@sentry/node');
-      sentryInstance.init({
+      const Sentry = await import('@sentry/node');
+      Sentry.init({
         dsn: SENTRY_DSN,
         environment: process.env.NODE_ENV || 'development',
         release: process.env.npm_package_version || '1.0.0',
         tracesSampleRate: IS_PRODUCTION ? 0.1 : 1.0, // Sample 10% in production
         profilesSampleRate: IS_PRODUCTION ? 0.1 : 1.0,
         integrations: [],
-        beforeSend(event) {
+        beforeSend(event: any) {
           // Scrub sensitive data
           if (event.request?.headers) {
             delete event.request.headers['authorization'];
@@ -48,9 +49,12 @@ async function getSentry() {
           return event;
         },
       });
+      sentryInstance = Sentry;
+      sentryInitialized = true;
       console.log('[ErrorMonitoring] Sentry initialized successfully');
     } catch (error) {
       console.warn('[ErrorMonitoring] Failed to initialize Sentry:', (error as Error).message);
+      sentryInitialized = true; // Mark as initialized to prevent retry loops
       return null;
     }
   }
