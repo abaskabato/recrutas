@@ -46,10 +46,7 @@ const resumeService = new ResumeService(storage, aiResumeParser);
 const examService = new ExamService(storage, notificationService);
 
 // Configure multer for file uploads
-const uploadDir = "uploads";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Use memory storage for serverless compatibility (no filesystem access)
 const storageConfig = multer.memoryStorage();
 const upload = multer({
   storage: storageConfig,
