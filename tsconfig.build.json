@@ -4,7 +4,8 @@
     "noEmit": false,
     "outDir": "./dist",
     "rootDir": ".",
-    "module": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "ES2022",
     "skipLibCheck": true,
     "declaration": false,
@@ -13,7 +14,8 @@
     "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
-    "allowJs": true
+    "allowJs": true,
+    "esModuleInterop": true
   },
   "include": [
     "server/**/*.ts",
