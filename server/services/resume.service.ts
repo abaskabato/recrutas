@@ -50,10 +50,12 @@ export class ResumeService {
   ): Promise<ResumeProcessingResult> {
     let resumeUrl: string;
     try {
+      console.log('ResumeService: Starting file upload to storage...');
       resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
+      console.log('ResumeService: File uploaded successfully to:', resumeUrl);
     } catch (error) {
       console.error('ResumeService: Error uploading resume to storage:', error);
-      throw new ResumeProcessingError('Failed to upload resume to storage', error);
+      throw new ResumeProcessingError('Failed to upload resume to storage. Check Supabase configuration and storage bucket.', error);
     }
 
 
@@ -87,12 +89,18 @@ export class ResumeService {
     // Resume parsing using external libraries like pdf-parse and mammoth
     // and AI-powered extraction
     try {
+      console.log('ResumeService: Starting AI resume parsing...');
       const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
       parsedData = result;
       aiExtracted = result.aiExtracted;
       parsingSuccess = true;
+      console.log('ResumeService: AI parsing completed successfully');
     } catch (parseError) {
       console.error('ResumeService: AI Resume parsing failed:', parseError);
+      console.error('ResumeService: Error details:', {
+        message: parseError?.message,
+        name: parseError?.name
+      });
       // Continue with upload even if parsing fails, but log the error
       // Fallback: If AI parsing fails, ensure aiExtracted is still an object to avoid crashes
       aiExtracted = aiExtracted || {

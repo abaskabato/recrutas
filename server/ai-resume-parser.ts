@@ -221,11 +221,14 @@ English (Native), Spanish (Conversational)`;
       const apiKey = process.env.GROQ_API_KEY;
 
       if (!apiKey || apiKey === '%GROQ_API_KEY%') {
-        throw new Error('GROQ_API_KEY is not set');
+        console.error('AIResumeParser: GROQ_API_KEY is not set or invalid. Please configure it in Vercel environment variables.');
+        throw new Error('GROQ_API_KEY is not set or invalid. Please configure it in your deployment environment.');
       }
 
+      console.log('AIResumeParser: Initializing Groq API client...');
       const groq = new Groq({ apiKey });
 
+      console.log('AIResumeParser: Sending resume text to Groq API for extraction...');
       const response = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
@@ -291,6 +294,7 @@ English (Native), Spanish (Conversational)`;
         response_format: { type: "json_object" }
       });
 
+      console.log('AIResumeParser: Successfully received response from Groq API');
       const extractedData = JSON.parse(response.choices[0].message.content || '{}');
 
       // Ensure all required fields are present with defaults

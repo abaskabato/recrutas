@@ -332,10 +332,22 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(result);
     } catch (error) {
       console.error("Error processing resume upload:", error);
+      console.error("Error details:", {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+        originalError: error?.originalError
+      });
       if (error instanceof ResumeProcessingError) {
-        return res.status(500).json({ message: error.message });
+        return res.status(500).json({
+          message: error.message,
+          details: process.env.NODE_ENV === 'development' ? error.originalError?.message : undefined
+        });
       }
-      res.status(500).json({ message: "Failed to upload resume" });
+      res.status(500).json({
+        message: "Failed to upload resume",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      });
     }
   });
 
