@@ -8,7 +8,12 @@
     "target": "ES2022",
     "skipLibCheck": true,
     "declaration": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "noEmitOnError": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "allowJs": true
   },
   "include": [
     "server/**/*.ts",
@@ -19,6 +24,7 @@
     "node_modules",
     "client",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "server/reset-db.ts"
   ]
 }
