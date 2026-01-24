@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "skipLibCheck": true,
+    "noEmitOnError": false,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false
+  },
+  "ts-node": {
+    "transpileOnly": true
+  }
+}

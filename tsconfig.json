@@ -5,6 +5,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
+    "noEmitOnError": false,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -19,7 +20,9 @@
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
     },
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false
   },
   "include": [
     "src",

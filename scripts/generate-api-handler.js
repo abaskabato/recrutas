@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const apiHandlerContent = `import { configureApp } from '../server/index.ts';
+const apiHandlerContent = `import { configureApp } from '../server/index.js';
 
 let appInstance = null;
 

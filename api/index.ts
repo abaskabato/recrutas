@@ -1,5 +1,5 @@
-import { configureApp } from '../server/index.ts';
-import { captureException, captureMessage } from '../server/error-monitoring.ts';
+import { configureApp } from '../server/index.js';
+import { captureException, captureMessage } from '../server/error-monitoring.js';
 
 let appInstance = null;
 
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       res.end = function(...args) {
         responseSent = true;
         originalEnd.apply(res, args);
-        resolve();
+        resolve(undefined);
       };
       
       // Call the Express app
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
           reject(err);
         } else if (!responseSent) {
           // If no error but response not sent, resolve anyway
-          resolve();
+          resolve(undefined);
         }
       });
       
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
             component: 'vercel-handler'
           });
           res.status(504).json({ error: 'Request timeout' });
-          resolve();
+          resolve(undefined);
         }
       }, 50000);
     });

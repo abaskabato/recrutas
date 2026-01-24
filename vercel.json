@@ -7,10 +7,13 @@
       "config": {
         "includeFiles": [
           "dist/**",
-          "server/**/*.ts",
-          "shared/**/*.ts"
+          "server/**",
+          "shared/**"
         ],
-        "maxDuration": 300
+        "maxDuration": 300,
+        "typescript": {
+          "transpileOnly": true
+        }
       }
     },
     {
