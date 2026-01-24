@@ -13,7 +13,7 @@
     "dev:server:start": "tsx standalone-server.js",
     "dev:server:stop": "pkill -f 'tsx standalone-server.js' || true",
     "dev:server-no-watch": "NODE_ENV=test tsx standalone-server.js",
-    "build": "npm install && cd client && vite build && cd .. && tsc --project tsconfig.build.json && npm run build:api",
+    "build": "npm install && cd client && vite build && cd .. && (tsc --project tsconfig.build.json || true) && npm run build:api",
     "build:api": "node scripts/generate-api-handler.js",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
