@@ -1,50 +1,42 @@
 // Vercel serverless function handler
-// Uses dynamic import with tsx loader to handle TypeScript
+// Imports compiled JavaScript from dist/server
 
 export default async function handler(req, res) {
   try {
-    // Dynamically import the TypeScript server using tsx
-    const { register } = await import('tsx/esm/api');
-    const unregister = register();
+    const { configureApp } = await import('../dist/server/index.js');
+    const app = await configureApp();
 
-    try {
-      const { configureApp } = await import('../server/index.ts');
-      const app = await configureApp();
+    // Handle the request with Express
+    return new Promise((resolve, reject) => {
+      let responseSent = false;
 
-      // Handle the request with Express
-      return new Promise((resolve, reject) => {
-        let responseSent = false;
+      const originalEnd = res.end;
+      res.end = function(...args) {
+        responseSent = true;
+        originalEnd.apply(res, args);
+        resolve(undefined);
+      };
 
-        const originalEnd = res.end;
-        res.end = function(...args) {
-          responseSent = true;
-          originalEnd.apply(res, args);
-          resolve(undefined);
-        };
-
-        app(req, res, (err) => {
-          if (err) {
-            console.error('Express app error:', err);
-            if (!responseSent) {
-              res.status(500).json({ error: 'Internal Server Error',  message: err.message });
-            }
-            reject(err);
-          } else if (!responseSent) {
-            resolve(undefined);
-          }
-        });
-
-        setTimeout(() => {
+      app(req, res, (err) => {
+        if (err) {
+          console.error('Express app error:', err);
           if (!responseSent) {
-            console.error('Request timeout');
-            res.status(504).json({ error: 'Request timeout' });
-            resolve(undefined);
+            res.status(500).json({ error: 'Internal Server Error', message: err.message });
           }
-        }, 50000);
+          reject(err);
+        } else if (!responseSent) {
+          resolve(undefined);
+        }
       });
-    } finally {
-      unregister();
-    }
+
+      setTimeout(() => {
+        if (!responseSent) {
+          console.error('Request timeout');
+          res.status(504).json({ error: 'Request timeout' });
+          resolve(undefined);
+        }
+      }, 50000);
+    });
   } catch (error) {
     console.error('Handler error:', error);
     if (!res.headersSent) {

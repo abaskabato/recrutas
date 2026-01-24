@@ -5,7 +5,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const apiHandlerContent = `import { configureApp } from '../server/index';
+const apiHandlerContent = `// Vercel serverless function handler
+// Imports compiled JavaScript from dist/server
+
+export default async function handler(req, res) {
+  try {
+    const { configureApp } = await import('../dist/server/index.js');
+    const app = await configureApp();
 
 let appInstance = null;
 

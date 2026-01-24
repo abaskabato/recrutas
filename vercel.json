@@ -6,9 +6,7 @@
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
-          "dist/**",
-          "server/**",
-          "shared/**"
+          "dist/**"
         ],
         "maxDuration": 300
       }
