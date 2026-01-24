@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const apiHandlerContent = `import { configureApp } from '../server/index.js';
+const apiHandlerContent = `import { configureApp } from '../server/index';
 
 let appInstance = null;
 
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       res.end = function(...args) {
         responseSent = true;
         originalEnd.apply(res, args);
-        resolve();
+        resolve(undefined);
       };
       
       // Call the Express app
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
           reject(err);
         } else if (!responseSent) {
           // If no error but response not sent, resolve anyway
-          resolve();
+          resolve(undefined);
         }
       });
       
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         if (!responseSent) {
           console.error('Request timeout');
           res.status(504).json({ error: 'Request timeout' });
-          resolve();
+          resolve(undefined);
         }
       }, 50000);
     });
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 `;
 
 const apiDir = path.join(__dirname, '..', 'api');
-const apiFile = path.join(apiDir, 'index.ts');
+const apiFile = path.join(apiDir, 'index.js');
 
 // Ensure api directory exists
 if (!fs.existsSync(apiDir)) {
@@ -79,4 +79,4 @@ if (!fs.existsSync(apiDir)) {
 
 // Write the file
 fs.writeFileSync(apiFile, apiHandlerContent, 'utf8');
-console.log('Generated api/index.ts successfully');
+console.log('Generated api/index.js successfully');
