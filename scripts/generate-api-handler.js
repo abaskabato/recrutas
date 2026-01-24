@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 `;
 
 const apiDir = path.join(__dirname, '..', 'api');
-const apiFile = path.join(apiDir, 'index.js');
+const apiFile = path.join(apiDir, 'index.ts');
 
 // Ensure api directory exists
 if (!fs.existsSync(apiDir)) {
@@ -79,4 +79,4 @@ if (!fs.existsSync(apiDir)) {
 
 // Write the file
 fs.writeFileSync(apiFile, apiHandlerContent, 'utf8');
-console.log('Generated api/index.js successfully');
+console.log('Generated api/index.ts successfully');
