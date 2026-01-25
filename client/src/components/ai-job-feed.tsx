@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
 
-interface AIJobMatch {
+export interface AIJobMatch {
   id: number;
   job: {
     id: number;
@@ -41,7 +42,8 @@ export default function AIJobFeed() {
   const [locationFilter, setLocationFilter] = useState("all");
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
-  const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -225,7 +227,6 @@ export default function AIJobFeed() {
               const match = filteredMatches[virtualRow.index];
               const isSaved = savedJobIds.has(match.job.id);
               const isApplied = appliedJobIds.has(match.job.id);
-              const isExpanded = expandedMatchId === match.id;
               return (
                 <div
                   key={virtualRow.key}
@@ -300,27 +301,12 @@ export default function AIJobFeed() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={(e) => { e.stopPropagation(); setExpandedMatchId(isExpanded ? null : match.id); }}
+                            onClick={(e) => { e.stopPropagation(); setSelectedMatch(match); setIsModalOpen(true); }}
                           >
-                            <Sparkles className={`h-4 w-4 ${isExpanded ? "fill-current text-blue-500" : ""}`} />
+                            <Sparkles className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                      {isExpanded && (
-                        <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                          <h4 className="font-semibold text-sm mb-2 flex items-center">
-                            <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
-                            AI Match Breakdown
-                          </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{match.aiExplanation}</p>
-                          <div className="flex flex-wrap gap-2">
-                            <span className="text-sm font-medium">Your matching skills:</span>
-                            {match.skillMatches.map((skill, index) => (
-                              <Badge key={index} variant="secondary">{skill}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       {match.job.externalSource && match.job.externalSource !== 'internal' && (
                         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                           <div className="flex items-center">
@@ -351,6 +337,11 @@ export default function AIJobFeed() {
           </div>
         </div>
       )}
+      <AIMatchBreakdownModal
+        match={selectedMatch}
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen}
+      />
     </div>
   );
 }
