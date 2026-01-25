@@ -2,6 +2,32 @@ import type { Express } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./middleware/auth";
 
+// Maximum message length (5000 characters)
+const MAX_MESSAGE_LENGTH = 5000;
+
+// Simple HTML sanitizer - strips all HTML tags to prevent XSS
+function sanitizeMessage(message: string): string {
+  if (!message) return '';
+
+  // Remove HTML tags
+  let sanitized = message.replace(/<[^>]*>/g, '');
+
+  // Decode HTML entities to prevent double-encoding
+  sanitized = sanitized
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'");
+
+  // Re-escape potentially dangerous characters
+  sanitized = sanitized
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  return sanitized.trim();
+}
+
 /**
  * Chat API Routes
  * Handles real-time messaging between candidates and talent owners
@@ -49,6 +75,18 @@ export function registerChatRoutes(app: Express) {
                 return res.status(400).json({ message: "Message cannot be empty" });
             }
 
+            // Validate message length
+            if (message.length > MAX_MESSAGE_LENGTH) {
+                return res.status(400).json({ message: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.` });
+            }
+
+            // Sanitize message content to prevent XSS
+            const sanitizedMessage = sanitizeMessage(message);
+
+            if (sanitizedMessage.length === 0) {
+                return res.status(400).json({ message: "Message cannot be empty after sanitization" });
+            }
+
             // Verify user has access to this room
             const rooms = await storage.getChatRoomsForUser(req.user.id);
             const hasAccess = rooms.some(room => room.id === roomId);
@@ -60,7 +98,7 @@ export function registerChatRoutes(app: Express) {
             const newMessage = await storage.createChatMessage({
                 chatRoomId: roomId,
                 senderId: req.user.id,
-                message: message.trim()
+                message: sanitizedMessage
             });
 
             res.json(newMessage);

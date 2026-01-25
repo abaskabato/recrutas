@@ -45,6 +45,33 @@ interface AIMatch {
 const resumeService = new ResumeService(storage, aiResumeParser);
 const examService = new ExamService(storage, notificationService);
 
+// Magic bytes for file type validation
+const FILE_SIGNATURES = {
+  // PDF starts with %PDF
+  pdf: [0x25, 0x50, 0x44, 0x46],
+  // DOC starts with D0 CF 11 E0 (Microsoft Compound Document)
+  doc: [0xD0, 0xCF, 0x11, 0xE0],
+  // DOCX is a ZIP file starting with PK
+  docx: [0x50, 0x4B, 0x03, 0x04],
+};
+
+function validateFileSignature(buffer: Buffer, extension: string): boolean {
+  if (buffer.length < 4) return false;
+
+  const ext = extension.toLowerCase().replace('.', '');
+  const signature = FILE_SIGNATURES[ext as keyof typeof FILE_SIGNATURES];
+
+  if (!signature) return false;
+
+  // Check if the file starts with the expected magic bytes
+  for (let i = 0; i < signature.length; i++) {
+    if (buffer[i] !== signature[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Configure multer for file uploads
 // Use memory storage for serverless compatibility (no filesystem access)
 const storageConfig = multer.memoryStorage();
@@ -126,7 +153,7 @@ async function findMatchingCandidates(job: any) {
     if (score > 0) {
       matches.push({
         candidateId: candidate.userId,
-        matchScore: score.toString(),
+        matchScore: score,
         matchReasons: [`Shared skills: ${job.skills.filter((s: any) => candidate.skills.includes(s)).join(", ")}`],
       });
     }
@@ -313,6 +340,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Get signed URL for resume (secure access)
+  app.get('/api/resume/:resumePath', isAuthenticated, async (req: any, res) => {
+    try {
+      const resumePath = decodeURIComponent(req.params.resumePath);
+      const signedUrl = await storage.getResumeSignedUrl(resumePath);
+      res.json({ url: signedUrl });
+    } catch (error) {
+      console.error("Error generating resume URL:", error);
+      res.status(500).json({ message: "Failed to generate resume URL" });
+    }
+  });
+
   // Resume upload
   app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
     try {
@@ -320,6 +359,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
         console.error("Resume upload error: No file uploaded or file too large/wrong type.");
         return res.status(400).json({ message: "No file uploaded or file too large/wrong type" });
       }
+
+      // Validate file magic bytes
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      if (!validateFileSignature(req.file.buffer, ext)) {
+        console.error("Resume upload error: File content does not match extension");
+        return res.status(400).json({ message: "Invalid file: content does not match file type" });
+      }
+
       console.log("Received file:", {
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
@@ -482,6 +529,40 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Get all applicants across all jobs for a talent owner (for analytics)
+  app.get('/api/talent-owner/all-applicants', isAuthenticated, async (req: any, res) => {
+    try {
+      const candidates = await storage.getCandidatesForRecruiter(req.user.id);
+      // Transform to a flat applicant list
+      const applicants = candidates.map((c: any) => ({
+        applicationId: c.application.id,
+        status: c.application.status,
+        appliedAt: c.application.appliedAt,
+        updatedAt: c.application.updatedAt,
+        candidate: {
+          id: c.candidate.id,
+          firstName: c.candidate.firstName || c.candidate.first_name,
+          lastName: c.candidate.lastName || c.candidate.last_name,
+          email: c.candidate.email,
+        },
+        profile: {
+          skills: c.profile?.skills || [],
+          experience: c.profile?.experience,
+          resumeUrl: c.profile?.resumeUrl,
+        },
+        job: {
+          id: c.job.id,
+          title: c.job.title,
+          company: c.job.company,
+        }
+      }));
+      res.json(applicants);
+    } catch (error) {
+      console.error("Error fetching all applicants:", error);
+      res.status(500).json({ message: "Failed to fetch applicants" });
+    }
+  });
+
   // Get talent owner profile
   app.get('/api/talent-owner/profile', isAuthenticated, async (req: any, res) => {
     try {
@@ -535,6 +616,74 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error creating job posting:", error);
       res.status(500).json({ message: "Failed to create job posting" });
+    }
+  });
+
+  // Update job posting (PUT /api/jobs/:jobId)
+  app.put('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const userId = req.user.id;
+
+      // Verify ownership
+      const job = await storage.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== userId) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      const updatedJob = await storage.updateJobPosting(jobId, userId, req.body);
+      await storage.createActivityLog(userId, "job_updated", `Job updated: ${updatedJob.title}`);
+      res.json(updatedJob);
+    } catch (error) {
+      console.error("Error updating job posting:", error);
+      res.status(500).json({ message: "Failed to update job posting" });
+    }
+  });
+
+  // Delete job posting (DELETE /api/jobs/:jobId)
+  app.delete('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const userId = req.user.id;
+
+      // Verify ownership
+      const job = await storage.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== userId) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      await storage.deleteJobPosting(jobId, userId);
+      await storage.createActivityLog(userId, "job_deleted", `Job deleted: ${job.title}`);
+      res.json({ message: 'Job deleted successfully' });
+    } catch (error) {
+      console.error("Error deleting job posting:", error);
+      res.status(500).json({ message: "Failed to delete job posting" });
+    }
+  });
+
+  // Update job status (pause/resume/close)
+  app.patch('/api/jobs/:jobId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const userId = req.user.id;
+      const { status } = req.body;
+
+      if (!['active', 'paused', 'closed'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be active, paused, or closed.' });
+      }
+
+      // Verify ownership
+      const job = await storage.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== userId) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      const updatedJob = await storage.updateJobPosting(jobId, userId, { status });
+      await storage.createActivityLog(userId, "job_status_changed", `Job status changed to ${status}: ${job.title}`);
+      res.json(updatedJob);
+    } catch (error) {
+      console.error("Error updating job status:", error);
+      res.status(500).json({ message: "Failed to update job status" });
     }
   });
 
@@ -596,6 +745,62 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error fetching applicants:", error);
       res.status(500).json({ message: "Failed to fetch applicants" });
+    }
+  });
+
+  // Screening Questions API
+  // Get screening questions for a job
+  app.get('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const questions = await storage.getScreeningQuestions(jobId);
+      res.json(questions);
+    } catch (error) {
+      console.error("Error fetching screening questions:", error);
+      res.status(500).json({ message: "Failed to fetch screening questions" });
+    }
+  });
+
+  // Create/Update screening questions for a job
+  app.post('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const userId = req.user.id;
+
+      // Verify ownership
+      const job = await storage.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== userId) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      const { questions } = req.body;
+      if (!Array.isArray(questions)) {
+        return res.status(400).json({ message: 'Questions must be an array' });
+      }
+
+      const savedQuestions = await storage.saveScreeningQuestions(jobId, questions);
+      res.json(savedQuestions);
+    } catch (error) {
+      console.error("Error saving screening questions:", error);
+      res.status(500).json({ message: "Failed to save screening questions" });
+    }
+  });
+
+  // Submit screening answers for an application
+  app.post('/api/applications/:applicationId/screening-answers', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.applicationId);
+      const { answers } = req.body;
+
+      if (!Array.isArray(answers)) {
+        return res.status(400).json({ message: 'Answers must be an array' });
+      }
+
+      const savedAnswers = await storage.saveScreeningAnswers(applicationId, answers);
+      res.json(savedAnswers);
+    } catch (error) {
+      console.error("Error saving screening answers:", error);
+      res.status(500).json({ message: "Failed to save screening answers" });
     }
   });
 

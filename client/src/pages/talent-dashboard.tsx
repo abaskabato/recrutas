@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus,
   Users,
@@ -85,7 +87,7 @@ interface Candidate {
   experience: string;
   location: string;
   matchScore: number;
-  status: 'applied' | 'screening' | 'interview' | 'rejected' | 'hired';
+  status: 'submitted' | 'viewed' | 'screening' | 'interview_scheduled' | 'interview_completed' | 'offer' | 'rejected' | 'withdrawn';
   appliedAt: string;
   resumeUrl?: string;
   jobTitle?: string;
@@ -107,8 +109,36 @@ export default function TalentDashboard() {
   const isAuthenticated = !!user;
   const { toast } = useToast();
   const supabase = useSupabaseClient();
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>('overview');
+  // Parse tab from URL search params
+  const getTabFromUrl = (): 'overview' | 'jobs' | 'candidates' | 'analytics' => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab && ['overview', 'jobs', 'candidates', 'analytics'].includes(tab)) {
+      return tab as 'overview' | 'jobs' | 'candidates' | 'analytics';
+    }
+    return 'overview';
+  };
+
+  const [activeTab, setActiveTabState] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>(getTabFromUrl);
+
+  // Update URL when tab changes
+  const setActiveTab = (tab: 'overview' | 'jobs' | 'candidates' | 'analytics') => {
+    setActiveTabState(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.pushState({}, '', url.toString());
+  };
+
+  // Listen for popstate (browser back/forward)
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTabState(getTabFromUrl());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [showJobWizard, setShowJobWizard] = useState(false);
+  const [showJobDialog, setShowJobDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +146,28 @@ export default function TalentDashboard() {
   const [expandedApplicantId, setExpandedApplicantId] = useState<number | null>(null);
   const [screeningQuestions, setScreeningQuestions] = useState<{ [key: number]: string[] }>();
   const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<JobPosting | null>(null);
+  const [jobForm, setJobForm] = useState({
+    title: "",
+    company: "",
+    description: "",
+    requirements: [] as string[],
+    skills: [] as string[],
+    location: "",
+    salaryMin: "",
+    salaryMax: "",
+    workType: "remote" as "remote" | "hybrid" | "onsite",
+    industry: "",
+    urgency: "medium" as "low" | "medium" | "high",
+    benefits: [] as string[],
+    experienceLevel: "",
+    department: "",
+    isRemoteFriendly: true,
+    applicationDeadline: "",
+    contactEmail: "",
+    companySize: "",
+    companyDescription: ""
+  });
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -151,6 +203,13 @@ export default function TalentDashboard() {
     queryKey: ['/api/jobs', selectedJob?.id, 'applicants'],
     enabled: !!selectedJob,
     queryFn: () => apiRequest('GET', `/api/jobs/${selectedJob!.id}/applicants`),
+  });
+
+  // Fetch all applicants across all jobs (for analytics)
+  const { data: allApplicants = [] } = useQuery<any[]>({
+    queryKey: ['/api/talent-owner/all-applicants'],
+    enabled: !!user,
+    queryFn: () => apiRequest('GET', '/api/talent-owner/all-applicants'),
   });
 
   // Update application status mutation
@@ -227,6 +286,52 @@ export default function TalentDashboard() {
       toast({
         title: "Success",
         description: "Job deleted successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update job mutation
+  const updateJobMutation = useMutation({
+    mutationFn: async ({ jobId, data }: { jobId: number, data: any }) => {
+      return await apiRequest('PUT', `/api/jobs/${jobId}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Job updated successfully!",
+      });
+      setShowJobDialog(false);
+      setSelectedJob(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update job status mutation (pause/resume/close)
+  const updateJobStatusMutation = useMutation({
+    mutationFn: async ({ jobId, status }: { jobId: number, status: string }) => {
+      return await apiRequest('PATCH', `/api/jobs/${jobId}/status`, { status });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Job status updated!",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter/stats'] });
@@ -419,17 +524,30 @@ export default function TalentDashboard() {
                   {user.firstName || user.email?.split('@')[0] || 'User'}
                 </span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowProfileSettings(true)}
-                title="Profile Settings"
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-5 w-5" />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowProfileSettings(true)}
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Profile Settings</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                      <LogOut className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Sign Out</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -780,11 +898,7 @@ export default function TalentDashboard() {
                             variant="outline"
                             size="sm"
                             className="flex-1 lg:flex-none text-red-600 hover:text-red-700"
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete "${job.title}"?`)) {
-                                deleteJobMutation.mutate(job.id);
-                              }
-                            }}
+                            onClick={() => setJobToDelete(job)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
@@ -865,11 +979,14 @@ export default function TalentDashboard() {
                                     <SelectValue placeholder="Status" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="applied">Applied</SelectItem>
+                                    <SelectItem value="submitted">Submitted</SelectItem>
+                                    <SelectItem value="viewed">Viewed</SelectItem>
                                     <SelectItem value="screening">Screening</SelectItem>
-                                    <SelectItem value="interview">Interview</SelectItem>
+                                    <SelectItem value="interview_scheduled">Interview Scheduled</SelectItem>
+                                    <SelectItem value="interview_completed">Interview Completed</SelectItem>
+                                    <SelectItem value="offer">Offer</SelectItem>
                                     <SelectItem value="rejected">Rejected</SelectItem>
-                                    <SelectItem value="hired">Hired</SelectItem>
+                                    <SelectItem value="withdrawn">Withdrawn</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 {applicant.match?.aiExplanation && (
@@ -997,14 +1114,14 @@ export default function TalentDashboard() {
                       ];
 
                       const maxApps = Math.max(...periods.map(period => {
-                        return applicants.filter(app => {
+                        return allApplicants.filter(app => {
                           const appliedDate = new Date(app.appliedAt);
                           return appliedDate >= period.start && appliedDate < period.end;
                         }).length;
                       }), 1); // At least 1 to avoid division by zero
 
                       return periods.map((period) => {
-                        const applications = applicants.filter(app => {
+                        const applications = allApplicants.filter(app => {
                           const appliedDate = new Date(app.appliedAt);
                           return appliedDate >= period.start && appliedDate < period.end;
                         }).length;
@@ -1076,8 +1193,8 @@ export default function TalentDashboard() {
                   <div className="space-y-4">
                     {(() => {
                       // Calculate real response times from applicant data
-                      const responseTimes = applicants
-                        .filter(app => app.status !== 'pending' && app.updatedAt && app.appliedAt)
+                      const responseTimes = allApplicants
+                        .filter(app => app.status !== 'submitted' && app.updatedAt && app.appliedAt)
                         .map(app => {
                           const applied = new Date(app.appliedAt).getTime();
                           const responded = new Date(app.updatedAt).getTime();
@@ -1150,19 +1267,20 @@ export default function TalentDashboard() {
               <CardContent>
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                   {[
-                    { stage: 'Applied', count: applicants.length, color: 'bg-blue-500' },
-                    { stage: 'Viewed', count: applicants.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
-                    { stage: 'Interested', count: applicants.filter(c => c.status === 'interested').length, color: 'bg-yellow-500' },
-                    { stage: 'Hired', count: stats?.hires || 0, color: 'bg-purple-500' }
+                    { stage: 'Submitted', count: allApplicants.length, color: 'bg-blue-500' },
+                    { stage: 'Viewed', count: allApplicants.filter(c => c.status === 'viewed').length, color: 'bg-green-500' },
+                    { stage: 'Screening', count: allApplicants.filter(c => c.status === 'screening').length, color: 'bg-yellow-500' },
+                    { stage: 'Interview', count: allApplicants.filter(c => c.status === 'interview_scheduled' || c.status === 'interview_completed').length, color: 'bg-orange-500' },
+                    { stage: 'Offer', count: allApplicants.filter(c => c.status === 'offer').length, color: 'bg-purple-500' }
                   ].map(({ stage, count, color }) => (
                     <div key={stage} className="text-center">
                       <div className={`${color} text-white rounded-lg p-4 mb-2`}>
                         <div className="text-2xl font-bold">{count}</div>
                         <div className="text-sm opacity-90">{stage}</div>
                       </div>
-                      {stage !== 'Hired' && (
+                      {stage !== 'Offer' && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {applicants.length > 0 ? Math.round((count / applicants.length) * 100) : 0}% conversion
+                          {allApplicants.length > 0 ? Math.round((count / allApplicants.length) * 100) : 0}% conversion
                         </div>
                       )}
                     </div>
@@ -1233,6 +1351,33 @@ export default function TalentDashboard() {
           onCancel={() => setShowProfileSettings(false)}
         />
       )}
+
+      {/* Delete Job Confirmation Dialog */}
+      <AlertDialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Job Posting</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{jobToDelete?.title}"? This action cannot be undone.
+              All applications and data associated with this job will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (jobToDelete) {
+                  deleteJobMutation.mutate(jobToDelete.id);
+                  setJobToDelete(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export class ExamService {
         throw new ExamProcessingError("Exam not found for this job");
       }
 
-      const score = this.calculateScore(exam.questions, answers);
+      const { score, correctAnswers } = this.calculateScoreWithDetails(exam.questions, answers);
 
       const examResult = {
         jobId,
@@ -37,8 +37,8 @@ export class ExamService {
         score,
         answers,
         totalQuestions: exam.questions.length,
-        correctAnswers: 0, // Simplified for now
-        timeSpent: 0, // Simplified for now
+        correctAnswers,
+        timeSpent: 0, // Will be passed from frontend later
       };
 
       await this.storage.storeExamResult(examResult);
@@ -64,13 +64,38 @@ export class ExamService {
   }
 
   private calculateScore(questions: any[], answers: any): number {
-    let score = 0;
-    // Simplified scoring logic
+    const { score } = this.calculateScoreWithDetails(questions, answers);
+    return score;
+  }
+
+  private calculateScoreWithDetails(questions: any[], answers: any): { score: number; correctAnswers: number } {
+    let earnedPoints = 0;
+    let totalPoints = 0;
+    let correctAnswers = 0;
+
     for (const question of questions) {
-        if (answers[question.id]) {
-            score += question.points || 10;
+      const questionPoints = question.points || 10;
+      totalPoints += questionPoints;
+
+      const userAnswer = answers[question.id];
+      if (userAnswer !== undefined && userAnswer !== null) {
+        // For multiple choice, check if the answer matches correctAnswer
+        if (question.type === 'multiple-choice') {
+          if (userAnswer === question.correctAnswer) {
+            earnedPoints += questionPoints;
+            correctAnswers++;
+          }
         }
+        // For short-answer questions, give full points if answered (no correct answer defined)
+        // These can be manually reviewed or use AI scoring later
+        else if (question.type === 'short-answer' && userAnswer.toString().trim().length > 0) {
+          earnedPoints += questionPoints;
+          correctAnswers++;
+        }
+      }
     }
-    return Math.min(100, score);
+
+    const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+    return { score, correctAnswers };
   }
 }

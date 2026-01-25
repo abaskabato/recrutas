@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   numeric,
+  unique,
 } from "drizzle-orm/pg-core";
 import { primaryKey } from "drizzle-orm/pg-core/primary-keys";
 import { createInsertSchema } from "drizzle-zod";
@@ -153,7 +154,7 @@ export const jobMatches = pgTable("job_matches", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   candidateId: text("candidate_id").notNull().references(() => users.id),
-  matchScore: varchar("match_score").notNull(),
+  matchScore: integer("match_score").notNull().default(0),
   confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
   matchReasons: jsonb("match_reasons").default([] as any),
   skillMatches: jsonb("skill_matches").default([] as any),
@@ -178,7 +179,10 @@ export const chatRooms = pgTable("chat_rooms", {
   accessGrantedAt: timestamp("access_granted_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Unique constraint to prevent duplicate chat rooms
+  chatRoomUnique: unique('chat_room_unique').on(table.jobId, table.candidateId),
+}));
 
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
@@ -206,7 +210,10 @@ export const jobApplications = pgTable("job_applications", {
   coverLetter: text("cover_letter"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Unique constraint to prevent duplicate applications
+  jobCandidateUnique: unique('job_candidate_unique').on(table.jobId, table.candidateId),
+}));
 
 export const applicationUpdates = pgTable("application_updates", {
   id: serial("id").primaryKey(),
@@ -511,6 +518,49 @@ export const interviewsRelations = relations(interviews, ({ one }) => ({
   application: one(jobApplications, {
     fields: [interviews.applicationId],
     references: [jobApplications.id],
+  }),
+}));
+
+// Screening questions for job applications
+export const screeningQuestions = pgTable("screening_questions", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
+  question: text("question").notNull(),
+  questionType: varchar("question_type", { enum: ["text", "multiple_choice", "yes_no"] }).default("text"),
+  options: jsonb("options").default([] as any), // For multiple choice options
+  isRequired: boolean("is_required").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const screeningAnswers = pgTable("screening_answers", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
+  questionId: integer("question_id").notNull().references(() => screeningQuestions.id, { onDelete: 'cascade' }),
+  answer: text("answer"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  // Unique constraint to prevent duplicate answers
+  answerUnique: unique('answer_unique').on(table.applicationId, table.questionId),
+}));
+
+export const screeningQuestionsRelations = relations(screeningQuestions, ({ one, many }) => ({
+  job: one(jobPostings, {
+    fields: [screeningQuestions.jobId],
+    references: [jobPostings.id],
+  }),
+  answers: many(screeningAnswers),
+}));
+
+export const screeningAnswersRelations = relations(screeningAnswers, ({ one }) => ({
+  application: one(jobApplications, {
+    fields: [screeningAnswers.applicationId],
+    references: [jobApplications.id],
+  }),
+  question: one(screeningQuestions, {
+    fields: [screeningAnswers.questionId],
+    references: [screeningQuestions.id],
   }),
 }));
 

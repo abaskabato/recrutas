@@ -36,6 +36,8 @@ import {
   hiddenJobs,
   talentOwnerProfiles,
   interviews,
+  screeningQuestions,
+  screeningAnswers,
   type User,
   type UpsertUser,
   type CandidateProfile,
@@ -183,6 +185,12 @@ export interface IStorage {
 
   // File operations
   uploadResume(fileBuffer: Buffer, mimetype: string): Promise<string>;
+  getResumeSignedUrl(resumePath: string): Promise<string>;
+
+  // Screening questions operations
+  getScreeningQuestions(jobId: number): Promise<any[]>;
+  saveScreeningQuestions(jobId: number, questions: any[]): Promise<any[]>;
+  saveScreeningAnswers(applicationId: number, answers: any[]): Promise<any[]>;
 }
 
 /**
@@ -274,17 +282,34 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Failed to upload resume to storage.');
       }
 
-      const { data: publicUrlData } = supabaseAdmin.storage
-        .from(bucket)
-        .getPublicUrl(fileName);
-
-      if (!publicUrlData) {
-        throw new Error('Failed to get public URL for resume.');
-      }
-
-      return publicUrlData.publicUrl;
+      // Return the file path instead of public URL - we'll generate signed URLs on demand
+      return fileName;
     } catch (error) {
       console.error('Error in uploadResume:', error);
+      throw error;
+    }
+  }
+
+  // Generate a signed URL for accessing resumes (expires in 1 hour)
+  async getResumeSignedUrl(resumePath: string): Promise<string> {
+    try {
+      // If the path is already a full URL (legacy), return it as-is
+      if (resumePath.startsWith('http://') || resumePath.startsWith('https://')) {
+        return resumePath;
+      }
+
+      const { data, error } = await supabaseAdmin.storage
+        .from('resumes')
+        .createSignedUrl(resumePath, 3600); // 1 hour expiry
+
+      if (error) {
+        console.error('Error creating signed URL:', error);
+        throw new Error('Failed to generate resume URL.');
+      }
+
+      return data.signedUrl;
+    } catch (error) {
+      console.error('Error in getResumeSignedUrl:', error);
       throw error;
     }
   }
@@ -1628,6 +1653,74 @@ export class DatabaseStorage implements IStorage {
       return result;
     } catch (error) {
       console.error('Error creating interview:', error);
+      throw error;
+    }
+  }
+
+  // Screening questions operations
+  async getScreeningQuestions(jobId: number): Promise<any[]> {
+    try {
+      return await db
+        .select()
+        .from(screeningQuestions)
+        .where(eq(screeningQuestions.jobId, jobId))
+        .orderBy(screeningQuestions.sortOrder);
+    } catch (error) {
+      console.error('Error fetching screening questions:', error);
+      throw error;
+    }
+  }
+
+  async saveScreeningQuestions(jobId: number, questions: any[]): Promise<any[]> {
+    try {
+      // Delete existing questions for this job
+      await db.delete(screeningQuestions).where(eq(screeningQuestions.jobId, jobId));
+
+      // Insert new questions
+      if (questions.length === 0) return [];
+
+      const toInsert = questions.map((q, index) => ({
+        jobId,
+        question: q.question,
+        questionType: q.questionType || 'text',
+        options: q.options || [],
+        isRequired: q.isRequired ?? true,
+        sortOrder: index,
+      }));
+
+      const result = await db
+        .insert(screeningQuestions)
+        .values(toInsert)
+        .returning();
+
+      return result;
+    } catch (error) {
+      console.error('Error saving screening questions:', error);
+      throw error;
+    }
+  }
+
+  async saveScreeningAnswers(applicationId: number, answers: any[]): Promise<any[]> {
+    try {
+      const results = [];
+      for (const answer of answers) {
+        const [result] = await db
+          .insert(screeningAnswers)
+          .values({
+            applicationId,
+            questionId: answer.questionId,
+            answer: answer.answer,
+          })
+          .onConflictDoUpdate({
+            target: [screeningAnswers.applicationId, screeningAnswers.questionId],
+            set: { answer: answer.answer },
+          })
+          .returning();
+        results.push(result);
+      }
+      return results;
+    } catch (error) {
+      console.error('Error saving screening answers:', error);
       throw error;
     }
   }
