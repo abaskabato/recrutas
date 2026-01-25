@@ -90,36 +90,77 @@ export default function AIJobFeed() {
 
   const saveMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest("POST", '/api/candidate/saved-jobs', { jobId }),
-    onSuccess: (data, variables) => {
-      toast({ title: "Job Saved!" });
-      queryClient.setQueryData(['userJobActions'], (oldData: any) => ({
+    onMutate: async (jobId: number) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/candidate/job-actions'] });
+      const previousJobActions = queryClient.getQueryData(['/api/candidate/job-actions']);
+      queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => ({
         ...oldData,
-        saved: new Set(oldData.saved).add(variables),
+        saved: new Set(oldData.saved).add(jobId),
       }));
+      return { previousJobActions };
     },
-    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+    onSuccess: () => {
+      toast({ title: "Job Saved!" });
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousJobActions) {
+        queryClient.setQueryData(['/api/candidate/job-actions'], context.previousJobActions);
+      }
+      toast({ title: "Error", description: "Failed to save job.", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
+    },
   });
 
   const unsaveMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest("DELETE", `/api/candidate/saved-jobs/${jobId}`),
-    onSuccess: (data, variables) => {
-      toast({ title: "Job Unsaved" });
-      queryClient.setQueryData(['userJobActions'], (oldData: any) => {
+    onMutate: async (jobId: number) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/candidate/job-actions'] });
+      const previousJobActions = queryClient.getQueryData(['/api/candidate/job-actions']);
+      queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
         const newSaved = new Set(oldData.saved);
-        newSaved.delete(variables);
+        newSaved.delete(jobId);
         return { ...oldData, saved: newSaved };
       });
+      return { previousJobActions };
     },
-    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+    onSuccess: () => {
+      toast({ title: "Job Unsaved" });
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousJobActions) {
+        queryClient.setQueryData(['/api/candidate/job-actions'], context.previousJobActions);
+      }
+      toast({ title: "Error", description: "Failed to unsave job.", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
+    },
   });
 
   const hideMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest("POST", '/api/candidate/hidden-jobs', { jobId }),
+    onMutate: async (jobId: number) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter] });
+      const previousMatches = queryClient.getQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter]);
+      queryClient.setQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter], (oldData: any) => 
+        oldData.filter((match: AIJobMatch) => match.job.id !== jobId)
+      );
+      return { previousMatches };
+    },
     onSuccess: () => {
       toast({ title: "Job Hidden", description: "You won't see this job in your feed anymore." });
-      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
     },
-    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+    onError: (err, variables, context) => {
+      if (context?.previousMatches) {
+        queryClient.setQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter], context.previousMatches);
+      }
+      toast({ title: "Error", description: "Failed to hide job.", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter] });
+    },
   });
 
   const handleApply = (e: React.MouseEvent, match: AIJobMatch) => {
