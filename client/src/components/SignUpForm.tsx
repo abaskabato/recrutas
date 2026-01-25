@@ -1,11 +1,28 @@
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Check, X } from "lucide-react";
 
 interface SignUpFormProps {
   role: 'candidate' | 'talent_owner';
+}
+
+// Password strength checker
+function getPasswordStrength(password: string): { score: number; label: string; color: string; requirements: { met: boolean; text: string }[] } {
+  const requirements = [
+    { met: password.length >= 8, text: "At least 8 characters" },
+    { met: /[A-Z]/.test(password), text: "One uppercase letter" },
+    { met: /[a-z]/.test(password), text: "One lowercase letter" },
+    { met: /[0-9]/.test(password), text: "One number" },
+  ];
+
+  const score = requirements.filter(r => r.met).length;
+
+  if (score <= 1) return { score, label: "Weak", color: "bg-red-500", requirements };
+  if (score === 2) return { score, label: "Fair", color: "bg-orange-500", requirements };
+  if (score === 3) return { score, label: "Good", color: "bg-yellow-500", requirements };
+  return { score, label: "Strong", color: "bg-green-500", requirements };
 }
 
 export default function SignUpForm({ role }: SignUpFormProps) {
@@ -15,6 +32,8 @@ export default function SignUpForm({ role }: SignUpFormProps) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 
   const handleSignUp = async (e) => {
     e.preventDefault();
@@ -100,6 +119,41 @@ export default function SignUpForm({ role }: SignUpFormProps) {
             )}
           </button>
         </div>
+
+        {/* Password Strength Indicator */}
+        {password && (
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${passwordStrength.color}`}
+                  style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
+                />
+              </div>
+              <span className={`text-xs font-medium ${
+                passwordStrength.score <= 1 ? 'text-red-500' :
+                passwordStrength.score === 2 ? 'text-orange-500' :
+                passwordStrength.score === 3 ? 'text-yellow-500' : 'text-green-500'
+              }`}>
+                {passwordStrength.label}
+              </span>
+            </div>
+            <ul className="space-y-1">
+              {passwordStrength.requirements.map((req, i) => (
+                <li key={i} className="flex items-center gap-2 text-xs">
+                  {req.met ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <span className={req.met ? 'text-green-500' : 'text-muted-foreground'}>
+                    {req.text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div>
