@@ -33,7 +33,7 @@ export function useRoleBasedAuth() {
     if (isAuthenticated && user?.role && location === '/') {
       if (user.role === 'candidate') {
         setLocation('/candidate-dashboard');
-      } else if (user.role === 'talent_owner') {
+      } else if (user.role === 'talent_owner' || user.role === 'recruiter') {
         setLocation('/talent-dashboard');
       }
       return;
@@ -43,7 +43,7 @@ export function useRoleBasedAuth() {
     if (isAuthenticated && user?.role) {
       if (user.role === 'candidate' && location === '/talent-dashboard') {
         setLocation('/candidate-dashboard');
-      } else if (user.role === 'talent_owner' && location === '/candidate-dashboard') {
+      } else if ((user.role === 'talent_owner' || user.role === 'recruiter') && location === '/candidate-dashboard') {
         setLocation('/talent-dashboard');
       }
     }

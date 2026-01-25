@@ -4,7 +4,7 @@ import { useSession } from '@/lib/auth-client';
 import { useToast } from '@/hooks/use-toast';
 
 interface RoleGuardProps {
-  allowedRoles: ('candidate' | 'talent_owner')[];
+  allowedRoles: ('candidate' | 'talent_owner' | 'recruiter')[];
   children: React.ReactNode;
   fallbackPath?: string;
 }

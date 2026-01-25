@@ -24,7 +24,7 @@ export default function AuthPage() {
       if (userRole === 'candidate') {
         console.log("Redirecting to /candidate-dashboard");
         window.location.href = "/candidate-dashboard";
-      } else if (userRole === 'talent_owner') {
+      } else if (userRole === 'talent_owner' || userRole === 'recruiter') {
         console.log("Redirecting to /talent-dashboard");
         window.location.href = "/talent-dashboard";
       } else {

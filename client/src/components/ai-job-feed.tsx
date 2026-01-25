@@ -44,6 +44,7 @@ export default function AIJobFeed() {
   const [companyFilter, setCompanyFilter] = useState("all");
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -217,27 +218,35 @@ export default function AIJobFeed() {
 
       {/* Job Feed */}
       {isLoading ? (
-        <div className="space-y-3">{/* ... loading skeleton ... */}</div>
-      ) : filteredMatches.length === 0 ? (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border">{/* ... no results ... */}</div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-3"></div>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : !filteredMatches || filteredMatches.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border">
+          <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Job Matches Yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md mx-auto">
+            Complete your profile with your skills and experience to get personalized job recommendations powered by AI.
+          </p>
+          <Button onClick={() => window.location.href = '/candidate-dashboard'} variant="outline">
+            Complete Your Profile
+          </Button>
+        </div>
       ) : (
-        <div ref={parentRef} className="overflow-y-auto" style={{ height: 'calc(100vh - 200px)' }}>
-          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const match = filteredMatches[virtualRow.index];
+        <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
+            {filteredMatches.map((match) => {
               const isSaved = savedJobIds.has(match.job.id);
               const isApplied = appliedJobIds.has(match.job.id);
               return (
-                <div
-                  key={virtualRow.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
+                <div key={match.id}>
                   <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
@@ -257,7 +266,7 @@ export default function AIJobFeed() {
                                                   <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
                                                 </div>
                                                 <h3 className="font-semibold text-lg truncate hover:text-blue-600 transition-colors">
-                                                  <a href="#" onClick={(e) => { e.preventDefault(); setExpandedMatchId(isExpanded ? null : match.id); }}>
+                                                  <a href="#" onClick={(e) => { e.preventDefault(); setExpandedMatchId(expandedMatchId === match.id ? null : match.id); }}>
                                                     {match.job.title}
                                                   </a>
                                                 </h3>
@@ -334,7 +343,6 @@ export default function AIJobFeed() {
                 </div>
               );
             })}
-          </div>
         </div>
       )}
       <AIMatchBreakdownModal
