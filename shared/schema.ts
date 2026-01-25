@@ -586,6 +586,78 @@ export const hiddenJobsRelations = relations(hiddenJobs, ({ one }) => ({
   }),
 }));
 
+// ==========================================
+// SUBSCRIPTION & PAYMENT TABLES (Stripe)
+// ==========================================
+
+export const subscriptionTiers = pgTable("subscription_tiers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 50 }).notNull().unique(),
+  type: varchar("type", { enum: ["candidate", "talent_owner"] }).notNull(),
+  priceMonthly: integer("price_monthly").notNull(), // In cents
+  priceYearly: integer("price_yearly"),
+  features: jsonb("features").default([]),
+  limits: jsonb("limits").default({}), // e.g., { "aiMatches": 10, "activeJobs": 3 }
+  stripePriceIdMonthly: varchar("stripe_price_id_monthly"),
+  stripePriceIdYearly: varchar("stripe_price_id_yearly"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  tierId: integer("tier_id").references(() => subscriptionTiers.id),
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  status: varchar("status", {
+    enum: ["active", "canceled", "past_due", "trialing", "incomplete", "free"]
+  }).default("free"),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const usageTracking = pgTable("usage_tracking", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  featureType: varchar("feature_type", {
+    enum: ["ai_match", "job_post", "resume_enhancement", "candidate_ranking", "analytics"]
+  }).notNull(),
+  usageCount: integer("usage_count").default(0),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const subscriptionTiersRelations = relations(subscriptionTiers, ({ many }) => ({
+  subscriptions: many(userSubscriptions),
+}));
+
+export const userSubscriptionsRelations = relations(userSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSubscriptions.userId],
+    references: [users.id],
+  }),
+  tier: one(subscriptionTiers, {
+    fields: [userSubscriptions.tierId],
+    references: [subscriptionTiers.id],
+  }),
+}));
+
+export const usageTrackingRelations = relations(usageTracking, ({ one }) => ({
+  user: one(users, {
+    fields: [usageTracking.userId],
+    references: [users.id],
+  }),
+}));
+
+// ==========================================
+// INSERT SCHEMAS
+// ==========================================
+
 export const insertUserSchema = createInsertSchema(users);
 export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles);
 export const insertTalentOwnerProfileSchema = createInsertSchema(talentOwnerProfiles);
@@ -596,6 +668,9 @@ export const insertNotificationSchema = createInsertSchema(notifications);
 export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences);
 export const insertInterviewSchema = createInsertSchema(interviews);
 export const insertConnectionStatusSchema = createInsertSchema(connectionStatus);
+export const insertSubscriptionTierSchema = createInsertSchema(subscriptionTiers);
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions);
+export const insertUsageTrackingSchema = createInsertSchema(usageTracking);
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -620,4 +695,10 @@ export type ConnectionStatus = typeof connectionStatus.$inferSelect;
 export type InsertConnectionStatus = z.infer<typeof insertConnectionStatusSchema>;
 export type TalentOwnerProfile = typeof talentOwnerProfiles.$inferSelect;
 export type InsertTalentOwnerProfile = z.infer<typeof insertTalentOwnerProfileSchema>;
+export type SubscriptionTier = typeof subscriptionTiers.$inferSelect;
+export type InsertSubscriptionTier = z.infer<typeof insertSubscriptionTierSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type UsageTracking = typeof usageTracking.$inferSelect;
+export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
 

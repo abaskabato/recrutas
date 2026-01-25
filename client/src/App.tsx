@@ -14,6 +14,7 @@ import Chat from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 import SignUpCandidatePage from "@/pages/signup-candidate";
 import SignUpTalentPage from "@/pages/signup-talent";
+import PricingPage from "@/pages/pricing";
 import { TopRightButtons } from '@/components/TopRightButtons';
 
 
@@ -33,6 +34,7 @@ function App() {
           <Route path="/talent-dashboard" component={TalentDashboard} />
           <Route path="/exam/:id" component={ExamPage} />
           <Route path="/chat/:id" component={Chat} />
+          <Route path="/pricing" component={PricingPage} />
           <Route component={NotFound} />
         </Switch>
         <TopRightButtons />

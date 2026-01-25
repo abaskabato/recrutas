@@ -517,11 +517,12 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
 
-      // 1. Fetch internal jobs (excluding expired)
+      // 1. Fetch internal jobs (only active, excluding expired)
       const internalJobs = await db
         .select()
         .from(jobPostings)
         .where(and(
+          eq(jobPostings.status, 'active'),
           or(...candidate.skills.map(skill => sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`)),
           or(
             sql`${jobPostings.expiresAt} IS NULL`,
@@ -539,17 +540,22 @@ export class DatabaseStorage implements IStorage {
 
       console.log(`Found ${internalJobsWithSource.length} internal matching jobs`);
 
-      // 2. Fetch external jobs
+      // 2. Fetch external jobs from multiple sources (HiringCafe-style aggregation)
       const { jobAggregator } = await import("./job-aggregator");
       const { companyJobsAggregator } = await import("./company-jobs-aggregator");
+      const { careerPageScraper } = await import("./career-page-scraper");
 
-      const [aggregatorJobs, companyJobs] = await Promise.all([
+      const [aggregatorJobs, companyJobs, careerPageJobs] = await Promise.all([
         jobAggregator.getAllJobs(candidate.skills),
-        companyJobsAggregator.getAllCompanyJobs(candidate.skills)
+        companyJobsAggregator.getAllCompanyJobs(candidate.skills),
+        careerPageScraper.getAllJobs(candidate.skills).catch(err => {
+          console.error('Career page scraper failed:', err);
+          return [];
+        })
       ]);
 
-      // 3. Combine and de-duplicate
-      const allJobs = [...internalJobsWithSource, ...aggregatorJobs, ...companyJobs];
+      // 3. Combine and de-duplicate (prioritizing career page jobs for freshness)
+      const allJobs = [...careerPageJobs, ...internalJobsWithSource, ...aggregatorJobs, ...companyJobs];
       const uniqueJobs = Array.from(new Map(allJobs.map(job => [
         (job.title.toLowerCase() + job.company.toLowerCase()).replace(/\s/g, ''),
         job

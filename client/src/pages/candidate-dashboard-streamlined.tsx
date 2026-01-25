@@ -384,42 +384,256 @@ export default function CandidateStreamlinedDashboard() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Recent Activity */}
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Activity & Quick Actions */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Quick Actions */}
               <Card className="bg-white dark:bg-gray-800 shadow-md">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                    <span>Recent Activity</span>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center space-x-2 text-base">
+                    <Zap className="h-5 w-5 text-yellow-500" />
+                    <span>Quick Actions</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <button
+                      onClick={() => setActiveTab('jobs')}
+                      className="flex flex-col items-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors group"
+                    >
+                      <Search className="h-6 w-6 text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Find Jobs</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('profile')}
+                      className="flex flex-col items-center p-4 rounded-lg bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors group"
+                    >
+                      <Upload className="h-6 w-6 text-green-600 dark:text-green-400 mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Upload Resume</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('applications')}
+                      className="flex flex-col items-center p-4 rounded-lg bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors group"
+                    >
+                      <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Applications</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('profile')}
+                      className="flex flex-col items-center p-4 rounded-lg bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors group"
+                    >
+                      <Settings className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Settings</span>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Activity - Improved */}
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2 text-base">
+                      <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                      <span>Recent Activity</span>
+                    </CardTitle>
+                    {activities && activities.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">{activities.length} events</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
                   {activities && activities.length > 0 ? (
-                    <div className="space-y-4">
-                      {activities.slice(0, 10).map((activity) => (
-                        <div key={activity.id} className="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <div className="h-2 w-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-700 dark:text-gray-300">{activity.description}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {new Date(activity.createdAt).toLocaleDateString()}
-                            </p>
+                    <div className="relative">
+                      {activities.slice(0, 5).map((activity, index) => {
+                        // Determine icon and color based on activity type
+                        const isResume = activity.description.toLowerCase().includes('resume');
+                        const isApplication = activity.description.toLowerCase().includes('applied');
+                        const isMatch = activity.description.toLowerCase().includes('match');
+                        const isView = activity.description.toLowerCase().includes('view');
+
+                        const getActivityIcon = () => {
+                          if (isResume) return <FileText className="h-4 w-4" />;
+                          if (isApplication) return <Briefcase className="h-4 w-4" />;
+                          if (isMatch) return <Target className="h-4 w-4" />;
+                          if (isView) return <Eye className="h-4 w-4" />;
+                          return <Clock className="h-4 w-4" />;
+                        };
+
+                        const getActivityColor = () => {
+                          if (isResume) return 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400';
+                          if (isApplication) return 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400';
+                          if (isMatch) return 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400';
+                          if (isView) return 'bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400';
+                          return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
+                        };
+                        
+                        return (
+                          <div key={activity.id} className="relative pl-10 pb-6">
+                            {/* Vertical timeline line */}
+                            {index < activities.slice(0, 5).length - 1 && (
+                              <div className="absolute left-4 top-2 h-full w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+                            )}
+
+                            {/* Icon on timeline */}
+                            <div className={`absolute left-0 top-0.5 flex h-8 w-8 items-center justify-center rounded-full ${getActivityColor()}`}>
+                              {getActivityIcon()}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex flex-col">
+                                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{activity.description}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <Clock className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
-                      <p className="text-sm text-gray-400 dark:text-gray-500">Start exploring jobs to see activity here</p>
+                      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Clock className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">No recent activity</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Start exploring jobs to see activity here</p>
+                      <Button variant="outline" size="sm" className="mt-4" onClick={() => setActiveTab('jobs')}>
+                        <Search className="h-4 w-4 mr-2" />
+                        Browse Jobs
+                      </Button>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </div>
-            <div className="lg:col-span-1">
+
+            {/* Right Column - Profile Progress & Tips */}
+            <div className="space-y-6">
+              {/* Profile Completion Card */}
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center space-x-2 text-base">
+                    <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                    <span>Profile Strength</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center">
+                    {/* Circular Progress */}
+                    <div className="relative w-32 h-32 mb-4">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle
+                          cx="64"
+                          cy="64"
+                          r="56"
+                          stroke="currentColor"
+                          strokeWidth="12"
+                          fill="none"
+                          className="text-gray-200 dark:text-gray-700"
+                        />
+                        <circle
+                          cx="64"
+                          cy="64"
+                          r="56"
+                          stroke="currentColor"
+                          strokeWidth="12"
+                          fill="none"
+                          strokeLinecap="round"
+                          className={`${profileCompletion >= 80 ? 'text-green-500' : profileCompletion >= 50 ? 'text-yellow-500' : 'text-blue-500'}`}
+                          strokeDasharray={`${(profileCompletion / 100) * 352} 352`}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{profileCompletion}%</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Complete</span>
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <Badge
+                      variant="secondary"
+                      className={`mb-3 ${
+                        profileCompletion >= 80
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400'
+                          : profileCompletion >= 50
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400'
+                      }`}
+                    >
+                      {profileCompletion >= 80 ? 'Strong Profile' : profileCompletion >= 50 ? 'Getting There' : 'Just Started'}
+                    </Badge>
+
+                    {/* Checklist */}
+                    <div className="w-full space-y-2 mt-2">
+                      <div className="flex items-center text-sm">
+                        {hasResume ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-gray-400 mr-2" />
+                        )}
+                        <span className={hasResume ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}>
+                          Resume uploaded
+                        </span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        {(profile as any)?.skills?.length > 0 ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-gray-400 mr-2" />
+                        )}
+                        <span className={(profile as any)?.skills?.length > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}>
+                          Skills added
+                        </span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        {(profile as any)?.experience ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-gray-400 mr-2" />
+                        )}
+                        <span className={(profile as any)?.experience ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}>
+                          Experience level set
+                        </span>
+                      </div>
+                    </div>
+
+                    {profileCompletion < 100 && (
+                      <Button className="w-full mt-4" size="sm" onClick={() => setActiveTab('profile')}>
+                        Complete Profile
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Job Search Tips or Market News */}
+              <Card className="bg-white dark:bg-gray-800 shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center space-x-2 text-base">
+                    <Star className="h-5 w-5 text-yellow-500" />
+                    <span>Pro Tips</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Optimize your profile</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Candidates with complete profiles get 3x more matches</p>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Apply early</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Applications in the first 24 hours have 2x response rate</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Keep skills updated</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Add trending skills to rank higher in searches</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Layoff News */}
               <LayoffNews />
             </div>
           </div>

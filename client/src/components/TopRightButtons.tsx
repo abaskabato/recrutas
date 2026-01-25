@@ -3,21 +3,73 @@ import { useSession } from '@supabase/auth-helpers-react';
 import { SignOutButton } from './SignOutButton';
 import { ThemeToggleButton } from './theme-toggle-button';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Home } from 'lucide-react';
+import { useLocation } from 'wouter';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function TopRightButtons() {
   const session = useSession();
+  const [, setLocation] = useLocation();
+
+  const handleHomeClick = () => {
+    if (session) {
+      // Get role from user metadata
+      const role = session.user?.user_metadata?.role || session.user?.app_metadata?.role;
+
+      if (role === 'talent_owner' || role === 'recruiter') {
+        setLocation('/talent-dashboard');
+      } else if (role === 'candidate') {
+        setLocation('/candidate-dashboard');
+      } else {
+        // No role set yet, go to role selection
+        setLocation('/role-selection');
+      }
+    } else {
+      // Non-authenticated users go to landing page
+      setLocation('/');
+    }
+  };
 
   return (
-    <div className="absolute top-4 right-4 flex items-center">
-      <Button variant="ghost" size="icon" onClick={() => history.back()}>
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={() => history.forward()}>
-        <ArrowRight className="h-5 w-5" />
-      </Button>
-      {session && <SignOutButton />}
-      <ThemeToggleButton />
-    </div>
+    <TooltipProvider>
+      <div className="absolute top-4 right-4 flex items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => history.back()}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Go Back</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => history.forward()}>
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Go Forward</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={handleHomeClick}>
+              <Home className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {session ? 'Go to Dashboard' : 'Go to Home'}
+          </TooltipContent>
+        </Tooltip>
+
+        {session && <SignOutButton />}
+        <ThemeToggleButton />
+      </div>
+    </TooltipProvider>
   );
 }

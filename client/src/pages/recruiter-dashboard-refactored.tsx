@@ -933,12 +933,18 @@ function JobPostingForm({ onSubmit }: { onSubmit: (data: any) => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      ...formData,
-      skills: formData.skills.split(',').map(s => s.trim()),
-      salaryMin: parseInt(formData.salaryMin),
-      salaryMax: parseInt(formData.salaryMax),
-    });
+    const { skills, salaryMin, salaryMax, workType, ...rest } = formData;
+
+    const payload: any = {
+      ...rest,
+      skills: skills ? skills.split(',').map(s => s.trim()).filter(s => s) : [],
+    };
+
+    if (salaryMin) payload.salaryMin = parseInt(salaryMin, 10);
+    if (salaryMax) payload.salaryMax = parseInt(salaryMax, 10);
+    if (workType) payload.workType = workType;
+    
+    onSubmit(payload);
   };
 
   return (

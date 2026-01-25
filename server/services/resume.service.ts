@@ -95,20 +95,27 @@ export class ResumeService {
       aiExtracted = result.aiExtracted;
       parsingSuccess = true;
       console.log('ResumeService: AI parsing completed successfully');
-    } catch (parseError) {
-      console.error('ResumeService: AI Resume parsing failed:', parseError);
+    } catch (parseError: any) {
+      console.error('ResumeService: AI Resume parsing failed:', parseError?.message || parseError);
       console.error('ResumeService: Error details:', {
         message: parseError?.message,
-        name: parseError?.name
+        name: parseError?.name,
+        stack: parseError?.stack?.slice?.(0, 500) // Truncate stack trace for logging
       });
-      // Continue with upload even if parsing fails, but log the error
-      // Fallback: If AI parsing fails, ensure aiExtracted is still an object to avoid crashes
-      aiExtracted = aiExtracted || {
-        personalInfo: {}, summary: '', skills: { technical: [], soft: [], tools: [] },
+      // Continue with upload even if parsing fails - the resume URL is still valid
+      // Fallback: Ensure aiExtracted is a valid object to prevent downstream crashes
+      aiExtracted = {
+        personalInfo: {},
+        summary: '',
+        skills: { technical: [], soft: [], tools: [] },
         experience: { totalYears: 0, level: 'entry', positions: [] },
-        education: [], certifications: [], projects: [], languages: []
+        education: [],
+        certifications: [],
+        projects: [],
+        languages: []
       };
-      // Keep parsingSuccess as false
+      // parsingSuccess stays false, but we don't throw - upload still succeeded
+      console.log('ResumeService: Continuing with fallback data after parsing failure');
     }
 
     const profileData: any = {

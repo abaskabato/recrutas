@@ -538,7 +538,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         applicationId: c.application.id,
         status: c.application.status,
         appliedAt: c.application.appliedAt,
-        updatedAt: c.application.updatedAt,
+        updatedAt: c.application.updatedAt || c.application.appliedAt,
         candidate: {
           id: c.candidate.id,
           firstName: c.candidate.firstName || c.candidate.first_name,
@@ -615,7 +615,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(job);
     } catch (error) {
       console.error("Error creating job posting:", error);
-      res.status(500).json({ message: "Failed to create job posting" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.flatten().fieldErrors,
+        });
+      }
+      res.status(500).json({
+        message: "Failed to create job posting",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
@@ -1072,6 +1081,120 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error fetching exam:", error);
       res.status(500).json({ message: "Failed to fetch exam" });
+    }
+  });
+
+  // ==========================================
+  // STRIPE SUBSCRIPTION ROUTES
+  // ==========================================
+
+  // Import Stripe service
+  const { stripeService } = await import('./services/stripe.service');
+
+  // Get subscription status
+  app.get('/api/subscription/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const subscription = await stripeService.getUserSubscription(req.user.id);
+      res.json(subscription);
+    } catch (error) {
+      console.error("Error fetching subscription status:", error);
+      res.status(500).json({ message: "Failed to fetch subscription status" });
+    }
+  });
+
+  // Get available subscription tiers
+  app.get('/api/subscription/tiers', async (req, res) => {
+    try {
+      const tiers = await stripeService.getAvailableTiers();
+      res.json(tiers);
+    } catch (error) {
+      console.error("Error fetching subscription tiers:", error);
+      res.status(500).json({ message: "Failed to fetch subscription tiers" });
+    }
+  });
+
+  // Create checkout session
+  app.post('/api/stripe/create-checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripeService.isConfigured()) {
+        return res.status(503).json({ message: "Payment system is not configured" });
+      }
+
+      const { tierId, billingCycle } = req.body;
+
+      if (!tierId || !billingCycle) {
+        return res.status(400).json({ message: "Missing tierId or billingCycle" });
+      }
+
+      const checkoutUrl = await stripeService.createCheckoutSession(
+        req.user.id,
+        tierId,
+        billingCycle
+      );
+
+      res.json({ url: checkoutUrl });
+    } catch (error: any) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: error.message || "Failed to create checkout session" });
+    }
+  });
+
+  // Create customer portal session
+  app.post('/api/stripe/portal', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!stripeService.isConfigured()) {
+        return res.status(503).json({ message: "Payment system is not configured" });
+      }
+
+      const portalUrl = await stripeService.createPortalSession(req.user.id);
+      res.json({ url: portalUrl });
+    } catch (error: any) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ message: error.message || "Failed to create portal session" });
+    }
+  });
+
+  // Check feature access
+  app.get('/api/subscription/can-access/:feature', isAuthenticated, async (req: any, res) => {
+    try {
+      const { feature } = req.params;
+      const access = await stripeService.canAccessFeature(req.user.id, feature);
+      res.json(access);
+    } catch (error) {
+      console.error("Error checking feature access:", error);
+      res.status(500).json({ message: "Failed to check feature access" });
+    }
+  });
+
+  // Stripe webhook (must be before body parser for raw body)
+  // Note: This should be set up at the Express app level with raw body parser
+  app.post('/api/stripe/webhook', async (req: any, res) => {
+    try {
+      const sig = req.headers['stripe-signature'];
+
+      if (!sig) {
+        return res.status(400).json({ message: "Missing stripe-signature header" });
+      }
+
+      // The body should be raw for webhook verification
+      const event = stripeService.constructWebhookEvent(req.body, sig);
+      await stripeService.handleWebhook(event);
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error("Webhook error:", error.message);
+      res.status(400).json({ message: `Webhook Error: ${error.message}` });
+    }
+  });
+
+  // Initialize default subscription tiers (admin endpoint)
+  app.post('/api/admin/init-subscription-tiers', async (req, res) => {
+    try {
+      await stripeService.initializeDefaultTiers();
+      res.json({ success: true, message: "Subscription tiers initialized" });
+    } catch (error) {
+      console.error("Error initializing subscription tiers:", error);
+      res.status(500).json({ message: "Failed to initialize subscription tiers" });
     }
   });
 

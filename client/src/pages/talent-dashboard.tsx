@@ -1192,15 +1192,27 @@ export default function TalentDashboard() {
                 <CardContent>
                   <div className="space-y-4">
                     {(() => {
-                      // Calculate real response times from applicant data
+                      // Calculate real response times from applicant data with defensive checks
                       const responseTimes = allApplicants
-                        .filter(app => app.status !== 'submitted' && app.updatedAt && app.appliedAt)
+                        .filter(app => {
+                          if (app.status === 'submitted') return false;
+                          if (!app.updatedAt || !app.appliedAt) return false;
+                          // Validate dates are parseable
+                          try {
+                            const applied = new Date(app.appliedAt).getTime();
+                            const updated = new Date(app.updatedAt).getTime();
+                            return !isNaN(applied) && !isNaN(updated);
+                          } catch {
+                            return false;
+                          }
+                        })
                         .map(app => {
                           const applied = new Date(app.appliedAt).getTime();
                           const responded = new Date(app.updatedAt).getTime();
                           const diffHours = (responded - applied) / (1000 * 60 * 60);
                           return diffHours;
-                        });
+                        })
+                        .filter(hours => hours >= 0 && hours < 8760); // Filter out negative or > 1 year
 
                       const avgResponseTime = responseTimes.length > 0
                         ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length
