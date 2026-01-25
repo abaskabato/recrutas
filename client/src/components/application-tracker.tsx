@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,12 +89,12 @@ export default function ApplicationTracker() {
     );
   }
 
-  const activeApplications = applications.filter(app => 
+  const activeApplications = useMemo(() => (applications || []).filter(app => 
     !['rejected', 'withdrawn'].includes(app.status)
-  );
-  const closedApplications = applications.filter(app => 
+  ), [applications]);
+  const closedApplications = useMemo(() => (applications || []).filter(app => 
     ['rejected', 'withdrawn'].includes(app.status)
-  );
+  ), [applications]);
 
   return (
     <div className="space-y-6">

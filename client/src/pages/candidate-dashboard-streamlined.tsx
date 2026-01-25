@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -148,8 +148,7 @@ export default function CandidateStreamlinedDashboard() {
 
 
 
-  // Calculate profile completion
-  const getProfileCompletion = () => {
+  const profileCompletion = useMemo(() => {
     if (!profile) return 0;
     let completed = 0;
     const total = 5;
@@ -161,9 +160,8 @@ export default function CandidateStreamlinedDashboard() {
     if ((profile as any).salaryMin && (profile as any).salaryMax) completed++;
 
     return Math.round((completed / total) * 100);
-  };
+  }, [profile]);
 
-  const profileCompletion = getProfileCompletion();
   const hasResume = (profile as any)?.resumeUrl || false;
 
   if (isLoading) {

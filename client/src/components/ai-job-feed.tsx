@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,10 +45,17 @@ export default function AIJobFeed() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: rawMatches, isLoading } = useQuery<AIJobMatch[]>({
-    queryKey: ['/api/ai-matches'],
+  const { data: filteredMatches, isLoading } = useQuery<AIJobMatch[]>({
+    queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter],
     queryFn: async () => {
-      const response = await apiRequest("GET", '/api/ai-matches');
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('q', searchTerm);
+      if (locationFilter !== 'all') params.append('location', locationFilter);
+      if (workTypeFilter !== 'all') params.append('workType', workTypeFilter);
+      if (companyFilter !== 'all') params.append('company', companyFilter);
+
+      const url = `/api/ai-matches?${params.toString()}`;
+      const response = await apiRequest("GET", url);
       return response.json();
     },
     refetchInterval: 300000, // Refresh every 5 minutes
@@ -137,31 +145,18 @@ export default function AIJobFeed() {
     hideMutation.mutate(match.job.id);
   };
 
-  const aiMatches = rawMatches || [];
+  const parentRef = useRef<HTMLDivElement>(null);
 
-  const filteredMatches = useMemo(() => {
-    return aiMatches.filter((match: AIJobMatch) => {
-      const job = match.job;
-      const matchesSearch = !searchTerm ||
-        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.company.toLowerCase().includes(searchTerm.toLowerCase());
+  const rowVirtualizer = useVirtualizer({
+    count: filteredMatches?.length ?? 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 300,
+    overscan: 5,
+  });
 
-      const matchesLocation = locationFilter === "all" ||
-        job.location.toLowerCase().includes(locationFilter.toLowerCase());
-
-      const matchesCompany = companyFilter === "all" ||
-        job.company.toLowerCase().includes(companyFilter.toLowerCase());
-
-      const matchesWorkType = workTypeFilter === "all" ||
-        job.workType?.toLowerCase() === workTypeFilter.toLowerCase();
-
-      return matchesSearch && matchesLocation && matchesCompany && matchesWorkType;
-    });
-  }, [aiMatches, searchTerm, locationFilter, companyFilter, workTypeFilter]);
-
-  const locations = useMemo(() => [...new Set(aiMatches.map(m => m.job.location).filter(Boolean))], [aiMatches]);
-  const companies = useMemo(() => [...new Set(aiMatches.map(m => m.job.company).filter(Boolean))], [aiMatches]);
-  const workTypes = useMemo(() => [...new Set(aiMatches.map(m => m.job.workType).filter(Boolean))], [aiMatches]);
+  const locations = useMemo(() => [...new Set((filteredMatches || []).map(m => m.job.location).filter(Boolean))], [filteredMatches]);
+  const companies = useMemo(() => [...new Set((filteredMatches || []).map(m => m.job.company).filter(Boolean))], [filteredMatches]);
+  const workTypes = useMemo(() => [...new Set((filteredMatches || []).map(m => m.job.workType).filter(Boolean))], [filteredMatches]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -183,94 +178,131 @@ export default function AIJobFeed() {
       ) : filteredMatches.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border">{/* ... no results ... */}</div>
       ) : (
-        <div className="space-y-3">
-          {filteredMatches.map((match) => {
-            const isSaved = savedJobIds.has(match.job.id);
-            const isApplied = appliedJobIds.has(match.job.id);
-            const isExpanded = expandedMatchId === match.id;
-            return (
-              <Card key={match.id} className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      {/* ... job details ... */}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0 ml-4">
-                      <Button
-                        size="sm"
-                        variant={isApplied ? "secondary" : "default"}
-                        onClick={(e) => handleApply(e, match)}
-                        disabled={isApplied}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        {isApplied ? <Check className="h-4 w-4 mr-2" /> : null}
-                        {isApplied ? "Applied" : "Apply"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleSaveToggle(e, match)}
-                      >
-                        <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current text-yellow-500" : ""}`} />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleHide(e, match)}
-                      >
-                        <EyeOff className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => { e.stopPropagation(); setExpandedMatchId(isExpanded ? null : match.id); }}
-                      >
-                        <Sparkles className={`h-4 w-4 ${isExpanded ? "fill-current text-blue-500" : ""}`} />
-                      </Button>
-                    </div>
-                  </div>
-                  {isExpanded && (
-                    <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                      <h4 className="font-semibold text-sm mb-2 flex items-center">
-                        <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
-                        AI Match Breakdown
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{match.aiExplanation}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="text-sm font-medium">Your matching skills:</span>
-                        {match.skillMatches.map((skill, index) => (
-                          <Badge key={index} variant="secondary">{skill}</Badge>
-                        ))}
+        <div ref={parentRef} className="space-y-3 overflow-y-auto" style={{ height: 'calc(100vh - 200px)' }}>
+          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const match = filteredMatches[virtualRow.index];
+              const isSaved = savedJobIds.has(match.job.id);
+              const isApplied = appliedJobIds.has(match.job.id);
+              const isExpanded = expandedMatchId === match.id;
+              return (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  {match.job.aiCurated && (
+                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                                      <Sparkles className="h-3 w-3 mr-1" />
+                                                      AI Curated
+                                                    </Badge>
+                                                  )}
+                                                  <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
+                                                </div>
+                                                <h3 className="font-semibold text-lg truncate hover:text-blue-600 transition-colors">
+                                                  <a href="#" onClick={(e) => { e.preventDefault(); setExpandedMatchId(isExpanded ? null : match.id); }}>
+                                                    {match.job.title}
+                                                  </a>
+                                                </h3>
+                                                <div className="flex items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
+                                                  <div className="flex items-center">
+                                                    <Building className="h-4 w-4 mr-1" /> {match.job.company}
+                                                  </div>
+                                                  <div className="flex items-center">
+                                                    <MapPin className="h-4 w-4 mr-1" /> {match.job.location}
+                                                  </div>
+                                                  <div className="flex items-center">
+                                                    <Briefcase className="h-4 w-4 mr-1" /> {match.job.workType}
+                                                  </div>
+                                                </div>
+                                              </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-4">
+                          <Button
+                            size="sm"
+                            variant={isApplied ? "secondary" : "default"}
+                            onClick={(e) => handleApply(e, match)}
+                            disabled={isApplied}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            {isApplied ? <Check className="h-4 w-4 mr-2" /> : null}
+                            {isApplied ? "Applied" : "Apply"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleSaveToggle(e, match)}
+                          >
+                            <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current text-yellow-500" : ""}`} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleHide(e, match)}
+                          >
+                            <EyeOff className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => { e.stopPropagation(); setExpandedMatchId(isExpanded ? null : match.id); }}
+                          >
+                            <Sparkles className={`h-4 w-4 ${isExpanded ? "fill-current text-blue-500" : ""}`} />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {match.job.externalSource && match.job.externalSource !== 'internal' && (
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        Via {match.job.externalSource}
-                        {match.job.postedDate && (
-                          <span className="ml-2">• Posted {new Date(match.job.postedDate).toLocaleDateString()}</span>
-                        )}
-                      </div>
-                      {match.job.externalUrl && (
-                        <a
-                          href={match.job.externalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline flex items-center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          View Original Post
-                        </a>
+                      {isExpanded && (
+                        <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                          <h4 className="font-semibold text-sm mb-2 flex items-center">
+                            <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
+                            AI Match Breakdown
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{match.aiExplanation}</p>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="text-sm font-medium">Your matching skills:</span>
+                            {match.skillMatches.map((skill, index) => (
+                              <Badge key={index} variant="secondary">{skill}</Badge>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                      {match.job.externalSource && match.job.externalSource !== 'internal' && (
+                        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center">
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Via {match.job.externalSource}
+                            {match.job.postedDate && (
+                              <span className="ml-2">• Posted {new Date(match.job.postedDate).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                          {match.job.externalUrl && (
+                            <a
+                              href={match.job.externalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline flex items-center"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              View Original Post
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
