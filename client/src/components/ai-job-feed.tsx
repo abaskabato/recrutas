@@ -150,7 +150,7 @@ export default function AIJobFeed() {
   const rowVirtualizer = useVirtualizer({
     count: filteredMatches?.length ?? 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 300,
+    estimateSize: () => 150,
     overscan: 5,
   });
 
@@ -178,7 +178,7 @@ export default function AIJobFeed() {
       ) : filteredMatches.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border">{/* ... no results ... */}</div>
       ) : (
-        <div ref={parentRef} className="space-y-3 overflow-y-auto" style={{ height: 'calc(100vh - 200px)' }}>
+        <div ref={parentRef} className="overflow-y-auto" style={{ height: 'calc(100vh - 200px)' }}>
           <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const match = filteredMatches[virtualRow.index];
@@ -206,6 +206,11 @@ export default function AIJobFeed() {
                                                       <Sparkles className="h-3 w-3 mr-1" />
                                                       AI Curated
                                                     </Badge>
+                                                  )}
+                                                  {match.job.externalSource && (
+                                                      <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                                                          {match.job.externalSource === 'internal' ? 'Internal' : 'External'}
+                                                      </Badge>
                                                   )}
                                                   <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
                                                 </div>
