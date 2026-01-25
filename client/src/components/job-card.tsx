@@ -9,9 +9,11 @@ import { Edit, Pause, Eye, MessageCircle, Users } from "lucide-react";
 
 interface JobCardProps {
   job: any;
+  onEdit?: (job: any) => void;
+  onViewMatches?: (job: any) => void;
 }
 
-export default function JobCard({ job }: JobCardProps) {
+export default function JobCard({ job, onEdit, onViewMatches }: JobCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -79,10 +81,10 @@ export default function JobCard({ job }: JobCardProps) {
             </div>
           </div>
           <div className="flex space-x-2">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => onEdit?.(job)} title="Edit job">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={toggleJobStatus}>
+            <Button variant="ghost" size="sm" onClick={toggleJobStatus} title={job.status === 'active' ? 'Pause job' : 'Activate job'}>
               <Pause className="h-4 w-4" />
             </Button>
           </div>
@@ -110,11 +112,11 @@ export default function JobCard({ job }: JobCardProps) {
         </div>
 
         <div className="flex space-x-3">
-          <Button className="flex-1" disabled={matches.length === 0}>
+          <Button className="flex-1" disabled={matches.length === 0} onClick={() => onViewMatches?.(job)}>
             <Users className="h-4 w-4 mr-2" />
-            View Matches
+            View Matches ({matches.length})
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => onEdit?.(job)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit Job
           </Button>

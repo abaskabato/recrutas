@@ -1,16 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams } from "wouter";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send, User } from "lucide-react";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { ArrowLeft, User } from "lucide-react";
 import ChatInterface from "@/components/chat-interface";
 
 export default function Chat() {
@@ -18,7 +16,6 @@ export default function Chat() {
   const session = useSession();
   const supabase = useSupabaseClient();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -37,13 +34,11 @@ export default function Chat() {
 
   const { data: chatRooms = [], isLoading: roomsLoading } = useQuery({
     queryKey: ["/api/chat/rooms"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/chat/rooms");
+      return response.json();
+    },
     enabled: !!session?.user,
-    retry: false,
-  });
-
-  const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ["/api/chat", roomId, "messages"],
-    enabled: !!roomId && !!session?.user,
     retry: false,
   });
 

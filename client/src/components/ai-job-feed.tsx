@@ -266,9 +266,13 @@ export default function AIJobFeed() {
                                                   <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
                                                 </div>
                                                 <h3 className="font-semibold text-lg truncate hover:text-blue-600 transition-colors">
-                                                  <a href="#" onClick={(e) => { e.preventDefault(); setExpandedMatchId(expandedMatchId === match.id ? null : match.id); }}>
+                                                  <button
+                                                    type="button"
+                                                    className="text-left hover:underline"
+                                                    onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                                                  >
                                                     {match.job.title}
-                                                  </a>
+                                                  </button>
                                                 </h3>
                                                 <div className="flex items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
                                                   <div className="flex items-center">

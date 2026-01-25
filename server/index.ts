@@ -3,6 +3,7 @@ dotenv.config();
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
+import { registerChatRoutes } from "./chat-routes.js";
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import cors from 'cors';
@@ -60,6 +61,7 @@ export async function configureApp() {
   await initializeSupabase();
   console.log('configureApp: app instance (before routes)', app); // Log 1
   await registerRoutes(app);
+  registerChatRoutes(app);
   console.log('configureApp: app instance (after routes)', app); // Log 2
 
   console.log('Registered routes stack:');

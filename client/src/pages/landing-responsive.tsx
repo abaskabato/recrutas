@@ -371,8 +371,8 @@ export default function LandingResponsive() {
               © 2025 Recrutas. All rights reserved.
             </div>
             <div className="flex space-x-4">
-              <a href="#" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Privacy Policy</a>
-              <a href="#" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Terms of Service</a>
+              <a href="/privacy" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Privacy Policy</a>
+              <a href="/terms" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Terms of Service</a>
             </div>
           </div>
         </div>

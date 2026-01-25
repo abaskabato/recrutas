@@ -192,11 +192,11 @@ export default function ApplicationTracker() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => window.location.href = '/chat'}>
                           <MessageSquare className="h-4 w-4 mr-1" />
                           Message
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => window.location.href = `/candidate-dashboard?tab=jobs&job=${application.job.id}`}>
                           <ExternalLink className="h-4 w-4 mr-1" />
                           View Job
                         </Button>

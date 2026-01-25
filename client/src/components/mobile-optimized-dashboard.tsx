@@ -131,7 +131,7 @@ export default function MobileOptimizedDashboard() {
               )}
             </Button>
             
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => setActiveTab('profile')}>
               <User className="w-5 h-5" />
             </Button>
           </div>
@@ -282,7 +282,7 @@ export default function MobileOptimizedDashboard() {
                               </Badge>
                             ))}
                           </div>
-                          <Button size="sm" className="ml-2">
+                          <Button size="sm" className="ml-2" onClick={() => window.location.href = `/candidate-dashboard?tab=jobs&apply=${job.id}`}>
                             Apply
                             <ChevronRight className="w-3 h-3 ml-1" />
                           </Button>
@@ -313,10 +313,10 @@ export default function MobileOptimizedDashboard() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">Applied {app.appliedDate}</span>
                     <div className="flex space-x-1">
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => window.location.href = '/chat'} title="Message recruiter">
                         <MessageCircle className="w-3 h-3" />
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => window.location.href = `/candidate-dashboard?tab=applications`} title="View details">
                         <Video className="w-3 h-3" />
                       </Button>
                     </div>
@@ -346,11 +346,11 @@ export default function MobileOptimizedDashboard() {
                         {message.preview}
                       </p>
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => window.location.href = '/chat'}>
                           <Mail className="w-3 h-3 mr-1" />
                           Reply
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => window.location.href = '/chat'}>
                           <Phone className="w-3 h-3 mr-1" />
                           Call
                         </Button>
@@ -389,19 +389,19 @@ export default function MobileOptimizedDashboard() {
             </Card>
 
             <div className="space-y-2">
-              <Button variant="outline" className="w-full justify-between">
+              <Button variant="outline" className="w-full justify-between" onClick={() => window.location.href = '/candidate-dashboard?tab=profile'}>
                 Edit Profile
                 <ChevronRight className="w-4 h-4" />
               </Button>
-              <Button variant="outline" className="w-full justify-between">
+              <Button variant="outline" className="w-full justify-between" onClick={() => window.location.href = '/candidate-dashboard?tab=profile'}>
                 Upload Resume
                 <ChevronRight className="w-4 h-4" />
               </Button>
-              <Button variant="outline" className="w-full justify-between">
+              <Button variant="outline" className="w-full justify-between" onClick={() => window.location.href = '/candidate-dashboard?tab=profile'}>
                 Notification Settings
                 <Settings className="w-4 h-4" />
               </Button>
-              <Button variant="outline" className="w-full justify-between">
+              <Button variant="outline" className="w-full justify-between" onClick={() => window.location.href = '/candidate-dashboard?tab=jobs'}>
                 Job Preferences
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -439,6 +439,8 @@ export default function MobileOptimizedDashboard() {
       <Button
         className="fixed bottom-20 right-4 w-12 h-12 rounded-full shadow-lg"
         size="sm"
+        onClick={() => window.location.href = '/candidate-dashboard?tab=jobs'}
+        title="Browse jobs"
       >
         <Plus className="w-5 h-5" />
       </Button>

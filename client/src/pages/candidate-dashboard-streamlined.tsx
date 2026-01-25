@@ -270,7 +270,7 @@ export default function CandidateStreamlinedDashboard() {
             <CardContent>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</div>
               <p className="text-xs text-muted-foreground pt-2">Direct conversations with hiring managers.</p>
-              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => { /* Navigate to chat page if it exists */ }}>
+              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => window.location.href = '/chat'}>
                 <MessageCircle className="h-4 w-4 mr-2" />
                 View Chats
               </Button>
@@ -658,9 +658,109 @@ export default function CandidateStreamlinedDashboard() {
         )}
 
         {activeTab === 'agent' && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recrutas Agent Dashboard</h2>
-            <p className="text-gray-500 dark:text-gray-400">This is where you can manage your AI agent. Coming soon!</p>
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recrutas AI Agent</h2>
+              <p className="text-gray-500 dark:text-gray-400">Your personal AI-powered career assistant</p>
+            </div>
+
+            {/* Feature Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-200 dark:border-blue-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-blue-700 dark:text-blue-400">
+                    <Target className="h-5 w-5 mr-2" />
+                    Smart Job Matching
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Our AI analyzes your skills, experience, and preferences to find jobs that match your profile perfectly.
+                  </p>
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Active
+                  </Badge>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 border-purple-200 dark:border-purple-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-purple-700 dark:text-purple-400">
+                    <Zap className="h-5 w-5 mr-2" />
+                    Resume Optimization
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Get AI-powered suggestions to improve your resume and increase your chances of getting noticed by recruiters.
+                  </p>
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Active
+                  </Badge>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-200 dark:border-amber-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-amber-700 dark:text-amber-400">
+                    <TrendingUp className="h-5 w-5 mr-2" />
+                    Career Insights
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Discover trending skills in your industry and get personalized learning recommendations.
+                  </p>
+                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400">
+                    Coming Soon
+                  </Badge>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* AI Tips Section */}
+            <Card className="bg-white dark:bg-gray-800">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Star className="h-5 w-5 mr-2 text-yellow-500" />
+                  AI-Powered Tips for You
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Complete Your Profile</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                    Add more skills to your profile to improve your match score. Candidates with 10+ skills get 40% more job matches.
+                  </p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                  <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Apply Early</h4>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Jobs posted in the last 24 hours have a 2x higher response rate. Check your job feed daily for new opportunities.
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800">
+                  <h4 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Engage with Recruiters</h4>
+                  <p className="text-sm text-purple-700 dark:text-purple-400">
+                    Respond to messages within 24 hours. Quick responses show recruiters you're actively interested.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-4">
+              <Button onClick={() => setActiveTab('jobs')} className="bg-blue-600 hover:bg-blue-700">
+                <Search className="h-4 w-4 mr-2" />
+                Find AI-Matched Jobs
+              </Button>
+              <Button onClick={() => setActiveTab('profile')} variant="outline">
+                <User className="h-4 w-4 mr-2" />
+                Update Profile
+              </Button>
+            </div>
           </div>
         )}
       </div>

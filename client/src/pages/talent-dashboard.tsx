@@ -369,6 +369,28 @@ export default function TalentDashboard() {
     },
   });
 
+  const startChatMutation = useMutation({
+    mutationFn: async ({ jobId, candidateId }: { jobId: number, candidateId: string }) => {
+      const response = await apiRequest('POST', '/api/chat/rooms/create', { jobId, candidateId });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Chat Started",
+        description: "Opening chat room...",
+      });
+      // Navigate to chat room
+      window.location.href = `/chat/${data.id}`;
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Chat Failed",
+        description: error.message || "Failed to start chat",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpdateStatus = (applicationId: number, status: string) => {
     updateStatusMutation.mutate({ applicationId, status });
   };
@@ -624,7 +646,7 @@ export default function TalentDashboard() {
                       {statsLoading ? "..." : stats?.activeChats || 0}
                     </div>
                     <p className="text-xs text-muted-foreground pt-1">Conversations with top candidates.</p>
-                    <Button className="mt-4 w-full" size="sm" variant="outline" disabled title="Chat feature coming soon">
+                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => window.location.href = '/chat'}>
                       Open Chats
                     </Button>
                   </CardContent>
@@ -1004,14 +1026,24 @@ export default function TalentDashboard() {
                                     <p className="text-sm text-gray-600 dark:text-gray-400">{applicant.match.aiExplanation}</p>
                                   </div>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => generateQuestionsMutation.mutate({ jobId: selectedJob!.id, candidateId: applicant.candidate.id })}
-                                  disabled={generateQuestionsMutation.isPending}
-                                >
-                                  Generate AI Screening Questions
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => generateQuestionsMutation.mutate({ jobId: selectedJob!.id, candidateId: applicant.candidate.id })}
+                                    disabled={generateQuestionsMutation.isPending}
+                                  >
+                                    Generate AI Screening Questions
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => startChatMutation.mutate({ jobId: selectedJob!.id, candidateId: applicant.candidate.id })}
+                                    disabled={startChatMutation.isPending}
+                                  >
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    Start Chat
+                                  </Button>
+                                </div>
                                 {questions && (
                                   <div className="mt-4">
                                     <h5 className="font-semibold text-sm mb-2">Suggested Questions:</h5>
@@ -1342,6 +1374,158 @@ export default function TalentDashboard() {
               }}
               onCancel={() => setShowJobWizard(false)}
             />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Job Edit Dialog */}
+      {showJobDialog && selectedJob && (
+        <Dialog open={showJobDialog} onOpenChange={(open) => {
+          if (!open) {
+            setShowJobDialog(false);
+            setSelectedJob(null);
+          }
+        }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Job Posting</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Job Title</label>
+                  <Input
+                    value={jobForm.title}
+                    onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
+                    placeholder="e.g. Senior Software Engineer"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Company</label>
+                  <Input
+                    value={jobForm.company}
+                    onChange={(e) => setJobForm({ ...jobForm, company: e.target.value })}
+                    placeholder="Company name"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  value={jobForm.description}
+                  onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
+                  placeholder="Describe the role and responsibilities..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Location</label>
+                  <Input
+                    value={jobForm.location}
+                    onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
+                    placeholder="e.g. New York, NY"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Work Type</label>
+                  <Select
+                    value={jobForm.workType}
+                    onValueChange={(value) => setJobForm({ ...jobForm, workType: value as "remote" | "hybrid" | "onsite" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="remote">Remote</SelectItem>
+                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                      <SelectItem value="onsite">On-site</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Min Salary</label>
+                  <Input
+                    type="number"
+                    value={jobForm.salaryMin}
+                    onChange={(e) => setJobForm({ ...jobForm, salaryMin: e.target.value })}
+                    placeholder="e.g. 80000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Max Salary</label>
+                  <Input
+                    type="number"
+                    value={jobForm.salaryMax}
+                    onChange={(e) => setJobForm({ ...jobForm, salaryMax: e.target.value })}
+                    placeholder="e.g. 120000"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Required Skills (comma separated)</label>
+                <Input
+                  value={jobForm.skills.join(', ')}
+                  onChange={(e) => setJobForm({ ...jobForm, skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  placeholder="e.g. React, TypeScript, Node.js"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Requirements (comma separated)</label>
+                <Textarea
+                  value={jobForm.requirements.join(', ')}
+                  onChange={(e) => setJobForm({ ...jobForm, requirements: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  placeholder="e.g. 5+ years experience, Bachelor's degree"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => {
+                setShowJobDialog(false);
+                setSelectedJob(null);
+              }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedJob) {
+                    updateJobMutation.mutate({
+                      jobId: selectedJob.id,
+                      data: {
+                        title: jobForm.title,
+                        company: jobForm.company,
+                        description: jobForm.description,
+                        requirements: jobForm.requirements,
+                        skills: jobForm.skills,
+                        location: jobForm.location,
+                        salaryMin: jobForm.salaryMin ? parseInt(jobForm.salaryMin) : undefined,
+                        salaryMax: jobForm.salaryMax ? parseInt(jobForm.salaryMax) : undefined,
+                        workType: jobForm.workType
+                      }
+                    });
+                  }
+                }}
+                disabled={updateJobMutation.isPending}
+              >
+                {updateJobMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       )}

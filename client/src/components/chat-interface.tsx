@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRoleBasedAuth as useAuth } from "@/hooks/useRoleBasedAuth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useWebSocket } from "@/hooks/useWebSocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,48 +21,29 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
   const queryClient = useQueryClient();
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ["/api/chat", roomId, "messages"],
+    queryKey: ["/api/chat/rooms", roomId, "messages"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/chat/rooms/${roomId}/messages`);
+      return response.json();
+    },
     enabled: !!roomId,
+    refetchInterval: 5000, // Poll for new messages every 5 seconds
   });
-
-  const { socket } = useWebSocket();
 
   const sendMessageMutation = useMutation({
     mutationFn: async (messageText: string) => {
-      if (socket) {
-        socket.send(JSON.stringify({
-          type: 'chat_message',
-          data: {
-            chatRoomId: roomId,
-            senderId: user.id,
-            message: messageText,
-          }
-        }));
-      }
+      const response = await apiRequest("POST", `/api/chat/rooms/${roomId}/messages`, { message: messageText });
+      return response.json();
     },
     onSuccess: () => {
       setMessage("");
-      queryClient.invalidateQueries({ queryKey: ["/api/chat", roomId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/chat/rooms", roomId, "messages"] });
     },
   });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  useEffect(() => {
-    if (socket) {
-      const handleMessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'new_message') {
-          queryClient.invalidateQueries({ queryKey: ["/api/chat", roomId, "messages"] });
-        }
-      };
-
-      socket.addEventListener('message', handleMessage);
-      return () => socket.removeEventListener('message', handleMessage);
-    }
-  }, [socket, roomId, queryClient]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
