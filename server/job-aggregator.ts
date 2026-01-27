@@ -1,3 +1,37 @@
+// Trust scores for different job sources (0-100)
+// Higher scores indicate more trustworthy/verified sources
+export const SOURCE_TRUST_SCORES: Record<string, number> = {
+  'platform': 100,          // Internal platform jobs - most trustworthy
+  'career_page': 90,        // Direct career page scrapes - verified from company
+  'greenhouse': 90,         // Greenhouse ATS - direct from company
+  'lever': 90,              // Lever ATS - direct from company
+  'JSearch': 75,            // JSearch API - good aggregator
+  'The Muse': 70,           // Curated listings
+  'RemoteOK': 65,           // Remote-focused, generally accurate
+  'ArbeitNow': 60,          // European focus
+  'USAJobs': 85,            // Government jobs - highly verified
+  'Jooble': 55,             // Aggregator - less verified
+  'Indeed': 50,             // RSS/Aggregator - variable quality
+  'hiring.cafe': 70,        // Curated tech jobs
+  'external': 50,           // Generic external source
+  'Job Generator': 40,      // Template-generated jobs (fallback)
+  'default': 50             // Default for unknown sources
+};
+
+// Get trust score for a source, with fallback
+export function getSourceTrustScore(source: string): number {
+  return SOURCE_TRUST_SCORES[source] ?? SOURCE_TRUST_SCORES['default'];
+}
+
+// Trust badge thresholds
+export const TRUST_BADGES = {
+  VERIFIED_ACTIVE: 90,      // Show "Verified Active" badge
+  DIRECT_FROM_COMPANY: 85,  // Show "Direct from Company" badge
+  HIGH_TRUST: 70,           // Show as trusted source
+  MEDIUM_TRUST: 50,         // Standard display
+  LOW_TRUST: 30             // Show caution indicator
+};
+
 interface ExternalJob {
   id: string;
   title: string;
@@ -12,6 +46,10 @@ interface ExternalJob {
   source: string;
   externalUrl: string;
   postedDate: string;
+  // Trust-related fields
+  trustScore?: number;
+  isVerifiedActive?: boolean;
+  lastLivenessCheck?: string;
 }
 
 interface JSearchJob {
@@ -398,6 +436,7 @@ export class JobAggregator {
         source: 'hiring.cafe',
         externalUrl: 'https://hiring.cafe/jobs/senior-frontend-developer',
         postedDate: new Date().toISOString(),
+        trustScore: getSourceTrustScore('hiring.cafe')
       },
       {
         id: 'hc_sample_2',
@@ -413,6 +452,7 @@ export class JobAggregator {
         source: 'hiring.cafe',
         externalUrl: 'https://hiring.cafe/jobs/full-stack-engineer',
         postedDate: new Date().toISOString(),
+        trustScore: getSourceTrustScore('hiring.cafe')
       },
       {
         id: 'hc_sample_3',
@@ -428,6 +468,7 @@ export class JobAggregator {
         source: 'hiring.cafe',
         externalUrl: 'https://hiring.cafe/jobs/devops-engineer',
         postedDate: new Date().toISOString(),
+        trustScore: getSourceTrustScore('hiring.cafe')
       }
     ];
   }
@@ -540,6 +581,7 @@ export class JobAggregator {
       source: 'RemoteOK',
       externalUrl: job.url,
       postedDate: new Date(job.date).toISOString(),
+      trustScore: getSourceTrustScore('RemoteOK')
     }));
   }
 
@@ -578,6 +620,7 @@ export class JobAggregator {
         source: 'USAJobs',
         externalUrl: job.PositionURI,
         postedDate: job.PublicationStartDate,
+        trustScore: getSourceTrustScore('USAJobs')
       };
     });
   }
@@ -601,7 +644,8 @@ export class JobAggregator {
         salaryMax: job.job_max_salary,
         source: 'JSearch',
         externalUrl: job.job_apply_link || job.job_google_link,
-        postedDate: job.job_posted_at_datetime_utc || new Date().toISOString()
+        postedDate: job.job_posted_at_datetime_utc || new Date().toISOString(),
+        trustScore: getSourceTrustScore('JSearch')
       }));
   }
 
@@ -788,7 +832,8 @@ export class JobAggregator {
         workType: job.remote ? 'remote' : 'onsite',
         source: 'ArbeitNow',
         externalUrl: job.url,
-        postedDate: job.created_at || new Date().toISOString()
+        postedDate: job.created_at || new Date().toISOString(),
+        trustScore: getSourceTrustScore('ArbeitNow')
       }));
   }
 
@@ -807,7 +852,8 @@ export class JobAggregator {
         salaryMin: job.salary ? parseInt(job.salary.replace(/[^0-9]/g, '')) : undefined,
         source: 'Jooble',
         externalUrl: job.link,
-        postedDate: job.updated || new Date().toISOString()
+        postedDate: job.updated || new Date().toISOString(),
+        trustScore: getSourceTrustScore('Jooble')
       }));
   }
 
@@ -1064,6 +1110,7 @@ export class JobAggregator {
       source: 'The Muse',
       externalUrl: job.refs?.landing_page || 'https://themuse.com',
       postedDate: job.publication_date || new Date().toISOString(),
+      trustScore: getSourceTrustScore('The Muse')
     }));
   }
 
@@ -1133,7 +1180,8 @@ export class JobAggregator {
       salaryMax: 75000 + (index * 8000),
       source: 'Job Generator',
       externalUrl: `https://careers.example.com/${job.title.toLowerCase().replace(/\s+/g, '-')}`,
-      postedDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
+      postedDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trustScore: getSourceTrustScore('Job Generator')
     }));
   }
 

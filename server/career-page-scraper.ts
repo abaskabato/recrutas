@@ -34,11 +34,15 @@ interface CompanyCareerPage {
   apiUrl?: string; // Some companies have JSON APIs
   greenhouseId?: string; // For companies using Greenhouse
   leverId?: string; // For companies using Lever
+  workdayId?: string; // For companies using Workday ATS
 }
 
 // Top tech companies with career pages to scrape
 const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
-  // Companies with Greenhouse ATS (JSON API available)
+  // ============================================
+  // GREENHOUSE ATS Companies (JSON API available)
+  // ============================================
+  // Original companies
   { name: 'Stripe', careerUrl: 'https://stripe.com/jobs', greenhouseId: 'stripe' },
   { name: 'Airbnb', careerUrl: 'https://careers.airbnb.com/', greenhouseId: 'airbnb' },
   { name: 'Discord', careerUrl: 'https://discord.com/careers', greenhouseId: 'discord' },
@@ -50,12 +54,68 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Plaid', careerUrl: 'https://plaid.com/careers/', greenhouseId: 'plaid' },
   { name: 'Ramp', careerUrl: 'https://ramp.com/careers', greenhouseId: 'ramp' },
 
-  // Companies with Lever ATS (JSON API available)
+  // NEW Greenhouse ATS companies (Phase 2 expansion)
+  { name: 'Datadog', careerUrl: 'https://careers.datadoghq.com/', greenhouseId: 'datadog' },
+  { name: 'Duolingo', careerUrl: 'https://careers.duolingo.com/', greenhouseId: 'duolingo' },
+  { name: 'HashiCorp', careerUrl: 'https://www.hashicorp.com/careers', greenhouseId: 'hashicorp' },
+  { name: 'Snyk', careerUrl: 'https://snyk.io/careers/', greenhouseId: 'snyk' },
+  { name: 'GitLab', careerUrl: 'https://about.gitlab.com/jobs/', greenhouseId: 'gitlab' },
+  { name: 'Databricks', careerUrl: 'https://databricks.com/careers', greenhouseId: 'databricks' },
+  { name: 'Carta', careerUrl: 'https://carta.com/careers/', greenhouseId: 'carta' },
+  { name: 'Brex', careerUrl: 'https://www.brex.com/careers', greenhouseId: 'brex' },
+  { name: 'Scale AI', careerUrl: 'https://scale.com/careers', greenhouseId: 'scaleai' },
+  { name: 'Deel', careerUrl: 'https://www.deel.com/careers', greenhouseId: 'deel' },
+  { name: 'Remote.com', careerUrl: 'https://remote.com/careers', greenhouseId: 'remotecom' },
+  { name: 'Retool', careerUrl: 'https://retool.com/careers', greenhouseId: 'retool' },
+  { name: 'Benchling', careerUrl: 'https://www.benchling.com/careers/', greenhouseId: 'benchling' },
+  { name: 'Mercury', careerUrl: 'https://mercury.com/careers', greenhouseId: 'mercury' },
+  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers', greenhouseId: 'rippling' },
+  { name: 'Anduril', careerUrl: 'https://www.anduril.com/careers/', greenhouseId: 'anduril' },
+  { name: 'Cockroach Labs', careerUrl: 'https://www.cockroachlabs.com/careers/', greenhouseId: 'cockroachlabs' },
+  { name: 'Amplitude', careerUrl: 'https://amplitude.com/careers', greenhouseId: 'amplitude' },
+  { name: 'LaunchDarkly', careerUrl: 'https://launchdarkly.com/careers/', greenhouseId: 'launchdarkly' },
+  { name: 'Segment', careerUrl: 'https://segment.com/careers/', greenhouseId: 'segment' },
+
+  // ============================================
+  // LEVER ATS Companies (JSON API available)
+  // ============================================
+  // Original companies
   { name: 'Netflix', careerUrl: 'https://jobs.netflix.com/', leverId: 'netflix' },
   { name: 'Twilio', careerUrl: 'https://www.twilio.com/company/jobs', leverId: 'twilio' },
   { name: 'Cloudflare', careerUrl: 'https://www.cloudflare.com/careers/', leverId: 'cloudflare' },
 
-  // Companies with custom career pages (will use HTML scraping + AI)
+  // NEW Lever ATS companies (Phase 2 expansion)
+  { name: 'Flexport', careerUrl: 'https://www.flexport.com/careers/', leverId: 'flexport' },
+  { name: 'Airtable', careerUrl: 'https://airtable.com/careers', leverId: 'airtable' },
+  { name: 'Webflow', careerUrl: 'https://webflow.com/careers', leverId: 'webflow' },
+  { name: 'Canva', careerUrl: 'https://www.canva.com/careers/', leverId: 'canva' },
+  { name: 'Loom', careerUrl: 'https://www.loom.com/careers', leverId: 'loom' },
+  { name: 'Postman', careerUrl: 'https://www.postman.com/company/careers/', leverId: 'postman' },
+  { name: 'Grammarly', careerUrl: 'https://www.grammarly.com/jobs', leverId: 'grammarly' },
+  { name: 'Miro', careerUrl: 'https://miro.com/careers/', leverId: 'miro' },
+  { name: 'Asana', careerUrl: 'https://asana.com/jobs', leverId: 'asana' },
+  { name: 'Intercom', careerUrl: 'https://www.intercom.com/careers', leverId: 'intercom' },
+  { name: 'Calendly', careerUrl: 'https://calendly.com/careers', leverId: 'calendly' },
+  { name: 'Zapier', careerUrl: 'https://zapier.com/jobs', leverId: 'zapier' },
+  { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', leverId: 'gusto' },
+  { name: 'Notion', careerUrl: 'https://www.notion.so/careers', leverId: 'notionhq' },
+  { name: 'Dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/careers/', leverId: 'daboratory' },
+
+  // ============================================
+  // WORKDAY ATS Companies (new scraping pattern)
+  // ============================================
+  { name: 'Salesforce', careerUrl: 'https://careers.salesforce.com/jobs', workdayId: 'salesforce' },
+  { name: 'VMware', careerUrl: 'https://careers.vmware.com/main/jobs', workdayId: 'vmware' },
+  { name: 'Adobe', careerUrl: 'https://careers.adobe.com/us/en/search-results', workdayId: 'adobe' },
+  { name: 'Workday', careerUrl: 'https://workday.wd5.myworkdayjobs.com/Workday', workdayId: 'workday' },
+  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow' },
+  { name: 'Nvidia', careerUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite', workdayId: 'nvidia' },
+  { name: 'Visa', careerUrl: 'https://usa.visa.com/careers.html', workdayId: 'visa' },
+  { name: 'Target', careerUrl: 'https://corporate.target.com/careers', workdayId: 'target' },
+
+  // ============================================
+  // Custom career pages (AI scraping)
+  // ============================================
   { name: 'Google', careerUrl: 'https://careers.google.com/jobs/results/' },
   { name: 'Microsoft', careerUrl: 'https://careers.microsoft.com/us/en/search-results' },
   { name: 'Apple', careerUrl: 'https://jobs.apple.com/en-us/search' },
@@ -67,6 +127,15 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Linear', careerUrl: 'https://linear.app/careers' },
   { name: 'Vercel', careerUrl: 'https://vercel.com/careers' },
   { name: 'Supabase', careerUrl: 'https://supabase.com/careers' },
+  { name: 'OpenAI', careerUrl: 'https://openai.com/careers/' },
+  { name: 'Anthropic', careerUrl: 'https://www.anthropic.com/careers' },
+  { name: 'Palantir', careerUrl: 'https://www.palantir.com/careers/' },
+  { name: 'DoorDash', careerUrl: 'https://careers.doordash.com/' },
+  { name: 'Uber', careerUrl: 'https://www.uber.com/us/en/careers/' },
+  { name: 'Lyft', careerUrl: 'https://www.lyft.com/careers' },
+  { name: 'Pinterest', careerUrl: 'https://www.pinterestcareers.com/' },
+  { name: 'Snap', careerUrl: 'https://careers.snap.com/' },
+  { name: 'Reddit', careerUrl: 'https://www.redditinc.com/careers' },
 ];
 
 class CareerPageScraper {
@@ -152,6 +221,10 @@ class CareerPageScraper {
       // Try Lever API
       else if (company.leverId) {
         jobs = await this.fetchFromLever(company);
+      }
+      // Try Workday ATS
+      else if (company.workdayId) {
+        jobs = await this.fetchFromWorkday(company);
       }
       // Fall back to HTML scraping with AI extraction
       else {
@@ -247,6 +320,67 @@ class CareerPageScraper {
     } catch (error: any) {
       console.log(`[CareerScraper] Lever API failed for ${company.name}:`, error.message);
       return [];
+    }
+  }
+
+  /**
+   * Fetch jobs from Workday ATS
+   * Workday uses a JSON API but with a different structure than Greenhouse/Lever
+   */
+  private async fetchFromWorkday(company: CompanyCareerPage): Promise<ScrapedJob[]> {
+    // Workday ATS typically uses a standard endpoint pattern
+    // Note: Workday APIs are often protected, so we fall back to AI scraping if the API fails
+    try {
+      // Try the standard Workday JSON API endpoint
+      const apiUrl = company.careerUrl.includes('myworkdayjobs')
+        ? `${company.careerUrl}?$expand=*`
+        : company.careerUrl;
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'RecrutasJobAggregator/1.0',
+          'Accept': 'application/json, text/html'
+        }
+      });
+
+      if (!response.ok) {
+        // Fall back to AI scraping
+        console.log(`[CareerScraper] Workday API returned ${response.status} for ${company.name}, falling back to AI scraping`);
+        return this.scrapeWithAI(company);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        // Workday response structure varies, try common patterns
+        const jobListings = data.jobPostings || data.data?.jobs || data.jobs || [];
+
+        const jobs: ScrapedJob[] = jobListings.slice(0, 20).map((job: any, index: number) => ({
+          id: `workday_${company.workdayId}_${job.id || job.bulletedId || index}`,
+          title: job.title || job.jobTitle || job.name || 'Position',
+          company: company.name,
+          location: job.location?.city || job.primaryLocation || job.locations?.[0] || 'Various',
+          description: this.stripHtml(job.description || job.jobDescription || job.summary || ''),
+          requirements: this.extractRequirements(job.description || ''),
+          skills: this.extractSkillsFromText(job.title + ' ' + (job.description || '')),
+          workType: this.determineWorkType(job.location?.city || job.primaryLocation || ''),
+          externalUrl: job.externalApplyUrl || job.applyUrl || company.careerUrl,
+          source: 'career_page',
+          postedDate: job.postedDate || job.createdDate || new Date().toISOString()
+        }));
+
+        console.log(`[CareerScraper] Fetched ${jobs.length} jobs from ${company.name} (Workday)`);
+        return jobs;
+      } else {
+        // HTML response, use AI scraping
+        const html = await response.text();
+        return this.extractJobsWithAI(html, company);
+      }
+    } catch (error: any) {
+      console.log(`[CareerScraper] Workday fetch failed for ${company.name}:`, error.message);
+      // Fall back to AI scraping
+      return this.scrapeWithAI(company);
     }
   }
 

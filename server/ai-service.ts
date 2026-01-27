@@ -1,6 +1,24 @@
 // Open source ML-powered job matching using semantic embeddings
 
 import { type CandidateProfile, type JobPosting } from '@shared/schema';
+import Groq from 'groq-sdk';
+
+// Initialize Groq client if API key is available
+const groq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%'
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
+
+// Job summarization result interface
+export interface JobSummary {
+  summary: string;              // 2-3 sentence summary
+  keyResponsibilities: string[]; // Top 5 bullets
+  mustHaveSkills: string[];      // Required skills
+  niceToHaveSkills: string[];    // Preferred skills
+  seniorityLevel: string;        // junior/mid/senior/lead/principal
+  estimatedSalaryRange?: string; // If inferable from description
+  teamSize?: string;             // If mentioned
+  techStack?: string[];          // Specific technologies mentioned
+}
 
 interface AIMatchResult {
   confidenceLevel: number;
@@ -372,4 +390,218 @@ export async function generateScreeningQuestions(candidate: CandidateProfile, jo
   await new Promise(resolve => setTimeout(resolve, 500));
 
   return questions;
+}
+
+/**
+ * GPT-powered job description summarization
+ * Similar to HiringCafe's approach of providing structured job summaries
+ */
+export async function summarizeJobDescription(description: string, title?: string, company?: string): Promise<JobSummary> {
+  // If no Groq client, use rule-based summarization
+  if (!groq) {
+    return generateRuleBasedSummary(description, title, company);
+  }
+
+  try {
+    const prompt = `Analyze this job posting and extract structured information. Return a JSON object.
+
+Job Title: ${title || 'Not specified'}
+Company: ${company || 'Not specified'}
+
+Job Description:
+${description.slice(0, 8000)}
+
+Return ONLY a valid JSON object with these exact fields (no markdown, no code blocks):
+{
+  "summary": "A 2-3 sentence summary of the role and what makes it interesting",
+  "keyResponsibilities": ["Up to 5 main responsibilities as bullet points"],
+  "mustHaveSkills": ["Required/must-have skills mentioned"],
+  "niceToHaveSkills": ["Nice-to-have/preferred skills mentioned"],
+  "seniorityLevel": "one of: intern, junior, mid, senior, lead, principal, director",
+  "estimatedSalaryRange": "salary range if mentioned, or null",
+  "teamSize": "team size if mentioned, or null",
+  "techStack": ["specific technologies/tools mentioned"]
+}`;
+
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a job posting analyzer. Extract structured information from job descriptions and return valid JSON only.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      max_tokens: 1500
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from AI');
+    }
+
+    const parsed = JSON.parse(content);
+
+    return {
+      summary: parsed.summary || generateFallbackSummary(title, company, description),
+      keyResponsibilities: Array.isArray(parsed.keyResponsibilities) ? parsed.keyResponsibilities.slice(0, 5) : [],
+      mustHaveSkills: Array.isArray(parsed.mustHaveSkills) ? parsed.mustHaveSkills : [],
+      niceToHaveSkills: Array.isArray(parsed.niceToHaveSkills) ? parsed.niceToHaveSkills : [],
+      seniorityLevel: parsed.seniorityLevel || inferSeniorityLevel(title || description),
+      estimatedSalaryRange: parsed.estimatedSalaryRange || undefined,
+      teamSize: parsed.teamSize || undefined,
+      techStack: Array.isArray(parsed.techStack) ? parsed.techStack : []
+    };
+
+  } catch (error: any) {
+    console.error('[AI Service] Job summarization error:', error.message);
+    return generateRuleBasedSummary(description, title, company);
+  }
+}
+
+/**
+ * Rule-based summary generation (fallback when AI is unavailable)
+ */
+function generateRuleBasedSummary(description: string, title?: string, company?: string): JobSummary {
+  const lowerDesc = description.toLowerCase();
+
+  // Extract skills using common patterns
+  const techSkills = extractTechSkillsFromText(description);
+  const mustHave = techSkills.slice(0, 5);
+  const niceToHave = techSkills.slice(5, 8);
+
+  // Extract responsibilities (lines starting with bullet points or action verbs)
+  const responsibilities = extractResponsibilities(description);
+
+  // Infer seniority
+  const seniority = inferSeniorityLevel(title || description);
+
+  // Extract salary if mentioned
+  const salaryRange = extractSalaryRange(description);
+
+  return {
+    summary: generateFallbackSummary(title, company, description),
+    keyResponsibilities: responsibilities.slice(0, 5),
+    mustHaveSkills: mustHave,
+    niceToHaveSkills: niceToHave,
+    seniorityLevel: seniority,
+    estimatedSalaryRange: salaryRange || undefined,
+    techStack: techSkills.slice(0, 10)
+  };
+}
+
+/**
+ * Generate a simple summary from title and description
+ */
+function generateFallbackSummary(title?: string, company?: string, description?: string): string {
+  const parts: string[] = [];
+
+  if (title && company) {
+    parts.push(`${title} position at ${company}.`);
+  } else if (title) {
+    parts.push(`${title} role.`);
+  }
+
+  if (description) {
+    // Extract first meaningful sentence
+    const sentences = description.split(/[.!?]/).filter(s => s.trim().length > 20);
+    if (sentences[0]) {
+      parts.push(sentences[0].trim() + '.');
+    }
+  }
+
+  return parts.join(' ') || 'Exciting opportunity to join the team.';
+}
+
+/**
+ * Extract tech skills from text
+ */
+function extractTechSkillsFromText(text: string): string[] {
+  const commonSkills = [
+    'JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'C++', 'C#', 'Ruby', 'PHP', 'Kotlin', 'Swift',
+    'React', 'Vue', 'Angular', 'Next.js', 'Node.js', 'Django', 'Flask', 'Spring', 'Express', '.NET',
+    'AWS', 'GCP', 'Azure', 'Docker', 'Kubernetes', 'Terraform', 'Jenkins', 'CircleCI', 'GitHub Actions',
+    'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Elasticsearch', 'DynamoDB', 'Cassandra',
+    'GraphQL', 'REST', 'API', 'Microservices', 'CI/CD', 'DevOps', 'SRE',
+    'Machine Learning', 'AI', 'Deep Learning', 'TensorFlow', 'PyTorch', 'NLP',
+    'React Native', 'Flutter', 'iOS', 'Android', 'Mobile',
+    'SQL', 'NoSQL', 'Linux', 'Git', 'Agile', 'Scrum'
+  ];
+
+  const lowerText = text.toLowerCase();
+  return commonSkills.filter(skill => lowerText.includes(skill.toLowerCase()));
+}
+
+/**
+ * Extract responsibilities from job description
+ */
+function extractResponsibilities(description: string): string[] {
+  const lines = description.split(/[\n\r]+/);
+  const responsibilities: string[] = [];
+
+  const actionVerbs = ['build', 'develop', 'design', 'implement', 'create', 'lead', 'manage',
+    'collaborate', 'work', 'drive', 'own', 'define', 'architect', 'write', 'maintain'];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Check for bullet points or numbered lists
+    if (trimmed.match(/^[-•*]\s+/) || trimmed.match(/^\d+[.)]\s+/)) {
+      const content = trimmed.replace(/^[-•*\d.)]+\s*/, '');
+      if (content.length > 10 && content.length < 200) {
+        responsibilities.push(content);
+      }
+    }
+    // Check for lines starting with action verbs
+    else if (trimmed.length > 20 && trimmed.length < 200) {
+      const firstWord = trimmed.split(/\s+/)[0].toLowerCase();
+      if (actionVerbs.includes(firstWord)) {
+        responsibilities.push(trimmed);
+      }
+    }
+  }
+
+  return responsibilities;
+}
+
+/**
+ * Infer seniority level from title or description
+ */
+function inferSeniorityLevel(text: string): string {
+  const lowerText = text.toLowerCase();
+
+  if (lowerText.includes('intern') || lowerText.includes('internship')) return 'intern';
+  if (lowerText.includes('junior') || lowerText.includes('entry level') || lowerText.includes('entry-level')) return 'junior';
+  if (lowerText.includes('principal') || lowerText.includes('staff')) return 'principal';
+  if (lowerText.includes('director') || lowerText.includes('vp ') || lowerText.includes('vice president')) return 'director';
+  if (lowerText.includes('lead') || lowerText.includes('manager')) return 'lead';
+  if (lowerText.includes('senior') || lowerText.includes('sr.') || lowerText.includes('sr ')) return 'senior';
+
+  // Default to mid if can't determine
+  return 'mid';
+}
+
+/**
+ * Extract salary range from description
+ */
+function extractSalaryRange(description: string): string | null {
+  // Match patterns like $100,000 - $150,000 or $100k - $150k
+  const salaryPattern = /\$[\d,]+(?:k|K)?\s*[-–—to]+\s*\$[\d,]+(?:k|K)?(?:\s*(?:per\s+)?(?:year|annual|yearly))?/i;
+  const match = description.match(salaryPattern);
+
+  if (match) {
+    return match[0];
+  }
+
+  // Try simpler pattern for single values
+  const singlePattern = /\$[\d,]+(?:k|K)?(?:\s*[-+])?(?:\s*(?:per\s+)?(?:year|annual|yearly))/i;
+  const singleMatch = description.match(singlePattern);
+
+  if (singleMatch) {
+    return singleMatch[0];
+  }
+
+  return null;
 }
