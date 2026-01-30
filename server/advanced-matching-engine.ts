@@ -18,6 +18,16 @@ interface EnhancedJobMatch {
   skillMatches: string[];
   aiExplanation: string;
   urgencyScore: number;
+  // PRD fields for hybrid ranking
+  semanticRelevance: number;
+  recencyScore: number;
+  livenessScore: number;
+  personalizationScore: number;
+  finalScore: number;
+  trustScore: number;
+  livenessStatus: 'active' | 'stale' | 'unknown';
+  isVerifiedActive: boolean;
+  isDirectFromCompany: boolean;
   compatibilityFactors: {
     skillAlignment: number;
     experienceMatch: number;
@@ -26,6 +36,14 @@ interface EnhancedJobMatch {
     industryRelevance: number;
   };
 }
+
+// PRD Ranking Weights
+const RANKING_WEIGHTS = {
+  SEMANTIC_RELEVANCE: 0.45,  // w1 - skill/experience match
+  RECENCY: 0.25,             // w2 - prefer newer jobs
+  LIVENESS: 0.20,            // w3 - verified active jobs
+  PERSONALIZATION: 0.10     // w4 - user behavior signals
+};
 
 export class AdvancedMatchingEngine {
   private matchCache: Map<string, EnhancedJobMatch[]> = new Map();
@@ -57,12 +75,8 @@ export class AdvancedMatchingEngine {
         }
       }
 
-      // Sort by match score and urgency
-      matches.sort((a, b) => {
-        const scoreA = a.matchScore * 0.7 + a.urgencyScore * 0.3;
-        const scoreB = b.matchScore * 0.7 + b.urgencyScore * 0.3;
-        return scoreB - scoreA;
-      });
+      // Sort by PRD hybrid formula: FinalScore = w1*Semantic + w2*Recency + w3*Liveness + w4*Personalization
+      matches.sort((a, b) => b.finalScore - a.finalScore);
 
       // Cache results
       this.matchCache.set(cacheKey, matches.slice(0, 50)); // Top 50 matches
@@ -96,9 +110,32 @@ export class AdvancedMatchingEngine {
 
     // Calculate detailed compatibility factors
     const compatibilityFactors = this.calculateCompatibilityFactors(criteria, job);
-    
+
     // Calculate urgency score based on job characteristics
     const urgencyScore = this.calculateUrgencyScore(job);
+
+    // PRD: Calculate semantic relevance (skill/experience match)
+    const semanticRelevance = aiMatch.score;
+
+    // PRD: Calculate recency score (prefer newer jobs)
+    const recencyScore = this.calculateRecencyScore(job);
+
+    // PRD: Calculate liveness score (verified active jobs)
+    const { livenessScore, trustScore, livenessStatus } = this.calculateLivenessScore(job);
+
+    // PRD: Calculate personalization score (user behavior signals)
+    const personalizationScore = this.calculatePersonalizationScore(criteria, job);
+
+    // PRD: Final hybrid ranking formula
+    const finalScore =
+      RANKING_WEIGHTS.SEMANTIC_RELEVANCE * semanticRelevance +
+      RANKING_WEIGHTS.RECENCY * recencyScore +
+      RANKING_WEIGHTS.LIVENESS * livenessScore +
+      RANKING_WEIGHTS.PERSONALIZATION * personalizationScore;
+
+    // Determine trust badges
+    const isVerifiedActive = trustScore >= 85 && livenessStatus === 'active';
+    const isDirectFromCompany = job.source === 'platform' || job.source === 'internal';
 
     return {
       jobId: job.id,
@@ -107,8 +144,109 @@ export class AdvancedMatchingEngine {
       skillMatches: aiMatch.skillMatches,
       aiExplanation: aiMatch.aiExplanation,
       urgencyScore,
+      semanticRelevance,
+      recencyScore,
+      livenessScore,
+      personalizationScore,
+      finalScore,
+      trustScore,
+      livenessStatus,
+      isVerifiedActive,
+      isDirectFromCompany,
       compatibilityFactors
     };
+  }
+
+  /**
+   * PRD: Calculate recency score - prefer newer jobs
+   * Jobs posted recently get higher scores
+   */
+  private calculateRecencyScore(job: any): number {
+    if (!job.createdAt && !job.postedDate) return 0.5;
+
+    const postedDate = new Date(job.postedDate || job.createdAt);
+    const daysSincePosted = (Date.now() - postedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Scoring:
+    // < 1 day: 1.0
+    // 1-3 days: 0.9
+    // 3-7 days: 0.8
+    // 7-14 days: 0.6
+    // 14-30 days: 0.4
+    // > 30 days: 0.2
+    if (daysSincePosted < 1) return 1.0;
+    if (daysSincePosted < 3) return 0.9;
+    if (daysSincePosted < 7) return 0.8;
+    if (daysSincePosted < 14) return 0.6;
+    if (daysSincePosted < 30) return 0.4;
+    return 0.2;
+  }
+
+  /**
+   * PRD: Calculate liveness/trust score
+   * Internal jobs get highest trust, verified external jobs score based on liveness checks
+   */
+  private calculateLivenessScore(job: any): { livenessScore: number; trustScore: number; livenessStatus: 'active' | 'stale' | 'unknown' } {
+    // Internal/platform jobs always get highest trust
+    if (job.source === 'platform' || job.source === 'internal') {
+      return {
+        livenessScore: 1.0,
+        trustScore: 100,
+        livenessStatus: 'active'
+      };
+    }
+
+    // Use stored trust score if available
+    const trustScore = job.trustScore ?? 50;
+    const livenessStatus = job.livenessStatus ?? 'unknown';
+
+    // Calculate liveness score based on trust and status
+    let livenessScore = trustScore / 100;
+
+    // Boost for recently verified active jobs
+    if (livenessStatus === 'active' && job.lastLivenessCheck) {
+      const hoursSinceCheck = (Date.now() - new Date(job.lastLivenessCheck).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceCheck < 24) livenessScore = Math.min(1.0, livenessScore + 0.1);
+    }
+
+    // Penalty for stale jobs
+    if (livenessStatus === 'stale') {
+      livenessScore *= 0.3;
+    }
+
+    return {
+      livenessScore,
+      trustScore,
+      livenessStatus: livenessStatus as 'active' | 'stale' | 'unknown'
+    };
+  }
+
+  /**
+   * PRD: Calculate personalization score based on user behavior signals
+   */
+  private calculatePersonalizationScore(criteria: AdvancedMatchCriteria, job: any): number {
+    let score = 0.5; // Base personalization score
+
+    // Boost for matching work type preference
+    if (criteria.workType && job.workType === criteria.workType) {
+      score += 0.2;
+    }
+
+    // Boost for matching industry
+    if (criteria.industry && job.industry &&
+        criteria.industry.toLowerCase() === job.industry.toLowerCase()) {
+      score += 0.2;
+    }
+
+    // Boost for salary alignment
+    if (criteria.salaryExpectation && job.salaryMin && job.salaryMax) {
+      const midSalary = (job.salaryMin + job.salaryMax) / 2;
+      const salaryDiff = Math.abs(criteria.salaryExpectation - midSalary);
+      const salaryAlignment = Math.max(0, 1 - salaryDiff / criteria.salaryExpectation);
+      score += 0.1 * salaryAlignment;
+    }
+
+    return Math.min(1.0, score);
   }
 
   private calculateCompatibilityFactors(criteria: AdvancedMatchCriteria, job: any) {

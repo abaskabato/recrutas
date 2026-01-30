@@ -22,6 +22,8 @@ export interface LivenessCheckResult {
   lastChecked: Date;
   httpStatus?: number;
   responseTime?: number;
+  trustScore?: number;
+  livenessStatus?: 'active' | 'stale' | 'unknown';
 }
 
 // Phrases that indicate a job is no longer available
@@ -121,9 +123,12 @@ export class JobLivenessService {
           if (result.status === 'fulfilled') {
             if (result.value.isActive) {
               stats.active++;
+              // Update liveness check timestamp and increase trust score for active jobs
+              await this.updateJobLivenessStatus(result.value.jobId, 'active', result.value.lastChecked);
             } else {
               stats.stale++;
-              await this.markJobAsInactive(result.value.jobId, result.value.reason);
+              // Mark job as stale and decrease trust score
+              await this.markJobAsStale(result.value.jobId, result.value.reason, result.value.lastChecked);
             }
           } else {
             stats.errors++;
@@ -341,13 +346,75 @@ export class JobLivenessService {
   }
 
   /**
-   * Mark a job as inactive in the database
+   * Update job liveness status for active jobs (increases trust score)
+   */
+  private async updateJobLivenessStatus(jobId: number, status: 'active' | 'stale' | 'unknown', checkedAt: Date): Promise<void> {
+    try {
+      // Get current trust score
+      const job = await db.select({ trustScore: jobPostings.trustScore })
+        .from(jobPostings)
+        .where(eq(jobPostings.id, jobId))
+        .limit(1);
+
+      const currentTrustScore = job[0]?.trustScore ?? 50;
+      // Increase trust score for active jobs (max 95 for external jobs, 100 for internal)
+      const newTrustScore = Math.min(95, currentTrustScore + 5);
+
+      await db.update(jobPostings)
+        .set({
+          lastLivenessCheck: checkedAt,
+          livenessStatus: status,
+          trustScore: newTrustScore,
+          updatedAt: new Date()
+        })
+        .where(eq(jobPostings.id, jobId));
+
+      console.log(`[LivenessService] Updated job ${jobId} liveness: ${status}, trust: ${newTrustScore}`);
+    } catch (error) {
+      console.error(`[LivenessService] Failed to update liveness for job ${jobId}:`, error);
+    }
+  }
+
+  /**
+   * Mark a job as stale (decreases trust score significantly)
+   */
+  private async markJobAsStale(jobId: number, reason?: string, checkedAt?: Date): Promise<void> {
+    try {
+      // Get current trust score
+      const job = await db.select({ trustScore: jobPostings.trustScore })
+        .from(jobPostings)
+        .where(eq(jobPostings.id, jobId))
+        .limit(1);
+
+      const currentTrustScore = job[0]?.trustScore ?? 50;
+      // Decrease trust score significantly for stale jobs
+      const newTrustScore = Math.max(0, currentTrustScore - 30);
+
+      await db.update(jobPostings)
+        .set({
+          lastLivenessCheck: checkedAt || new Date(),
+          livenessStatus: 'stale',
+          trustScore: newTrustScore,
+          updatedAt: new Date()
+        })
+        .where(eq(jobPostings.id, jobId));
+
+      console.log(`[LivenessService] Marked job ${jobId} as stale: ${reason}, trust: ${newTrustScore}`);
+    } catch (error) {
+      console.error(`[LivenessService] Failed to mark job ${jobId} as stale:`, error);
+    }
+  }
+
+  /**
+   * Mark a job as inactive in the database (closes the job)
    */
   private async markJobAsInactive(jobId: number, reason?: string): Promise<void> {
     try {
       await db.update(jobPostings)
         .set({
           status: 'closed',
+          livenessStatus: 'stale',
+          trustScore: 0,
           updatedAt: new Date()
         })
         .where(eq(jobPostings.id, jobId));
@@ -355,6 +422,27 @@ export class JobLivenessService {
       console.log(`[LivenessService] Marked job ${jobId} as inactive: ${reason}`);
     } catch (error) {
       console.error(`[LivenessService] Failed to mark job ${jobId} as inactive:`, error);
+    }
+  }
+
+  /**
+   * Set trust score to 100 for internal/platform jobs
+   */
+  async setInternalJobsTrustScore(): Promise<number> {
+    try {
+      const result = await db.update(jobPostings)
+        .set({
+          trustScore: 100,
+          livenessStatus: 'active',
+          lastLivenessCheck: new Date()
+        })
+        .where(eq(jobPostings.source, 'platform'));
+
+      console.log('[LivenessService] Updated internal jobs to trust score 100');
+      return 0; // Return count if available
+    } catch (error) {
+      console.error('[LivenessService] Failed to update internal jobs trust score:', error);
+      return 0;
     }
   }
 

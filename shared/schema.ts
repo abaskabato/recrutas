@@ -114,6 +114,10 @@ export const jobPostings = pgTable("job_postings", {
   autoRankCandidates: boolean("auto_rank_candidates").default(true),
   maxChatCandidates: integer("max_chat_candidates").default(5),
   expiresAt: timestamp("expires_at"), // Job expiration to prevent applying to old jobs
+  // Liveness and trust scoring fields for job quality ranking
+  lastLivenessCheck: timestamp("last_liveness_check"),
+  livenessStatus: varchar("liveness_status", { enum: ["active", "stale", "unknown"] }).default("unknown"),
+  trustScore: integer("trust_score").default(50), // 0-100, internal/platform jobs get 100
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

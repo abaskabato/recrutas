@@ -206,7 +206,7 @@ export default function JobPostingWizard({
           jobData.filteringExam.passingScore > 0
         );
       case 4:
-        return jobData.hiringManager.name && jobData.hiringManager.email;
+        return true; // Hiring manager info is optional
       default:
         return false;
     }

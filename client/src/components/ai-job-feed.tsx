@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,9 @@ export interface AIJobMatch {
     confidenceScore: number;
     externalSource?: string;
     externalUrl?: string;
+    postedDate?: string;
+    trustScore?: number;
+    livenessStatus?: 'active' | 'stale' | 'unknown';
   };
   matchScore: string;
   confidenceLevel: number;
@@ -35,7 +38,13 @@ export interface AIJobMatch {
   aiExplanation: string;
   status: string;
   createdAt: string;
+  // PRD fields
+  isVerifiedActive?: boolean;
+  isDirectFromCompany?: boolean;
 }
+
+const INITIAL_JOB_LIMIT = 15;
+const JOBS_PER_PAGE = 10;
 
 export default function AIJobFeed() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -45,6 +54,7 @@ export default function AIJobFeed() {
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
+  const [displayLimit, setDisplayLimit] = useState(INITIAL_JOB_LIMIT);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -241,51 +251,77 @@ export default function AIJobFeed() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
-            {filteredMatches.map((match) => {
+        <div className="space-y-4">
+          {/* Job count summary */}
+          <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+            <span>Showing {Math.min(displayLimit, filteredMatches.length)} of {filteredMatches.length} matches</span>
+          </div>
+
+          <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto">
+            {filteredMatches.slice(0, displayLimit).map((match) => {
               const isSaved = savedJobIds.has(match.job.id);
               const isApplied = appliedJobIds.has(match.job.id);
+              // Determine trust badges
+              const isVerifiedActive = match.isVerifiedActive || (match.job.trustScore && match.job.trustScore >= 85 && match.job.livenessStatus === 'active');
+              const isDirectFromCompany = match.isDirectFromCompany || match.job.externalSource === 'internal' || match.job.externalSource === 'platform';
+
               return (
                 <div key={match.id}>
                   <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
-                                              <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                  {match.job.aiCurated && (
-                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                                                      <Sparkles className="h-3 w-3 mr-1" />
-                                                      AI Curated
-                                                    </Badge>
-                                                  )}
-                                                  {match.job.externalSource && (
-                                                      <Badge variant="secondary" className="bg-gray-100 text-gray-800">
-                                                          {match.job.externalSource === 'internal' ? 'Internal' : 'External'}
-                                                      </Badge>
-                                                  )}
-                                                  <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
-                                                </div>
-                                                <h3 className="font-semibold text-lg truncate hover:text-blue-600 transition-colors">
-                                                  <button
-                                                    type="button"
-                                                    className="text-left hover:underline"
-                                                    onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
-                                                  >
-                                                    {match.job.title}
-                                                  </button>
-                                                </h3>
-                                                <div className="flex items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
-                                                  <div className="flex items-center">
-                                                    <Building className="h-4 w-4 mr-1" /> {match.job.company}
-                                                  </div>
-                                                  <div className="flex items-center">
-                                                    <MapPin className="h-4 w-4 mr-1" /> {match.job.location}
-                                                  </div>
-                                                  <div className="flex items-center">
-                                                    <Briefcase className="h-4 w-4 mr-1" /> {match.job.workType}
-                                                  </div>
-                                                </div>
-                                              </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {match.job.aiCurated && (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                AI Curated
+                              </Badge>
+                            )}
+                            {/* PRD: Trust badges */}
+                            {isVerifiedActive && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                <BadgeCheck className="h-3 w-3 mr-1" />
+                                Verified Active
+                              </Badge>
+                            )}
+                            {isDirectFromCompany && (
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
+                                <Shield className="h-3 w-3 mr-1" />
+                                Direct from Company
+                              </Badge>
+                            )}
+                            <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
+                          </div>
+                          <h3 className="font-semibold text-lg truncate hover:text-blue-600 transition-colors">
+                            <button
+                              type="button"
+                              className="text-left hover:underline"
+                              onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                            >
+                              {match.job.title}
+                            </button>
+                          </h3>
+                          <div className="flex items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
+                            <div className="flex items-center">
+                              <Building className="h-4 w-4 mr-1" /> {match.job.company}
+                            </div>
+                            <div className="flex items-center">
+                              <MapPin className="h-4 w-4 mr-1" /> {match.job.location}
+                            </div>
+                            <div className="flex items-center">
+                              <Briefcase className="h-4 w-4 mr-1" /> {match.job.workType}
+                            </div>
+                          </div>
+
+                          {/* PRD: "Why You're a Match" explanation */}
+                          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span className="font-medium text-blue-600 dark:text-blue-400">Why you match:</span>{' '}
+                            {match.aiExplanation || (match.skillMatches && match.skillMatches.length > 0
+                              ? `Strong match for ${match.skillMatches.slice(0, 2).join(' & ')}`
+                              : 'Skills and experience align with this role')}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2 shrink-0 ml-4">
                           <Button
                             size="sm"
@@ -347,6 +383,21 @@ export default function AIJobFeed() {
                 </div>
               );
             })}
+          </div>
+
+          {/* PRD: Load More button for pagination */}
+          {filteredMatches.length > displayLimit && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setDisplayLimit(prev => prev + JOBS_PER_PAGE)}
+                className="w-full max-w-xs"
+              >
+                <ChevronDown className="h-4 w-4 mr-2" />
+                Load More ({filteredMatches.length - displayLimit} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
       <AIMatchBreakdownModal
