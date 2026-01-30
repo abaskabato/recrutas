@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, Loader2, Send, Building, Upload, FileText, CheckCircle } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
 import { Textarea } from "@/components/ui/textarea";
@@ -438,14 +439,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           )}
                         </div>
                       </div>
-
-                      {/* Manual Skills Input */}
-                      <Input
-                        placeholder="React, Python, Marketing... or upload resume above"
-                        value={skills}
-                        onChange={(e) => setSkills(e.target.value)}
-                        className={`text-lg p-4 rounded-xl border-2 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                      />
                       
                       {/* Extracted Skills Display */}
                       {extractedSkills.length > 0 && (
@@ -466,83 +459,104 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           </div>
                         </div>
                       )}
-                      
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {['React', 'Python', 'Design', 'Marketing', 'Sales', 'Data Science'].map((skill: string) => (
-                          <Badge
-                            key={skill}
-                            variant="secondary"
-                            className={`cursor-pointer ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
-                            onClick={() => {
-                              if (!skills.includes(skill)) {
-                                setSkills(prev => prev ? `${prev}, ${skill}` : skill);
-                              }
-                            }}
-                          >
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
                     </div>
 
-                    {/* Filters Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Location */}
-                      <div>
-                        <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
-                          <MapPin className="w-4 h-4 inline mr-1" />
-                          Location
-                        </label>
-                        <Input
-                          placeholder="New York, Remote..."
-                          value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                          className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                        />
-                      </div>
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="item-1">
+                        <AccordionTrigger>Advanced Filters & Manual Entry</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-6 pt-4">
+                            {/* Manual Skills Input */}
+                            <div>
+                                <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
+                                  Skills & Technologies (Manual)
+                                </label>
+                                <Input
+                                  placeholder="React, Python, Marketing..."
+                                  value={skills}
+                                  onChange={(e) => setSkills(e.target.value)}
+                                  className={`text-lg p-4 rounded-xl border-2 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                />
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {['React', 'Python', 'Design', 'Marketing', 'Sales', 'Data Science'].map((skill: string) => (
+                                    <Badge
+                                      key={skill}
+                                      variant="secondary"
+                                      className={`cursor-pointer ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-700/50' : 'bg-gray-100 border-gray-200 text-gray-800 hover:bg-gray-200'}`}
+                                      onClick={() => {
+                                        if (!skills.includes(skill)) {
+                                          setSkills(prev => prev ? `${prev}, ${skill}` : skill);
+                                        }
+                                      }}
+                                    >
+                                      {skill}
+                                    </Badge>
+                                  ))}
+                                </div>
+                            </div>
 
-                      {/* Work Type */}
-                      <div>
-                        <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
-                          <Briefcase className="w-4 h-4 inline mr-1" />
-                          Work Type
-                        </label>
-                        <select
-                          value={workType}
-                          onChange={(e) => setWorkType(e.target.value as any)}
-                          className={`w-full p-3 rounded-lg border ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
-                        >
-                          <option value="any">Any</option>
-                          <option value="remote">Remote</option>
-                          <option value="hybrid">Hybrid</option>
-                          <option value="onsite">On-site</option>
-                        </select>
-                      </div>
+                            {/* Filters Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {/* Location */}
+                              <div>
+                                <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
+                                  <MapPin className="w-4 h-4 inline mr-1" />
+                                  Location
+                                </label>
+                                <Input
+                                  placeholder="New York, Remote..."
+                                  value={location}
+                                  onChange={(e) => setLocation(e.target.value)}
+                                  className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                />
+                              </div>
 
-                      {/* Salary */}
-                      <div>
-                        <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
-                          <DollarSign className="w-4 h-4 inline mr-1" />
-                          Min Salary
-                        </label>
-                        <div className="flex gap-2">
-                          <select
-                            value={salaryType}
-                            onChange={(e) => setSalaryType(e.target.value as any)}
-                            className={`p-3 rounded-lg border ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
-                          >
-                            <option value="annual">Annual</option>
-                            <option value="hourly">Hourly</option>
-                          </select>
-                          <Input
-                            placeholder={salaryType === 'hourly' ? '$25' : '$50k'}
-                            value={minSalary}
-                            onChange={(e) => setMinSalary(e.target.value)}
-                            className={`p-3 rounded-lg flex-1 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                              {/* Work Type */}
+                              <div>
+                                <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
+                                  <Briefcase className="w-4 h-4 inline mr-1" />
+                                  Work Type
+                                </label>
+                                <select
+                                  value={workType}
+                                  onChange={(e) => setWorkType(e.target.value as any)}
+                                  className={`w-full p-3 rounded-lg border ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
+                                >
+                                  <option value="any">Any</option>
+                                  <option value="remote">Remote</option>
+                                  <option value="hybrid">Hybrid</option>
+                                  <option value="onsite">On-site</option>
+                                </select>
+                              </div>
+
+                              {/* Salary */}
+                              <div>
+                                <label className={`block text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-gray-700'} mb-2`}>
+                                  <DollarSign className="w-4 h-4 inline mr-1" />
+                                  Min Salary
+                                </label>
+                                <div className="flex gap-2">
+                                  <select
+                                    value={salaryType}
+                                    onChange={(e) => setSalaryType(e.target.value as any)}
+                                    className={`p-3 rounded-lg border ${theme === 'dark' ? 'border-slate-700/50 bg-slate-800/50 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
+                                  >
+                                    <option value="annual">Annual</option>
+                                    <option value="hourly">Hourly</option>
+                                  </select>
+                                  <Input
+                                    placeholder={salaryType === 'hourly' ? '$25' : '$50k'}
+                                    value={minSalary}
+                                    onChange={(e) => setMinSalary(e.target.value)}
+                                    className={`p-3 rounded-lg flex-1 ${theme === 'dark' ? 'bg-slate-800/50 border-slate-700/50 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
 
                     <Button
                       size="lg"
