@@ -285,7 +285,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`p-0 border-0 ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'} backdrop-blur-2xl shadow-2xl flex flex-col`}>
+      <DialogContent className={`p-0 border-0 ${theme === 'dark' ? 'bg-slate-900' : 'bg-white'} backdrop-blur-2xl shadow-2xl flex flex-col max-h-screen`}>
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">Find your perfect job match in 30 seconds with AI-powered recommendations</DialogDescription>
         
