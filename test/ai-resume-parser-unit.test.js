@@ -5,23 +5,16 @@
  * Run with: npm run test:unit:backend
  */
 
-import assert from 'assert';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   generateCompletePdfBuffer,
   generateMinimalResumePdfBuffer,
   generateNoSkillsPdfBuffer,
-  generateMalformedPdfBuffer,
-  generateLargePdfBuffer,
 } from './fixtures/fixture-generator.js';
-import { createParsedResumeData } from './helpers/test-data-factory.js';
 
-// Note: These tests require importing from server code
-// Adjust path based on your project structure
-import { AIResumeParser } from '../server/ai-resume-parser.ts';
-
-const parser = new AIResumeParser();
-let testsPassed = 0;
-let testsFailed = 0;
+describe('AIResumeParser Unit Tests', () => {
+  // Note: Tests use direct PDF parsing without mocking
+  // The parser has built-in fallback to rule-based extraction if AI unavailable
 
 async function runTest(testName, testFn) {
   try {

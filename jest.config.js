@@ -20,6 +20,7 @@ export default {
   // Point to your backend tests
   testMatch: [
     '**/server/**/*.test.ts',
-    '**/test/**/*.test.js'
+    '**/test/**/*.test.js',
+    '**/test/**/*.test.ts'
   ],
 };
