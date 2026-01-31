@@ -90,10 +90,11 @@ export class ResumeService {
     // and AI-powered extraction
     try {
       console.log('ResumeService: Starting AI resume parsing...');
-      // Add timeout to prevent long-running AI operations from blocking the request
+      // Add aggressive timeout to prevent slow AI operations from blocking the request
+      // 15 seconds is safe margin before Vercel's 50s timeout, allowing 35s for other operations
       const parsePromise = this.aiResumeParser.parseFile(fileBuffer, mimetype);
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Resume parsing timeout (>40s)')), 40000)
+        setTimeout(() => reject(new Error('Resume parsing timeout (>15s) - returning with fallback')), 15000)
       );
       const result = await Promise.race([parsePromise, timeoutPromise]);
       parsedData = result;
