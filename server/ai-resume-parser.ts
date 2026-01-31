@@ -223,29 +223,51 @@ English (Native), Spanish (Conversational)`;
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
     try {
+      // Try Ollama first (free, local option)
+      const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+      const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
+
+      if (process.env.USE_OLLAMA !== 'false') {
+        try {
+          console.log(`AIResumeParser: Trying Ollama at ${ollamaUrl}...`);
+          return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
+        } catch (ollamaError) {
+          console.warn('AIResumeParser: Ollama failed, falling back to rule-based extraction:', ollamaError.message);
+          return this.extractWithFallback(text);
+        }
+      }
+
+      // Fallback to Groq if Ollama is disabled
       const Groq = (await import('groq-sdk')).default;
       const apiKey = process.env.GROQ_API_KEY;
 
       if (!apiKey || apiKey === '%GROQ_API_KEY%') {
-        console.error('AIResumeParser: GROQ_API_KEY is not set or invalid. Please configure it in Vercel environment variables.');
-        throw new Error('GROQ_API_KEY is not set or invalid. Please configure it in your deployment environment.');
+        console.warn('AIResumeParser: GROQ_API_KEY is not set. Using fallback extraction.');
+        return this.extractWithFallback(text);
       }
 
       console.log('AIResumeParser: Initializing Groq API client...');
       const groq = new Groq({ apiKey });
 
       console.log('AIResumeParser: Sending resume text to Groq API for extraction...');
-      const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert resume parser. Extract structured data from resumes and return it as JSON. Be thorough and accurate."
-          },
-          {
-            role: "user",
-            content: `Extract the following information from this resume text and return as JSON:
-            
+
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Groq API request timeout (30s)')), 30000)
+      );
+
+      const response = await Promise.race([
+        groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert resume parser. Extract structured data from resumes and return it as JSON. Be thorough and accurate."
+            },
+            {
+              role: "user",
+              content: `Extract the following information from this resume text and return as JSON:
+
             {
               "personalInfo": {
                 "name": "extracted name",
@@ -292,13 +314,15 @@ English (Native), Spanish (Conversational)`;
               ],
               "languages": ["spoken languages"]
             }
-            
+
             Resume text:
             ${text}`
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
+            }
+          ],
+          response_format: { type: "json_object" }
+        }),
+        timeoutPromise
+      ]) as any;
 
       console.log('AIResumeParser: Successfully received response from Groq API');
       const extractedData = JSON.parse(response.choices[0].message.content || '{}');
@@ -337,6 +361,124 @@ English (Native), Spanish (Conversational)`;
         languages: this.extractLanguages(text)
       };
     }
+  }
+
+  private async extractWithOllama(
+    text: string,
+    ollamaUrl: string,
+    ollamaModel: string
+  ): Promise<AIExtractedData> {
+    console.log(`AIResumeParser: Calling Ollama model "${ollamaModel}"...`);
+
+    const prompt = `You are an expert resume parser. Extract structured information from the following resume text and return ONLY valid JSON with no other text.
+
+Resume text:
+${text}
+
+Return JSON with this exact structure:
+{
+  "personalInfo": {
+    "name": "full name if found",
+    "email": "email if found",
+    "phone": "phone if found",
+    "location": "location if found",
+    "linkedin": "linkedin url if found",
+    "github": "github url if found",
+    "portfolio": "portfolio url if found"
+  },
+  "summary": "professional summary or objective if present",
+  "skills": {
+    "technical": ["list", "of", "technical", "skills"],
+    "soft": ["list", "of", "soft", "skills"],
+    "tools": ["list", "of", "tools", "and", "platforms"]
+  },
+  "experience": {
+    "totalYears": 0,
+    "level": "entry or mid or senior or executive",
+    "positions": [
+      {
+        "title": "job title",
+        "company": "company name",
+        "duration": "time period",
+        "responsibilities": ["responsibility1", "responsibility2"]
+      }
+    ]
+  },
+  "education": [
+    {
+      "degree": "degree name",
+      "institution": "school/university name",
+      "year": "graduation year",
+      "gpa": "gpa if mentioned"
+    }
+  ],
+  "certifications": ["cert1", "cert2"],
+  "projects": [
+    {
+      "name": "project name",
+      "description": "brief description",
+      "technologies": ["tech1", "tech2"]
+    }
+  ],
+  "languages": ["language1", "language2"]
+}`;
+
+    try {
+      const response = await fetch(`${ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: ollamaModel,
+          prompt: prompt,
+          stream: false,
+          timeout: 120  // 2 minute timeout for local LLM
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ollama returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('AIResumeParser: Ollama extraction complete');
+
+      // Parse the response
+      let extractedData;
+      try {
+        extractedData = JSON.parse(result.response);
+      } catch (parseError) {
+        console.warn('Failed to parse Ollama response, using fallback:', parseError.message);
+        return this.extractWithFallback(text);
+      }
+
+      return {
+        personalInfo: extractedData.personalInfo || {},
+        summary: extractedData.summary || '',
+        skills: extractedData.skills || { technical: [], soft: [], tools: [] },
+        experience: extractedData.experience || { totalYears: 0, level: 'entry', positions: [] },
+        education: extractedData.education || [],
+        certifications: extractedData.certifications || [],
+        projects: extractedData.projects || [],
+        languages: extractedData.languages || []
+      };
+    } catch (error) {
+      console.warn('Ollama extraction failed:', error.message);
+      throw error;  // Will be caught by parent extractWithAI and trigger fallback
+    }
+  }
+
+  private async extractWithFallback(text: string): Promise<AIExtractedData> {
+    console.log('AIResumeParser: Using fallback rule-based extraction');
+    return {
+      personalInfo: this.extractPersonalInfo(text),
+      summary: this.extractSummary(text),
+      skills: this.extractSkillsAI(text),
+      experience: this.extractExperienceAI(text),
+      education: this.extractEducation(text),
+      certifications: this.extractCertifications(text),
+      projects: this.extractProjects(text),
+      languages: this.extractLanguages(text)
+    };
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {
