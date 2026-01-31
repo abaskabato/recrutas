@@ -43,212 +43,149 @@ export class ResumeService {
     private aiResumeParser: AIResumeParser
   ) {}
 
+  /**
+   * FAST synchronous upload - returns immediately after file storage
+   * AI parsing happens asynchronously in background
+   */
   async uploadAndProcessResume(
     userId: string,
     fileBuffer: Buffer,
     mimetype: string
   ): Promise<ResumeProcessingResult> {
     let resumeUrl: string;
+
+    // STEP 1: Upload file to storage (fast - 1-2 seconds)
     try {
-      console.log('ResumeService: Starting file upload to storage...');
+      console.log('ResumeService: Uploading resume file to storage...');
       resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
-      console.log('ResumeService: File uploaded successfully to:', resumeUrl);
+      console.log('ResumeService: File uploaded to:', resumeUrl);
     } catch (error) {
-      console.error('ResumeService: Error uploading resume to storage:', error);
-      throw new ResumeProcessingError('Failed to upload resume to storage. Check Supabase configuration and storage bucket.', error);
+      console.error('ResumeService: Storage upload failed:', error);
+      throw new ResumeProcessingError('Failed to upload resume', error);
     }
 
-
-
-    // Temporarily bypass AI resume parsing for debugging, as it was in routes.ts
-    // When re-enabling, ensure aiResumeParser is properly integrated and handles errors
-    /*
+    // STEP 2: Save basic resume data immediately (fast - <1 second)
     try {
-      const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
-      parsedData = result;
-      aiExtracted = result.aiExtracted;
-      parsingSuccess = true;
-    } catch (parseError) {
-      console.error('ResumeService: AI Resume parsing failed:', parseError);
-      // Continue with upload even if parsing fails, but log the error
-    }
-    */
-
-    let existingProfile;
-    try {
-      existingProfile = await this.storage.getCandidateUser(userId);
+      await this.storage.upsertCandidateUser({ userId, resumeUrl });
+      console.log('ResumeService: Basic resume data saved');
     } catch (error) {
-      console.error('ResumeService: Error fetching existing candidate profile:', error);
-      existingProfile = null; // Don't throw - we can proceed with null
-    }
-    
-    let parsedData: any = { text: '', aiExtracted: null, confidence: 0, processingTime: 0 };
-    let aiExtracted: any = null;
-    let parsingSuccess = false;
-
-    // Resume parsing using external libraries like pdf-parse and mammoth
-    // and AI-powered extraction
-    try {
-      console.log('ResumeService: Starting AI resume parsing...');
-      // Add aggressive timeout to prevent slow AI operations from blocking the request
-      // 15 seconds is safe margin before Vercel's 50s timeout, allowing 35s for other operations
-      const parsePromise = this.aiResumeParser.parseFile(fileBuffer, mimetype);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Resume parsing timeout (>15s) - returning with fallback')), 15000)
-      );
-      const result = await Promise.race([parsePromise, timeoutPromise]);
-      parsedData = result;
-      aiExtracted = result.aiExtracted;
-      parsingSuccess = true;
-      console.log('ResumeService: AI parsing completed successfully');
-    } catch (parseError: any) {
-      console.error('ResumeService: AI Resume parsing failed:', parseError?.message || parseError);
-      console.error('ResumeService: Error details:', {
-        message: parseError?.message,
-        name: parseError?.name,
-        stack: parseError?.stack?.slice?.(0, 500) // Truncate stack trace for logging
-      });
-      // Continue with upload even if parsing fails - the resume URL is still valid
-      // Fallback: Ensure aiExtracted is a valid object to prevent downstream crashes
-      aiExtracted = {
-        personalInfo: {},
-        summary: '',
-        skills: { technical: [], soft: [], tools: [] },
-        experience: { totalYears: 0, level: 'entry', positions: [] },
-        education: [],
-        certifications: [],
-        projects: [],
-        languages: []
-      };
-      // parsingSuccess stays false, but we don't throw - upload still succeeded
-      console.log('ResumeService: Continuing with fallback data after parsing failure');
+      console.error('ResumeService: Failed to save resume URL:', error);
+      throw new ResumeProcessingError('Failed to save resume', error);
     }
 
-    const profileData: any = {
-      ...(existingProfile || {}),
-      userId,
-      resumeUrl, // Always override with new resumeUrl
+    // STEP 3: Log activity (fire and forget, don't await)
+    this.storage.createActivityLog(userId, "resume_upload", "Resume uploaded successfully")
+      .catch(err => console.error('ResumeService: Activity log failed (non-critical):', err));
+
+    // STEP 4: Queue background AI parsing (fire and forget)
+    console.log('ResumeService: Queueing AI parsing in background');
+    this.parseResumeInBackground(userId, fileBuffer, mimetype, resumeUrl)
+      .catch(err => console.error('ResumeService: Background parsing failed (non-critical):', err));
+
+    // STEP 5: Return immediately with quick response (<2 seconds total)
+    return {
+      resumeUrl,
+      parsed: false, // Will be updated when background job completes
+      aiParsing: {
+        success: false,
+        confidence: 0,
+        processingTime: 0,
+      },
+      extractedInfo: null,
+      autoMatchingTriggered: false,
     };
+  }
 
-    if (parsedData?.text) {
-      profileData.resumeText = parsedData.text;
-    }
-
-    if (aiExtracted && parsingSuccess) {
-      // Merge technical skills with existing skills
-      const allSkills = [
-        ...(existingProfile?.skills || []),
-        ...aiExtracted.skills.technical
-      ];
-      profileData.skills = Array.from(new Set(allSkills)).slice(0, 25);
-      
-      // Set experience level and years
-      if (aiExtracted.experience.totalYears > 0) {
-        profileData.experience = aiExtracted.experience.level;
-        profileData.experienceYears = aiExtracted.experience.totalYears;
-      }
-      
-      // Set location from contact info
-      if (aiExtracted.personalInfo.location) {
-        profileData.location = aiExtracted.personalInfo.location;
-      }
-      
-      // Set bio from AI-extracted summary
-      if (aiExtracted.personalInfo.linkedin) {
-        profileData.linkedinUrl = aiExtracted.personalInfo.linkedin;
-      }
-      if (aiExtracted.personalInfo.github) {
-        profileData.githubUrl = aiExtracted.personalInfo.github;
-      }
-      if (aiExtracted.personalInfo.portfolio) {
-        profileData.portfolioUrl = aiExtracted.personalInfo.portfolio;
-      }
-
-      // Store full parsed text for future reference
-      if (parsedData?.text) {
-        profileData.resumeText = parsedData.text;
-      }
-      
-      // Store AI analysis metadata
-      profileData.resumeParsingData = {
-        confidence: parsedData?.confidence || 0,
-        processingTime: parsedData?.processingTime || 0,
-        extractedSkillsCount: aiExtracted.skills.technical.length,
-        extractedPositionsCount: aiExtracted.experience.positions.length,
-        educationCount: aiExtracted.education.length,
-        certificationsCount: aiExtracted.certifications.length,
-        projectsCount: aiExtracted.projects.length
-      };
-    }
-
+  /**
+   * Background job for AI parsing - no timeout pressure
+   * This runs independently and updates profile when complete
+   */
+  private async parseResumeInBackground(
+    userId: string,
+    fileBuffer: Buffer,
+    mimetype: string,
+    resumeUrl: string
+  ): Promise<void> {
     try {
-      await this.storage.upsertCandidateUser(profileData);
-    } catch (error) {
-      console.error('ResumeService: Error upserting candidate profile:', error);
-      throw new ResumeProcessingError('Failed to update candidate profile', error);
-    }
+      console.log('ResumeService: Starting background AI parsing for user:', userId);
+      const startTime = Date.now();
 
-    try {
-      let activityMessage = "Resume uploaded successfully";
-      if (parsingSuccess && aiExtracted) {
-        const skillsCount = aiExtracted.skills.technical.length;
-        const experienceYears = aiExtracted.experience.totalYears;
-        const positionsCount = aiExtracted.experience.positions.length;
-        const confidence = parsedData?.confidence || 0;
-        
-        activityMessage = `Resume uploaded and AI-parsed with ${confidence}% confidence. Extracted ${skillsCount} technical skills, ${experienceYears} years experience, and ${positionsCount} work positions.`;
-      }
-      await this.storage.createActivityLog(userId, "resume_upload", activityMessage);
-    } catch (error) {
-      console.error('ResumeService: Error creating activity log:', error);
-      // Do not re-throw, activity log failure should not fail resume upload
-    }
+      // Call AI parser without timeout - let it take as long as it needs
+      const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      const processingTime = Date.now() - startTime;
 
-    // After updating, fetch the complete profile to return to the client
-    try {
-      const updatedProfile = await this.storage.getCandidateUser(userId);
+      console.log(`ResumeService: AI parsing completed in ${processingTime}ms`);
 
-      // Transform profile into expected ResumeProcessingResult structure
-      const result: ResumeProcessingResult = {
-        resumeUrl: updatedProfile.resumeUrl || resumeUrl,
-        parsed: parsingSuccess,
-        aiParsing: {
-          success: parsingSuccess,
-          confidence: parsedData?.confidence || 0,
-          processingTime: parsedData?.processingTime || 0,
-        },
-        extractedInfo: parsingSuccess && aiExtracted ? {
-          skillsCount: aiExtracted.skills?.technical?.length || 0,
-          softSkillsCount: aiExtracted.skills?.soft?.length || 0,
-          experience: aiExtracted.experience?.level || 'entry',
-          workHistoryCount: aiExtracted.experience?.positions?.length || 0,
+      // Extract data from result
+      const aiExtracted = result.aiExtracted || {};
+      const parsedData = result || {};
+
+      // Build profile update with extracted data
+      const profileUpdate: any = {
+        userId,
+        resumeUrl,
+        resumeText: parsedData.text || '',
+        resumeParsingData: {
+          confidence: parsedData.confidence || 0,
+          processingTime: processingTime,
+          extractedSkillsCount: aiExtracted.skills?.technical?.length || 0,
+          extractedPositionsCount: aiExtracted.experience?.positions?.length || 0,
           educationCount: aiExtracted.education?.length || 0,
           certificationsCount: aiExtracted.certifications?.length || 0,
           projectsCount: aiExtracted.projects?.length || 0,
-          hasContactInfo: !!(aiExtracted.personalInfo?.email || aiExtracted.personalInfo?.phone),
-          extractedName: aiExtracted.personalInfo?.name || '',
-          extractedLocation: aiExtracted.personalInfo?.location || '',
-          linkedinFound: !!aiExtracted.personalInfo?.linkedin,
-          githubFound: !!aiExtracted.personalInfo?.github,
-        } : null,
-        autoMatchingTriggered: false,
+        },
       };
 
-      return result;
+      // Update profile with extracted skills, experience, etc.
+      if (aiExtracted.skills?.technical?.length > 0) {
+        const existingProfile = await this.storage.getCandidateUser(userId);
+        const allSkills = [
+          ...(existingProfile?.skills || []),
+          ...aiExtracted.skills.technical,
+        ];
+        profileUpdate.skills = Array.from(new Set(allSkills)).slice(0, 25);
+      }
+
+      if (aiExtracted.experience?.totalYears > 0) {
+        profileUpdate.experience = aiExtracted.experience.level || 'entry';
+      }
+
+      if (aiExtracted.personalInfo?.location) {
+        profileUpdate.location = aiExtracted.personalInfo.location;
+      }
+
+      if (aiExtracted.personalInfo?.linkedin) {
+        profileUpdate.linkedinUrl = aiExtracted.personalInfo.linkedin;
+      }
+
+      if (aiExtracted.personalInfo?.github) {
+        profileUpdate.githubUrl = aiExtracted.personalInfo.github;
+      }
+
+      // Save updated profile
+      await this.storage.upsertCandidateUser(profileUpdate);
+      console.log('ResumeService: Background parsing completed and profile updated');
+
+      // Update activity log with final status
+      const skillsCount = aiExtracted.skills?.technical?.length || 0;
+      const experienceYears = aiExtracted.experience?.totalYears || 0;
+      const positionsCount = aiExtracted.experience?.positions?.length || 0;
+      const confidence = parsedData.confidence || 0;
+
+      await this.storage.createActivityLog(
+        userId,
+        "resume_parsing_complete",
+        `Resume parsed successfully with ${confidence}% confidence. Extracted ${skillsCount} skills, ${experienceYears} years experience, ${positionsCount} positions.`
+      );
+
     } catch (error) {
-      console.error('ResumeService: Error fetching updated profile after upsert:', error);
-      // Return partial success result with what we have
-      return {
-        resumeUrl: resumeUrl,
-        parsed: parsingSuccess,
-        aiParsing: {
-          success: parsingSuccess,
-          confidence: parsedData?.confidence || 0,
-          processingTime: parsedData?.processingTime || 0,
-        },
-        extractedInfo: null,
-        autoMatchingTriggered: false,
-      };
+      console.error('ResumeService: Background parsing error:', error);
+      // Log failure but don't crash - user already has their resume uploaded
+      await this.storage.createActivityLog(
+        userId,
+        "resume_parsing_failed",
+        `Resume parsing failed: ${error?.message || 'Unknown error'}. Resume is still uploaded.`
+      ).catch(() => {}); // Ignore if logging fails
     }
   }
 }
