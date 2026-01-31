@@ -90,7 +90,12 @@ export class ResumeService {
     // and AI-powered extraction
     try {
       console.log('ResumeService: Starting AI resume parsing...');
-      const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      // Add timeout to prevent long-running AI operations from blocking the request
+      const parsePromise = this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Resume parsing timeout (>40s)')), 40000)
+      );
+      const result = await Promise.race([parsePromise, timeoutPromise]);
       parsedData = result;
       aiExtracted = result.aiExtracted;
       parsingSuccess = true;
