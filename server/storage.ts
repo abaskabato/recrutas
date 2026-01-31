@@ -550,16 +550,32 @@ export class DatabaseStorage implements IStorage {
 
       console.log(`Found ${jobsWithSource.length} matching jobs (internal + external)`);
 
-      // Generate AI-powered recommendations
+      // Generate AI-powered recommendations (in PARALLEL, not sequential)
       const { generateJobMatch } = await import("./ai-service");
       const recommendations = [];
 
-      for (const job of jobsWithSource) {
-        const match = await generateJobMatch(candidate, job as any);
-        if (match.score > 0.4) {
+      // Parallelize AI matching with Promise.all instead of sequential await
+      // This prevents 50+ second timeouts from sequential AI calls
+      const matchPromises = jobsWithSource.map(job =>
+        generateJobMatch(candidate, job as any)
+          .then(match => ({
+            job,
+            match,
+            score: match.score
+          }))
+          .catch(err => {
+            console.error(`Error matching job ${job.id}:`, err?.message);
+            return { job, match: null, score: 0 };
+          })
+      );
+
+      const matches = await Promise.all(matchPromises);
+
+      for (const { job, match, score } of matches) {
+        if (match && score > 0.4) {
           recommendations.push({
             ...job,
-            matchScore: Math.round(match.score * 100),
+            matchScore: Math.round(score * 100),
             aiExplanation: match.aiExplanation,
             skillMatches: match.skillMatches,
             isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
