@@ -1,0 +1,77 @@
+{
+  "complete-resume-parsed": {
+    "personalInfo": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+1 (555) 123-4567",
+      "location": "San Francisco, CA",
+      "linkedin": "linkedin.com/in/johndoe",
+      "github": "github.com/johndoe"
+    },
+    "summary": "Experienced Software Engineer with 5+ years building scalable web applications",
+    "skills": {
+      "technical": [
+        "JavaScript",
+        "TypeScript",
+        "Python",
+        "Java",
+        "React",
+        "Node.js",
+        "PostgreSQL"
+      ],
+      "soft": ["Leadership", "Problem Solving"],
+      "tools": ["Docker", "Kubernetes", "AWS", "Git"]
+    },
+    "experience": {
+      "totalYears": 5,
+      "level": "mid"
+    },
+    "education": [
+      {
+        "degree": "B.S. Computer Science",
+        "institution": "State University",
+        "year": 2019
+      }
+    ]
+  },
+  "minimal-resume-parsed": {
+    "personalInfo": {
+      "name": "Jane Smith"
+    },
+    "skills": {
+      "technical": ["React", "JavaScript"],
+      "soft": [],
+      "tools": []
+    },
+    "experience": {
+      "totalYears": 0,
+      "level": "entry"
+    }
+  },
+  "sample-jobs": [
+    {
+      "id": 1,
+      "title": "Senior Frontend Engineer",
+      "company": "Tech Corp",
+      "description": "We are looking for a senior frontend engineer",
+      "skills": ["React", "TypeScript", "Node.js"],
+      "location": "Remote",
+      "workType": "remote",
+      "salaryMin": 120000,
+      "salaryMax": 160000,
+      "status": "active"
+    },
+    {
+      "id": 2,
+      "title": "Backend Engineer",
+      "company": "StartUp Inc",
+      "description": "Join our backend team",
+      "skills": ["Python", "Django", "PostgreSQL"],
+      "location": "New York, NY",
+      "workType": "onsite",
+      "salaryMin": 100000,
+      "salaryMax": 140000,
+      "status": "active"
+    }
+  ]
+}
