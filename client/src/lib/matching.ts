@@ -90,6 +90,16 @@ export function calculateJobMatch(candidate: CandidateProfile, job: JobPosting):
     reasons.push(`${experienceYears}+ years experience`);
   }
 
+  // Apply trust score modifier (add this before the final return)
+  if ((job as any).trustScore !== undefined) {
+    if ((job as any).trustScore >= 90) {
+      score = Math.min(score * 1.05, maxScore);
+      reasons.push('verified active position');
+    } else if ((job as any).trustScore < 50) {
+      score = score * 0.9;
+    }
+  }
+
   return {
     score: Math.min(Math.round(score), maxScore),
     reasons: reasons.slice(0, 3), // Limit to top 3 reasons

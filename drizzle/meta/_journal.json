@@ -8,6 +8,13 @@
       "when": 1753010397012,
       "tag": "0000_faithful_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1769853408003,
+      "tag": "0001_tricky_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

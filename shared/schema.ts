@@ -10,6 +10,7 @@ import {
   boolean,
   numeric,
   unique,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { primaryKey } from "drizzle-orm/pg-core/primary-keys";
 import { createInsertSchema } from "drizzle-zod";
@@ -17,7 +18,7 @@ import { z } from "zod";
 import { relations } from "drizzle-orm";
 
 export const users = pgTable("users", {
-  id: text("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull(),
   emailVerified: boolean("emailVerified").notNull().default(false),
@@ -33,7 +34,7 @@ export const users = pgTable("users", {
 });
 
 export const talentOwnerProfiles = pgTable("talent_owner_profiles", {
-  userId: text("user_id").primaryKey().references(() => users.id),
+  userId: uuid("user_id").primaryKey().references(() => users.id),
   jobTitle: text("job_title"),
   companyName: text("company_name"),
   companyWebsite: text("company_website"),
@@ -56,7 +57,7 @@ export const talentOwnerProfiles = pgTable("talent_owner_profiles", {
 
 export const candidateProfiles = pgTable("candidate_users", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique().references(() => users.id),
+  userId: uuid("user_id").notNull().unique().references(() => users.id),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   email: varchar("email"),
@@ -81,14 +82,15 @@ export const candidateProfiles = pgTable("candidate_users", {
   resumeText: text("resume_text"),
   profileStrength: integer("profile_strength").default(0),
   profileViews: integer("profile_views").default(0),
+  resumeProcessingStatus: varchar("resume_processing_status", { enum: ["idle", "processing", "completed", "failed"] }).default("idle"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const jobPostings = pgTable("job_postings", {
   id: serial("id").primaryKey(),
-  talentOwnerId: text("talent_owner_id").notNull().references(() => users.id),
-  hiringManagerId: text("hiring_manager_id").references(() => users.id),
+  talentOwnerId: uuid("talent_owner_id").notNull().references(() => users.id),
+  hiringManagerId: uuid("hiring_manager_id").references(() => users.id),
   title: varchar("title").notNull(),
   company: varchar("company").notNull(),
   description: text("description").notNull(),
@@ -120,7 +122,13 @@ export const jobPostings = pgTable("job_postings", {
   trustScore: integer("trust_score").default(50), // 0-100, internal/platform jobs get 100
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Unique constraint for external job deduplication
+  jobExternalUnique: unique("job_external_unique").on(table.externalId, table.source),
+  // Indices for common queries
+  idxJobLiveness: index("idx_job_liveness").on(table.livenessStatus, table.expiresAt),
+  idxJobTrustScore: index("idx_job_trust_score").on(table.trustScore),
+}));
 
 export const jobExams = pgTable("job_exams", {
   id: serial("id").primaryKey(),
@@ -138,7 +146,7 @@ export const jobExams = pgTable("job_exams", {
 export const examAttempts = pgTable("exam_attempts", {
   id: serial("id").primaryKey(),
   examId: integer("exam_id").notNull().references(() => jobExams.id),
-  candidateId: text("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   score: integer("score"),
   totalQuestions: integer("total_questions"),
@@ -157,7 +165,7 @@ export const examAttempts = pgTable("exam_attempts", {
 export const jobMatches = pgTable("job_matches", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: text("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   matchScore: integer("match_score").notNull().default(0),
   confidenceLevel: varchar("confidence_level", { enum: ["low", "medium", "high"] }).default("medium"),
   matchReasons: jsonb("match_reasons").default([] as any),
@@ -175,8 +183,8 @@ export const jobMatches = pgTable("job_matches", {
 export const chatRooms = pgTable("chat_rooms", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: text("candidate_id").notNull().references(() => users.id),
-  hiringManagerId: text("hiring_manager_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  hiringManagerId: uuid("hiring_manager_id").notNull().references(() => users.id),
   examAttemptId: integer("exam_attempt_id").references(() => examAttempts.id),
   status: varchar("status", { enum: ["active", "closed"] }).default("active"),
   candidateRanking: integer("candidate_ranking"),
@@ -191,14 +199,14 @@ export const chatRooms = pgTable("chat_rooms", {
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
   chatRoomId: integer("chat_room_id").notNull().references(() => chatRooms.id),
-  senderId: text("sender_id").notNull().references(() => users.id),
+  senderId: uuid("sender_id").notNull().references(() => users.id),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const jobApplications = pgTable("job_applications", {
   id: serial("id").primaryKey(),
-  candidateId: text("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   matchId: integer("match_id").references(() => jobMatches.id),
   status: varchar("status", {
@@ -252,7 +260,7 @@ export const applicationEvents = pgTable("application_events", {
 
 export const applicationInsights = pgTable("application_insights", {
   id: serial("id").primaryKey(),
-  candidateId: text("candidate_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   strengthsIdentified: jsonb("strengths_identified").default([] as any),
   improvementAreas: jsonb("improvement_areas").default([] as any),
@@ -270,7 +278,7 @@ export const applicationInsights = pgTable("application_insights", {
 
 export const matchFeedback = pgTable("match_feedback", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   matchId: integer("match_id").notNull().references(() => jobMatches.id),
   rating: integer("rating").notNull(),
   feedbackType: varchar("feedback_type", { enum: ["match_quality", "job_relevance", "timing", "requirements"] }),
@@ -281,7 +289,7 @@ export const matchFeedback = pgTable("match_feedback", {
 
 export const activityLogs = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   type: varchar("type").notNull(),
   description: text("description").notNull(),
   metadata: jsonb("metadata"),
@@ -290,7 +298,7 @@ export const activityLogs = pgTable("activity_logs", {
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   type: varchar("type", {
     enum: [
       "application_viewed",
@@ -321,7 +329,7 @@ export const notifications = pgTable("notifications", {
 
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique().references(() => users.id),
+  userId: uuid("user_id").notNull().unique().references(() => users.id),
   inAppNotifications: boolean("in_app_notifications").default(true),
   emailNotifications: boolean("email_notifications").default(true),
   pushNotifications: boolean("push_notifications").default(false),
@@ -336,7 +344,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
 
 export const connectionStatus = pgTable("connection_status", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().unique().references(() => users.id),
+  userId: uuid("user_id").notNull().unique().references(() => users.id),
   isOnline: boolean("is_online").default(false),
   lastSeen: timestamp("last_seen").defaultNow(),
   socketId: varchar("socket_id"),
@@ -347,8 +355,8 @@ export const connectionStatus = pgTable("connection_status", {
 
 export const interviews = pgTable("interviews", {
   id: serial("id").primaryKey(),
-  candidateId: text("candidate_id").notNull().references(() => users.id),
-  interviewerId: text("interviewer_id").notNull().references(() => users.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  interviewerId: uuid("interviewer_id").notNull().references(() => users.id),
   jobId: integer("job_id").notNull().references(() => jobPostings.id),
   applicationId: integer("application_id").notNull().references(() => jobApplications.id),
   scheduledAt: timestamp("scheduled_at").notNull(),
@@ -370,7 +378,7 @@ export const interviews = pgTable("interviews", {
 });
 
 export const savedJobs = pgTable("saved_jobs", {
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {
@@ -380,7 +388,7 @@ export const savedJobs = pgTable("saved_jobs", {
 });
 
 export const hiddenJobs = pgTable("hidden_jobs", {
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {
@@ -610,7 +618,7 @@ export const subscriptionTiers = pgTable("subscription_tiers", {
 
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   tierId: integer("tier_id").references(() => subscriptionTiers.id),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
@@ -626,7 +634,7 @@ export const userSubscriptions = pgTable("user_subscriptions", {
 
 export const usageTracking = pgTable("usage_tracking", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
   featureType: varchar("feature_type", {
     enum: ["ai_match", "job_post", "resume_enhancement", "candidate_ranking", "analytics"]
   }).notNull(),
@@ -709,15 +717,15 @@ export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
 export const discoveredCompanies = pgTable("discovered_companies", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  normalizedName: varchar("normalized_name", { length: 255 }).notNull().unique(),
-  careerPageUrl: varchar("career_page_url", { length: 500 }),
-  discoverySource: varchar("discovery_source", { length: 100 }).notNull(),
-  detectedAts: varchar("detected_ats", { length: 50 }),
-  atsId: varchar("ats_id", { length: 255 }),
-  jobCount: integer("job_count").default(0),
+  normalizedName: varchar("normalizedName", { length: 255 }).notNull().unique(),
+  careerPageUrl: varchar("careerPageUrl", { length: 500 }),
+  discoverySource: varchar("discoverySource", { length: 100 }).notNull(),
+  detectedAts: varchar("detectedAts", { length: 50 }),
+  atsId: varchar("atsId", { length: 255 }),
+  jobCount: integer("jobCount").default(0),
   status: varchar("status", { length: 50 }).default("pending"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
 }, (table) => {
   return {
     idx_discovered_status: index("idx_discovered_status").on(table.status),

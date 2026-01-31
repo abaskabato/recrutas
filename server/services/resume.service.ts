@@ -79,7 +79,7 @@ export class ResumeService {
       existingProfile = await this.storage.getCandidateUser(userId);
     } catch (error) {
       console.error('ResumeService: Error fetching existing candidate profile:', error);
-      throw new ResumeProcessingError('Failed to fetch candidate profile', error);
+      existingProfile = null; // Don't throw - we can proceed with null
     }
     
     let parsedData: any = { text: '', aiExtracted: null, confidence: 0, processingTime: 0 };
@@ -198,42 +198,51 @@ export class ResumeService {
       // Do not re-throw, activity log failure should not fail resume upload
     }
 
-    // Trigger automatic job matching after resume upload
-    let autoMatchingTriggered = false;
+    // After updating, fetch the complete profile to return to the client
     try {
-      // This part of the logic is complex and involves external calls.
-      // For now, we'll keep it as a placeholder or simplify it.
-      // In a real scenario, this might be an async job or a separate service call.
-      console.log('ResumeService: Triggering automatic job matching (placeholder)');
-      autoMatchingTriggered = true;
-    } catch (error) {
-      console.error('ResumeService: Error triggering automatic matches:', error);
-      // Do not re-throw, matching failure should not fail resume upload
-    }
+      const updatedProfile = await this.storage.getCandidateUser(userId);
 
-    return {
-      resumeUrl,
-      parsed: parsingSuccess,
-      aiParsing: {
-        success: parsingSuccess,
-        confidence: parsedData?.confidence || 0,
-        processingTime: parsedData?.processingTime || 0
-      },
-      extractedInfo: aiExtracted ? {
-        skillsCount: aiExtracted.skills.technical.length,
-        softSkillsCount: aiExtracted.skills.soft.length,
-        experience: `${aiExtracted.experience.totalYears} years (${aiExtracted.experience.level})`,
-        workHistoryCount: aiExtracted.experience.positions.length,
-        educationCount: aiExtracted.education.length,
-        certificationsCount: aiExtracted.certifications.length,
-        projectsCount: aiExtracted.projects.length,
-        hasContactInfo: !!(aiExtracted.personalInfo.email || aiExtracted.personalInfo.phone),
-        extractedName: aiExtracted.personalInfo.name,
-        extractedLocation: aiExtracted.personalInfo.location,
-        linkedinFound: !!aiExtracted.personalInfo.linkedin,
-        githubFound: !!aiExtracted.personalInfo.github
-      } : null,
-      autoMatchingTriggered: autoMatchingTriggered
-    };
+      // Transform profile into expected ResumeProcessingResult structure
+      const result: ResumeProcessingResult = {
+        resumeUrl: updatedProfile.resumeUrl || resumeUrl,
+        parsed: parsingSuccess,
+        aiParsing: {
+          success: parsingSuccess,
+          confidence: parsedData?.confidence || 0,
+          processingTime: parsedData?.processingTime || 0,
+        },
+        extractedInfo: parsingSuccess && aiExtracted ? {
+          skillsCount: aiExtracted.skills?.technical?.length || 0,
+          softSkillsCount: aiExtracted.skills?.soft?.length || 0,
+          experience: aiExtracted.experience?.level || 'entry',
+          workHistoryCount: aiExtracted.experience?.positions?.length || 0,
+          educationCount: aiExtracted.education?.length || 0,
+          certificationsCount: aiExtracted.certifications?.length || 0,
+          projectsCount: aiExtracted.projects?.length || 0,
+          hasContactInfo: !!(aiExtracted.personalInfo?.email || aiExtracted.personalInfo?.phone),
+          extractedName: aiExtracted.personalInfo?.name || '',
+          extractedLocation: aiExtracted.personalInfo?.location || '',
+          linkedinFound: !!aiExtracted.personalInfo?.linkedin,
+          githubFound: !!aiExtracted.personalInfo?.github,
+        } : null,
+        autoMatchingTriggered: false,
+      };
+
+      return result;
+    } catch (error) {
+      console.error('ResumeService: Error fetching updated profile after upsert:', error);
+      // Return partial success result with what we have
+      return {
+        resumeUrl: resumeUrl,
+        parsed: parsingSuccess,
+        aiParsing: {
+          success: parsingSuccess,
+          confidence: parsedData?.confidence || 0,
+          processingTime: parsedData?.processingTime || 0,
+        },
+        extractedInfo: null,
+        autoMatchingTriggered: false,
+      };
+    }
   }
 }

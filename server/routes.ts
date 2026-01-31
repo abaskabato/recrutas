@@ -272,12 +272,20 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  // Universal job scraper
+  // Universal job scraper with database persistence
   app.get('/api/external-jobs', async (req, res) => {
     try {
       const skills = req.query.skills ? (req.query.skills as string).split(',') : [];
       const jobs = await jobAggregator.getAllJobs(skills);
-      res.json({ jobs });
+
+      // Persist jobs to database
+      const { jobIngestionService } = await import('./services/job-ingestion.service');
+      const stats = await jobIngestionService.ingestExternalJobs(jobs);
+
+      res.json({
+        jobs,
+        ingestionStats: stats
+      });
     } catch (error) {
       console.error('Error scraping external jobs:', error);
       res.status(500).json({ message: 'Failed to scrape external jobs' });

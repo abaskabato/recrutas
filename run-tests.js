@@ -4,6 +4,8 @@ dotenv.config();
 import { spawn } from 'child_process';
 import { runAPITests } from './test-auth-api.js';
 import { runAllTests } from './test-auth-e2e.js';
+import { runJobEngineTests } from './test/test-job-engine.test.js';
+import { fileURLToPath } from 'url';
 
 const PORT = 5001;
 
@@ -39,23 +41,63 @@ async function runAllTestSuites() {
 
     await runAllTests();
 
-                    const jobFeedProcess = spawn('./node_modules/.bin/tsx', ['./test/job-feed.test.js'], { stdio: 'pipe', encoding: 'utf-8', shell: true });
-                    jobFeedProcess.stdout.on('data', (data) => {
-                        console.log(`[Job Feed Test]: ${data}`);
-                    });
-            
-                    jobFeedProcess.stderr.on('data', (data) => {
-                        console.error(`[Job Feed Test]: ${data}`);
-                    });
-            
-                    await new Promise((resolve) => {
-                        jobFeedProcess.on('close', (code) => {
-                            if (code !== 0) {
-                                throw new Error('Job feed test failed');
-                            }
-                            resolve();
-                        });
-                    });  } catch (error) {
+    // Run Job Engine Tests
+    const jobEngineProcess = spawn('./node_modules/.bin/tsx', ['./test/test-job-engine.test.js'], { stdio: 'pipe', encoding: 'utf-8', shell: true });
+    jobEngineProcess.stdout.on('data', (data) => {
+        console.log(`[Job Engine Test]: ${data}`);
+    });
+
+    jobEngineProcess.stderr.on('data', (data) => {
+        console.error(`[Job Engine Test]: ${data}`);
+    });
+
+    await new Promise((resolve) => {
+        jobEngineProcess.on('close', (code) => {
+            if (code !== 0) {
+                throw new Error('Job engine test failed');
+            }
+            resolve();
+        });
+    });
+
+    // Run Resume Upload Fix Test
+    const resumeUploadProcess = spawn('./node_modules/.bin/tsx', ['./test/resume-upload-fix.test.js'], { stdio: 'pipe', encoding: 'utf-8', shell: true });
+    resumeUploadProcess.stdout.on('data', (data) => {
+        console.log(`[Resume Upload Test]: ${data}`);
+    });
+
+    resumeUploadProcess.stderr.on('data', (data) => {
+        console.error(`[Resume Upload Test]: ${data}`);
+    });
+
+    await new Promise((resolve) => {
+        resumeUploadProcess.on('close', (code) => {
+            if (code !== 0) {
+                throw new Error('Resume upload test failed');
+            }
+            resolve();
+        });
+    });
+
+    const jobFeedProcess = spawn('./node_modules/.bin/tsx', ['./test/job-feed.test.js'], { stdio: 'pipe', encoding: 'utf-8', shell: true });
+    jobFeedProcess.stdout.on('data', (data) => {
+        console.log(`[Job Feed Test]: ${data}`);
+    });
+
+    jobFeedProcess.stderr.on('data', (data) => {
+        console.error(`[Job Feed Test]: ${data}`);
+    });
+
+    await new Promise((resolve) => {
+        jobFeedProcess.on('close', (code) => {
+            if (code !== 0) {
+                throw new Error('Job feed test failed');
+            }
+            resolve();
+        });
+    });
+
+  } catch (error) {
     console.error(error);
     process.exit(1);
   } finally {

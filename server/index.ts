@@ -57,6 +57,15 @@ async function initializeBackgroundServices() {
       console.log('[Services] Job liveness service not found, skipping');
     }
 
+    // Start job refresh service
+    try {
+      const { jobRefreshService } = await import('./services/job-refresh.service.js');
+      jobRefreshService.start();
+      console.log('[Services] ✓ Job refresh service started');
+    } catch (e) {
+      console.error('[Services] Job refresh service failed to start:', e);
+    }
+
   } catch (error) {
     console.error('[Services] Error starting background services:', error);
     // Don't crash the server if background services fail
@@ -86,8 +95,10 @@ export async function configureApp() {
   await registerRoutes(app);
   registerChatRoutes(app);
 
-  // NEW: Start background services
-  await initializeBackgroundServices();
+  // Only start background services if not in a test environment
+  if (process.env.NODE_ENV !== 'test') {
+    await initializeBackgroundServices();
+  }
 
   app.use(errorHandlerMiddleware());
 

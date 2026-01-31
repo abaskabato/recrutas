@@ -517,83 +517,63 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
 
-      // 1. Fetch internal jobs (only active, excluding expired)
-      const internalJobs = await db
+      // Fetch active, non-expired, non-stale jobs (internal + external)
+      const allJobs = await db
         .select()
         .from(jobPostings)
         .where(and(
           eq(jobPostings.status, 'active'),
-          or(...candidate.skills.map(skill => sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`)),
+          or(...candidate.skills.map(skill =>
+            sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`
+          )),
           or(
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
+          ),
+          // Filter out stale jobs
+          or(
+            eq(jobPostings.livenessStatus, 'active'),
+            eq(jobPostings.livenessStatus, 'unknown')
           )
         ))
-        .limit(50);
+        .orderBy(
+          sql`${jobPostings.trustScore} DESC NULLS LAST`,
+          sql`${jobPostings.createdAt} DESC`
+        )
+        .limit(100);
 
-      const internalJobsWithSource = internalJobs.map((job: any) => ({
+      const jobsWithSource = allJobs.map((job: any) => ({
         ...job,
-        source: 'internal',
         requirements: Array.isArray(job.requirements) ? job.requirements : [],
         skills: Array.isArray(job.skills) ? job.skills : []
       }));
 
-      console.log(`Found ${internalJobsWithSource.length} internal matching jobs`);
+      console.log(`Found ${jobsWithSource.length} matching jobs (internal + external)`);
 
-      // 2. Fetch external jobs from multiple sources (HiringCafe-style aggregation)
-      // Each source is wrapped in try/catch to ensure failures don't break the entire feed
-      let aggregatorJobs: any[] = [];
-      let companyJobs: any[] = [];
-      let careerPageJobs: any[] = [];
-
-      try {
-        const { jobAggregator } = await import("./job-aggregator");
-        aggregatorJobs = await jobAggregator.getAllJobs(candidate.skills);
-        console.log(`Job aggregator returned ${aggregatorJobs.length} jobs`);
-      } catch (err) {
-        console.error('Job aggregator failed:', err);
-      }
-
-      try {
-        const { companyJobsAggregator } = await import("./company-jobs-aggregator");
-        companyJobs = await companyJobsAggregator.getAllCompanyJobs(candidate.skills);
-        console.log(`Company jobs aggregator returned ${companyJobs.length} jobs`);
-      } catch (err) {
-        console.error('Company jobs aggregator failed:', err);
-      }
-
-      try {
-        const { careerPageScraper } = await import("./career-page-scraper");
-        careerPageJobs = await careerPageScraper.getAllJobs(candidate.skills);
-        console.log(`Career page scraper returned ${careerPageJobs.length} jobs`);
-      } catch (err) {
-        console.error('Career page scraper failed:', err);
-      }
-
-      // 3. Combine and de-duplicate (prioritizing career page jobs for freshness)
-      const allJobs = [...careerPageJobs, ...internalJobsWithSource, ...aggregatorJobs, ...companyJobs];
-      const uniqueJobs = Array.from(new Map(allJobs.map(job => [
-        (job.title.toLowerCase() + job.company.toLowerCase()).replace(/\s/g, ''),
-        job
-      ])).values());
-
-      // 4. Generate AI-powered recommendations
+      // Generate AI-powered recommendations
       const { generateJobMatch } = await import("./ai-service");
       const recommendations = [];
-      for (const job of uniqueJobs) {
+
+      for (const job of jobsWithSource) {
         const match = await generateJobMatch(candidate, job as any);
-        if (match.score > 0.4) { // Only include jobs with a match score > 40%
+        if (match.score > 0.4) {
           recommendations.push({
             ...job,
             matchScore: Math.round(match.score * 100),
             aiExplanation: match.aiExplanation,
             skillMatches: match.skillMatches,
+            isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
+            isDirectFromCompany: job.trustScore >= 85,
           });
         }
       }
 
-      // 5. Sort by match score
-      recommendations.sort((a, b) => b.matchScore - a.matchScore);
+      // Sort by combined score: match score * (trust score / 100)
+      recommendations.sort((a, b) => {
+        const scoreA = a.matchScore * ((a.trustScore || 50) / 100);
+        const scoreB = b.matchScore * ((b.trustScore || 50) / 100);
+        return scoreB - scoreA;
+      });
 
       return recommendations.slice(0, 20);
     } catch (error) {
