@@ -8,7 +8,7 @@
 
 import assert from 'assert';
 import supertest from 'supertest';
-import { supabase } from '../server/db.ts';
+import { supabase } from '../server/lib/supabase-client.ts';
 import {
   createNewUserAndGetToken,
   deleteUser,

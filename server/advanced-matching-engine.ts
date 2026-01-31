@@ -387,7 +387,8 @@ export class AdvancedMatchingEngine {
   }
 
   private generateCacheKey(criteria: AdvancedMatchCriteria): string {
-    return `${criteria.candidateId}_${criteria.skills.join(',')}_${criteria.location || ''}_${criteria.workType || ''}`;
+    const skills = criteria.skills || [];
+    return `${criteria.candidateId}_${skills.join(',')}_${criteria.location || ''}_${criteria.workType || ''}`;
   }
 
   async getPersonalizedJobFeed(candidateId: string, limit: number = 20): Promise<EnhancedJobMatch[]> {

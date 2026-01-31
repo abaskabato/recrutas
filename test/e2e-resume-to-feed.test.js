@@ -8,7 +8,7 @@
 
 import assert from 'assert';
 import supertest from 'supertest';
-import { supabase } from '../server/db.ts';
+import { supabase } from '../server/lib/supabase-client.ts';
 import {
   createNewUserAndGetToken,
   createNewTalentOwnerAndGetToken,
@@ -502,7 +502,8 @@ async function runAllTests() {
   }
 }
 
-runAllTests().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
+describe('E2E Tests', () => {
+  test('Run all E2E tests', async () => {
+    await runAllTests();
+  });
 });

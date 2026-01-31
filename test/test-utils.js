@@ -3,7 +3,7 @@
  * Provides common helper functions for authentication and cleanup
  */
 
-import { supabase } from '../server/db.ts';
+import { supabase } from '../server/lib/supabase-client.ts';
 
 /**
  * Create a new test candidate user and get authentication token
@@ -14,13 +14,13 @@ export async function createNewUserAndGetToken() {
   const password = 'TestPassword123!';
 
   // Create user in Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUpWithPassword({
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
   });
 
   if (authError) {
-    throw new Error(`Auth signup failed: ${authError.message}`);
+    throw new Error(`Auth signup failed: ${authError.message || JSON.stringify(authError)}`);
   }
 
   const userId = authData.user.id;
@@ -38,7 +38,10 @@ export async function createNewUserAndGetToken() {
     ]);
 
   if (profileError) {
-    throw new Error(`Candidate profile creation failed: ${profileError.message}`);
+    const errorDetails = profileError.message || profileError.code || JSON.stringify(profileError);
+    const message = `Candidate profile creation failed: ${errorDetails}. Check that backend server is running and database is configured.`;
+    console.error('❌ Profile error:', profileError);
+    throw new Error(message);
   }
 
   // Create user record
@@ -83,13 +86,13 @@ export async function createNewTalentOwnerAndGetToken() {
   const password = 'TestPassword123!';
 
   // Create user in Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUpWithPassword({
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
   });
 
   if (authError) {
-    throw new Error(`Auth signup failed: ${authError.message}`);
+    throw new Error(`Auth signup failed: ${authError.message || JSON.stringify(authError)}`);
   }
 
   const userId = authData.user.id;
