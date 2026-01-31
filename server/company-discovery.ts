@@ -10,8 +10,9 @@
  */
 
 import { db } from './db';
-import { jobPostings } from '@shared/schema';
-import { sql, isNotNull, ne } from 'drizzle-orm';
+import { jobPostings, discoveredCompanies } from '@shared/schema';
+import { sql, isNotNull, ne, eq } from 'drizzle-orm';
+import { wikipediaDiscovery } from './wikipedia-discovery'; // NEW
 
 // ATS detection patterns
 const ATS_PATTERNS = {
@@ -47,7 +48,7 @@ const ATS_PATTERNS = {
   ],
   smartrecruiters: [
     /jobs\.smartrecruiters\.com/i,
-    /careers\.smartrecruiters\.com/i
+    /careers\.smartrecruitters\.com/i
   ],
   taleo: [
     /taleo\.net/i,
@@ -75,13 +76,14 @@ const KNOWN_COMPANIES = new Set([
 ]);
 
 interface DiscoveredCompany {
+  id?: number; // NEW
   name: string;
   normalizedName: string;
   careerPageUrl?: string;
+  discoverySource: string; // Changed from 'source' for consistency with DB
   detectedAts?: string;
+  atsId?: string; // NEW
   jobCount: number;
-  firstSeen: Date;
-  lastSeen: Date;
   status: 'pending' | 'approved' | 'rejected' | 'in_scraper';
 }
 
@@ -94,7 +96,6 @@ interface CompanyDiscoveryStats {
 }
 
 class CompanyDiscoveryPipeline {
-  private discoveredCompanies: Map<string, DiscoveredCompany> = new Map();
   private discoveryInterval: NodeJS.Timeout | null = null;
 
   /**
@@ -123,6 +124,50 @@ class CompanyDiscoveryPipeline {
     console.log('[CompanyDiscovery] Stopped company discovery pipeline');
   }
 
+  async saveCompaniesToDatabase(companies: Array<{
+    name: string;
+    normalizedName: string;
+    careerPageUrl?: string;
+    detectedAts?: string;
+    atsId?: string;
+    jobCount: number;
+    source: string;
+  }>): Promise<void> {
+    for (const company of companies) {
+      try {
+        // Check if exists
+        const existing = await db.select()
+          .from(discoveredCompanies)
+          .where(eq(discoveredCompanies.normalizedName, company.normalizedName))
+          .limit(1);
+
+        if (existing.length > 0) {
+          // Update existing
+          const result = await db.update(discoveredCompanies)
+            .set({
+              jobCount: company.jobCount,
+              updatedAt: new Date()
+            })
+            .where(eq(discoveredCompanies.id, existing[0].id));
+        } else {
+          // Insert new
+          const result = await db.insert(discoveredCompanies).values({
+            name: company.name,
+            normalizedName: company.normalizedName,
+            careerPageUrl: company.careerPageUrl,
+            detectedAts: company.detectedAts,
+            atsId: company.atsId,
+            jobCount: company.jobCount,
+            discoverySource: company.source,
+            status: 'pending'
+          });
+        }
+      } catch (error) {
+        console.error(`[CompanyDiscovery] Error saving ${company.name}:`, error);
+      }
+    }
+  }
+
   /**
    * Run the discovery process
    */
@@ -130,59 +175,85 @@ class CompanyDiscoveryPipeline {
     console.log('[CompanyDiscovery] Running company discovery...');
 
     try {
-      // Get unique companies from recent job postings
-      const recentCompanies = await this.getUniqueCompaniesFromJobs();
-      console.log(`[CompanyDiscovery] Found ${recentCompanies.length} unique companies in job postings`);
+      const allCompanies: Array<any> = [];
 
-      let newCompanies = 0;
+      // 1. Existing: Mine job postings
+      const jobCompanies = await this.getUniqueCompaniesFromJobs();
+      console.log(`[CompanyDiscovery] Found ${jobCompanies.length} companies from job postings`);
 
-      for (const companyData of recentCompanies) {
-        const normalizedName = this.normalizeCompanyName(companyData.company);
+      for (const comp of jobCompanies) {
+        const normalizedName = this.normalizeCompanyName(comp.company);
+        if (KNOWN_COMPANIES.has(normalizedName)) continue;
 
-        // Skip if already known
-        if (KNOWN_COMPANIES.has(normalizedName)) {
-          continue;
-        }
+        const atsType = comp.careerPageUrl ? this.detectAtsType(comp.careerPageUrl) : undefined;
 
-        // Skip if already discovered
-        if (this.discoveredCompanies.has(normalizedName)) {
-          // Update last seen and job count
-          const existing = this.discoveredCompanies.get(normalizedName)!;
-          existing.lastSeen = new Date();
-          existing.jobCount = Math.max(existing.jobCount, companyData.count);
-          continue;
-        }
-
-        // Detect ATS type from career page URL if available
-        const atsType = companyData.careerPageUrl
-          ? this.detectAtsType(companyData.careerPageUrl)
-          : undefined;
-
-        // Add to discovered companies
-        const discovered: DiscoveredCompany = {
-          name: companyData.company,
+        allCompanies.push({
+          name: comp.company,
           normalizedName,
-          careerPageUrl: companyData.careerPageUrl,
+          careerPageUrl: comp.careerPageUrl,
           detectedAts: atsType,
-          jobCount: companyData.count,
-          firstSeen: new Date(),
-          lastSeen: new Date(),
-          status: 'pending'
-        };
-
-        this.discoveredCompanies.set(normalizedName, discovered);
-        newCompanies++;
+          atsId: this.extractAtsId(comp.careerPageUrl || '', atsType),
+          jobCount: comp.count,
+          source: 'job_mining'
+        });
       }
 
-      console.log(`[CompanyDiscovery] Discovered ${newCompanies} new companies`);
+      // 2. NEW: Run Wikipedia discovery (weekly)
+      if (this.shouldRunWikipediaDiscovery()) {
+        const wikiCompanies = await wikipediaDiscovery.discoverFromFortune500();
 
-      // Auto-approve companies with high job counts and known ATS
+        for (const comp of wikiCompanies) {
+          const normalizedName = this.normalizeCompanyName(comp.name);
+          if (KNOWN_COMPANIES.has(normalizedName)) continue;
+
+          // Try to find career page URL
+          const careerUrl = await this.timeout(5000, this.findCareerPageUrl(comp.name)).catch(() => null);
+          const atsType = careerUrl ? this.detectAtsType(careerUrl) : undefined;
+
+          allCompanies.push({
+            name: comp.name,
+            normalizedName,
+            careerPageUrl: careerUrl || undefined,
+            detectedAts: atsType,
+            atsId: this.extractAtsId(careerUrl || '', atsType),
+            jobCount: 0,
+            source: 'wikipedia'
+          });
+        }
+      }
+
+      // 3. Save all to database
+      console.log('[CompanyDiscovery] Companies to save:', allCompanies); // NEW LOG
+      await this.saveCompaniesToDatabase(allCompanies);
+      console.log(`[CompanyDiscovery] Saved ${allCompanies.length} companies to database`);
+
+      // 4. Auto-approve high-value companies
       await this.autoApproveHighValueCompanies();
 
     } catch (error) {
       console.error('[CompanyDiscovery] Error during discovery:', error);
     }
   }
+
+  private shouldRunWikipediaDiscovery(): boolean {
+    // Run Wikipedia discovery once per week (every 7 days)
+    // Can track last run in database or use simple logic
+    const dayOfWeek = new Date().getDay();
+    return dayOfWeek === 0; // Run on Sundays
+  }
+
+  private extractAtsId(url: string, atsType?: string): string | undefined {
+    if (!atsType || !url) return undefined;
+
+    if (atsType === 'greenhouse') {
+      return this.extractGreenhouseId(url) || undefined;
+    } else if (atsType === 'lever') {
+      return this.extractLeverId(url) || undefined;
+    }
+
+    return undefined;
+  }
+
 
   /**
    * Get unique companies from job postings
@@ -234,24 +305,46 @@ class CompanyDiscoveryPipeline {
   /**
    * Auto-approve companies with high job counts and known ATS
    */
+  private timeout<T>(ms: number, promise: Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('Promise timed out'));
+      }, ms);
+
+      promise.then(
+        (res) => {
+          clearTimeout(timer);
+          resolve(res);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        }
+      );
+    });
+  }
+
   private async autoApproveHighValueCompanies(): Promise<void> {
-    const MIN_JOB_COUNT_FOR_AUTO_APPROVE = 5;
+    const MIN_JOB_COUNT = 5;
     const ATS_WITH_API = new Set(['greenhouse', 'lever']);
+
+    // Query pending companies from database
+    const pending = await db.select()
+      .from(discoveredCompanies)
+      .where(eq(discoveredCompanies.status, 'pending'));
 
     let autoApproved = 0;
 
-    for (const [name, company] of this.discoveredCompanies.entries()) {
-      if (company.status !== 'pending') continue;
-
-      // Auto-approve if:
-      // 1. Has many job postings (indicates significant hiring)
-      // 2. Uses an ATS we can easily integrate with
+    for (const company of pending) {
       if (
-        company.jobCount >= MIN_JOB_COUNT_FOR_AUTO_APPROVE &&
+        company.jobCount >= MIN_JOB_COUNT &&
         company.detectedAts &&
         ATS_WITH_API.has(company.detectedAts)
       ) {
-        company.status = 'approved';
+        await db.update(discoveredCompanies)
+          .set({ status: 'approved' })
+          .where(eq(discoveredCompanies.id, company.id));
+
         autoApproved++;
       }
     }
@@ -261,73 +354,52 @@ class CompanyDiscoveryPipeline {
     }
   }
 
-  /**
-   * Get all discovered companies
-   */
-  getDiscoveredCompanies(): DiscoveredCompany[] {
-    return Array.from(this.discoveredCompanies.values());
+  async getDiscoveredCompanies(): Promise<DiscoveredCompany[]> {
+    return db.select().from(discoveredCompanies);
   }
 
-  /**
-   * Get companies pending review
-   */
-  getPendingCompanies(): DiscoveredCompany[] {
-    return this.getDiscoveredCompanies()
-      .filter(c => c.status === 'pending')
-      .sort((a, b) => b.jobCount - a.jobCount);
+  async getPendingCompanies(): Promise<DiscoveredCompany[]> {
+    return db.select()
+      .from(discoveredCompanies)
+      .where(eq(discoveredCompanies.status, 'pending'))
+      .orderBy(discoveredCompanies.jobCount.desc()); // Corrected
   }
 
-  /**
-   * Get approved companies ready to add to scraper
-   */
-  getApprovedCompanies(): DiscoveredCompany[] {
-    return this.getDiscoveredCompanies()
-      .filter(c => c.status === 'approved')
-      .sort((a, b) => b.jobCount - a.jobCount);
+  async getApprovedCompanies(): Promise<DiscoveredCompany[]> {
+    return db.select()
+      .from(discoveredCompanies)
+      .where(eq(discoveredCompanies.status, 'approved'))
+      .orderBy(discoveredCompanies.jobCount.desc()); // Corrected
   }
 
-  /**
-   * Approve a company for scraping
-   */
-  approveCompany(normalizedName: string): boolean {
-    const company = this.discoveredCompanies.get(normalizedName);
-    if (company && company.status === 'pending') {
-      company.status = 'approved';
-      return true;
-    }
-    return false;
+  async approveCompany(normalizedName: string): Promise<boolean> {
+    const result = await db.update(discoveredCompanies)
+      .set({ status: 'approved', updatedAt: new Date() })
+      .where(eq(discoveredCompanies.normalizedName, normalizedName));
+    return result.rowCount > 0;
   }
 
-  /**
-   * Reject a company from scraping
-   */
-  rejectCompany(normalizedName: string): boolean {
-    const company = this.discoveredCompanies.get(normalizedName);
-    if (company && company.status === 'pending') {
-      company.status = 'rejected';
-      return true;
-    }
-    return false;
+  async rejectCompany(normalizedName: string): Promise<boolean> {
+    const result = await db.update(discoveredCompanies)
+      .set({ status: 'rejected', updatedAt: new Date() })
+      .where(eq(discoveredCompanies.normalizedName, normalizedName));
+    return result.rowCount > 0;
   }
 
-  /**
-   * Mark a company as added to the scraper
-   */
-  markAsInScraper(normalizedName: string): boolean {
-    const company = this.discoveredCompanies.get(normalizedName);
-    if (company) {
-      company.status = 'in_scraper';
+  async markAsInScraper(normalizedName: string): Promise<boolean> {
+    const result = await db.update(discoveredCompanies)
+      .set({ status: 'in_scraper', updatedAt: new Date() })
+      .where(eq(discoveredCompanies.normalizedName, normalizedName));
+
+    if (result.rowCount > 0) {
       KNOWN_COMPANIES.add(normalizedName);
       return true;
     }
     return false;
   }
 
-  /**
-   * Get discovery statistics
-   */
-  getStatistics(): CompanyDiscoveryStats {
-    const companies = this.getDiscoveredCompanies();
+  async getStatistics(): Promise<CompanyDiscoveryStats> {
+    const companies = await this.getDiscoveredCompanies();
     const byAtsType: Record<string, number> = {};
 
     for (const company of companies) {
@@ -345,11 +417,8 @@ class CompanyDiscoveryPipeline {
     };
   }
 
-  /**
-   * Generate scraper configuration for approved companies
-   */
-  generateScraperConfig(): string {
-    const approved = this.getApprovedCompanies();
+  async generateScraperConfig(): Promise<string> {
+    const approved = await this.getApprovedCompanies();
     const configs: string[] = [];
 
     for (const company of approved) {

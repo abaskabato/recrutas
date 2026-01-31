@@ -541,18 +541,34 @@ export class DatabaseStorage implements IStorage {
       console.log(`Found ${internalJobsWithSource.length} internal matching jobs`);
 
       // 2. Fetch external jobs from multiple sources (HiringCafe-style aggregation)
-      const { jobAggregator } = await import("./job-aggregator");
-      const { companyJobsAggregator } = await import("./company-jobs-aggregator");
-      const { careerPageScraper } = await import("./career-page-scraper");
+      // Each source is wrapped in try/catch to ensure failures don't break the entire feed
+      let aggregatorJobs: any[] = [];
+      let companyJobs: any[] = [];
+      let careerPageJobs: any[] = [];
 
-      const [aggregatorJobs, companyJobs, careerPageJobs] = await Promise.all([
-        jobAggregator.getAllJobs(candidate.skills),
-        companyJobsAggregator.getAllCompanyJobs(candidate.skills),
-        careerPageScraper.getAllJobs(candidate.skills).catch(err => {
-          console.error('Career page scraper failed:', err);
-          return [];
-        })
-      ]);
+      try {
+        const { jobAggregator } = await import("./job-aggregator");
+        aggregatorJobs = await jobAggregator.getAllJobs(candidate.skills);
+        console.log(`Job aggregator returned ${aggregatorJobs.length} jobs`);
+      } catch (err) {
+        console.error('Job aggregator failed:', err);
+      }
+
+      try {
+        const { companyJobsAggregator } = await import("./company-jobs-aggregator");
+        companyJobs = await companyJobsAggregator.getAllCompanyJobs(candidate.skills);
+        console.log(`Company jobs aggregator returned ${companyJobs.length} jobs`);
+      } catch (err) {
+        console.error('Company jobs aggregator failed:', err);
+      }
+
+      try {
+        const { careerPageScraper } = await import("./career-page-scraper");
+        careerPageJobs = await careerPageScraper.getAllJobs(candidate.skills);
+        console.log(`Career page scraper returned ${careerPageJobs.length} jobs`);
+      } catch (err) {
+        console.error('Career page scraper failed:', err);
+      }
 
       // 3. Combine and de-duplicate (prioritizing career page jobs for freshness)
       const allJobs = [...careerPageJobs, ...internalJobsWithSource, ...aggregatorJobs, ...companyJobs];

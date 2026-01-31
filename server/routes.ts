@@ -200,7 +200,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      console.log(`Fetching job recommendations for user: ${userId}`);
+
       const recommendations = await storage.getJobRecommendations(userId);
+      console.log(`Found ${recommendations.length} job recommendations`);
+
+      // Return empty array with helpful message if no recommendations
+      if (!recommendations || recommendations.length === 0) {
+        console.log('No job recommendations found - candidate may have no skills in profile or no matching jobs');
+        return res.json([]);
+      }
 
       const aiMatches = recommendations.map((job, index) => ({
         id: index + 1,
@@ -230,9 +239,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }));
 
       res.json(aiMatches);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching job matches:', error);
-      res.status(500).json({ message: "Failed to generate job matches" });
+      console.error('Error details:', { message: error?.message, stack: error?.stack?.slice?.(0, 500) });
+      res.status(500).json({
+        message: "Failed to generate job matches",
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      });
     }
   });
 

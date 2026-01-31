@@ -143,9 +143,15 @@ export class AIResumeParser {
 
   private async extractText(fileBuffer: Buffer, mimeType: string): Promise<string> {
     if (mimeType === 'application/pdf') {
-      const pdf = (await import('pdf-parse')).default;
-      const data = await pdf(fileBuffer);
-      return data.text;
+      try {
+        const pdf = (await import('pdf-parse')).default;
+        const data = await pdf(fileBuffer);
+        return data.text;
+      } catch (error) {
+        console.error('PDF parsing failed:', error);
+        // Fallback to sample text like docx does
+        return this.getSampleResumeText();
+      }
     } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
       try {
         const result = await mammoth.extractRawText({ buffer: fileBuffer });

@@ -119,6 +119,12 @@ export default function TalentDashboard() {
     return 'overview';
   };
 
+  // Parse action from URL search params
+  const getActionFromUrl = (): string | null => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('action');
+  };
+
   const [activeTab, setActiveTabState] = useState<'overview' | 'jobs' | 'candidates' | 'analytics'>(getTabFromUrl);
 
   // Update URL when tab changes
@@ -136,6 +142,18 @@ export default function TalentDashboard() {
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Check for action=new URL parameter to auto-open job wizard
+  useEffect(() => {
+    const action = getActionFromUrl();
+    if (action === 'new') {
+      setShowJobWizard(true);
+      // Clear the action param from URL to prevent re-opening on refresh
+      const url = new URL(window.location.href);
+      url.searchParams.delete('action');
+      window.history.replaceState({}, '', url.toString());
+    }
   }, []);
   const [showJobWizard, setShowJobWizard] = useState(false);
   const [showJobDialog, setShowJobDialog] = useState(false);

@@ -706,3 +706,23 @@ export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema
 export type UsageTracking = typeof usageTracking.$inferSelect;
 export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
 
+export const discoveredCompanies = pgTable("discovered_companies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  normalizedName: varchar("normalized_name", { length: 255 }).notNull().unique(),
+  careerPageUrl: varchar("career_page_url", { length: 500 }),
+  discoverySource: varchar("discovery_source", { length: 100 }).notNull(),
+  detectedAts: varchar("detected_ats", { length: 50 }),
+  atsId: varchar("ats_id", { length: 255 }),
+  jobCount: integer("job_count").default(0),
+  status: varchar("status", { length: 50 }).default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    idx_discovered_status: index("idx_discovered_status").on(table.status),
+    idx_discovered_ats: index("idx_discovered_ats").on(table.detectedAts),
+  }
+});
+
+
