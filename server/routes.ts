@@ -1340,6 +1340,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Trigger external jobs scraping (for Vercel Cron or manual requests)
+  // Returns immediately and scrapes in background (non-blocking)
   app.post('/api/cron/scrape-external-jobs', async (req, res) => {
     try {
       // Optional: Verify cron secret for security
@@ -1348,13 +1349,21 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const result = await externalJobsScheduler.triggerScrape();
+      // Return immediately without waiting for scraping to complete
+      // This prevents Vercel timeout while still allowing the scraping to happen
+      res.json({ message: "External jobs scraping triggered", status: "in_progress" });
 
-      console.log('[Routes] External jobs scrape result:', result);
-      res.json(result);
+      // Trigger scraping in background (fire and forget)
+      externalJobsScheduler.triggerScrape()
+        .then(result => {
+          console.log('[Routes] External jobs scrape completed:', result);
+        })
+        .catch(error => {
+          console.error('[Routes] External jobs scrape failed:', error?.message);
+        });
     } catch (error: any) {
-      console.error("Error scraping external jobs:", error?.message);
-      res.status(500).json({ message: "Failed to scrape external jobs", error: error?.message });
+      console.error("Error triggering external jobs scrape:", error?.message);
+      res.status(500).json({ message: "Failed to trigger external jobs scraping", error: error?.message });
     }
   });
 
