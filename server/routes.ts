@@ -263,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Add timeout to prevent hanging on database issues
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Job recommendations timeout')), 20000)
+        setTimeout(() => reject(new Error('Job recommendations timeout')), 30000)
       );
 
       const recommendations = await Promise.race([
@@ -425,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       // Add timeout to prevent hanging on database connection issues
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 15000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 25000)
       );
 
       const profile = await Promise.race([
