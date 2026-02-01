@@ -103,7 +103,7 @@ supabase_schema.sql
 test-db-connection.ts.env
 
 
-playwright.config.ts
 tests/
 .env*.local
 nohup.out
+e2e/screenshots/
