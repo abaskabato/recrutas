@@ -24,9 +24,10 @@ export let client;
 try {
   // Create connection to PostgreSQL with optimized settings for serverless environments
   client = postgres(connectionString, {
-    max: 1, // Use a single connection for serverless
-    idle_timeout: 20,
-    connect_timeout: 10,
+    max: 5, // Allow up to 5 connections per Vercel function instance
+    idle_timeout: 30,
+    connect_timeout: 15,
+    statement_timeout: 30000, // 30 second statement timeout
     connection: {
       application_name: 'recrutas-app',
     },
