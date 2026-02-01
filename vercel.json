@@ -32,7 +32,7 @@
   "crons": [
     {
       "path": "/api/cron/scrape-external-jobs",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
