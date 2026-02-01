@@ -27,6 +27,7 @@ import { applicationIntelligence } from "./application-intelligence";
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { users, jobPostings, jobApplications, JobPosting } from "@shared/schema";
 import { CompanyJob } from '../server/company-jobs-aggregator';
+import { externalJobsScheduler } from './services/external-jobs-scheduler';
 
 type AggregatedJob = (JobPosting | CompanyJob) & { aiCurated: boolean };
 
@@ -1335,6 +1336,25 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error initializing subscription tiers:", error);
       res.status(500).json({ message: "Failed to initialize subscription tiers" });
+    }
+  });
+
+  // Trigger external jobs scraping (for Vercel Cron or manual requests)
+  app.post('/api/cron/scrape-external-jobs', async (req, res) => {
+    try {
+      // Optional: Verify cron secret for security
+      const cronSecret = req.headers['x-cron-secret'];
+      if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const result = await externalJobsScheduler.triggerScrape();
+
+      console.log('[Routes] External jobs scrape result:', result);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error scraping external jobs:", error?.message);
+      res.status(500).json({ message: "Failed to scrape external jobs", error: error?.message });
     }
   });
 
