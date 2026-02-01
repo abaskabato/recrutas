@@ -1364,6 +1364,7 @@ export default function TalentDashboard() {
               isSubmitting={createJobMutation.isPending}
               onSubmit={async (jobData) => {
                 try {
+                  console.log('[TalentDashboard] Job submission started with data:', jobData);
                   // Transform wizard data to match API format
                   const jobPayload = {
                     title: jobData.title,
@@ -1385,10 +1386,17 @@ export default function TalentDashboard() {
                     } : null
                   };
 
-                  await createJobMutation.mutateAsync(jobPayload);
+                  console.log('[TalentDashboard] Sending request with payload:', jobPayload);
+                  const result = await createJobMutation.mutateAsync(jobPayload);
+                  console.log('[TalentDashboard] Job created successfully:', result);
                   setShowJobWizard(false);
                 } catch (error) {
-                  console.error('Failed to create job:', error);
+                  console.error('[TalentDashboard] Failed to create job:', error);
+                  console.error('[TalentDashboard] Error details:', {
+                    message: error instanceof Error ? error.message : String(error),
+                    status: (error as any)?.response?.status,
+                    data: (error as any)?.response?.data
+                  });
                 }
               }}
               onCancel={() => setShowJobWizard(false)}
