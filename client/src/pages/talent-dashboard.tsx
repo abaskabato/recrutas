@@ -1389,13 +1389,20 @@ export default function TalentDashboard() {
                   console.log('[TalentDashboard] Sending request with payload:', jobPayload);
                   const result = await createJobMutation.mutateAsync(jobPayload);
                   console.log('[TalentDashboard] Job created successfully:', result);
+                  toast({
+                    title: "Success",
+                    description: "Job posted successfully! Candidates will be matched shortly.",
+                  });
                   setShowJobWizard(false);
                 } catch (error) {
                   console.error('[TalentDashboard] Failed to create job:', error);
-                  console.error('[TalentDashboard] Error details:', {
-                    message: error instanceof Error ? error.message : String(error),
-                    status: (error as any)?.response?.status,
-                    data: (error as any)?.response?.data
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                  toast({
+                    title: "Failed to create job",
+                    description: errorMessage.includes('401') ? 'Please log in again' :
+                                 errorMessage.includes('400') ? 'Please check all required fields' :
+                                 'Something went wrong. Please try again.',
+                    variant: "destructive",
                   });
                 }
               }}

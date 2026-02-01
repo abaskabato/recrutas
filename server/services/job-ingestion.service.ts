@@ -4,8 +4,35 @@
  */
 
 import { db } from '../db';
-import { jobPostings } from '@shared/schema';
+import { jobPostings, users } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
+
+// System user UUID for external jobs (well-known constant)
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+// Ensure system user exists for external job ownership
+async function ensureSystemUserExists(): Promise<string> {
+  const existing = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, SYSTEM_USER_ID))
+    .limit(1);
+
+  if (existing.length === 0) {
+    await db.insert(users).values({
+      id: SYSTEM_USER_ID,
+      name: 'External Jobs System',
+      email: 'system@recrutas.internal',
+      emailVerified: true,
+      role: 'system',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    console.log('[JobIngestion] Created system user for external jobs');
+  }
+
+  return SYSTEM_USER_ID;
+}
 
 export interface ExternalJobInput {
   title: string;
@@ -45,6 +72,9 @@ export class JobIngestionService {
 
     console.log(`[JobIngestion] Processing ${jobs.length} external jobs...`);
 
+    // Ensure system user exists before inserting any jobs
+    const systemUserId = await ensureSystemUserExists();
+
     for (const job of jobs) {
       try {
         // Check if job already exists (by externalId + source)
@@ -78,9 +108,9 @@ export class JobIngestionService {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 60);
 
-        // Insert new external job
+        // Insert new external job with valid system user UUID
         await db.insert(jobPostings).values({
-          talentOwnerId: 'system',
+          talentOwnerId: systemUserId,
           title: job.title,
           company: job.company,
           location: job.location,
