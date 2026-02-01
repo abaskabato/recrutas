@@ -83,6 +83,7 @@ export const candidateProfiles = pgTable("candidate_users", {
   profileStrength: integer("profile_strength").default(0),
   profileViews: integer("profile_views").default(0),
   resumeProcessingStatus: varchar("resume_processing_status", { enum: ["idle", "processing", "completed", "failed"] }).default("idle"),
+  jobPreferences: jsonb("job_preferences").default({} as any),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

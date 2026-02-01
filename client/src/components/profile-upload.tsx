@@ -7,13 +7,24 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Globe, Github, Linkedin, User, Camera, BarChart3, Edit3, Sparkles, X, Check } from "lucide-react";
+import { Upload, FileText, Globe, Github, Linkedin, User, Camera, BarChart3, Edit3, Sparkles, X, Check, Briefcase } from "lucide-react";
 import { Badge } from "./ui/badge";
 
 interface ExtractedInfo {
   skills: string[];
   experience: string;
   workHistoryCount: number;
+}
+
+interface JobPreferences {
+  salaryMin?: number;
+  salaryMax?: number;
+  commitmentTypes?: string[];
+  experienceLevels?: string[];
+  industries?: string[];
+  companySizes?: string[];
+  preferredLocations?: string[];
+  maxTravelDays?: number;
 }
 
 export default function ProfileUpload() {
@@ -26,6 +37,16 @@ export default function ProfileUpload() {
     dribbbleUrl: '',
     stackOverflowUrl: '',
     mediumUrl: ''
+  });
+  const [jobPreferences, setJobPreferences] = useState<JobPreferences>({
+    salaryMin: undefined,
+    salaryMax: undefined,
+    commitmentTypes: [],
+    experienceLevels: [],
+    industries: [],
+    companySizes: [],
+    preferredLocations: [],
+    maxTravelDays: 0
   });
   const [parsedResumeData, setParsedResumeData] = useState<ExtractedInfo | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +70,18 @@ export default function ProfileUpload() {
         dribbbleUrl: (profile as any).dribbbleUrl || '',
         stackOverflowUrl: (profile as any).stackOverflowUrl || '',
         mediumUrl: (profile as any).mediumUrl || ''
+      });
+
+      const prefs = (profile as any).jobPreferences || {};
+      setJobPreferences({
+        salaryMin: prefs.salaryMin || undefined,
+        salaryMax: prefs.salaryMax || undefined,
+        commitmentTypes: prefs.commitmentTypes || [],
+        experienceLevels: prefs.experienceLevels || [],
+        industries: prefs.industries || [],
+        companySizes: prefs.companySizes || [],
+        preferredLocations: prefs.preferredLocations || [],
+        maxTravelDays: prefs.maxTravelDays || 0
       });
     }
   }, [profile]);
@@ -138,6 +171,21 @@ export default function ProfileUpload() {
     updateProfileMutation.mutate(profileLinks);
   };
 
+  const toggleArrayPreference = (field: keyof JobPreferences, value: string) => {
+    setJobPreferences(prev => {
+      const current = (prev[field] || []) as string[];
+      if (current.includes(value)) {
+        return { ...prev, [field]: current.filter(v => v !== value) };
+      } else {
+        return { ...prev, [field]: [...current, value] };
+      }
+    });
+  };
+
+  const handleSavePreferences = () => {
+    updateProfileMutation.mutate({ jobPreferences });
+  };
+
   const professionalLinks = [
     { key: 'linkedinUrl' as const, label: 'LinkedIn Profile', icon: Linkedin, placeholder: 'https://linkedin.com/in/yourprofile' },
     { key: 'githubUrl' as const, label: 'GitHub Profile', icon: Github, placeholder: 'https://github.com/yourusername' },
@@ -219,6 +267,115 @@ export default function ProfileUpload() {
           <div className="flex justify-end">
             <Button onClick={handleSaveLinks} disabled={updateProfileMutation.isPending}>
               {updateProfileMutation.isPending ? 'Saving...' : 'Save Links'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5" /> Job Preferences</CardTitle>
+          <p className="text-sm text-gray-600">Set your job search preferences. We'll use these to show you the most relevant jobs.</p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Salary Range */}
+          <div className="space-y-2">
+            <Label className="font-semibold">Salary Range (Annual)</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="salaryMin" className="text-sm text-gray-600">Minimum ($)</Label>
+                <Input id="salaryMin" type="number" placeholder="50000" value={jobPreferences.salaryMin || ''} onChange={(e) => setJobPreferences({...jobPreferences, salaryMin: e.target.value ? parseInt(e.target.value) : undefined})} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="salaryMax" className="text-sm text-gray-600">Maximum ($)</Label>
+                <Input id="salaryMax" type="number" placeholder="200000" value={jobPreferences.salaryMax || ''} onChange={(e) => setJobPreferences({...jobPreferences, salaryMax: e.target.value ? parseInt(e.target.value) : undefined})} />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Commitment Types */}
+          <div className="space-y-2">
+            <Label className="font-semibold">Commitment Type</Label>
+            <div className="flex flex-wrap gap-2">
+              {['Full-time', 'Part-time', 'Contract', 'Freelance'].map(type => (
+                <Badge key={type} variant={jobPreferences.commitmentTypes?.includes(type) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('commitmentTypes', type)}>
+                  {type}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Experience Level */}
+          <div className="space-y-2">
+            <Label className="font-semibold">Experience Level</Label>
+            <div className="flex flex-wrap gap-2">
+              {['Entry', 'Mid', 'Senior'].map(level => (
+                <Badge key={level} variant={jobPreferences.experienceLevels?.includes(level) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('experienceLevels', level)}>
+                  {level}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Work Type / Location */}
+          <div className="space-y-2">
+            <Label className="font-semibold">Work Arrangement</Label>
+            <div className="flex flex-wrap gap-2">
+              {['Remote', 'Hybrid', 'Onsite'].map(type => (
+                <Badge key={type} variant={jobPreferences.companySizes?.includes(type) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('companySizes', type)}>
+                  {type}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Industries */}
+          <div className="space-y-2">
+            <Label className="font-semibold">Preferred Industries</Label>
+            <div className="flex flex-wrap gap-2">
+              {['Tech', 'Finance', 'Healthcare', 'E-commerce', 'SaaS'].map(industry => (
+                <Badge key={industry} variant={jobPreferences.industries?.includes(industry) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('industries', industry)}>
+                  {industry}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Company Size */}
+          <div className="space-y-2">
+            <Label className="font-semibold">Company Size</Label>
+            <div className="flex flex-wrap gap-2">
+              {['Startup', 'SMB', 'Enterprise'].map(size => (
+                <Badge key={size} variant={jobPreferences.companySizes?.includes(size) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('companySizes', size)}>
+                  {size}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Max Travel */}
+          <div className="space-y-2">
+            <Label htmlFor="maxTravel" className="font-semibold">Max Travel Requirement (days/month)</Label>
+            <Input id="maxTravel" type="number" placeholder="0" value={jobPreferences.maxTravelDays || ''} onChange={(e) => setJobPreferences({...jobPreferences, maxTravelDays: e.target.value ? parseInt(e.target.value) : 0})} />
+          </div>
+
+          <Separator />
+
+          <div className="flex justify-end">
+            <Button onClick={handleSavePreferences} disabled={updateProfileMutation.isPending}>
+              {updateProfileMutation.isPending ? 'Saving...' : 'Save Preferences'}
             </Button>
           </div>
         </CardContent>
