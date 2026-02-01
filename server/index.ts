@@ -107,7 +107,7 @@ export async function configureApp() {
   // Only start background services if not in a test environment AND not on Vercel
   // Vercel is serverless - background services must use Vercel Cron instead
   const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined;
-  if (process.env.NODE_ENV !== 'test' && !isVercel) {
+  if (process.env.NODE_ENV !== 'test') {
     await initializeBackgroundServices();
   }
 
