@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm/sql";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { z } from "zod";
 
 import { storage } from "./storage";
 import { isAuthenticated } from "./middleware/auth";
