@@ -8,7 +8,7 @@ import { registerChatRoutes } from "./chat-routes.js";
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import cors from 'cors';
 import { errorHandlerMiddleware, requestTracingMiddleware, captureException } from './error-monitoring.js';
-import { externalJobsScheduler } from './services/external-jobs-scheduler.js';
+import { externalJobsScheduler } from './services/external-jobs-scheduler';
 
 const app = express();
 
