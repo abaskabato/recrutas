@@ -143,6 +143,7 @@ export interface IStorage {
 
 
   // Statistics
+  getJobStatistics(): Promise<any>;
   getCandidateStats(candidateId: string): Promise<{
     totalApplications: number;
     activeMatches: number;
@@ -545,6 +546,58 @@ export class DatabaseStorage implements IStorage {
       return jobs;
     } catch (error) {
       console.error('Error fetching external jobs:', error);
+      throw error;
+    }
+  }
+
+  async getJobStatistics(): Promise<any> {
+    try {
+      const { sql, count } = await import('drizzle-orm');
+
+      // Total jobs
+      const totalJobs = await db
+        .select({ count: sql`COUNT(*)::int` })
+        .from(jobPostings);
+
+      // Jobs by source
+      const jobsBySource = await db
+        .select({
+          source: jobPostings.source,
+          count: sql`COUNT(*)::int`
+        })
+        .from(jobPostings)
+        .groupBy(jobPostings.source);
+
+      // Jobs by status
+      const jobsByStatus = await db
+        .select({
+          status: jobPostings.status,
+          count: sql`COUNT(*)::int`
+        })
+        .from(jobPostings)
+        .groupBy(jobPostings.status);
+
+      // External jobs specifically
+      const externalJobs = await db
+        .select({ count: sql`COUNT(*)::int` })
+        .from(jobPostings)
+        .where(sql`${jobPostings.externalUrl} IS NOT NULL OR ${jobPostings.source} != 'platform'`);
+
+      return {
+        totalJobs: (totalJobs[0] as any)?.count || 0,
+        externalJobs: (externalJobs[0] as any)?.count || 0,
+        jobsBySource: jobsBySource.map((j: any) => ({
+          source: j.source || 'unknown',
+          count: j.count
+        })),
+        jobsByStatus: jobsByStatus.map((j: any) => ({
+          status: j.status,
+          count: j.count
+        })),
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error getting job statistics:', error);
       throw error;
     }
   }

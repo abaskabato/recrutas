@@ -349,19 +349,27 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/external-jobs', async (req, res) => {
     try {
       const skills = req.query.skills ? (req.query.skills as string).split(',') : [];
-      const jobs = await jobAggregator.getAllJobs(skills);
 
-      // Persist jobs to database
-      const { jobIngestionService } = await import('./services/job-ingestion.service');
-      const stats = await jobIngestionService.ingestExternalJobs(jobs);
+      // Return cached external jobs from database (instant, no scraping)
+      // External jobs are kept up-to-date by background scheduler
+      const externalJobs = await storage.getExternalJobs(skills);
+
+      // If there's a triggerRefresh query param, trigger background scraping
+      if (req.query.triggerRefresh === 'true') {
+        const { externalJobsScheduler } = await import('./services/external-jobs-scheduler');
+        externalJobsScheduler.triggerScrape()
+          .catch(err => console.error('Background scrape trigger failed:', err?.message));
+      }
 
       res.json({
-        jobs,
-        ingestionStats: stats
+        jobs: externalJobs || [],
+        cached: true,
+        message: 'External jobs from cache. Use ?triggerRefresh=true to update in background'
       });
     } catch (error) {
-      console.error('Error scraping external jobs:', error);
-      res.status(500).json({ message: 'Failed to scrape external jobs' });
+      console.error('Error fetching cached external jobs:', error);
+      // Return empty array instead of error - better UX
+      res.json({ jobs: [], cached: true, message: 'External jobs unavailable' });
     }
   });
 
@@ -453,6 +461,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error updating candidate profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Get job statistics (for monitoring)
+  app.get('/api/job-stats', async (req: any, res) => {
+    try {
+      const stats = await storage.getJobStatistics();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching job stats:", error?.message);
+      res.status(500).json({ message: "Failed to fetch statistics" });
     }
   });
 
