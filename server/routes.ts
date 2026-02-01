@@ -727,33 +727,43 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const jobData = insertJobPostingSchema.parse({ ...req.body, talentOwnerId: req.user.id });
       const job = await storage.createJobPosting(jobData);
 
-      if (job.hasExam) {
-        try {
-          const examData = {
-            jobId: job.id,
-            title: `${job.title} Assessment`,
-            questions: await generateExamQuestions(job)
-          };
-          await storage.createJobExam(examData);
-        } catch (examError) {
-          console.warn("Failed to generate exam questions:", examError?.message);
-          // Continue - exam generation is not critical
-        }
-      }
-
-      // Log activity immediately
-      await storage.createActivityLog(req.user.id, "job_posted", `Job posted: ${job.title}`);
-
-      // Return job immediately (within <100ms)
-      // Candidate matching happens in background asynchronously
+      // Return job IMMEDIATELY (within <100ms) before any async operations
+      // All heavy processing happens in background to prevent timeouts
       res.status(201).json({
         ...job,
-        message: "Job posted successfully! Matching candidates in background..."
+        message: "Job posted successfully! Processing in background..."
       });
 
-      // Process candidate matching in background - fire and forget
-      // This prevents 50+ second timeouts when processing many candidates
-      processJobMatchesInBackground(job.id);
+      // Process everything asynchronously in background - fire and forget
+      // This prevents timeouts when processing exams, matching candidates, etc.
+      setTimeout(async () => {
+        try {
+          // Generate exam questions if needed
+          if (job.hasExam) {
+            try {
+              const examData = {
+                jobId: job.id,
+                title: `${job.title} Assessment`,
+                questions: await generateExamQuestions(job)
+              };
+              await storage.createJobExam(examData);
+              console.log(`[Background] Exam generated for job ${job.id}`);
+            } catch (examError) {
+              console.warn(`[Background] Failed to generate exam for job ${job.id}:`, examError?.message);
+              // Continue - exam generation is not critical
+            }
+          }
+
+          // Log activity in background
+          await storage.createActivityLog(req.user.id, "job_posted", `Job posted: ${job.title}`);
+          console.log(`[Background] Activity logged for job ${job.id}`);
+
+          // Process candidate matching in background
+          processJobMatchesInBackground(job.id);
+        } catch (bgError) {
+          console.error(`[Background] Error processing job ${job.id}:`, bgError?.message);
+        }
+      }, 0);
 
     } catch (error) {
       console.error("Error creating job posting:", error);
