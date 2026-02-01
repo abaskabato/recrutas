@@ -37,6 +37,13 @@ async function createNewUserAndGetToken() {
   return { token: data.session.access_token, userId: data.user.id, email };
 }
 
+async function createUserInPublicSchema(userId, email) {
+    const { error } = await supabase.from('users').insert([{ id: userId, email: email, role: 'candidate' }]);
+    if (error) {
+        throw new Error(`Failed to create user in public schema: ${error.message}`);
+    }
+}
+
 async function deleteUser(userId) {
     const adminAuthClient = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const { error } = await adminAuthClient.auth.admin.deleteUser(userId);
@@ -55,6 +62,10 @@ async function runTest() {
         console.log('Step 1: Creating a new user and getting token...');
         ({ token, userId, email } = await createNewUserAndGetToken());
         console.log(`User created with email: ${email}`);
+
+        console.log('Step 2: Creating user in public schema...');
+        await createUserInPublicSchema(userId, email);
+        console.log('User created in public schema.');
 
         const resumePath = path.resolve(__dirname, '../test-resume.pdf');
         if (!fs.existsSync(resumePath)) throw new Error(`Test resume not found at ${resumePath}`);

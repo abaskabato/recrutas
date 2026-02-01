@@ -11,7 +11,7 @@ const PORT = 5001;
 
 // Function to wait for the server to be ready
 async function waitForServer() {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120; i++) {
     try {
       const response = await fetch(`http://localhost:${PORT}/api/health`);
       if (response.ok) {
@@ -117,7 +117,7 @@ async function runAllTestSuites() {
 }
 
 async function waitForFrontend() {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120; i++) {
     try {
       const response = await fetch(`http://localhost:5173`);
       if (response.ok) {
