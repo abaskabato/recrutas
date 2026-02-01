@@ -231,41 +231,43 @@ English (Native), Spanish (Conversational)`;
           console.log(`AIResumeParser: Trying Ollama at ${ollamaUrl}...`);
           return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
         } catch (ollamaError) {
-          console.warn('AIResumeParser: Ollama failed, falling back to Groq:', ollamaError.message);
-          // Continue to Groq fallback below
+          console.warn('AIResumeParser: Ollama failed, falling back to Hugging Face:', ollamaError.message);
+          // Continue to Hugging Face fallback below
         }
       }
 
-      // Try Groq API as primary fallback
-      const Groq = (await import('groq-sdk')).default;
-      const apiKey = process.env.GROQ_API_KEY;
+      // Try Hugging Face Inference API
+      const apiKey = process.env.HF_API_KEY;
 
-      if (!apiKey || apiKey === '%GROQ_API_KEY%') {
-        console.warn('AIResumeParser: GROQ_API_KEY is not set. Using fallback extraction.');
+      if (!apiKey || apiKey === '%HF_API_KEY%') {
+        console.warn('AIResumeParser: HF_API_KEY is not set. Using fallback extraction.');
         return this.extractWithFallback(text);
       }
 
-      console.log('AIResumeParser: Initializing Groq API client...');
-      const groq = new Groq({ apiKey });
-
-      console.log('AIResumeParser: Sending resume text to Groq API for extraction...');
+      console.log('AIResumeParser: Sending resume text to Hugging Face API for extraction...');
 
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Groq API request timeout (30s)')), 30000)
+        setTimeout(() => reject(new Error('HF API request timeout (30s)')), 30000)
       );
 
       const response = await Promise.race([
-        groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert resume parser. Extract structured data from resumes and return it as JSON. Be thorough and accurate."
-            },
-            {
-              role: "user",
-              content: `Extract the following information from this resume text and return as JSON:
+        fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'mistralai/Mistral-7B-Instruct-v0.1',
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text."
+              },
+              {
+                role: "user",
+                content: `Extract the following information from this resume text and return as JSON (no markdown, no code blocks, just raw JSON):
 
             {
               "personalInfo": {
@@ -284,7 +286,7 @@ English (Native), Spanish (Conversational)`;
                 "tools": ["list of tools and technologies"]
               },
               "experience": {
-                "totalYears": number,
+                "totalYears": 0,
                 "level": "entry|mid|senior|executive",
                 "positions": [
                   {
@@ -316,15 +318,24 @@ English (Native), Spanish (Conversational)`;
 
             Resume text:
             ${text}`
-            }
-          ],
-          response_format: { type: "json_object" }
+              }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7,
+          })
         }),
         timeoutPromise
       ]) as any;
 
-      console.log('AIResumeParser: Successfully received response from Groq API');
-      const extractedData = JSON.parse(response.choices[0].message.content || '{}');
+      if (!response.ok) {
+        throw new Error(`HF API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('AIResumeParser: Successfully received response from Hugging Face API');
+
+      const content = data.choices?.[0]?.message?.content || '{}';
+      const extractedData = JSON.parse(content);
 
       // Ensure all required fields are present with defaults
       return {
