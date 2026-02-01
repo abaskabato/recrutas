@@ -8,6 +8,7 @@ import { registerChatRoutes } from "./chat-routes.js";
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import cors from 'cors';
 import { errorHandlerMiddleware, requestTracingMiddleware, captureException } from './error-monitoring.js';
+import { externalJobsScheduler } from './services/external-jobs-scheduler.js';
 
 const app = express();
 
@@ -68,7 +69,6 @@ async function initializeBackgroundServices() {
 
     // Start external jobs scheduler
     try {
-      const { externalJobsScheduler } = await import('./services/external-jobs-scheduler.js');
       externalJobsScheduler.start(3600000); // Run every hour
       console.log('[Services] ✓ External jobs scheduler started');
     } catch (e) {
