@@ -28,5 +28,11 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/scrape-external-jobs",
+      "schedule": "0 * * * *"
+    }
   ]
 }
