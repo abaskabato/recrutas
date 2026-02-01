@@ -550,70 +550,38 @@ export class DatabaseStorage implements IStorage {
 
       console.log(`Found ${jobsWithSource.length} matching jobs (internal + external)`);
 
-      // Generate AI-powered recommendations with timeout and batching
-      const { generateJobMatch } = await import("./ai-service");
-      const recommendations = [];
-
-      // Batch process jobs in groups of 20 to avoid timeout on large job sets
-      // and to ensure faster response with partial results
-      const BATCH_SIZE = 20;
-      const BATCH_TIMEOUT = 25000; // 25 second timeout per batch (leaves margin for Vercel's 50s limit)
-
-      for (let i = 0; i < jobsWithSource.length; i += BATCH_SIZE) {
-        const batch = jobsWithSource.slice(i, i + BATCH_SIZE);
-
-        try {
-          // Create timeout promise for this batch
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Batch matching timeout')), BATCH_TIMEOUT)
+      // Simple skill-based matching (fast, no AI calls)
+      // Returns jobs that have overlapping skills with candidate
+      const recommendations = jobsWithSource
+        .map(job => {
+          // Count matching skills
+          const matchingSkills = candidate.skills.filter(skill =>
+            job.skills && job.skills.includes(skill)
           );
 
-          // Match all jobs in batch with timeout
-          const matchPromises = batch.map(job =>
-            generateJobMatch(candidate, job as any)
-              .then(match => ({
-                job,
-                match,
-                score: match.score
-              }))
-              .catch(err => {
-                console.error(`Error matching job ${job.id}:`, err?.message);
-                return { job, match: null, score: 0 };
-              })
-          );
+          const skillMatchPercentage = matchingSkills.length > 0
+            ? Math.round((matchingSkills.length / Math.max(candidate.skills.length, 1)) * 100)
+            : 0;
 
-          const matches = await Promise.race([
-            Promise.all(matchPromises),
-            timeoutPromise
-          ]) as any[];
-
-          // Process matches from this batch
-          for (const { job, match, score } of matches) {
-            if (match && score > 0.4) {
-              recommendations.push({
-                ...job,
-                matchScore: Math.round(score * 100),
-                aiExplanation: match.aiExplanation,
-                skillMatches: match.skillMatches,
-                isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
-                isDirectFromCompany: job.trustScore >= 85,
-              });
-            }
+          return {
+            ...job,
+            matchScore: skillMatchPercentage,
+            skillMatches: matchingSkills,
+            aiExplanation: `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`,
+            isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
+            isDirectFromCompany: job.trustScore >= 85,
+          };
+        })
+        .filter(job => job.matchScore > 0) // Only include jobs with at least 1 skill match
+        .sort((a, b) => {
+          // Sort by: match score first, then trust score
+          if (a.matchScore !== b.matchScore) {
+            return b.matchScore - a.matchScore;
           }
-        } catch (batchError) {
-          console.warn(`Batch matching timeout or error (batch ${Math.floor(i / BATCH_SIZE) + 1}):`, batchError?.message);
-          // Continue to next batch - return partial results is better than failing entirely
-          continue;
-        }
-      }
+          return (b.trustScore || 0) - (a.trustScore || 0);
+        });
 
-      // Sort by combined score: match score * (trust score / 100)
-      recommendations.sort((a, b) => {
-        const scoreA = a.matchScore * ((a.trustScore || 50) / 100);
-        const scoreB = b.matchScore * ((b.trustScore || 50) / 100);
-        return scoreB - scoreA;
-      });
-
+      console.log(`Returning ${Math.min(recommendations.length, 20)} job recommendations`);
       return recommendations.slice(0, 20);
     } catch (error) {
       console.error('Error fetching job recommendations:', error);
