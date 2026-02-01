@@ -199,12 +199,9 @@ export default function JobPostingWizard({
       case 2:
         return jobData.requirements.length > 0 && jobData.skills.length > 0;
       case 3:
-        return !jobData.enableFiltering || (
-          jobData.filteringExam &&
-          jobData.filteringExam.questions.length > 0 &&
-          jobData.filteringExam.timeLimit > 0 &&
-          jobData.filteringExam.passingScore > 0
-        );
+        // Step 3 (Filtering) is optional - allow proceeding with or without exam
+        // If filtering is enabled, exam setup is optional (can add questions later)
+        return true;
       case 4:
         return true; // Hiring manager info is optional
       default:

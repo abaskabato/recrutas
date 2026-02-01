@@ -45,6 +45,63 @@ interface AIMatch {
 const resumeService = new ResumeService(storage, aiResumeParser);
 const examService = new ExamService(storage, notificationService);
 
+// Background job processor for async job posting
+// Processes candidate matching and notifications in the background
+function processJobMatchesInBackground(jobId: number) {
+  // Fire and forget - process in background without blocking the request
+  setImmediate(async () => {
+    try {
+      console.log(`[Background] Starting candidate matching for job ${jobId}`);
+      const job = await storage.getJobPosting(jobId);
+      if (!job) {
+        console.error(`[Background] Job ${jobId} not found`);
+        return;
+      }
+
+      // Fetch matching candidates
+      const candidates = await storage.findMatchingCandidates(jobId);
+      console.log(`[Background] Found ${candidates.length} matching candidates for job ${jobId}`);
+
+      // Process matches in batches to avoid overwhelming the system
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+        const batch = candidates.slice(i, i + BATCH_SIZE);
+
+        try {
+          // Process batch in parallel
+          await Promise.all(
+            batch.map(async (candidate) => {
+              // Create job match
+              await storage.createJobMatch({
+                jobId: job.id,
+                ...candidate,
+              });
+
+              // Send notification
+              await notificationService.createNotification({
+                userId: candidate.candidateId,
+                type: "new_match",
+                title: "New Job Match",
+                message: `You have a new match for the position of ${job.title}`,
+                data: { jobId: job.id },
+              }).catch(err => console.error(`[Background] Notification failed for candidate ${candidate.candidateId}:`, err?.message));
+            })
+          );
+
+          console.log(`[Background] Processed batch ${Math.floor(i / BATCH_SIZE) + 1} for job ${jobId}`);
+        } catch (batchError) {
+          console.error(`[Background] Batch processing error for job ${jobId}:`, batchError?.message);
+          // Continue with next batch
+        }
+      }
+
+      console.log(`[Background] Completed candidate matching for job ${jobId}`);
+    } catch (error) {
+      console.error(`[Background] Error processing job matches for job ${jobId}:`, error?.message);
+    }
+  });
+}
+
 // Magic bytes for file type validation
 const FILE_SIGNATURES = {
   // PDF starts with %PDF
@@ -612,28 +669,33 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const job = await storage.createJobPosting(jobData);
 
       if (job.hasExam) {
-        const examData = {
-          jobId: job.id,
-          title: `${job.title} Assessment`,
-          questions: await generateExamQuestions(job)
-        };
-        await storage.createJobExam(examData);
+        try {
+          const examData = {
+            jobId: job.id,
+            title: `${job.title} Assessment`,
+            questions: await generateExamQuestions(job)
+          };
+          await storage.createJobExam(examData);
+        } catch (examError) {
+          console.warn("Failed to generate exam questions:", examError?.message);
+          // Continue - exam generation is not critical
+        }
       }
 
-      const candidates = await findMatchingCandidates(job);
-      for (const candidate of candidates) {
-        await storage.createJobMatch({ jobId: job.id, ...candidate });
-        await notificationService.createNotification({
-          userId: candidate.candidateId,
-          type: "new_match",
-          title: "New Job Match",
-          message: `You have a new match for the position of ${job.title}`,
-          data: { jobId: job.id },
-        });
-      }
-
+      // Log activity immediately
       await storage.createActivityLog(req.user.id, "job_posted", `Job posted: ${job.title}`);
-      res.json(job);
+
+      // Return job immediately (within <100ms)
+      // Candidate matching happens in background asynchronously
+      res.status(201).json({
+        ...job,
+        message: "Job posted successfully! Matching candidates in background..."
+      });
+
+      // Process candidate matching in background - fire and forget
+      // This prevents 50+ second timeouts when processing many candidates
+      processJobMatchesInBackground(job.id);
+
     } catch (error) {
       console.error("Error creating job posting:", error);
       if (error instanceof z.ZodError) {

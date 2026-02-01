@@ -223,21 +223,20 @@ English (Native), Spanish (Conversational)`;
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
     try {
-      // Try Ollama first (free, local option)
-      const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-      const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
-
-      if (process.env.USE_OLLAMA !== 'false') {
+      // Try Ollama first (free, local option) - only if enabled
+      if (process.env.USE_OLLAMA === 'true') {
         try {
+          const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+          const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
           console.log(`AIResumeParser: Trying Ollama at ${ollamaUrl}...`);
           return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
         } catch (ollamaError) {
-          console.warn('AIResumeParser: Ollama failed, falling back to rule-based extraction:', ollamaError.message);
-          return this.extractWithFallback(text);
+          console.warn('AIResumeParser: Ollama failed, falling back to Groq:', ollamaError.message);
+          // Continue to Groq fallback below
         }
       }
 
-      // Fallback to Groq if Ollama is disabled
+      // Try Groq API as primary fallback
       const Groq = (await import('groq-sdk')).default;
       const apiKey = process.env.GROQ_API_KEY;
 
