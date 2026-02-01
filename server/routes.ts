@@ -47,9 +47,11 @@ const examService = new ExamService(storage, notificationService);
 
 // Background job processor for async job posting
 // Processes candidate matching and notifications in the background
+// Uses setTimeout with 0ms delay for better Vercel serverless compatibility
 function processJobMatchesInBackground(jobId: number) {
   // Fire and forget - process in background without blocking the request
-  setImmediate(async () => {
+  // Use setTimeout instead of setImmediate for better Vercel compatibility
+  setTimeout(async () => {
     try {
       console.log(`[Background] Starting candidate matching for job ${jobId}`);
       const job = await storage.getJobPosting(jobId);
@@ -99,7 +101,7 @@ function processJobMatchesInBackground(jobId: number) {
     } catch (error) {
       console.error(`[Background] Error processing job matches for job ${jobId}:`, error?.message);
     }
-  });
+  }, 0);
 }
 
 // Magic bytes for file type validation
