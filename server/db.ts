@@ -26,7 +26,7 @@ try {
   client = postgres(connectionString, {
     max: 1, // Use a single connection for serverless
     idle_timeout: 20,
-    connect_timeout: 10,
+    connect_timeout: 15,
     connection: {
       application_name: 'recrutas-app',
     },
