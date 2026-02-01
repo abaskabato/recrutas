@@ -66,6 +66,15 @@ async function initializeBackgroundServices() {
       console.error('[Services] Job refresh service failed to start:', e);
     }
 
+    // Start external jobs scheduler
+    try {
+      const { externalJobsScheduler } = await import('./services/external-jobs-scheduler.js');
+      externalJobsScheduler.start(3600000); // Run every hour
+      console.log('[Services] ✓ External jobs scheduler started');
+    } catch (e) {
+      console.error('[Services] External jobs scheduler failed to start:', e);
+    }
+
   } catch (error) {
     console.error('[Services] Error starting background services:', error);
     // Don't crash the server if background services fail
