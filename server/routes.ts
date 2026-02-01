@@ -261,10 +261,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const userId = req.user.id;
       console.log(`Fetching job recommendations for user: ${userId}`);
 
-      const recommendations = await storage.getJobRecommendations(userId);
-      console.log(`Found ${recommendations.length} job recommendations`);
+      // Add timeout to prevent hanging on database issues
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Job recommendations timeout')), 10000)
+      );
 
-      // Return empty array with helpful message if no recommendations
+      const recommendations = await Promise.race([
+        storage.getJobRecommendations(userId),
+        timeoutPromise
+      ]) as any[];
+
+      console.log(`Found ${recommendations?.length || 0} job recommendations`);
+
+      // Return empty array if no recommendations or timeout
       if (!recommendations || recommendations.length === 0) {
         console.log('No job recommendations found - candidate may have no skills in profile or no matching jobs');
         return res.json([]);
@@ -299,8 +308,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       res.json(aiMatches);
     } catch (error: any) {
-      console.error('Error fetching job matches:', error);
-      console.error('Error details:', { message: error?.message, stack: error?.stack?.slice?.(0, 500) });
+      console.error('Error fetching job matches:', error?.message);
+
+      // Return empty array on timeout/connection errors - better UX than 500 error
+      if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
+        return res.json([]);
+      }
+
       res.status(500).json({
         message: "Failed to generate job matches",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
@@ -401,10 +415,32 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Candidate profile
   app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
-      const profile = await storage.getCandidateUser(req.user.id);
-      res.json(profile);
-    } catch (error) {
-      console.error("Error fetching candidate profile:", error);
+      // Add timeout to prevent hanging on database connection issues
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 8000)
+      );
+
+      const profile = await Promise.race([
+        storage.getCandidateUser(req.user.id),
+        timeoutPromise
+      ]) as any;
+
+      res.json(profile || {});
+    } catch (error: any) {
+      console.error("Error fetching candidate profile:", error?.message);
+
+      // Return empty profile instead of error if database is slow
+      // User can still proceed without full profile data
+      if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
+        return res.json({
+          userId: req.user.id,
+          skills: [],
+          experience: 'unknown',
+          location: '',
+          message: 'Profile data temporarily unavailable'
+        });
+      }
+
       res.status(500).json({ message: "Failed to fetch profile" });
     }
   });
