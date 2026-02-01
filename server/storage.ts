@@ -510,12 +510,55 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getExternalJobs(skills: string[] = []): Promise<JobPosting[]> {
+    try {
+      console.log('[storage] Fetching external jobs', skills.length > 0 ? `with skills: ${skills.join(', ')}` : '');
+
+      // Query external jobs (source = 'external' or externalUrl is set)
+      const query = db
+        .select()
+        .from(jobPostings)
+        .where(and(
+          eq(jobPostings.status, 'active'),
+          or(
+            sql`${jobPostings.source} = 'external'`,
+            sql`${jobPostings.externalUrl} IS NOT NULL`
+          ),
+          or(
+            sql`${jobPostings.expiresAt} IS NULL`,
+            sql`${jobPostings.expiresAt} > NOW()`
+          )
+        ))
+        .orderBy(sql`${jobPostings.createdAt} DESC`)
+        .limit(100);
+
+      const jobs = await query;
+
+      // Filter by skills if provided
+      if (skills.length > 0) {
+        return jobs.filter(job => {
+          const jobSkills = Array.isArray(job.skills) ? job.skills : [];
+          return skills.some(skill => jobSkills.includes(skill));
+        });
+      }
+
+      return jobs;
+    } catch (error) {
+      console.error('Error fetching external jobs:', error);
+      throw error;
+    }
+  }
+
   async getJobRecommendations(candidateId: string): Promise<any[]> {
     try {
       const candidate = await this.getCandidateUser(candidateId);
       if (!candidate || !candidate.skills || candidate.skills.length === 0) {
         return [];
       }
+
+      // Extract job preferences from candidate profile
+      const jobPreferences = (candidate as any).jobPreferences || {};
+      console.log(`Candidate preferences:`, jobPreferences);
 
       // Fetch active, non-expired, non-stale jobs (internal + external)
       const allJobs = await db
@@ -573,6 +616,41 @@ export class DatabaseStorage implements IStorage {
           };
         })
         .filter(job => job.matchScore > 0) // Only include jobs with at least 1 skill match
+        // Apply job preferences filters
+        .filter(job => {
+          // Filter by salary range if specified
+          if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
+            const jobSalaryMin = job.salaryMin || 0;
+            const jobSalaryMax = job.salaryMax || 999999;
+
+            if (jobPreferences.salaryMin && jobSalaryMax < jobPreferences.salaryMin) {
+              return false; // Job salary max is below candidate minimum
+            }
+            if (jobPreferences.salaryMax && jobSalaryMin > jobPreferences.salaryMax) {
+              return false; // Job salary min is above candidate maximum
+            }
+          }
+
+          // Filter by work type/location if specified
+          if (jobPreferences.companySizes && jobPreferences.companySizes.length > 0) {
+            const jobWorkType = job.workType?.toLowerCase();
+            const preferredWorkTypes = jobPreferences.companySizes.map((t: string) => t.toLowerCase());
+            if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {
+              return false;
+            }
+          }
+
+          // Filter by industry if specified
+          if (jobPreferences.industries && jobPreferences.industries.length > 0) {
+            const jobIndustry = job.industry?.toLowerCase();
+            const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
+            if (jobIndustry && !preferredIndustries.some(ind => jobIndustry.includes(ind))) {
+              return false;
+            }
+          }
+
+          return true;
+        })
         .sort((a, b) => {
           // Sort by: match score first, then trust score
           if (a.matchScore !== b.matchScore) {
@@ -581,6 +659,7 @@ export class DatabaseStorage implements IStorage {
           return (b.trustScore || 0) - (a.trustScore || 0);
         });
 
+      console.log(`After applying preferences filter: ${recommendations.length} recommendations`);
       console.log(`Returning ${Math.min(recommendations.length, 20)} job recommendations`);
       return recommendations.slice(0, 20);
     } catch (error) {
