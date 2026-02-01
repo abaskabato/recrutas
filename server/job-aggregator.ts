@@ -2,19 +2,10 @@
 // Higher scores indicate more trustworthy/verified sources
 export const SOURCE_TRUST_SCORES: Record<string, number> = {
   'platform': 100,          // Internal platform jobs - most trustworthy
-  'career_page': 90,        // Direct career page scrapes - verified from company
-  'greenhouse': 90,         // Greenhouse ATS - direct from company
-  'lever': 90,              // Lever ATS - direct from company
-  'JSearch': 75,            // JSearch API - good aggregator
-  'The Muse': 70,           // Curated listings
-  'RemoteOK': 65,           // Remote-focused, generally accurate
-  'ArbeitNow': 60,          // European focus
-  'USAJobs': 85,            // Government jobs - highly verified
-  'Jooble': 55,             // Aggregator - less verified
-  'Indeed': 50,             // RSS/Aggregator - variable quality
-  'hiring.cafe': 70,        // Curated tech jobs
-  'external': 50,           // Generic external source
-  'Job Generator': 40,      // Template-generated jobs (fallback)
+  'JSearch': 75,            // JSearch API - aggregates real jobs
+  'The Muse': 70,           // Curated tech jobs from real companies
+  'RemoteOK': 65,           // Remote-focused jobs, generally accurate
+  'ArbeitNow': 60,          // European job board aggregator
   'default': 50             // Default for unknown sources
 };
 
@@ -917,37 +908,24 @@ export class JobAggregator {
     try {
       console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
 
-      // Fetch from all sources including new ones
+      // Fetch from all real sources (no generated/fake jobs)
       const [
         jsearchJobs,
         arbeitNowJobs,
-        // joobleJobs,
-        // indeedJobs,
-        // usaJobs,
         museJobs,
-        // adzunaJobs,
-        // githubJobs,
-        remoteOKJobs,
-        jsonJobs
+        remoteOKJobs
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
         this.fetchFromArbeitNow(),
-        // this.fetchFromJoobleAPI(userSkills),
-        // this.fetchFromIndeedRSS(userSkills),
-        // this.fetchFromUSAJobs(userSkills),
         this.fetchFromTheMuse(),
-        // this.fetchFromAdzunaDemo(userSkills),
-        // this.fetchGitHubJobs(),
-        this.fetchRemoteOKJobs(),
-        this.generateRelevantJobs(userSkills)
+        this.fetchRemoteOKJobs()
       ]);
 
-      // Add jobs from successful fetches including new sources
+      // Add jobs from successful fetches - only real sources
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
       if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
       if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
       if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
-      if (jsonJobs.status === 'fulfilled') allJobs.push(...jsonJobs.value);
 
       console.log(`Successfully aggregated ${allJobs.length} jobs from external sources`);
 
@@ -1114,115 +1092,6 @@ export class JobAggregator {
     }));
   }
 
-  // Generate diverse job listings for any skill set
-  async generateRelevantJobs(userSkills?: string[]): Promise<ExternalJob[]> {
-    const skill = userSkills?.[0]?.toLowerCase() || 'general';
-
-    // Job templates for different skill categories
-    const jobTemplates = {
-      sales: [
-        { title: 'Sales Representative', company: 'TechSales Corp', description: 'Drive revenue growth through client acquisition and account management' },
-        { title: 'Business Development Manager', company: 'Growth Partners', description: 'Identify new business opportunities and build strategic partnerships' },
-        { title: 'Account Executive', company: 'SalesForce Solutions', description: 'Manage key accounts and exceed quarterly sales targets' },
-        { title: 'Inside Sales Specialist', company: 'Digital Commerce', description: 'Generate leads and close deals through phone and email outreach' }
-      ],
-      design: [
-        { title: 'UX/UI Designer', company: 'Creative Studio', description: 'Design intuitive user experiences for web and mobile applications' },
-        { title: 'Graphic Designer', company: 'Brand Agency', description: 'Create visual content for marketing campaigns and brand identity' },
-        { title: 'Product Designer', company: 'Innovation Lab', description: 'Lead product design from concept to implementation' },
-        { title: 'Visual Designer', company: 'Media House', description: 'Develop creative assets for digital and print media' }
-      ],
-      marketing: [
-        { title: 'Digital Marketing Specialist', company: 'Growth Marketing', description: 'Execute digital campaigns across social media and paid channels' },
-        { title: 'Content Marketing Manager', company: 'Content Co', description: 'Develop content strategy and create engaging marketing materials' },
-        { title: 'Marketing Coordinator', company: 'Brand Solutions', description: 'Support marketing initiatives and campaign execution' },
-        { title: 'Social Media Manager', company: 'Social First', description: 'Manage brand presence across social media platforms' }
-      ],
-      finance: [
-        { title: 'Financial Analyst', company: 'Finance Corp', description: 'Analyze financial data and prepare investment recommendations' },
-        { title: 'Accounting Specialist', company: 'Numbers Plus', description: 'Manage accounts payable, receivable, and financial reporting' },
-        { title: 'Budget Analyst', company: 'Strategic Finance', description: 'Develop and monitor organizational budgets and forecasts' },
-        { title: 'Financial Advisor', company: 'Wealth Management', description: 'Provide financial planning and investment advice to clients' }
-      ],
-      hr: [
-        { title: 'Human Resources Specialist', company: 'People First', description: 'Support talent acquisition and employee development programs' },
-        { title: 'Talent Acquisition Coordinator', company: 'Hiring Solutions', description: 'Source and screen candidates for various positions' },
-        { title: 'HR Business Partner', company: 'Strategic HR', description: 'Partner with business leaders on HR strategy and initiatives' },
-        { title: 'Employee Relations Specialist', company: 'Workplace Solutions', description: 'Handle employee concerns and maintain positive workplace culture' }
-      ],
-      healthcare: [
-        { title: 'Registered Nurse', company: 'Metro Hospital', description: 'Provide patient care and support medical treatment plans' },
-        { title: 'Medical Assistant', company: 'Family Practice', description: 'Assist physicians with patient care and administrative tasks' },
-        { title: 'Healthcare Coordinator', company: 'Care Network', description: 'Coordinate patient services and manage care transitions' },
-        { title: 'Clinical Specialist', company: 'Medical Center', description: 'Provide specialized clinical expertise and patient education' }
-      ]
-    };
-
-    // Determine which template to use
-    let template = jobTemplates.sales; // default
-    if (skill.includes('design')) template = jobTemplates.design;
-    else if (skill.includes('marketing')) template = jobTemplates.marketing;
-    else if (skill.includes('finance')) template = jobTemplates.finance;
-    else if (skill.includes('hr')) template = jobTemplates.hr;
-    else if (skill.includes('healthcare') || skill.includes('medical')) template = jobTemplates.healthcare;
-
-    // Generate jobs from template
-    return template.map((job, index) => ({
-      id: `generated_${skill}_${index}_${Date.now()}`,
-      title: job.title,
-      company: job.company,
-      location: ['New York, NY', 'Remote', 'San Francisco, CA', 'Chicago, IL', 'Austin, TX'][index % 5],
-      description: job.description,
-      requirements: [`Experience in ${skill}`, 'Strong communication skills', 'Team collaboration'],
-      skills: userSkills || [skill],
-      workType: index % 3 === 0 ? 'remote' : 'onsite',
-      salaryMin: 45000 + (index * 5000),
-      salaryMax: 75000 + (index * 8000),
-      source: 'Job Generator',
-      externalUrl: `https://careers.example.com/${job.title.toLowerCase().replace(/\s+/g, '-')}`,
-      postedDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      trustScore: getSourceTrustScore('Job Generator')
-    }));
-  }
-
-  private transformJSONPlaceholderToJobs(posts: any[]): ExternalJob[] {
-    const companies = ['Stripe', 'Notion', 'Discord', 'Figma', 'GitHub', 'Shopify', 'Coinbase', 'Twilio', 'MongoDB', 'Atlassian'];
-    const roles = ['Senior Software Engineer', 'Frontend Developer', 'Backend Engineer', 'Full Stack Developer', 'DevOps Engineer'];
-    const locations = ['San Francisco, CA', 'New York, NY', 'Seattle, WA', 'Austin, TX', 'Remote', 'London, UK'];
-    const workTypes: ('remote' | 'onsite' | 'hybrid')[] = ['remote', 'onsite', 'hybrid'];
-
-    const skillSets = [
-      ['React', 'TypeScript', 'Node.js', 'GraphQL'],
-      ['Python', 'Django', 'PostgreSQL', 'AWS'],
-      ['Vue.js', 'JavaScript', 'Express', 'MongoDB'],
-      ['Go', 'Kubernetes', 'Docker', 'Redis'],
-      ['Java', 'Spring Boot', 'MySQL', 'Jenkins']
-    ];
-
-    return posts.map((post, index) => {
-      const company = companies[index % companies.length];
-      const role = roles[index % roles.length];
-      const location = locations[index % locations.length];
-      const workType = workTypes[index % workTypes.length];
-      const skills = skillSets[index % skillSets.length];
-
-      return {
-        id: `external_${post.id}_${Date.now()}`,
-        title: role,
-        company,
-        location,
-        description: `${role} position at ${company}. ${post.title}. Join our team and work with cutting-edge technology.`,
-        requirements: skills.slice(0, 3),
-        skills,
-        workType,
-        salaryMin: 90000 + (index * 5000),
-        salaryMax: 150000 + (index * 8000),
-        source: 'External Jobs API',
-        externalUrl: `https://${company.toLowerCase().replace(/\s+/g, '')}.com/careers`,
-        postedDate: new Date(Date.now() - (index * 24 * 60 * 60 * 1000)).toISOString(),
-      };
-    });
-  }
 
   // URL validation method to ensure only real, working URLs are included
   private isValidURL(urlString: string): boolean {
