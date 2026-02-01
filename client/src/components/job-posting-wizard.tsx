@@ -79,10 +79,12 @@ interface JobPostingData {
 
 export default function JobPostingWizard({
   onSubmit,
-  onCancel
+  onCancel,
+  isSubmitting = false
 }: {
   onSubmit: (data: JobPostingData) => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [jobData, setJobData] = useState<JobPostingData>({
@@ -944,10 +946,15 @@ export default function JobPostingWizard({
         </Button>
         <Button
           onClick={nextStep}
-          disabled={!canProceed()}
+          disabled={!canProceed() || isSubmitting}
           className="bg-purple-600 hover:bg-purple-700"
         >
-          {currentStep === 4 ? 'Create Job Posting' : (
+          {isSubmitting ? (
+            <>
+              <span className="animate-spin mr-2">⏳</span>
+              Creating...
+            </>
+          ) : currentStep === 4 ? 'Create Job Posting' : (
             <>
               Next
               <ArrowRight className="w-4 h-4 ml-2" />

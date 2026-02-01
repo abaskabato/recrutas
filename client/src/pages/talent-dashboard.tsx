@@ -1361,6 +1361,7 @@ export default function TalentDashboard() {
         <Dialog open={showJobWizard} onOpenChange={setShowJobWizard}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
             <JobPostingWizard
+              isSubmitting={createJobMutation.isPending}
               onSubmit={async (jobData) => {
                 try {
                   // Transform wizard data to match API format
