@@ -104,8 +104,10 @@ export async function configureApp() {
   await registerRoutes(app);
   registerChatRoutes(app);
 
-  // Only start background services if not in a test environment
-  if (process.env.NODE_ENV !== 'test') {
+  // Only start background services if not in a test environment AND not on Vercel
+  // Vercel is serverless - background services must use Vercel Cron instead
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== undefined;
+  if (process.env.NODE_ENV !== 'test' && !isVercel) {
     await initializeBackgroundServices();
   }
 

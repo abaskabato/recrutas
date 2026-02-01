@@ -619,8 +619,9 @@ export class DatabaseStorage implements IStorage {
         .from(jobPostings)
         .where(and(
           eq(jobPostings.status, 'active'),
-          // Use JSONB overlap operator (?|) for efficient skill matching with GIN index
-          sql`${jobPostings.skills} ?| array[${sql.raw(candidate.skills.map(s => `'${s}'`).join(','))}]::text[]`,
+          or(...candidate.skills.map(skill =>
+            sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`
+          )),
           or(
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
