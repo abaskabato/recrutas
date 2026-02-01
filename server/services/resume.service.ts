@@ -44,48 +44,34 @@ export class ResumeService {
   ) {}
 
   /**
-   * FAST synchronous upload - returns immediately after file storage
-   * AI parsing happens asynchronously in background
+   * FAST upload - returns immediately without waiting for file storage
+   * Both file upload and AI parsing happen asynchronously in background
+   *
+   * This eliminates the 504 timeout that occurred when uploading large files
+   * to Supabase Storage (which can take 10-20+ seconds)
    */
   async uploadAndProcessResume(
     userId: string,
     fileBuffer: Buffer,
     mimetype: string
   ): Promise<ResumeProcessingResult> {
-    let resumeUrl: string;
+    // Generate a temporary file name immediately
+    const tempFileName = `resume-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
-    // STEP 1: Upload file to storage (fast - 1-2 seconds)
-    try {
-      console.log('ResumeService: Uploading resume file to storage...');
-      resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
-      console.log('ResumeService: File uploaded to:', resumeUrl);
-    } catch (error) {
-      console.error('ResumeService: Storage upload failed:', error);
-      throw new ResumeProcessingError('Failed to upload resume', error);
-    }
+    // STEP 1: Return immediately without waiting for storage/AI (<100ms)
+    // Both file upload and parsing happen in background
+    console.log('ResumeService: Queueing file upload and AI parsing to background');
+    this.uploadResumeInBackground(userId, fileBuffer, mimetype, tempFileName)
+      .catch(err => console.error('ResumeService: Background upload failed (non-critical):', err));
 
-    // STEP 2: Save basic resume data immediately (fast - <1 second)
-    try {
-      await this.storage.upsertCandidateUser({ userId, resumeUrl });
-      console.log('ResumeService: Basic resume data saved');
-    } catch (error) {
-      console.error('ResumeService: Failed to save resume URL:', error);
-      throw new ResumeProcessingError('Failed to save resume', error);
-    }
-
-    // STEP 3: Log activity (fire and forget, don't await)
-    this.storage.createActivityLog(userId, "resume_upload", "Resume uploaded successfully")
+    // STEP 2: Log activity (fire and forget)
+    this.storage.createActivityLog(userId, "resume_upload", "Resume upload queued for processing")
       .catch(err => console.error('ResumeService: Activity log failed (non-critical):', err));
 
-    // STEP 4: Queue background AI parsing (fire and forget)
-    console.log('ResumeService: Queueing AI parsing in background');
-    this.parseResumeInBackground(userId, fileBuffer, mimetype, resumeUrl)
-      .catch(err => console.error('ResumeService: Background parsing failed (non-critical):', err));
-
-    // STEP 5: Return immediately with quick response (<2 seconds total)
+    // STEP 3: Return immediately with quick response (<100ms)
     return {
-      resumeUrl,
-      parsed: false, // Will be updated when background job completes
+      resumeUrl: tempFileName,
+      parsed: false,
       aiParsing: {
         success: false,
         confidence: 0,
@@ -94,6 +80,40 @@ export class ResumeService {
       extractedInfo: null,
       autoMatchingTriggered: false,
     };
+  }
+
+  /**
+   * Background job for file upload and AI parsing - no timeout pressure
+   * Uploads file to storage, then parses with AI
+   */
+  private async uploadResumeInBackground(
+    userId: string,
+    fileBuffer: Buffer,
+    mimetype: string,
+    fileName: string
+  ): Promise<void> {
+    try {
+      console.log('ResumeService: Starting background file upload for user:', userId);
+
+      // Upload file to storage (can take 10-20 seconds, no timeout pressure)
+      const resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
+      console.log('ResumeService: File uploaded to:', resumeUrl);
+
+      // Save basic resume data
+      await this.storage.upsertCandidateUser({ userId, resumeUrl });
+      console.log('ResumeService: Basic resume data saved');
+
+      // Parse resume with AI
+      await this.parseResumeInBackground(userId, fileBuffer, mimetype, resumeUrl);
+    } catch (error) {
+      console.error('ResumeService: Background upload/parse error:', error);
+      // Log failure but don't crash
+      await this.storage.createActivityLog(
+        userId,
+        "resume_upload_failed",
+        `Resume upload failed: ${error?.message || 'Unknown error'}`
+      ).catch(() => {});
+    }
   }
 
   /**
