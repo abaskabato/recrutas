@@ -82,11 +82,32 @@ export default function JobPostStep() {
       });
       setLocation('/talent-dashboard');
     },
-    onError: (error: any) => {
+    onError: async (error: any) => {
       console.error('Job post failed:', error);
+
+      // Try to extract detailed validation errors
+      let errorDescription = 'Please check all required fields and try again.';
+      try {
+        if (error?.response) {
+          const errorData = await error.response.json();
+          if (errorData.errors) {
+            const fieldErrors = Object.entries(errorData.errors)
+              .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+              .join('; ');
+            errorDescription = fieldErrors || errorData.message || errorDescription;
+          } else if (errorData.message) {
+            errorDescription = errorData.message;
+          }
+        } else if (error?.message) {
+          errorDescription = error.message;
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+
       toast({
         title: 'Failed to Post Job',
-        description: error.message || 'Please check all required fields and try again.',
+        description: errorDescription,
         variant: 'destructive',
       });
     },
@@ -99,6 +120,21 @@ export default function JobPostStep() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Validate required fields
+    const errors: string[] = [];
+    if (!formData.title.trim()) errors.push('Job Title');
+    if (!formData.company.trim()) errors.push('Company Name');
+    if (!formData.description.trim()) errors.push('Job Description');
+
+    if (errors.length > 0) {
+      toast({
+        title: 'Required Fields Missing',
+        description: `Please fill in: ${errors.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     // Additional validation
     if (formData.salaryMin && formData.salaryMax) {
@@ -269,7 +305,7 @@ export default function JobPostStep() {
         {/* Job Description */}
         <div className="space-y-2">
           <Label htmlFor="description" className="text-sm font-medium">
-            Job Description
+            Job Description <span className="text-red-500">*</span>
           </Label>
           <Textarea
             id="description"
@@ -279,6 +315,7 @@ export default function JobPostStep() {
             onChange={handleChange}
             className="min-h-[120px]"
             disabled={mutation.isPending}
+            required
           />
         </div>
 

@@ -1394,14 +1394,37 @@ export default function TalentDashboard() {
                     description: "Job posted successfully! Candidates will be matched shortly.",
                   });
                   setShowJobWizard(false);
-                } catch (error) {
+                } catch (error: any) {
                   console.error('[TalentDashboard] Failed to create job:', error);
-                  const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+                  // Try to extract detailed error message
+                  let errorDescription = 'Something went wrong. Please try again.';
+                  try {
+                    if (error?.response) {
+                      const errorData = await error.response.json();
+                      if (errorData.errors) {
+                        // Zod validation errors - show which fields failed
+                        const fieldErrors = Object.entries(errorData.errors)
+                          .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+                          .join('; ');
+                        errorDescription = fieldErrors || errorData.message || errorDescription;
+                      } else {
+                        errorDescription = errorData.message || errorDescription;
+                      }
+                    } else if (error?.message) {
+                      if (error.message.includes('401')) {
+                        errorDescription = 'Please log in again';
+                      } else if (error.message.includes('400')) {
+                        errorDescription = 'Please check all required fields are filled correctly';
+                      }
+                    }
+                  } catch (e) {
+                    // Ignore parsing errors
+                  }
+
                   toast({
                     title: "Failed to create job",
-                    description: errorMessage.includes('401') ? 'Please log in again' :
-                                 errorMessage.includes('400') ? 'Please check all required fields' :
-                                 'Something went wrong. Please try again.',
+                    description: errorDescription,
                     variant: "destructive",
                   });
                 }

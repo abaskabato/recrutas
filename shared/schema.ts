@@ -80,6 +80,9 @@ export const candidateProfiles = pgTable("candidate_users", {
   bio: text("bio"),
   summary: text("summary"),
   resumeText: text("resume_text"),
+  resumeParsingData: jsonb("resume_parsing_data").default({} as any),
+  experienceLevel: varchar("experience_level", { enum: ["entry", "mid", "senior", "lead", "executive"] }),
+  parsedAt: timestamp("parsed_at"),
   profileStrength: integer("profile_strength").default(0),
   profileViews: integer("profile_views").default(0),
   resumeProcessingStatus: varchar("resume_processing_status", { enum: ["idle", "processing", "completed", "failed"] }).default("idle"),
@@ -674,7 +677,9 @@ export const usageTrackingRelations = relations(usageTracking, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users);
 export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles);
 export const insertTalentOwnerProfileSchema = createInsertSchema(talentOwnerProfiles);
-export const insertJobPostingSchema = createInsertSchema(jobPostings);
+export const insertJobPostingSchema = createInsertSchema(jobPostings, {
+  expiresAt: z.coerce.date().optional().nullable(),
+});
 export const insertJobMatchSchema = createInsertSchema(jobMatches);
 export const insertChatMessageSchema = createInsertSchema(chatMessages);
 export const insertNotificationSchema = createInsertSchema(notifications);

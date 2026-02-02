@@ -94,6 +94,13 @@ export class ResumeService {
   ): Promise<void> {
     try {
       console.log(`[ResumeService] Starting background file upload for user: ${userId}`);
+
+      // Set processing status
+      await this.storage.upsertCandidateUser({
+        userId,
+        resumeProcessingStatus: 'processing'
+      });
+
       const resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
       console.log(`[ResumeService] File uploaded to: ${resumeUrl}`);
       await this.storage.upsertCandidateUser({ userId, resumeUrl });
@@ -102,11 +109,24 @@ export class ResumeService {
       console.log(`[ResumeService] Finished background file upload for user: ${userId}`);
     } catch (error) {
       console.error(`[ResumeService] Background upload/parse error for user ${userId}:`, error);
-      await this.storage.createActivityLog(
-        userId,
-        "resume_upload_failed",
-        `Resume upload failed: ${error?.message || 'Unknown error'}`
-      ).catch(() => {});
+      // Always try to update status and log - don't swallow errors
+      try {
+        await this.storage.upsertCandidateUser({
+          userId,
+          resumeProcessingStatus: 'failed'
+        });
+      } catch (statusError) {
+        console.error(`[ResumeService] Failed to update status for user ${userId}:`, statusError);
+      }
+      try {
+        await this.storage.createActivityLog(
+          userId,
+          "resume_upload_failed",
+          `Resume upload failed: ${error?.message || 'Unknown error'}`
+        );
+      } catch (logError) {
+        console.error(`[ResumeService] Failed to create activity log for user ${userId}:`, logError);
+      }
     }
   }
 
@@ -134,6 +154,8 @@ export class ResumeService {
         userId,
         resumeUrl,
         resumeText: result.text || '',
+        resumeProcessingStatus: 'completed',
+        parsedAt: new Date(),
         resumeParsingData: {
           confidence: result.confidence || 0,
           processingTime: processingTime,
@@ -154,8 +176,9 @@ export class ResumeService {
         profileUpdate.skills = Array.from(new Set(allSkills)).slice(0, 25);
       }
 
-      if (aiExtracted.experience?.totalYears > 0) {
-        profileUpdate.experience = aiExtracted.experience.level || 'entry';
+      // Use the new experienceLevel field instead of experience
+      if (aiExtracted.experience?.level) {
+        profileUpdate.experienceLevel = aiExtracted.experience.level;
       }
 
       if (aiExtracted.personalInfo?.location) {
@@ -185,11 +208,24 @@ export class ResumeService {
       );
     } catch (error) {
       console.error(`[ResumeService] Background parsing error for user ${userId}:`, error);
-      await this.storage.createActivityLog(
-        userId,
-        "resume_parsing_failed",
-        `Resume parsing failed: ${error?.message || 'Unknown error'}. Resume is still uploaded.`
-      ).catch(() => {}); // Ignore if logging fails
+      // Always try to update status and log - don't swallow errors
+      try {
+        await this.storage.upsertCandidateUser({
+          userId,
+          resumeProcessingStatus: 'failed'
+        });
+      } catch (statusError) {
+        console.error(`[ResumeService] Failed to update status for user ${userId}:`, statusError);
+      }
+      try {
+        await this.storage.createActivityLog(
+          userId,
+          "resume_parsing_failed",
+          `Resume parsing failed: ${error?.message || 'Unknown error'}. Resume is still uploaded.`
+        );
+      } catch (logError) {
+        console.error(`[ResumeService] Failed to create activity log for user ${userId}:`, logError);
+      }
     }
   }
 }

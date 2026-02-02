@@ -146,25 +146,29 @@ export class AIResumeParser {
       try {
         const pdf = (await import('pdf-parse')).default;
         const data = await pdf(fileBuffer);
+        if (!data.text || data.text.trim().length < 50) {
+          throw new Error('PDF extracted text is empty or too short. The PDF may be scanned/image-based.');
+        }
         return data.text;
       } catch (error) {
-        console.error('PDF parsing failed:', error);
-        // Fallback to sample text like docx does
-        return this.getSampleResumeText();
+        console.error('[AIResumeParser] PDF parsing failed:', error);
+        throw new Error(`Failed to extract text from PDF: ${error.message}`);
       }
     } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
       try {
         const result = await mammoth.extractRawText({ buffer: fileBuffer });
+        if (!result.value || result.value.trim().length < 50) {
+          throw new Error('Word document extracted text is empty or too short.');
+        }
         return result.value;
       } catch (error) {
-        // Fallback to sample text if document parsing fails
-        return this.getSampleResumeText();
+        console.error('[AIResumeParser] Word document parsing failed:', error);
+        throw new Error(`Failed to extract text from Word document: ${error.message}`);
       }
     } else if (mimeType === 'text/plain' || mimeType === 'application/json') {
       return fileBuffer.toString('utf-8');
     } else {
-      // Try to treat as text for other formats or log warning
-      console.warn(`[AIResetParser] Unknown mime type: ${mimeType}, attempting to read as text.`);
+      console.warn(`[AIResumeParser] Unknown mime type: ${mimeType}, attempting to read as text.`);
       return fileBuffer.toString('utf-8');
     }
   }

@@ -4,18 +4,18 @@ async function waitForServer(port, timeout = 120000, interval = 2000) {
   const url = `http://localhost:${port}/api/health`;
   const startTime = Date.now();
 
-  process.stderr.write(`Waiting for server to be ready at ${url}...
-`);
+  process.stderr.write(`Waiting for server to be ready at ${url}...\n`);
 
   while (Date.now() - startTime < timeout) {
     try {
-      const response = await fetch(url + '/health', { timeout: interval / 2 }); // Assuming a /health endpoint or just root
+      const response = await fetch(url, { timeout: interval / 2 });
       if (response.ok) {
         process.stderr.write('Server is ready!\n');
         return true;
       }
     } catch (error) {
       // Ignore connection errors, server might not be up yet
+      process.stderr.write('.');
     }
     await new Promise(resolve => setTimeout(resolve, interval));
   }
