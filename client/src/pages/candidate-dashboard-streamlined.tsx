@@ -485,7 +485,7 @@ export default function CandidateStreamlinedDashboard() {
         {/* Tab Content */}
         {activeTab === 'jobs' && (
           <div>
-            <AIJobFeed />
+            <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
           </div>
         )}
 

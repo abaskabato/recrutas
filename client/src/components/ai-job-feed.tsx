@@ -46,7 +46,11 @@ export interface AIJobMatch {
 const INITIAL_JOB_LIMIT = 15;
 const JOBS_PER_PAGE = 10;
 
-export default function AIJobFeed() {
+interface AIJobFeedProps {
+  onUploadClick?: () => void;
+}
+
+export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
@@ -251,7 +255,7 @@ export default function AIJobFeed() {
             Recrutas only shows you jobs that match your skills. Upload your resume and we'll extract your skills automatically to find the best opportunities for you.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button onClick={() => window.location.href = '/candidate-dashboard'} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={onUploadClick} className="bg-blue-600 hover:bg-blue-700">
               Upload Resume
             </Button>
           </div>
