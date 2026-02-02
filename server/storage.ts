@@ -605,24 +605,27 @@ export class DatabaseStorage implements IStorage {
   async getJobRecommendations(candidateId: string): Promise<any[]> {
     try {
       const candidate = await this.getCandidateUser(candidateId);
-      const hasSkills = candidate?.skills && candidate.skills.length > 0;
+
+      // Require skills for personalized matching - this is what makes Recrutas different
+      if (!candidate || !candidate.skills || candidate.skills.length === 0) {
+        console.log(`Candidate ${candidateId} has no skills - returning empty (upload resume first)`);
+        return [];
+      }
 
       // Extract job preferences from candidate profile
       const jobPreferences = (candidate as any)?.jobPreferences || {};
       console.log(`Candidate preferences:`, jobPreferences);
-      console.log(`Candidate has skills: ${hasSkills}, skills: ${candidate?.skills?.join(', ') || 'none'}`);
+      console.log(`Candidate skills: ${candidate.skills.join(', ')}`);
 
-      // Fetch active, non-expired, non-stale jobs (internal + external)
-      // If candidate has no skills, fetch all jobs; otherwise filter by matching skills
+      // Fetch active, non-expired, non-stale jobs matching candidate skills
       const allJobs = await db
         .select()
         .from(jobPostings)
         .where(and(
           eq(jobPostings.status, 'active'),
-          // Only filter by skills if candidate has skills
-          ...(hasSkills ? [or(...candidate.skills.map(skill =>
+          or(...candidate.skills.map(skill =>
             sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`
-          ))] : []),
+          )),
           or(
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
@@ -651,28 +654,25 @@ export class DatabaseStorage implements IStorage {
       // Returns jobs that have overlapping skills with candidate
       const recommendations = jobsWithSource
         .map(job => {
-          // Count matching skills (if candidate has skills)
-          const matchingSkills = hasSkills
-            ? candidate.skills.filter(skill => job.skills && job.skills.includes(skill))
-            : [];
+          // Count matching skills
+          const matchingSkills = candidate.skills.filter(skill =>
+            job.skills && job.skills.includes(skill)
+          );
 
-          const skillMatchPercentage = hasSkills && matchingSkills.length > 0
+          const skillMatchPercentage = matchingSkills.length > 0
             ? Math.round((matchingSkills.length / Math.max(candidate.skills.length, 1)) * 100)
             : 0;
 
           return {
             ...job,
-            matchScore: hasSkills ? skillMatchPercentage : (job.trustScore || 50), // Use trust score if no skills
+            matchScore: skillMatchPercentage,
             skillMatches: matchingSkills,
-            aiExplanation: hasSkills
-              ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
-              : 'Add skills to your profile for personalized matching',
+            aiExplanation: `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`,
             isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
             isDirectFromCompany: job.trustScore >= 85,
-            isPersonalized: hasSkills && matchingSkills.length > 0,
           };
         })
-        .filter(job => !hasSkills || job.matchScore > 0) // Show all jobs if no skills, otherwise filter by match
+        .filter(job => job.matchScore > 0) // Only include jobs with at least 1 skill match
         // Apply job preferences filters
         .filter(job => {
           // Filter by salary range if specified
