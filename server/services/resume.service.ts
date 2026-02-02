@@ -93,21 +93,15 @@ export class ResumeService {
     fileName: string
   ): Promise<void> {
     try {
-      console.log('ResumeService: Starting background file upload for user:', userId);
-
-      // Upload file to storage (can take 10-20 seconds, no timeout pressure)
+      console.log(`[ResumeService] Starting background file upload for user: ${userId}`);
       const resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
-      console.log('ResumeService: File uploaded to:', resumeUrl);
-
-      // Save basic resume data
+      console.log(`[ResumeService] File uploaded to: ${resumeUrl}`);
       await this.storage.upsertCandidateUser({ userId, resumeUrl });
-      console.log('ResumeService: Basic resume data saved');
-
-      // Parse resume with AI
+      console.log(`[ResumeService] Basic resume data saved for user: ${userId}`);
       await this.parseResumeInBackground(userId, fileBuffer, mimetype, resumeUrl);
+      console.log(`[ResumeService] Finished background file upload for user: ${userId}`);
     } catch (error) {
-      console.error('ResumeService: Background upload/parse error:', error);
-      // Log failure but don't crash
+      console.error(`[ResumeService] Background upload/parse error for user ${userId}:`, error);
       await this.storage.createActivityLog(
         userId,
         "resume_upload_failed",
@@ -127,26 +121,21 @@ export class ResumeService {
     resumeUrl: string
   ): Promise<void> {
     try {
-      console.log('ResumeService: Starting background AI parsing for user:', userId);
+      console.log(`[ResumeService] Starting background AI parsing for user: ${userId}`);
       const startTime = Date.now();
-
-      // Call AI parser without timeout - let it take as long as it needs
       const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
       const processingTime = Date.now() - startTime;
+      console.log(`[ResumeService] AI parsing completed in ${processingTime}ms for user: ${userId}`);
 
-      console.log(`ResumeService: AI parsing completed in ${processingTime}ms`);
-
-      // Extract data from result
       const aiExtracted = result.aiExtracted || {};
-      const parsedData = result || {};
+      console.log(`[ResumeService] Extracted skills for user ${userId}:`, aiExtracted.skills?.technical);
 
-      // Build profile update with extracted data
       const profileUpdate: any = {
         userId,
         resumeUrl,
-        resumeText: parsedData.text || '',
+        resumeText: result.text || '',
         resumeParsingData: {
-          confidence: parsedData.confidence || 0,
+          confidence: result.confidence || 0,
           processingTime: processingTime,
           extractedSkillsCount: aiExtracted.skills?.technical?.length || 0,
           extractedPositionsCount: aiExtracted.experience?.positions?.length || 0,
@@ -156,7 +145,6 @@ export class ResumeService {
         },
       };
 
-      // Update profile with extracted skills, experience, etc.
       if (aiExtracted.skills?.technical?.length > 0) {
         const existingProfile = await this.storage.getCandidateUser(userId);
         const allSkills = [
@@ -182,25 +170,21 @@ export class ResumeService {
         profileUpdate.githubUrl = aiExtracted.personalInfo.github;
       }
 
-      // Save updated profile
       await this.storage.upsertCandidateUser(profileUpdate);
-      console.log('ResumeService: Background parsing completed and profile updated');
+      console.log(`[ResumeService] Background parsing completed and profile updated for user: ${userId}`);
 
-      // Update activity log with final status
       const skillsCount = aiExtracted.skills?.technical?.length || 0;
       const experienceYears = aiExtracted.experience?.totalYears || 0;
       const positionsCount = aiExtracted.experience?.positions?.length || 0;
-      const confidence = parsedData.confidence || 0;
+      const confidence = result.confidence || 0;
 
       await this.storage.createActivityLog(
         userId,
         "resume_parsing_complete",
         `Resume parsed successfully with ${confidence}% confidence. Extracted ${skillsCount} skills, ${experienceYears} years experience, ${positionsCount} positions.`
       );
-
     } catch (error) {
-      console.error('ResumeService: Background parsing error:', error);
-      // Log failure but don't crash - user already has their resume uploaded
+      console.error(`[ResumeService] Background parsing error for user ${userId}:`, error);
       await this.storage.createActivityLog(
         userId,
         "resume_parsing_failed",

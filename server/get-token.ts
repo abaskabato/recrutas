@@ -15,9 +15,7 @@ async function getToken() {
   }
 
   if (data.session) {
-    console.log("\n\n--- AUTH TOKEN ---");
     console.log(data.session.access_token);
-    console.log("--- END AUTH TOKEN ---\n\n");
   }
 }
 

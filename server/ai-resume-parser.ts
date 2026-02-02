@@ -228,10 +228,10 @@ English (Native), Spanish (Conversational)`;
         try {
           const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
           const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
-          console.log(`AIResumeParser: Trying Ollama at ${ollamaUrl}...`);
+          console.log(`[AIResumeParser] Trying Ollama at ${ollamaUrl} with model ${ollamaModel}...`);
           return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
         } catch (ollamaError) {
-          console.warn('AIResumeParser: Ollama failed, falling back to Hugging Face:', ollamaError.message);
+          console.warn('[AIResumeParser] Ollama failed, falling back to Hugging Face:', ollamaError.message);
           // Continue to Hugging Face fallback below
         }
       }
@@ -240,11 +240,11 @@ English (Native), Spanish (Conversational)`;
       const apiKey = process.env.HF_API_KEY;
 
       if (!apiKey || apiKey === '%HF_API_KEY%') {
-        console.warn('AIResumeParser: HF_API_KEY is not set. Using fallback extraction.');
+        console.warn('[AIResumeParser] HF_API_KEY is not set. Using fallback extraction.');
         return this.extractWithFallback(text);
       }
 
-      console.log('AIResumeParser: Sending resume text to Hugging Face API for extraction...');
+      console.log('[AIResumeParser] Sending resume text to Hugging Face API for extraction...');
 
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) =>
@@ -332,7 +332,7 @@ English (Native), Spanish (Conversational)`;
       }
 
       const data = await response.json();
-      console.log('AIResumeParser: Successfully received response from Hugging Face API');
+      console.log('[AIResumeParser] Successfully received response from Hugging Face API');
 
       const content = data.choices?.[0]?.message?.content || '{}';
       const extractedData = JSON.parse(content);
@@ -357,19 +357,10 @@ English (Native), Spanish (Conversational)`;
         languages: extractedData.languages || []
       };
     } catch (error) {
-      console.warn('AI Resume parsing failed, falling back to rule-based extraction:', error.message);
+      console.warn('[AIResumeParser] AI Resume parsing failed, falling back to rule-based extraction:', error.message);
 
       // Fallback to rule-based extraction
-      return {
-        personalInfo: this.extractPersonalInfo(text),
-        summary: this.extractSummary(text),
-        skills: this.extractSkillsAI(text),
-        experience: this.extractExperienceAI(text),
-        education: this.extractEducation(text),
-        certifications: this.extractCertifications(text),
-        projects: this.extractProjects(text),
-        languages: this.extractLanguages(text)
-      };
+      return this.extractWithFallback(text);
     }
   }
 
