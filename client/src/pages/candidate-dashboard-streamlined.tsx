@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -85,6 +85,7 @@ export default function CandidateStreamlinedDashboard() {
   const isAuthenticated = !!user;
   const isLoading = !session;
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'jobs' | 'applications' | 'profile' | 'agent'>('jobs');
 
   const handleSignOut = async () => {
@@ -171,6 +172,36 @@ export default function CandidateStreamlinedDashboard() {
   }, [profile]);
 
   const hasResume = (profile as any)?.resumeUrl || false;
+  const resumeProcessingStatus = (profile as any)?.resumeProcessingStatus || 'idle';
+  const isResumeProcessing = resumeProcessingStatus === 'processing';
+
+  // Poll for resume processing status updates when processing
+  useEffect(() => {
+    if (isResumeProcessing) {
+      const pollInterval = setInterval(async () => {
+        try {
+          const response = await apiRequest("GET", '/api/candidate/profile');
+          const data = await response.json();
+          if (data.resumeProcessingStatus !== 'processing') {
+            // Refresh all relevant data
+            queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/candidate/stats'] });
+            toast({
+              title: 'Resume Processing Complete',
+              description: data.resumeProcessingStatus === 'completed'
+                ? 'Your skills have been extracted! Check your job feed for updated matches.'
+                : 'There was an issue processing your resume. You can add skills manually.',
+            });
+          }
+        } catch (error) {
+          console.error('Error polling resume status:', error);
+        }
+      }, 5000); // Poll every 5 seconds
+
+      return () => clearInterval(pollInterval);
+    }
+  }, [isResumeProcessing, queryClient, toast]);
 
   if (isLoading) {
     return (
@@ -316,6 +347,71 @@ export default function CandidateStreamlinedDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Resume Processing Status Banner */}
+        {isResumeProcessing && (
+          <Card className="mb-8 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border-amber-200 dark:border-amber-800">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-4">
+                <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-600 dark:border-amber-400"></div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-amber-900 dark:text-amber-100">
+                    Analyzing Your Resume
+                  </h3>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    AI is extracting your skills and experience. This will improve your job matches. You'll be notified when complete.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Resume Processing Complete Banner */}
+        {resumeProcessingStatus === 'completed' && (profile as any)?.parsedAt && (
+          new Date((profile as any).parsedAt).getTime() > Date.now() - 60000 && ( // Show for 1 minute after completion
+            <Card className="mb-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-200 dark:border-green-800">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-green-900 dark:text-green-100">
+                      Resume Processed Successfully
+                    </h3>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      Your skills have been extracted and added to your profile. Check your job feed for updated matches!
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        )}
+
+        {/* Resume Processing Failed Banner */}
+        {resumeProcessingStatus === 'failed' && (
+          <Card className="mb-8 bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 border-red-200 dark:border-red-800">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-4">
+                <div className="h-10 w-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-red-900 dark:text-red-100">
+                    Resume Processing Failed
+                  </h3>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    We couldn't extract information from your resume. Please try uploading a different file or add your skills manually.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Simplified Profile Setup Section */}
         {profileCompletion < 100 && (

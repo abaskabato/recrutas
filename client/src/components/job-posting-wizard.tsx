@@ -196,10 +196,27 @@ export default function JobPostingWizard({
     }
   };
 
+  const getValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    switch (currentStep) {
+      case 1:
+        if (!jobData.title?.trim()) errors.push('Job Title');
+        if (!jobData.company?.trim()) errors.push('Company');
+        if (!jobData.description?.trim()) errors.push('Description');
+        if (!jobData.location?.trim()) errors.push('Location');
+        break;
+      case 2:
+        if (jobData.requirements.length === 0) errors.push('At least one requirement');
+        if (jobData.skills.length === 0) errors.push('At least one skill');
+        break;
+    }
+    return errors;
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        return jobData.title && jobData.company && jobData.description && jobData.location;
+        return jobData.title?.trim() && jobData.company?.trim() && jobData.description?.trim() && jobData.location?.trim();
       case 2:
         return jobData.requirements.length > 0 && jobData.skills.length > 0;
       case 3:
@@ -934,6 +951,18 @@ export default function JobPostingWizard({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Validation Errors */}
+      {!canProceed() && getValidationErrors().length > 0 && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-700 font-medium">Please fill in the following required fields:</p>
+          <ul className="text-sm text-red-600 list-disc list-inside mt-1">
+            {getValidationErrors().map((error, i) => (
+              <li key={i}>{error}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* Navigation */}
