@@ -1028,22 +1028,13 @@ export class DatabaseStorage implements IStorage {
   // Statistics and analytics
   async getCandidateStats(candidateId: string): Promise<any> {
     try {
-      const applications = await db
-        .select()
-        .from(jobApplications)
-        .where(eq(jobApplications.candidateId, candidateId));
-
-      const matches = await db
-        .select()
-        .from(jobMatches)
-        .where(eq(jobMatches.candidateId, candidateId));
-
-      const profile = await this.getCandidateUser(candidateId);
-
-      const activeChats = await db
-        .select()
-        .from(chatRooms)
-        .where(eq(chatRooms.candidateId, candidateId));
+      // Run all queries in parallel to avoid sequential DB round-trips (fixes Vercel 504 timeouts)
+      const [applications, matches, profile, activeChats] = await Promise.all([
+        db.select().from(jobApplications).where(eq(jobApplications.candidateId, candidateId)),
+        db.select().from(jobMatches).where(eq(jobMatches.candidateId, candidateId)),
+        this.getCandidateUser(candidateId),
+        db.select().from(chatRooms).where(eq(chatRooms.candidateId, candidateId)),
+      ]);
 
       return {
         newMatches: matches.filter(m => m.status === 'pending').length,
@@ -1068,20 +1059,14 @@ export class DatabaseStorage implements IStorage {
 
       const jobIds = jobs.map(j => j.id);
 
-      const applications = jobIds.length > 0 ? await db
-        .select()
-        .from(jobApplications)
-        .where(inArray(jobApplications.jobId, jobIds)) : [];
-
-      const matches = jobIds.length > 0 ? await db
-        .select()
-        .from(jobMatches)
-        .where(inArray(jobMatches.jobId, jobIds)) : [];
-
-      const activeChats = jobIds.length > 0 ? await db
-        .select()
-        .from(chatRooms)
-        .where(inArray(chatRooms.jobId, jobIds)) : [];
+      // Run dependent queries in parallel (fixes Vercel 504 timeouts)
+      const [applications, matches, activeChats] = jobIds.length > 0
+        ? await Promise.all([
+            db.select().from(jobApplications).where(inArray(jobApplications.jobId, jobIds)),
+            db.select().from(jobMatches).where(inArray(jobMatches.jobId, jobIds)),
+            db.select().from(chatRooms).where(inArray(chatRooms.jobId, jobIds)),
+          ])
+        : [[], [], []];
 
       return {
         activeJobs: jobs.filter(j => j.status === 'active').length,
