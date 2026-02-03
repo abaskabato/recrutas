@@ -1,0 +1,48 @@
+Jane Smith
+Software Developer
+jane.smith@email.com | (555) 987-6543 | Austin, TX
+LinkedIn: linkedin.com/in/janesmith | GitHub: github.com/janesmith
+
+PROFESSIONAL SUMMARY
+Full-stack software developer with 6 years of experience building scalable web applications.
+Expert in JavaScript, React, Node.js, and PostgreSQL. Strong background in agile development
+and DevOps practices.
+
+TECHNICAL SKILLS
+Languages: JavaScript, TypeScript, Python, Go, SQL
+Frontend: React, Vue.js, Next.js, Tailwind CSS, HTML5, CSS3
+Backend: Node.js, Express, Django, FastAPI, GraphQL
+Databases: PostgreSQL, MongoDB, Redis, DynamoDB
+Cloud: AWS, GCP, Docker, Kubernetes, Terraform
+Tools: Git, GitHub Actions, Jenkins, Jira, Figma
+
+PROFESSIONAL EXPERIENCE
+
+Senior Software Engineer | TechCorp Inc. | 2021 - Present
+- Led development of microservices architecture serving 2M+ daily users
+- Built real-time data pipeline using Kafka and Redis
+- Mentored 4 junior developers and conducted technical interviews
+- Reduced deployment time by 70% through CI/CD automation
+
+Software Developer | StartupXYZ | 2018 - 2021
+- Developed React Native mobile application with 100K+ downloads
+- Implemented RESTful APIs using Node.js and Express
+- Optimized PostgreSQL queries reducing response time by 50%
+- Collaborated with design team on UX improvements
+
+EDUCATION
+Master of Science in Computer Science | University of Texas | 2018
+Bachelor of Science in Software Engineering | University of Texas | 2016
+
+CERTIFICATIONS
+- AWS Certified Solutions Architect Professional
+- Google Cloud Professional Developer
+- Kubernetes Administrator (CKA)
+
+PROJECTS
+Open Source Dashboard | github.com/janesmith/dashboard
+- Built analytics dashboard using React, D3.js, and Node.js
+- 500+ GitHub stars, used by 50+ companies
+
+LANGUAGES
+English (Native), Spanish (Fluent), Portuguese (Conversational)

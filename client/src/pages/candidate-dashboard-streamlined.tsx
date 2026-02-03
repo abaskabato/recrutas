@@ -42,6 +42,7 @@ import ApplicationTracker from "@/components/application-tracker";
 import RealTimeNotifications from "@/components/real-time-notifications";
 import JobMatchesModal from "@/components/job-matches-modal";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
+import { ProfileCompletionModal } from "@/components/profile-completion-modal";
 
 import {
   DropdownMenu,
@@ -87,6 +88,7 @@ export default function CandidateStreamlinedDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'jobs' | 'applications' | 'profile' | 'agent'>('jobs');
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -575,9 +577,18 @@ export default function CandidateStreamlinedDashboard() {
               <CardContent className="space-y-4">
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
                   <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Complete Your Profile</h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                  <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
                     Add more skills to your profile to improve your match score. Candidates with 10+ skills get 40% more job matches.
                   </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setProfileModalOpen(true)}
+                    className="bg-white dark:bg-gray-800"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Edit Profile & Skills
+                  </Button>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
                   <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Apply Early</h4>
@@ -609,6 +620,12 @@ export default function CandidateStreamlinedDashboard() {
         )}
       </div>
 
+      {/* Profile Completion Modal */}
+      <ProfileCompletionModal
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        currentProfile={profile}
+      />
     </div>
   );
 }
