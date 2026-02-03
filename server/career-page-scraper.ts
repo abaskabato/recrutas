@@ -139,14 +139,20 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
 ];
 
 class CareerPageScraper {
-  private groq: Groq | null = null;
+  private _groq: Groq | null = null;
+  private _groqInitialized = false;
   private cache: Map<string, { jobs: ScrapedJob[], timestamp: number }> = new Map();
   private cacheTTL = 4 * 60 * 60 * 1000; // 4 hours cache (scrape 3x/day like HiringCafe)
 
-  constructor() {
-    if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%') {
-      this.groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  // Lazy-initialize Groq to ensure env vars are loaded (ESM imports hoist before dotenv.config)
+  private get groq(): Groq | null {
+    if (!this._groqInitialized) {
+      if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%') {
+        this._groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      }
+      this._groqInitialized = true;
     }
+    return this._groq;
   }
 
   /**

@@ -3,10 +3,14 @@
 import { type CandidateProfile, type JobPosting } from '@shared/schema';
 import Groq from 'groq-sdk';
 
-// Initialize Groq client if API key is available
-const groq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%'
-  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-  : null;
+// Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
+let _groq: Groq | null = null;
+function getGroqClient(): Groq | null {
+  if (_groq === null && process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%') {
+    _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return _groq;
+}
 
 // Job summarization result interface
 export interface JobSummary {
@@ -397,8 +401,9 @@ export async function generateScreeningQuestions(candidate: CandidateProfile, jo
  * Similar to HiringCafe's approach of providing structured job summaries
  */
 export async function summarizeJobDescription(description: string, title?: string, company?: string): Promise<JobSummary> {
+  const groqClient = getGroqClient();
   // If no Groq client, use rule-based summarization
-  if (!groq) {
+  if (!groqClient) {
     return generateRuleBasedSummary(description, title, company);
   }
 
@@ -423,7 +428,7 @@ Return ONLY a valid JSON object with these exact fields (no markdown, no code bl
   "techStack": ["specific technologies/tools mentioned"]
 }`;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqClient.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {

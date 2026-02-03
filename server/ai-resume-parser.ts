@@ -4,10 +4,14 @@ import mammoth from 'mammoth';
 import { generateJobMatch } from './ai-service';
 import Groq from 'groq-sdk';
 
-// Initialize Groq client if API key is available (same pattern as ai-service.ts)
-const groq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%'
-  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
-  : null;
+// Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
+let _groq: Groq | null = null;
+function getGroqClient(): Groq | null {
+  if (_groq === null && process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%') {
+    _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return _groq;
+}
 
 interface AIExtractedData {
   personalInfo: {
@@ -234,7 +238,7 @@ English (Native), Spanish (Conversational)`;
   private async extractWithAI(text: string): Promise<AIExtractedData> {
     try {
       // Priority 1: Groq (configured and working - same key as job summarization)
-      if (groq) {
+      if (getGroqClient()) {
         try {
           console.log('[AIResumeParser] Trying Groq API (primary)...');
           return await this.extractWithGroq(text);
@@ -490,13 +494,14 @@ Return JSON with this exact structure:
   }
 
   private async extractWithGroq(text: string): Promise<AIExtractedData> {
-    if (!groq) {
+    const groqClient = getGroqClient();
+    if (!groqClient) {
       throw new Error('Groq client not initialized');
     }
 
     console.log('[AIResumeParser] Calling Groq API with llama-3.3-70b-versatile...');
 
-    const completion = await groq.chat.completions.create({
+    const completion = await groqClient.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
