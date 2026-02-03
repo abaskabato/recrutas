@@ -2,6 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import mammoth from 'mammoth';
 import { generateJobMatch } from './ai-service';
+import Groq from 'groq-sdk';
+
+// Initialize Groq client if API key is available (same pattern as ai-service.ts)
+const groq = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== '%GROQ_API_KEY%'
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
 
 interface AIExtractedData {
   personalInfo: {
@@ -227,7 +233,18 @@ English (Native), Spanish (Conversational)`;
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
     try {
-      // Try Ollama first (free, local option) - only if enabled
+      // Priority 1: Groq (configured and working - same key as job summarization)
+      if (groq) {
+        try {
+          console.log('[AIResumeParser] Trying Groq API (primary)...');
+          return await this.extractWithGroq(text);
+        } catch (groqError) {
+          console.warn('[AIResumeParser] Groq failed, trying fallback providers:', groqError.message);
+          // Continue to next provider
+        }
+      }
+
+      // Priority 2: Ollama (free, local option) - only if enabled
       if (process.env.USE_OLLAMA === 'true') {
         try {
           const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
@@ -240,7 +257,7 @@ English (Native), Spanish (Conversational)`;
         }
       }
 
-      // Try Hugging Face Inference API
+      // Priority 3: Hugging Face Inference API
       const apiKey = process.env.HF_API_KEY;
 
       if (!apiKey || apiKey === '%HF_API_KEY%') {
@@ -470,6 +487,114 @@ Return JSON with this exact structure:
       console.warn('Ollama extraction failed:', error.message);
       throw error;  // Will be caught by parent extractWithAI and trigger fallback
     }
+  }
+
+  private async extractWithGroq(text: string): Promise<AIExtractedData> {
+    if (!groq) {
+      throw new Error('Groq client not initialized');
+    }
+
+    console.log('[AIResumeParser] Calling Groq API with llama-3.3-70b-versatile...');
+
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.'
+        },
+        {
+          role: 'user',
+          content: `Extract the following information from this resume text and return as JSON:
+
+{
+  "personalInfo": {
+    "name": "extracted name",
+    "email": "extracted email",
+    "phone": "extracted phone",
+    "location": "extracted location",
+    "linkedin": "linkedin url",
+    "github": "github url",
+    "portfolio": "portfolio url"
+  },
+  "summary": "professional summary text",
+  "skills": {
+    "technical": ["list of technical skills"],
+    "soft": ["list of soft skills"],
+    "tools": ["list of tools and technologies"]
+  },
+  "experience": {
+    "totalYears": 0,
+    "level": "entry|mid|senior|executive",
+    "positions": [
+      {
+        "title": "job title",
+        "company": "company name",
+        "duration": "time period",
+        "responsibilities": ["list of responsibilities"]
+      }
+    ]
+  },
+  "education": [
+    {
+      "degree": "degree name",
+      "institution": "school name",
+      "year": "graduation year",
+      "gpa": "gpa if mentioned"
+    }
+  ],
+  "certifications": ["list of certifications"],
+  "projects": [
+    {
+      "name": "project name",
+      "description": "project description",
+      "technologies": ["technologies used"]
+    }
+  ],
+  "languages": ["spoken languages"]
+}
+
+Resume text:
+${text}`
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      max_tokens: 2000
+    });
+
+    const content = completion.choices?.[0]?.message?.content || '{}';
+    console.log('[AIResumeParser] Groq API response received, parsing JSON...');
+
+    let extractedData;
+    try {
+      extractedData = JSON.parse(content);
+    } catch (parseError) {
+      console.warn('[AIResumeParser] Failed to parse Groq response:', parseError.message);
+      throw new Error('Failed to parse Groq JSON response');
+    }
+
+    console.log('[AIResumeParser] Successfully extracted data via Groq');
+
+    // Ensure all required fields are present with defaults
+    return {
+      personalInfo: extractedData.personalInfo || {},
+      summary: extractedData.summary || '',
+      skills: {
+        technical: extractedData.skills?.technical || [],
+        soft: extractedData.skills?.soft || [],
+        tools: extractedData.skills?.tools || []
+      },
+      experience: {
+        totalYears: extractedData.experience?.totalYears || 0,
+        level: extractedData.experience?.level || 'entry',
+        positions: extractedData.experience?.positions || []
+      },
+      education: extractedData.education || [],
+      certifications: extractedData.certifications || [],
+      projects: extractedData.projects || [],
+      languages: extractedData.languages || []
+    };
   }
 
   private async extractWithFallback(text: string): Promise<AIExtractedData> {

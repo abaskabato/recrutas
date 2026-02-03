@@ -724,6 +724,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
     try {
+      // Log request details for debugging job creation issues
+      console.log('[Job Creation] Request:', {
+        userId: req.user?.id,
+        hasTitle: !!req.body?.title,
+        hasCompany: !!req.body?.company,
+        hasDescription: !!req.body?.description,
+        hasSkills: !!req.body?.skills && Array.isArray(req.body.skills) && req.body.skills.length > 0,
+        workType: req.body?.workType,
+        bodyKeys: Object.keys(req.body || {})
+      });
+
       const jobData = insertJobPostingSchema.parse({ ...req.body, talentOwnerId: req.user.id });
       const job = await storage.createJobPosting(jobData);
 
@@ -766,11 +777,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }, 0);
 
     } catch (error) {
-      console.error("Error creating job posting:", error);
+      console.error("[Job Creation] Error:", error);
       if (error instanceof z.ZodError) {
+        const fieldErrors = error.flatten().fieldErrors;
+        const errorSummary = Object.entries(fieldErrors)
+          .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+          .join('; ');
+        console.error("[Job Creation] Validation errors:", errorSummary);
         return res.status(400).json({
-          message: "Validation failed",
-          errors: error.flatten().fieldErrors,
+          message: `Validation failed: ${errorSummary}`,
+          errors: fieldErrors,
         });
       }
       res.status(500).json({

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Upload, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Loader2, Upload, CheckCircle, AlertCircle, FileText, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ResumeProcessingResult {
@@ -37,9 +37,99 @@ interface ResumeProcessingResult {
 export default function ResumeUploadStep() {
   const [file, setFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadPhase, setUploadPhase] = useState<'idle' | 'uploading' | 'parsing' | 'complete' | 'error'>('idle');
+  const [uploadPhase, setUploadPhase] = useState<'idle' | 'uploading' | 'parsing' | 'polling' | 'complete' | 'error'>('idle');
+  const [pollingMessage, setPollingMessage] = useState('');
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingStartRef = useRef<number>(0);
   const { toast } = useToast();
   const { setStep } = useGuidedSetup();
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Start polling for resume processing status
+  const startPolling = () => {
+    setUploadPhase('polling');
+    setPollingMessage('Analyzing resume with AI...');
+    pollingStartRef.current = Date.now();
+
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const response = await apiRequest('GET', '/api/candidate/profile');
+        const profile = await response.json();
+
+        const elapsed = Date.now() - pollingStartRef.current;
+        const seconds = Math.floor(elapsed / 1000);
+
+        if (profile.resumeProcessingStatus === 'completed') {
+          // Success! Stop polling and refresh data
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+          setUploadPhase('complete');
+          setUploadProgress(100);
+
+          // Invalidate queries to refresh job feed with new matches
+          queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+          queryClient.invalidateQueries({ queryKey: ['user'] });
+
+          toast({
+            title: 'Resume Analyzed Successfully',
+            description: 'Your skills have been extracted and job matches are ready!',
+          });
+
+          // Proceed to next step after short delay
+          setTimeout(() => {
+            setStep((prev) => prev + 1);
+          }, 1500);
+
+        } else if (profile.resumeProcessingStatus === 'failed') {
+          // Processing failed
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+          setUploadPhase('complete'); // Still allow continuing
+          toast({
+            title: 'Resume Processing Issue',
+            description: 'We had trouble analyzing your resume. You can add skills manually.',
+            variant: 'destructive',
+          });
+          setTimeout(() => {
+            setStep((prev) => prev + 1);
+          }, 2000);
+
+        } else if (elapsed > 60000) {
+          // Timeout after 60 seconds
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+          setUploadPhase('complete');
+          toast({
+            title: 'Processing Taking Longer Than Expected',
+            description: 'Your resume was uploaded. Processing will continue in the background.',
+          });
+          setTimeout(() => {
+            setStep((prev) => prev + 1);
+          }, 1500);
+
+        } else {
+          // Still processing - update message
+          setPollingMessage(`Analyzing resume with AI... (${seconds}s)`);
+          setUploadProgress(70 + Math.min(25, seconds)); // Progress from 70 to 95
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+        // Don't stop polling on transient errors, just log
+      }
+    }, 3000); // Poll every 3 seconds
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -76,22 +166,27 @@ export default function ResumeUploadStep() {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
 
-      if (data.parsed && data.extractedInfo) {
+      // Check if immediate parsing completed or if we need to poll
+      if (data.parsed && data.extractedInfo && data.extractedInfo.skillsCount > 0) {
+        // Parsing completed synchronously with good results
+        setUploadPhase('complete');
+        setUploadProgress(100);
         toast({
           title: 'Resume Uploaded & Parsed',
           description: `Extracted ${data.extractedInfo.skillsCount} skills and ${data.extractedInfo.workHistoryCount} work experiences.`,
         });
-      } else {
-        toast({
-          title: 'Resume Uploaded',
-          description: 'Your resume was uploaded. You can add your skills manually in the next step.',
-        });
-      }
 
-      // Short delay to show success state before proceeding
-      setTimeout(() => {
-        setStep((prev) => prev + 1);
-      }, 1000);
+        // Refresh job matches
+        queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+
+        // Short delay to show success state before proceeding
+        setTimeout(() => {
+          setStep((prev) => prev + 1);
+        }, 1000);
+      } else {
+        // Start polling for background processing completion
+        startPolling();
+      }
     },
     onError: (error: any) => {
       console.error('Resume upload failed:', error);
@@ -161,7 +256,9 @@ export default function ResumeUploadStep() {
       case 'uploading':
         return 'Uploading your resume...';
       case 'parsing':
-        return 'Analyzing your resume with AI...';
+        return 'Processing your resume...';
+      case 'polling':
+        return pollingMessage || 'Analyzing resume with AI...';
       case 'complete':
         return 'Resume processed successfully!';
       case 'error':
@@ -207,11 +304,15 @@ export default function ResumeUploadStep() {
         )}
 
         {/* Progress Display */}
-        {uploadMutation.isPending && (
+        {(uploadMutation.isPending || uploadPhase === 'polling') && (
           <div className="space-y-3">
             <Progress value={uploadProgress} className="h-2" />
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              {uploadPhase === 'polling' ? (
+                <Sparkles className="h-4 w-4 animate-pulse text-blue-500" />
+              ) : (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
               {getPhaseMessage()}
             </div>
           </div>
@@ -241,14 +342,14 @@ export default function ResumeUploadStep() {
         <div className="flex flex-col gap-2">
           <Button
             onClick={handleUpload}
-            disabled={!file || uploadMutation.isPending || uploadPhase === 'complete'}
+            disabled={!file || uploadMutation.isPending || uploadPhase === 'polling' || uploadPhase === 'complete'}
             className="w-full"
             size="lg"
           >
-            {uploadMutation.isPending ? (
+            {uploadMutation.isPending || uploadPhase === 'polling' ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                {uploadPhase === 'polling' ? 'Analyzing...' : 'Processing...'}
               </>
             ) : uploadPhase === 'complete' ? (
               <>
@@ -263,7 +364,7 @@ export default function ResumeUploadStep() {
             )}
           </Button>
 
-          {!uploadMutation.isPending && uploadPhase !== 'complete' && (
+          {!uploadMutation.isPending && uploadPhase !== 'complete' && uploadPhase !== 'polling' && (
             <Button
               variant="ghost"
               onClick={handleSkip}
