@@ -244,24 +244,9 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
           ))}
         </div>
       ) : !filteredMatches || filteredMatches.length === 0 ? (
-        <div className="text-center py-16 bg-gradient-to-b from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 rounded-xl border-2 border-dashed border-blue-200 dark:border-blue-800">
-          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Sparkles className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-            Upload Your Resume to See Matches
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto leading-relaxed">
-            Recrutas only shows you jobs that match your skills. Upload your resume and we'll extract your skills automatically to find the best opportunities for you.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button onClick={onUploadClick} className="bg-blue-600 hover:bg-blue-700">
-              Upload Resume
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
-            No generic job listings. Only personalized matches.
-          </p>
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+          <Sparkles className="h-8 w-8 mx-auto mb-3 opacity-50" />
+          <p>No job matches found yet.</p>
         </div>
       ) : (
         <div className="space-y-4">
