@@ -45,8 +45,7 @@ export class ResumeService {
 
   /**
    * Upload and process resume synchronously.
-   * Waits for both file upload and AI parsing to complete before returning.
-   * This ensures processing completes on serverless platforms like Vercel.
+   * Upload always succeeds; AI parsing failures are handled gracefully.
    */
   async uploadAndProcessResume(
     userId: string,
@@ -56,6 +55,8 @@ export class ResumeService {
     const startTime = Date.now();
     console.log(`[ResumeService] Starting resume upload for user: ${userId}`);
 
+    let resumeUrl = '';
+
     try {
       // Set processing status
       await this.storage.upsertCandidateUser({
@@ -63,39 +64,58 @@ export class ResumeService {
         resumeProcessingStatus: 'processing'
       });
 
-      // Step 1: Upload file to storage
+      // Step 1: Upload file to storage (this must succeed)
       console.log(`[ResumeService] Uploading file (${fileBuffer.length} bytes)...`);
-      const resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
+      resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
       console.log(`[ResumeService] File uploaded to: ${resumeUrl}`);
 
-      // Step 2: Parse with AI
+      // Save resume URL immediately
+      await this.storage.upsertCandidateUser({ userId, resumeUrl });
+
+    } catch (uploadError: any) {
+      console.error(`[ResumeService] Upload failed for user ${userId}:`, uploadError);
+      await this.storage.upsertCandidateUser({
+        userId,
+        resumeProcessingStatus: 'failed'
+      }).catch(() => {});
+      throw new ResumeProcessingError(`Failed to upload resume: ${uploadError?.message}`, uploadError);
+    }
+
+    // Step 2: Try AI parsing (failures don't break the upload)
+    let parseResult: any = null;
+    let aiExtracted: any = {};
+    let parsingSuccess = false;
+
+    try {
       console.log(`[ResumeService] Starting AI parsing...`);
-      const parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
-      const processingTime = Date.now() - startTime;
-      console.log(`[ResumeService] AI parsing completed in ${processingTime}ms`);
+      parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      aiExtracted = parseResult?.aiExtracted || {};
+      parsingSuccess = true;
+      console.log(`[ResumeService] AI parsing succeeded, skills:`, aiExtracted.skills?.technical);
+    } catch (parseError: any) {
+      console.error(`[ResumeService] AI parsing failed (non-fatal):`, parseError?.message);
+      // Continue - upload succeeded, parsing failed
+    }
 
-      const aiExtracted = parseResult.aiExtracted || {};
-      console.log(`[ResumeService] Extracted skills:`, aiExtracted.skills?.technical);
+    const processingTime = Date.now() - startTime;
 
-      // Step 3: Build profile update
+    // Step 3: Build and save profile update
+    try {
       const profileUpdate: any = {
         userId,
         resumeUrl,
-        resumeText: parseResult.text || '',
-        resumeProcessingStatus: 'completed',
+        resumeText: parseResult?.text || '',
+        resumeProcessingStatus: parsingSuccess ? 'completed' : 'failed',
         parsedAt: new Date(),
         resumeParsingData: {
-          confidence: parseResult.confidence || 0,
+          confidence: parseResult?.confidence || 0,
           processingTime,
           extractedSkillsCount: aiExtracted.skills?.technical?.length || 0,
-          extractedPositionsCount: aiExtracted.experience?.positions?.length || 0,
-          educationCount: aiExtracted.education?.length || 0,
-          certificationsCount: aiExtracted.certifications?.length || 0,
-          projectsCount: aiExtracted.projects?.length || 0,
+          parsingError: parsingSuccess ? null : 'AI parsing failed',
         },
       };
 
-      // Merge skills
+      // Merge skills if we got any
       if (aiExtracted.skills?.technical?.length > 0) {
         const existingProfile = await this.storage.getCandidateUser(userId);
         const allSkills = [
@@ -118,60 +138,48 @@ export class ResumeService {
         profileUpdate.githubUrl = aiExtracted.personalInfo.github;
       }
 
-      // Step 4: Save to database
       await this.storage.upsertCandidateUser(profileUpdate);
       console.log(`[ResumeService] Profile updated for user: ${userId}`);
 
       // Log activity
       await this.storage.createActivityLog(
         userId,
-        "resume_parsing_complete",
-        `Resume parsed with ${parseResult.confidence}% confidence. Extracted ${aiExtracted.skills?.technical?.length || 0} skills.`
-      );
+        parsingSuccess ? "resume_parsing_complete" : "resume_upload_complete",
+        parsingSuccess
+          ? `Resume parsed with ${parseResult?.confidence || 0}% confidence. Extracted ${aiExtracted.skills?.technical?.length || 0} skills.`
+          : `Resume uploaded. AI parsing failed - you can add skills manually.`
+      ).catch(() => {});
 
-      // Return full results
-      return {
-        resumeUrl,
-        parsed: true,
-        aiParsing: {
-          success: true,
-          confidence: parseResult.confidence || 0,
-          processingTime,
-        },
-        extractedInfo: {
-          skillsCount: aiExtracted.skills?.technical?.length || 0,
-          softSkillsCount: aiExtracted.skills?.soft?.length || 0,
-          experience: aiExtracted.experience?.level || 'unknown',
-          workHistoryCount: aiExtracted.experience?.positions?.length || 0,
-          educationCount: aiExtracted.education?.length || 0,
-          certificationsCount: aiExtracted.certifications?.length || 0,
-          projectsCount: aiExtracted.projects?.length || 0,
-          hasContactInfo: !!(aiExtracted.personalInfo?.email || aiExtracted.personalInfo?.phone),
-          extractedName: aiExtracted.personalInfo?.name || '',
-          extractedLocation: aiExtracted.personalInfo?.location || '',
-          linkedinFound: !!aiExtracted.personalInfo?.linkedin,
-          githubFound: !!aiExtracted.personalInfo?.github,
-        },
-        autoMatchingTriggered: (aiExtracted.skills?.technical?.length || 0) > 0,
-      };
-
-    } catch (error: any) {
-      console.error(`[ResumeService] Error processing resume for user ${userId}:`, error);
-
-      // Update status to failed
-      await this.storage.upsertCandidateUser({
-        userId,
-        resumeProcessingStatus: 'failed'
-      }).catch(e => console.error('[ResumeService] Failed to update status:', e));
-
-      await this.storage.createActivityLog(
-        userId,
-        "resume_parsing_failed",
-        `Resume parsing failed: ${error?.message || 'Unknown error'}`
-      ).catch(e => console.error('[ResumeService] Failed to log activity:', e));
-
-      throw new ResumeProcessingError(`Failed to process resume: ${error?.message}`, error);
+    } catch (saveError: any) {
+      console.error(`[ResumeService] Failed to save profile:`, saveError);
+      // Still return success since file was uploaded
     }
+
+    // Return results (always succeeds if upload succeeded)
+    return {
+      resumeUrl,
+      parsed: parsingSuccess,
+      aiParsing: {
+        success: parsingSuccess,
+        confidence: parseResult?.confidence || 0,
+        processingTime,
+      },
+      extractedInfo: parsingSuccess ? {
+        skillsCount: aiExtracted.skills?.technical?.length || 0,
+        softSkillsCount: aiExtracted.skills?.soft?.length || 0,
+        experience: aiExtracted.experience?.level || 'unknown',
+        workHistoryCount: aiExtracted.experience?.positions?.length || 0,
+        educationCount: aiExtracted.education?.length || 0,
+        certificationsCount: aiExtracted.certifications?.length || 0,
+        projectsCount: aiExtracted.projects?.length || 0,
+        hasContactInfo: !!(aiExtracted.personalInfo?.email || aiExtracted.personalInfo?.phone),
+        extractedName: aiExtracted.personalInfo?.name || '',
+        extractedLocation: aiExtracted.personalInfo?.location || '',
+        linkedinFound: !!aiExtracted.personalInfo?.linkedin,
+        githubFound: !!aiExtracted.personalInfo?.github,
+      } : null,
+      autoMatchingTriggered: (aiExtracted.skills?.technical?.length || 0) > 0,
+    };
   }
 
 }
