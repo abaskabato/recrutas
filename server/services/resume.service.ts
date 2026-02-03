@@ -44,121 +44,49 @@ export class ResumeService {
   ) {}
 
   /**
-   * FAST upload - returns immediately without waiting for file storage
-   * Both file upload and AI parsing happen asynchronously in background
-   *
-   * This eliminates the 504 timeout that occurred when uploading large files
-   * to Supabase Storage (which can take 10-20+ seconds)
+   * Upload and process resume synchronously.
+   * Waits for both file upload and AI parsing to complete before returning.
+   * This ensures processing completes on serverless platforms like Vercel.
    */
   async uploadAndProcessResume(
     userId: string,
     fileBuffer: Buffer,
     mimetype: string
   ): Promise<ResumeProcessingResult> {
-    // Generate a temporary file name immediately
-    const tempFileName = `resume-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    const startTime = Date.now();
+    console.log(`[ResumeService] Starting resume upload for user: ${userId}`);
 
-    // STEP 1: Return immediately without waiting for storage/AI (<100ms)
-    // Both file upload and parsing happen in background
-    console.log('ResumeService: Queueing file upload and AI parsing to background');
-    this.uploadResumeInBackground(userId, fileBuffer, mimetype, tempFileName)
-      .catch(err => console.error('ResumeService: Background upload failed (non-critical):', err));
-
-    // STEP 2: Log activity (fire and forget)
-    this.storage.createActivityLog(userId, "resume_upload", "Resume upload queued for processing")
-      .catch(err => console.error('ResumeService: Activity log failed (non-critical):', err));
-
-    // STEP 3: Return immediately with quick response (<100ms)
-    return {
-      resumeUrl: tempFileName,
-      parsed: false,
-      aiParsing: {
-        success: false,
-        confidence: 0,
-        processingTime: 0,
-      },
-      extractedInfo: null,
-      autoMatchingTriggered: false,
-    };
-  }
-
-  /**
-   * Background job for file upload and AI parsing - no timeout pressure
-   * Uploads file to storage, then parses with AI
-   */
-  private async uploadResumeInBackground(
-    userId: string,
-    fileBuffer: Buffer,
-    mimetype: string,
-    fileName: string
-  ): Promise<void> {
     try {
-      console.log(`[ResumeService] Starting background file upload for user: ${userId}`);
-
       // Set processing status
       await this.storage.upsertCandidateUser({
         userId,
         resumeProcessingStatus: 'processing'
       });
 
+      // Step 1: Upload file to storage
+      console.log(`[ResumeService] Uploading file (${fileBuffer.length} bytes)...`);
       const resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);
       console.log(`[ResumeService] File uploaded to: ${resumeUrl}`);
-      await this.storage.upsertCandidateUser({ userId, resumeUrl });
-      console.log(`[ResumeService] Basic resume data saved for user: ${userId}`);
-      await this.parseResumeInBackground(userId, fileBuffer, mimetype, resumeUrl);
-      console.log(`[ResumeService] Finished background file upload for user: ${userId}`);
-    } catch (error) {
-      console.error(`[ResumeService] Background upload/parse error for user ${userId}:`, error);
-      // Always try to update status and log - don't swallow errors
-      try {
-        await this.storage.upsertCandidateUser({
-          userId,
-          resumeProcessingStatus: 'failed'
-        });
-      } catch (statusError) {
-        console.error(`[ResumeService] Failed to update status for user ${userId}:`, statusError);
-      }
-      try {
-        await this.storage.createActivityLog(
-          userId,
-          "resume_upload_failed",
-          `Resume upload failed: ${error?.message || 'Unknown error'}`
-        );
-      } catch (logError) {
-        console.error(`[ResumeService] Failed to create activity log for user ${userId}:`, logError);
-      }
-    }
-  }
 
-  /**
-   * Background job for AI parsing - no timeout pressure
-   * This runs independently and updates profile when complete
-   */
-  private async parseResumeInBackground(
-    userId: string,
-    fileBuffer: Buffer,
-    mimetype: string,
-    resumeUrl: string
-  ): Promise<void> {
-    try {
-      console.log(`[ResumeService] Starting background AI parsing for user: ${userId}`);
-      const startTime = Date.now();
-      const result = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      // Step 2: Parse with AI
+      console.log(`[ResumeService] Starting AI parsing...`);
+      const parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
       const processingTime = Date.now() - startTime;
-      console.log(`[ResumeService] AI parsing completed in ${processingTime}ms for user: ${userId}`);
+      console.log(`[ResumeService] AI parsing completed in ${processingTime}ms`);
 
-      const aiExtracted = result.aiExtracted || {};
-      console.log(`[ResumeService] Extracted skills for user ${userId}:`, aiExtracted.skills?.technical);
+      const aiExtracted = parseResult.aiExtracted || {};
+      console.log(`[ResumeService] Extracted skills:`, aiExtracted.skills?.technical);
 
+      // Step 3: Build profile update
       const profileUpdate: any = {
         userId,
         resumeUrl,
-        resumeText: result.text || '',
+        resumeText: parseResult.text || '',
         resumeProcessingStatus: 'completed',
         parsedAt: new Date(),
         resumeParsingData: {
-          confidence: result.confidence || 0,
-          processingTime: processingTime,
+          confidence: parseResult.confidence || 0,
+          processingTime,
           extractedSkillsCount: aiExtracted.skills?.technical?.length || 0,
           extractedPositionsCount: aiExtracted.experience?.positions?.length || 0,
           educationCount: aiExtracted.education?.length || 0,
@@ -167,6 +95,7 @@ export class ResumeService {
         },
       };
 
+      // Merge skills
       if (aiExtracted.skills?.technical?.length > 0) {
         const existingProfile = await this.storage.getCandidateUser(userId);
         const allSkills = [
@@ -176,56 +105,73 @@ export class ResumeService {
         profileUpdate.skills = Array.from(new Set(allSkills)).slice(0, 25);
       }
 
-      // Use the new experienceLevel field instead of experience
       if (aiExtracted.experience?.level) {
         profileUpdate.experienceLevel = aiExtracted.experience.level;
       }
-
       if (aiExtracted.personalInfo?.location) {
         profileUpdate.location = aiExtracted.personalInfo.location;
       }
-
       if (aiExtracted.personalInfo?.linkedin) {
         profileUpdate.linkedinUrl = aiExtracted.personalInfo.linkedin;
       }
-
       if (aiExtracted.personalInfo?.github) {
         profileUpdate.githubUrl = aiExtracted.personalInfo.github;
       }
 
+      // Step 4: Save to database
       await this.storage.upsertCandidateUser(profileUpdate);
-      console.log(`[ResumeService] Background parsing completed and profile updated for user: ${userId}`);
+      console.log(`[ResumeService] Profile updated for user: ${userId}`);
 
-      const skillsCount = aiExtracted.skills?.technical?.length || 0;
-      const experienceYears = aiExtracted.experience?.totalYears || 0;
-      const positionsCount = aiExtracted.experience?.positions?.length || 0;
-      const confidence = result.confidence || 0;
-
+      // Log activity
       await this.storage.createActivityLog(
         userId,
         "resume_parsing_complete",
-        `Resume parsed successfully with ${confidence}% confidence. Extracted ${skillsCount} skills, ${experienceYears} years experience, ${positionsCount} positions.`
+        `Resume parsed with ${parseResult.confidence}% confidence. Extracted ${aiExtracted.skills?.technical?.length || 0} skills.`
       );
-    } catch (error) {
-      console.error(`[ResumeService] Background parsing error for user ${userId}:`, error);
-      // Always try to update status and log - don't swallow errors
-      try {
-        await this.storage.upsertCandidateUser({
-          userId,
-          resumeProcessingStatus: 'failed'
-        });
-      } catch (statusError) {
-        console.error(`[ResumeService] Failed to update status for user ${userId}:`, statusError);
-      }
-      try {
-        await this.storage.createActivityLog(
-          userId,
-          "resume_parsing_failed",
-          `Resume parsing failed: ${error?.message || 'Unknown error'}. Resume is still uploaded.`
-        );
-      } catch (logError) {
-        console.error(`[ResumeService] Failed to create activity log for user ${userId}:`, logError);
-      }
+
+      // Return full results
+      return {
+        resumeUrl,
+        parsed: true,
+        aiParsing: {
+          success: true,
+          confidence: parseResult.confidence || 0,
+          processingTime,
+        },
+        extractedInfo: {
+          skillsCount: aiExtracted.skills?.technical?.length || 0,
+          softSkillsCount: aiExtracted.skills?.soft?.length || 0,
+          experience: aiExtracted.experience?.level || 'unknown',
+          workHistoryCount: aiExtracted.experience?.positions?.length || 0,
+          educationCount: aiExtracted.education?.length || 0,
+          certificationsCount: aiExtracted.certifications?.length || 0,
+          projectsCount: aiExtracted.projects?.length || 0,
+          hasContactInfo: !!(aiExtracted.personalInfo?.email || aiExtracted.personalInfo?.phone),
+          extractedName: aiExtracted.personalInfo?.name || '',
+          extractedLocation: aiExtracted.personalInfo?.location || '',
+          linkedinFound: !!aiExtracted.personalInfo?.linkedin,
+          githubFound: !!aiExtracted.personalInfo?.github,
+        },
+        autoMatchingTriggered: (aiExtracted.skills?.technical?.length || 0) > 0,
+      };
+
+    } catch (error: any) {
+      console.error(`[ResumeService] Error processing resume for user ${userId}:`, error);
+
+      // Update status to failed
+      await this.storage.upsertCandidateUser({
+        userId,
+        resumeProcessingStatus: 'failed'
+      }).catch(e => console.error('[ResumeService] Failed to update status:', e));
+
+      await this.storage.createActivityLog(
+        userId,
+        "resume_parsing_failed",
+        `Resume parsing failed: ${error?.message || 'Unknown error'}`
+      ).catch(e => console.error('[ResumeService] Failed to log activity:', e));
+
+      throw new ResumeProcessingError(`Failed to process resume: ${error?.message}`, error);
     }
   }
+
 }
