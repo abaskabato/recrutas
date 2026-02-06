@@ -112,7 +112,7 @@ export function getCachedProfile(): any | null {
 }
 
 export function setCachedProfile(profile: any): void {
-  if (profile && profile.skills && profile.skills.length > 0) {
+  if (profile) {
     SafeStorage.setItem(STORAGE_KEYS.candidateProfile, {
       data: profile,
       cachedAt: Date.now()

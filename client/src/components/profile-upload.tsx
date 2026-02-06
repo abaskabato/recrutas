@@ -15,10 +15,7 @@ interface ExtractedInfo {
   skills: string[];
   experience: string;
   workHistoryCount: number;
-}
-
-
-interface JobPreferences {
+}interface JobPreferences {
   salaryMin?: number;
   salaryMax?: number;
   commitmentTypes?: string[];
@@ -65,12 +62,12 @@ export default function ProfileUpload() {
   // Show error state with retry button
   if (isError && !profile) {
     return (
-      <Card className="border-amber-200 bg-amber-50">
+      <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/50">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-amber-600" />
-              <span className="text-amber-800">Could not load profile. Your data is safe.</span>
+              <span className="text-amber-800 dark:text-amber-200">Could not load profile. Your data is safe.</span>
             </div>
             <Button size="sm" variant="outline" onClick={() => queryClient.refetchQueries({ queryKey: ['/api/candidate/profile'] })}>
               Retry
