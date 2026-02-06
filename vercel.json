@@ -12,6 +12,13 @@
       }
     },
     {
+      "src": "api/cron/scrape-external-jobs.ts",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 60
+      }
+    },
+    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -20,6 +27,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/cron/(.*)",
+      "destination": "/api/cron/$1"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
@@ -32,7 +43,7 @@
   "crons": [
     {
       "path": "/api/cron/scrape-external-jobs",
-      "schedule": "0 0 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
