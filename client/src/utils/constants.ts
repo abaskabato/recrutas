@@ -221,6 +221,7 @@ export const STORAGE_KEYS = {
   draftJobPost: 'recrutas_draft_job',
   theme: 'recrutas_theme',
   notificationSettings: 'recrutas_notifications',
+  candidateProfile: 'recrutas_candidate_profile',
 } as const;
 
 // =============================================================================

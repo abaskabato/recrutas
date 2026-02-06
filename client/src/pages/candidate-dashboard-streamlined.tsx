@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
+import { getCachedProfile } from "@/utils/storage.utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,11 +131,11 @@ export default function CandidateStreamlinedDashboard() {
   // Fetch profile
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['/api/candidate/profile'],
-    queryFn: async () => {
-      const response = await apiRequest("GET", '/api/candidate/profile');
-      return response.json();
-    },
-    retry: false,
+    queryFn: fetchProfileWithCache,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    initialData: getCachedProfile,  // Use cached data while fetching
+    staleTime: 1000 * 60 * 5,       // Consider fresh for 5 minutes
   });
 
   // Fetch recent activity

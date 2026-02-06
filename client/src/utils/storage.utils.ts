@@ -94,6 +94,36 @@ export function setUserPreferences(preferences: Partial<UserPreferences>): void 
   SafeStorage.setItem(STORAGE_KEYS.userPreferences, updated);
 }
 
+// Profile caching for resilience
+export interface CachedProfile {
+  data: any;
+  cachedAt: number;
+}
+
+export function getCachedProfile(): any | null {
+  const cached = SafeStorage.getItem<CachedProfile | null>(STORAGE_KEYS.candidateProfile, null);
+  if (!cached) return null;
+
+  // Cache valid for 30 minutes
+  const MAX_AGE = 1000 * 60 * 30;
+  if (Date.now() - cached.cachedAt > MAX_AGE) return null;
+
+  return cached.data;
+}
+
+export function setCachedProfile(profile: any): void {
+  if (profile && profile.skills && profile.skills.length > 0) {
+    SafeStorage.setItem(STORAGE_KEYS.candidateProfile, {
+      data: profile,
+      cachedAt: Date.now()
+    });
+  }
+}
+
+export function clearCachedProfile(): void {
+  SafeStorage.removeItem(STORAGE_KEYS.candidateProfile);
+}
+
 /**
  * Search filters persistence
  */

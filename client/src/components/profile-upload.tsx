@@ -7,14 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Globe, Github, Linkedin, User, Camera, BarChart3, Edit3, Sparkles, X, Check, Briefcase } from "lucide-react";
+import { Upload, FileText, Globe, Github, Linkedin, User, Camera, BarChart3, Edit3, Sparkles, X, Check, Briefcase, AlertCircle } from "lucide-react";
 import { Badge } from "./ui/badge";
+import { fetchProfileWithCache } from "@/lib/queryClient";
 
 interface ExtractedInfo {
   skills: string[];
   experience: string;
   workHistoryCount: number;
 }
+
 
 interface JobPreferences {
   salaryMin?: number;
@@ -53,12 +55,32 @@ export default function ProfileUpload() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading, isError, error } = useQuery({
     queryKey: ['/api/candidate/profile'],
-    queryFn: async () => (await apiRequest("GET", '/api/candidate/profile')).json(),
-    retry: false,
+    queryFn: fetchProfileWithCache,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
+  // Show error state with retry button
+  if (isError && !profile) {
+    return (
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <span className="text-amber-800">Could not load profile. Your data is safe.</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => queryClient.refetchQueries({ queryKey: ['/api/candidate/profile'] })}>
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   useEffect(() => {
     if (profile && typeof profile === 'object') {
       setProfileLinks({

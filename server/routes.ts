@@ -439,15 +439,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error: any) {
       console.error("Error fetching candidate profile:", error?.message);
 
-      // Return empty profile instead of error if database is slow
-      // User can still proceed without full profile data
+      // Return a 503 Service Unavailable error on timeout
       if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
-        return res.json({
-          userId: req.user.id,
-          skills: [],
-          experience: 'unknown',
-          location: '',
-          message: 'Profile data temporarily unavailable'
+        console.warn(`Profile fetch timeout for user ${req.user.id}`);
+        return res.status(503).json({
+          error: 'service_temporarily_unavailable',
+          message: 'Profile data temporarily unavailable',
+          retryAfter: 3
         });
       }
 
