@@ -107,6 +107,9 @@ export class AIResumeParser {
       // Extract text from file or use sample for demo
       const text = typeof fileContent === 'string' && fileContent === 'text-input' ? this.getSampleResumeText() : await this.extractText(fileContent as Buffer, mimeType);
 
+      console.log(`[AIResumeParser] Extracted ${text.length} characters from ${mimeType}`);
+      console.log(`[AIResumeParser] Text preview: ${text.substring(0, 200).replace(/\n/g, ' ')}...`);
+
       // Use AI-powered extraction
       const aiExtracted = await this.extractWithAI(text);
 
@@ -249,30 +252,32 @@ English (Native), Spanish (Conversational)`;
             code: groqError.code,
             type: groqError.type
           });
-          // Continue to next provider
+          // Fall through to fallback - don't try other providers on connection errors
+          console.log('[AIResumeParser] Using rule-based fallback extraction...');
+          return this.extractWithFallback(text);
         }
       } else {
         console.warn('[AIResumeParser] Groq client not initialized - check GROQ_API_KEY');
       }
 
-      // Priority 2: Ollama (free, local option) - only if enabled
+      // Priority 2: Ollama (free, local option) - only if enabled and Groq not configured
       if (process.env.USE_OLLAMA === 'true') {
         try {
           const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
           const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
           console.log(`[AIResumeParser] Trying Ollama at ${ollamaUrl} with model ${ollamaModel}...`);
           return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
-        } catch (ollamaError) {
-          console.warn('[AIResumeParser] Ollama failed, falling back to Hugging Face:', ollamaError.message);
-          // Continue to Hugging Face fallback below
+        } catch (ollamaError: any) {
+          console.warn('[AIResumeParser] Ollama failed:', ollamaError.message);
+          // Fall through to fallback
         }
       }
 
-      // Priority 3: Hugging Face Inference API
+      // Priority 3: Hugging Face Inference API - only if others not available
       const apiKey = process.env.HF_API_KEY;
 
       if (!apiKey || apiKey === '%HF_API_KEY%') {
-        console.warn('[AIResumeParser] HF_API_KEY is not set. Using fallback extraction.');
+        console.log('[AIResumeParser] No AI providers available, using rule-based fallback extraction');
         return this.extractWithFallback(text);
       }
 
@@ -618,17 +623,24 @@ ${text}`
   }
 
   private async extractWithFallback(text: string): Promise<AIExtractedData> {
-    console.log('AIResumeParser: Using fallback rule-based extraction');
-    return {
+    console.log('[AIResumeParser] Using fallback rule-based extraction');
+    console.log(`[AIResumeParser] Text length: ${text.length} characters`);
+
+    const skills = this.extractSkillsAI(text);
+    console.log(`[AIResumeParser] Fallback found ${skills.technical.length} technical skills:`, skills.technical.slice(0, 10));
+
+    const result = {
       personalInfo: this.extractPersonalInfo(text),
       summary: this.extractSummary(text),
-      skills: this.extractSkillsAI(text),
+      skills,
       experience: this.extractExperienceAI(text),
       education: this.extractEducation(text),
       certifications: this.extractCertifications(text),
       projects: this.extractProjects(text),
       languages: this.extractLanguages(text)
     };
+
+    return result;
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {
