@@ -41,6 +41,17 @@ async function initializeSupabase() {
 }
 
 async function initializeBackgroundServices() {
+  // DISABLE background services on Vercel serverless - they exhaust the DB connection pool
+  // These services need to run on a dedicated server or via cron jobs
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const enableBackgroundServices = process.env.ENABLE_BACKGROUND_SERVICES === 'true';
+
+  if (isServerless && !enableBackgroundServices) {
+    console.log('[Services] Skipping background services (serverless environment)');
+    console.log('[Services] Set ENABLE_BACKGROUND_SERVICES=true to override');
+    return;
+  }
+
   console.log('[Services] Starting background services...');
 
   try {

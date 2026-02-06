@@ -25,13 +25,14 @@ try {
   // Detect if using Supabase pooler (pgBouncer)
   const isPgBouncer = connectionString.includes('pooler.supabase.com') ||
                       connectionString.includes('pgbouncer=true');
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
   // Create connection to PostgreSQL with optimized settings for serverless environments
   client = postgres(connectionString, {
-    max: 3, // Reduce max connections for serverless (prevents pool exhaustion)
-    idle_timeout: 20, // Close idle connections faster
-    connect_timeout: 10, // Faster connection timeout
-    statement_timeout: 25000, // 25 second statement timeout
+    max: isServerless ? 1 : 3, // Single connection per serverless function to prevent pool exhaustion
+    idle_timeout: 10, // Close idle connections very fast in serverless
+    connect_timeout: 10, // Connection timeout
+    statement_timeout: 20000, // 20 second statement timeout
     connection: {
       application_name: 'recrutas-app',
     },
@@ -39,7 +40,7 @@ try {
     debug: false, // Disable debug to reduce overhead
     prepare: !isPgBouncer, // Disable prepared statements for pgBouncer
   });
-  console.log(`✅ Postgres client initialized (pgBouncer: ${isPgBouncer})`);
+  console.log(`✅ Postgres client initialized (pgBouncer: ${isPgBouncer}, serverless: ${!!isServerless})`);
 } catch (error) {
   console.error('❌ Error initializing Postgres client:', error);
   throw error; // Re-throw the error to prevent the application from starting
