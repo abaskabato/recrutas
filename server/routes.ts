@@ -426,8 +426,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
     try {
       // Add timeout to prevent hanging on database connection issues
+      // 15s timeout allows for serverless cold starts + DB connection time
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 8000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 15000)
       );
 
       const profile = await Promise.race([

@@ -22,19 +22,24 @@ console.log(`🔗 Using database connection: ${maskedConnectionString}`);
 
 export let client;
 try {
+  // Detect if using Supabase pooler (pgBouncer)
+  const isPgBouncer = connectionString.includes('pooler.supabase.com') ||
+                      connectionString.includes('pgbouncer=true');
+
   // Create connection to PostgreSQL with optimized settings for serverless environments
   client = postgres(connectionString, {
-    max: 5, // Allow up to 5 connections per Vercel function instance
-    idle_timeout: 30,
-    connect_timeout: 15,
-    statement_timeout: 30000, // 30 second statement timeout
+    max: 3, // Reduce max connections for serverless (prevents pool exhaustion)
+    idle_timeout: 20, // Close idle connections faster
+    connect_timeout: 10, // Faster connection timeout
+    statement_timeout: 25000, // 25 second statement timeout
     connection: {
       application_name: 'recrutas-app',
     },
     ssl: 'require', // Required for Supabase/Neon
     debug: false, // Disable debug to reduce overhead
+    prepare: !isPgBouncer, // Disable prepared statements for pgBouncer
   });
-  console.log('✅ Postgres client initialized');
+  console.log(`✅ Postgres client initialized (pgBouncer: ${isPgBouncer})`);
 } catch (error) {
   console.error('❌ Error initializing Postgres client:', error);
   throw error; // Re-throw the error to prevent the application from starting
@@ -42,6 +47,17 @@ try {
 
 
 export const db = drizzle(client, { schema });
+
+// Pre-warm the database connection on module load
+// This helps reduce cold start latency on serverless
+(async () => {
+  try {
+    await client`SELECT 1`;
+    console.log('✅ Database connection pre-warmed');
+  } catch (error) {
+    console.warn('⚠️ Database pre-warm failed (will retry on first query):', error);
+  }
+})();
 
 // Function to test the database connection
 export async function testDbConnection() {
