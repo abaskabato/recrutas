@@ -242,10 +242,17 @@ English (Native), Spanish (Conversational)`;
         try {
           console.log('[AIResumeParser] Trying Groq API (primary)...');
           return await this.extractWithGroq(text);
-        } catch (groqError) {
-          console.warn('[AIResumeParser] Groq failed, trying fallback providers:', groqError.message);
+        } catch (groqError: any) {
+          console.error('[AIResumeParser] Groq failed:', {
+            message: groqError.message,
+            status: groqError.status,
+            code: groqError.code,
+            type: groqError.type
+          });
           // Continue to next provider
         }
+      } else {
+        console.warn('[AIResumeParser] Groq client not initialized - check GROQ_API_KEY');
       }
 
       // Priority 2: Ollama (free, local option) - only if enabled
@@ -501,16 +508,22 @@ Return JSON with this exact structure:
 
     console.log('[AIResumeParser] Calling Groq API with llama-3.3-70b-versatile...');
 
-    const completion = await groqClient.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.'
-        },
-        {
-          role: 'user',
-          content: `Extract the following information from this resume text and return as JSON:
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Groq API timeout (30s)')), 30000)
+    );
+
+    const completion = await Promise.race([
+      groqClient.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.'
+          },
+          {
+            role: 'user',
+            content: `Extract the following information from this resume text and return as JSON:
 
 {
   "personalInfo": {
@@ -561,12 +574,14 @@ Return JSON with this exact structure:
 
 Resume text:
 ${text}`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 2000
-    });
+          }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 2000
+      }),
+      timeoutPromise
+    ]);
 
     const content = completion.choices?.[0]?.message?.content || '{}';
     console.log('[AIResumeParser] Groq API response received, parsing JSON...');

@@ -90,10 +90,19 @@ export class ResumeService {
       console.log(`[ResumeService] Starting AI parsing...`);
       parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
       aiExtracted = parseResult?.aiExtracted || {};
-      parsingSuccess = true;
-      console.log(`[ResumeService] AI parsing succeeded, skills:`, aiExtracted.skills?.technical);
+      parsingSuccess = (aiExtracted.skills?.technical?.length > 0);
+      console.log(`[ResumeService] AI parsing completed:`, {
+        hasText: !!parseResult?.text,
+        textLength: parseResult?.text?.length || 0,
+        skillsCount: aiExtracted.skills?.technical?.length || 0,
+        confidence: parseResult?.confidence || 0,
+        parsingSuccess
+      });
     } catch (parseError: any) {
-      console.error(`[ResumeService] AI parsing failed (non-fatal):`, parseError?.message);
+      console.error(`[ResumeService] AI parsing failed (non-fatal):`, {
+        error: parseError?.message,
+        stack: parseError?.stack?.split('\n').slice(0, 3).join('\n')
+      });
       // Continue - upload succeeded, parsing failed
     }
 
