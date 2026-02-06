@@ -366,12 +366,12 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
 
                               {/* Skills */}
                               <div className="flex flex-wrap gap-1.5 mt-2">
-                                {job.skills.slice(0, 3).map((skill) => (
+                                {(job.skills || []).slice(0, 3).map((skill) => (
                                   <Badge key={skill} variant="secondary" className="text-xs">
                                     {skill}
                                   </Badge>
                                 ))}
-                                {job.skills.length > 3 && (
+                                {(job.skills || []).length > 3 && (
                                   <Badge variant="outline" className="text-xs">
                                     +{job.skills.length - 3}
                                   </Badge>

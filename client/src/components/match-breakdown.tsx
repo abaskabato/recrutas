@@ -62,7 +62,7 @@ export default function MatchBreakdown({ match, job }: MatchBreakdownProps) {
       score: Math.round(breakdown.skills),
       weight: "35%",
       icon: <Target className="h-4 w-4" />,
-      description: `${match.skillMatches.length} of ${job.skills.length} required skills matched`
+      description: `${match.skillMatches?.length || 0} of ${job.skills?.length || 0} required skills matched`
     },
     {
       label: "Experience Level",

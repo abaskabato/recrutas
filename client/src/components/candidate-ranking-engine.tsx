@@ -136,8 +136,8 @@ export default function CandidateRankingEngine({
       if (filters.status.length > 0 && !filters.status.includes(candidate.status)) return false;
       if (filters.autoQualifiedOnly && !candidate.autoQualified) return false;
       if (filters.skillMatch.length > 0) {
-        const hasSkillMatch = filters.skillMatch.some(skill => 
-          candidate.candidate.skills.some(candidateSkill => 
+        const hasSkillMatch = filters.skillMatch.some(skill =>
+          (candidate.candidate.skills || []).some(candidateSkill =>
             candidateSkill.toLowerCase().includes(skill.toLowerCase())
           )
         );
@@ -406,11 +406,11 @@ export default function CandidateRankingEngine({
 
                   {/* Skills Tags */}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {candidate.candidate.skills.slice(0, 5).map((skill, skillIndex) => {
+                    {(candidate.candidate.skills || []).slice(0, 5).map((skill, skillIndex) => {
                       const isMatchingSkill = jobDetails?.skills?.includes(skill);
                       return (
-                        <Badge 
-                          key={skillIndex} 
+                        <Badge
+                          key={skillIndex}
                           variant={isMatchingSkill ? "default" : "secondary"}
                           className={isMatchingSkill ? "bg-purple-100 text-purple-800" : ""}
                         >
@@ -418,9 +418,9 @@ export default function CandidateRankingEngine({
                         </Badge>
                       );
                     })}
-                    {candidate.candidate.skills.length > 5 && (
+                    {(candidate.candidate.skills || []).length > 5 && (
                       <Badge variant="outline">
-                        +{candidate.candidate.skills.length - 5} more
+                        +{(candidate.candidate.skills || []).length - 5} more
                       </Badge>
                     )}
                   </div>
@@ -496,7 +496,7 @@ export default function CandidateRankingEngine({
                 {(() => {
                   const skillCounts: Record<string, number> = {};
                   rankedCandidates.forEach(candidate => {
-                    candidate.candidate.skills.forEach(skill => {
+                    (candidate.candidate.skills || []).forEach(skill => {
                       skillCounts[skill] = (skillCounts[skill] || 0) + 1;
                     });
                   });

@@ -56,8 +56,13 @@ export async function fetchProfileWithCache(): Promise<any> {
   }
 
   const profile = await res.json();
-  setCachedProfile(profile);
-  return profile;
+  // Ensure skills is always an array to prevent crashes
+  const safeProfile = {
+    ...profile,
+    skills: profile.skills || [],
+  };
+  setCachedProfile(safeProfile);
+  return safeProfile;
 }
 
 export const queryClient = new QueryClient({

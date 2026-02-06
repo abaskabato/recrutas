@@ -34,8 +34,8 @@ export function calculateJobMatch(candidate: CandidateProfile, job: JobPosting):
   const maxScore = 100;
   
   // Skills matching (40% weight)
-  const candidateSkills = candidate.skills.map(s => s.toLowerCase());
-  const jobSkills = job.skills.map(s => s.toLowerCase());
+  const candidateSkills = (candidate.skills || []).map(s => s.toLowerCase());
+  const jobSkills = (job.skills || []).map(s => s.toLowerCase());
   const skillMatches = jobSkills.filter(skill => 
     candidateSkills.some(cSkill => cSkill.includes(skill) || skill.includes(cSkill))
   );
