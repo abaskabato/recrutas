@@ -2,6 +2,31 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { supabase } from './supabase-client';
 import { getCachedProfile, setCachedProfile } from '@/utils/storage.utils';
 
+/**
+ * Generic API request helper with authentication
+ */
+export async function apiRequest(method: string, url: string, body?: any): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  return response;
+}
+
 export async function fetchProfileWithCache(): Promise<any> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
