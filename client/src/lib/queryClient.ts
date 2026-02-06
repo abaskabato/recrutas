@@ -4,24 +4,30 @@ import { getCachedProfile, setCachedProfile } from '@/utils/storage.utils';
 
 /**
  * Generic API request helper with authentication
+ * Handles both JSON and FormData bodies automatically
  */
 export async function apiRequest(method: string, url: string, body?: any): Promise<Response> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+  const headers: Record<string, string> = {};
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Handle FormData (file uploads) vs JSON
+  const isFormData = body instanceof FormData;
+  if (!isFormData && body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  // Don't set Content-Type for FormData - browser sets it with boundary
+
   const response = await fetch(url, {
     method,
     headers,
     credentials: 'include',
-    body: body ? JSON.stringify(body) : undefined,
+    body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
   });
 
   return response;
