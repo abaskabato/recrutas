@@ -734,26 +734,22 @@ describe('Integration Tests', () => {
 describe('Error Handling & Edge Cases', () => {
   describe('Timeout Behavior', () => {
     it('should handle fetch timeout gracefully', async () => {
-      // Mock a fetch that never resolves
-      const mockFetch = jest.fn(() => new Promise(() => {})); // Never resolves
-      
+      // Test that AbortController can cancel a fetch
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10); // Quick abort
       
-      let errorName = '';
+      // Abort immediately
+      controller.abort();
+      
+      let caughtError = false;
       try {
-        await Promise.race([
-          mockFetch('https://hiring.cafe/api/test', { signal: controller.signal }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 50))
-        ]);
+        await fetch('https://hiring.cafe/api/test', { signal: controller.signal });
       } catch (error: any) {
-        errorName = error.name || error.message;
+        caughtError = true;
+        // Should be an abort error
+        expect(error.name).toBe('AbortError');
       }
       
-      clearTimeout(timeoutId);
-      
-      // Should have caught either AbortError or Timeout
-      expect(['AbortError', 'Timeout'].some(e => errorName.includes(e))).toBe(true);
+      expect(caughtError).toBe(true);
     });
 
     it('should return partial results on timeout', () => {
