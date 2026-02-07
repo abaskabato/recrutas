@@ -1,0 +1,47 @@
+name: Scrape Tech Company Jobs
+
+on:
+  schedule:
+    - cron: '0 6,18 * * *'  # 6:00 AM and 6:00 PM UTC
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Scrape Tier 1 — Greenhouse companies (29)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx scripts/scrape-tier.ts --tier=1 --timeout=900000
+        continue-on-error: true
+
+      - name: Scrape Tier 2 — Lever + Workday companies (22)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx scripts/scrape-tier.ts --tier=2 --timeout=600000
+        continue-on-error: true
+
+      - name: Scrape Tier 3 — Custom career pages (21)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx scripts/scrape-tier.ts --tier=3 --timeout=300000
+        continue-on-error: true
+
+      - name: Cleanup stale jobs (>15 days)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx scripts/scrape-tier.ts --cleanup --days=15

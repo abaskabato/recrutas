@@ -603,125 +603,164 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  /**
+   * Compute match tier label from a percentage score.
+   */
+  private getMatchTier(score: number): 'great' | 'good' | 'worth-a-look' {
+    if (score >= 75) return 'great';
+    if (score >= 50) return 'good';
+    return 'worth-a-look';
+  }
+
+  /**
+   * Compute freshness label from a job's creation date.
+   */
+  private getFreshnessLabel(createdAt: Date | null): { freshness: 'just-posted' | 'this-week' | 'recent'; daysOld: number } {
+    if (!createdAt) return { freshness: 'recent', daysOld: 15 };
+    const daysOld = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysOld <= 3) return { freshness: 'just-posted', daysOld };
+    if (daysOld <= 7) return { freshness: 'this-week', daysOld };
+    return { freshness: 'recent', daysOld };
+  }
+
+  /**
+   * Fetch and score jobs for a candidate. Shared logic for both flat and sectioned responses.
+   */
+  private async fetchScoredJobs(candidateId: string): Promise<any[] | null> {
+    const candidate = await this.getCandidateUser(candidateId);
+
+    if (!candidate || !candidate.skills || candidate.skills.length === 0) {
+      console.log(`Candidate ${candidateId} has no skills - returning empty (upload resume first)`);
+      return null;
+    }
+
+    const jobPreferences = (candidate as any)?.jobPreferences || {};
+    console.log(`Candidate skills: ${candidate.skills.join(', ')}`);
+
+    const allJobs = await db
+      .select()
+      .from(jobPostings)
+      .where(and(
+        eq(jobPostings.status, 'active'),
+        or(...candidate.skills.map(skill =>
+          sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`
+        )),
+        or(
+          sql`${jobPostings.expiresAt} IS NULL`,
+          sql`${jobPostings.expiresAt} > NOW()`
+        ),
+        or(
+          eq(jobPostings.livenessStatus, 'active'),
+          eq(jobPostings.livenessStatus, 'unknown')
+        )
+      ))
+      .orderBy(
+        sql`${jobPostings.trustScore} DESC NULLS LAST`,
+        sql`${jobPostings.createdAt} DESC`
+      )
+      .limit(100);
+
+    const jobsWithSource = allJobs.map((job: any) => ({
+      ...job,
+      requirements: Array.isArray(job.requirements) ? job.requirements : [],
+      skills: Array.isArray(job.skills) ? job.skills : []
+    }));
+
+    console.log(`Found ${jobsWithSource.length} matching jobs (internal + external)`);
+
+    const recommendations = jobsWithSource
+      .map(job => {
+        const matchingSkills = candidate.skills.filter(skill =>
+          job.skills && job.skills.includes(skill)
+        );
+        const skillMatchPercentage = matchingSkills.length > 0
+          ? Math.round((matchingSkills.length / Math.max(candidate.skills.length, 1)) * 100)
+          : 0;
+
+        const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
+
+        return {
+          ...job,
+          matchScore: skillMatchPercentage,
+          matchTier: this.getMatchTier(skillMatchPercentage),
+          skillMatches: matchingSkills,
+          aiExplanation: `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`,
+          isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
+          isDirectFromCompany: job.trustScore >= 85,
+          freshness,
+          daysOld,
+        };
+      })
+      .filter(job => job.matchScore >= 40) // 40% minimum threshold
+      .filter(job => {
+        if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
+          const jobSalaryMin = job.salaryMin || 0;
+          const jobSalaryMax = job.salaryMax || 999999;
+          if (jobPreferences.salaryMin && jobSalaryMax < jobPreferences.salaryMin) return false;
+          if (jobPreferences.salaryMax && jobSalaryMin > jobPreferences.salaryMax) return false;
+        }
+        if (jobPreferences.companySizes && jobPreferences.companySizes.length > 0) {
+          const jobWorkType = job.workType?.toLowerCase();
+          const preferredWorkTypes = jobPreferences.companySizes.map((t: string) => t.toLowerCase());
+          if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) return false;
+        }
+        if (jobPreferences.industries && jobPreferences.industries.length > 0) {
+          const jobIndustry = job.industry?.toLowerCase();
+          const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
+          if (jobIndustry && !preferredIndustries.some(ind => jobIndustry.includes(ind))) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.matchScore !== b.matchScore) return b.matchScore - a.matchScore;
+        return (b.trustScore || 0) - (a.trustScore || 0);
+      });
+
+    console.log(`After filtering (40%+ match): ${recommendations.length} recommendations`);
+    return recommendations;
+  }
+
+  /**
+   * Get job recommendations as a flat array (backward-compatible for /api/ai-matches).
+   */
   async getJobRecommendations(candidateId: string): Promise<any[]> {
     try {
-      const candidate = await this.getCandidateUser(candidateId);
-
-      // Require skills for personalized matching - this is what makes Recrutas different
-      if (!candidate || !candidate.skills || candidate.skills.length === 0) {
-        console.log(`Candidate ${candidateId} has no skills - returning empty (upload resume first)`);
-        return [];
-      }
-
-      // Extract job preferences from candidate profile
-      const jobPreferences = (candidate as any)?.jobPreferences || {};
-      console.log(`Candidate preferences:`, jobPreferences);
-      console.log(`Candidate skills: ${candidate.skills.join(', ')}`);
-
-      // Fetch active, non-expired, non-stale jobs matching candidate skills
-      const allJobs = await db
-        .select()
-        .from(jobPostings)
-        .where(and(
-          eq(jobPostings.status, 'active'),
-          or(...candidate.skills.map(skill =>
-            sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`
-          )),
-          or(
-            sql`${jobPostings.expiresAt} IS NULL`,
-            sql`${jobPostings.expiresAt} > NOW()`
-          ),
-          // Filter out stale jobs
-          or(
-            eq(jobPostings.livenessStatus, 'active'),
-            eq(jobPostings.livenessStatus, 'unknown')
-          )
-        ))
-        .orderBy(
-          sql`${jobPostings.trustScore} DESC NULLS LAST`,
-          sql`${jobPostings.createdAt} DESC`
-        )
-        .limit(100);
-
-      const jobsWithSource = allJobs.map((job: any) => ({
-        ...job,
-        requirements: Array.isArray(job.requirements) ? job.requirements : [],
-        skills: Array.isArray(job.skills) ? job.skills : []
-      }));
-
-      console.log(`Found ${jobsWithSource.length} matching jobs (internal + external)`);
-
-      // Simple skill-based matching (fast, no AI calls)
-      // Returns jobs that have overlapping skills with candidate
-      const recommendations = jobsWithSource
-        .map(job => {
-          // Count matching skills
-          const matchingSkills = candidate.skills.filter(skill =>
-            job.skills && job.skills.includes(skill)
-          );
-
-          const skillMatchPercentage = matchingSkills.length > 0
-            ? Math.round((matchingSkills.length / Math.max(candidate.skills.length, 1)) * 100)
-            : 0;
-
-          return {
-            ...job,
-            matchScore: skillMatchPercentage,
-            skillMatches: matchingSkills,
-            aiExplanation: `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`,
-            isVerifiedActive: job.livenessStatus === 'active' && job.trustScore >= 90,
-            isDirectFromCompany: job.trustScore >= 85,
-          };
-        })
-        .filter(job => job.matchScore > 0) // Only include jobs with at least 1 skill match
-        // Apply job preferences filters
-        .filter(job => {
-          // Filter by salary range if specified
-          if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
-            const jobSalaryMin = job.salaryMin || 0;
-            const jobSalaryMax = job.salaryMax || 999999;
-
-            if (jobPreferences.salaryMin && jobSalaryMax < jobPreferences.salaryMin) {
-              return false; // Job salary max is below candidate minimum
-            }
-            if (jobPreferences.salaryMax && jobSalaryMin > jobPreferences.salaryMax) {
-              return false; // Job salary min is above candidate maximum
-            }
-          }
-
-          // Filter by work type/location if specified
-          if (jobPreferences.companySizes && jobPreferences.companySizes.length > 0) {
-            const jobWorkType = job.workType?.toLowerCase();
-            const preferredWorkTypes = jobPreferences.companySizes.map((t: string) => t.toLowerCase());
-            if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {
-              return false;
-            }
-          }
-
-          // Filter by industry if specified
-          if (jobPreferences.industries && jobPreferences.industries.length > 0) {
-            const jobIndustry = job.industry?.toLowerCase();
-            const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
-            if (jobIndustry && !preferredIndustries.some(ind => jobIndustry.includes(ind))) {
-              return false;
-            }
-          }
-
-          return true;
-        })
-        .sort((a, b) => {
-          // Sort by: match score first, then trust score
-          if (a.matchScore !== b.matchScore) {
-            return b.matchScore - a.matchScore;
-          }
-          return (b.trustScore || 0) - (a.trustScore || 0);
-        });
-
-      console.log(`After applying preferences filter: ${recommendations.length} recommendations`);
+      const recommendations = await this.fetchScoredJobs(candidateId);
+      if (!recommendations) return [];
       console.log(`Returning ${Math.min(recommendations.length, 20)} job recommendations`);
       return recommendations.slice(0, 20);
     } catch (error) {
       console.error('Error fetching job recommendations:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get job recommendations split into two sections:
+   *   - applyAndKnowToday: Internal (platform) jobs with exam/chat metadata
+   *   - matchedForYou: External jobs with freshness/source metadata
+   *
+   * Used by the two-section discovery endpoint.
+   */
+  async getJobRecommendationsSectioned(candidateId: string): Promise<{
+    applyAndKnowToday: any[];
+    matchedForYou: any[];
+  }> {
+    try {
+      const recommendations = await this.fetchScoredJobs(candidateId);
+      if (!recommendations) return { applyAndKnowToday: [], matchedForYou: [] };
+
+      const applyAndKnowToday = recommendations
+        .filter(job => job.source === 'platform' || !job.externalUrl);
+
+      const matchedForYou = recommendations
+        .filter(job => job.source !== 'platform' && job.externalUrl)
+        .slice(0, 20);
+
+      console.log(`Sectioned: ${applyAndKnowToday.length} internal, ${matchedForYou.length} external`);
+      return { applyAndKnowToday, matchedForYou };
+    } catch (error) {
+      console.error('Error fetching sectioned job recommendations:', error);
       throw error;
     }
   }

@@ -242,6 +242,72 @@ export class SOTAScraperService {
   }
 
   /**
+   * Scrape a subset of companies by tier (for GitHub Actions).
+   * Tier 1: Greenhouse companies (API-based, fast)
+   * Tier 2: Lever + Workday companies
+   * Tier 3: Custom career pages (AI extraction, slowest)
+   */
+  async scrapeSubset(tier: 1 | 2 | 3, options?: { signal?: AbortSignal }): Promise<ScrapeResult> {
+    const startTime = Date.now();
+    const result: ScrapeResult = {
+      success: true,
+      companiesScraped: 0,
+      totalJobsFound: 0,
+      jobsIngested: 0,
+      errors: [],
+      duration: 0
+    };
+
+    // Filter companies by tier based on ATS type
+    const tierCompanies = this.companies.filter(c => {
+      if (tier === 1) return c.ats?.type === 'greenhouse';
+      if (tier === 2) return c.ats?.type === 'lever' || (LEGACY_COMPANIES.find(
+        l => l.name === c.name
+      ) as any)?.workdayId;
+      // Tier 3: no ATS (custom career pages)
+      return !c.ats;
+    });
+
+    logger.info(`Scraping tier ${tier}: ${tierCompanies.length} companies`);
+
+    try {
+      const { results, jobs } = await this.orchestrator.scrapeCompanies(tierCompanies, options?.signal);
+
+      result.companiesScraped = results.length;
+      result.totalJobsFound = jobs.length;
+
+      for (const scrapeResult of results) {
+        if (scrapeResult.error) {
+          result.errors.push(`${scrapeResult.companyName}: ${scrapeResult.error.message}`);
+        }
+      }
+
+      if (jobs.length > 0) {
+        const ingestionInputs = jobs.map(convertToIngestionFormat);
+        const ingestionStats = await jobIngestionService.ingestExternalJobs(ingestionInputs);
+        result.jobsIngested = ingestionStats.inserted;
+
+        logger.info(`Tier ${tier} ingestion: ${ingestionStats.inserted} new, ${ingestionStats.duplicates} duplicates`);
+      }
+
+      result.duration = Date.now() - startTime;
+      logger.info(`Tier ${tier} complete in ${result.duration}ms`, {
+        companiesScraped: result.companiesScraped,
+        totalJobsFound: result.totalJobsFound,
+        jobsIngested: result.jobsIngested,
+      });
+
+    } catch (error) {
+      result.success = false;
+      result.errors.push(`Fatal error: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`Tier ${tier} scraper failed`, { error });
+    }
+
+    result.duration = Date.now() - startTime;
+    return result;
+  }
+
+  /**
    * Scrape a specific company (for testing)
    */
   async scrapeCompany(companyId: string): Promise<ScrapeResult> {

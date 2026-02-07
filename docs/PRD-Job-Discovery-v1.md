@@ -1,781 +1,466 @@
 # Product Requirements Document (PRD)
-## Job Discovery Service v1.0
+## Job Discovery Service v1.0 (Revised)
 
-**Author:** Architecture Discussion  
-**Date:** February 7, 2026  
-**Status:** Ready for Review  
+**Author:** Architecture Discussion
+**Date:** February 7, 2026
+**Status:** Ready for Implementation
 **Stakeholders:** Engineering Team, Product Team
 
 ---
 
-## 1. Executive Summary
+## 1. Context & Motivation
+
+The original PRD proposed a three-tier job discovery system but treated it as greenfield, ignoring substantial existing infrastructure. This revision:
+
+1. Anchors every proposal to existing code (what to keep, what to extend, what's new)
+2. Incorporates review decisions: GitHub Actions for scraping, real-time hiring.cafe + cache-on-read, tiered match display (40%+), two-section UX model
+3. Removes redundant schema proposals (columns already exist in `shared/schema.ts`)
+4. Adds the missing data transformation spec for hiring.cafe → `ExternalJobInput`
+5. Fixes performance budget to reflect the parallel DB + hiring.cafe architecture
+6. Reframes internal vs external as **two complementary experiences**, not a ranking competition
 
 ### 1.1 Problem Statement
-Current job discovery is limited to 94 tech companies scraped via Vercel cron, which:
-- Times out due to 60s execution limit (Hobby plan constraint)
-- Only serves tech workers (excludes blue-collar, hospitality, trades)
-- Lacks real-time discovery capabilities
-- May include stale job listings
+Current job discovery is limited to 94 tech companies scraped via a single Vercel cron (`api/cron/scrape-external-jobs.ts`), which:
+- Times out: tries to scrape 94 companies in 55s against Vercel Hobby's 60s limit
+- Only serves tech workers (excludes blue-collar, hospitality, trades, healthcare)
+- Lacks real-time discovery for non-tech industries
+- May include stale listings (mitigated by existing `job-liveness-service.ts`)
 
 ### 1.2 Solution Overview
-Implement a **three-tier job discovery architecture**:
-1. **Internal Jobs** - Platform employers (unlimited, prioritized)
-2. **Verified External** - 73 curated tech companies (cached, refreshed 2x daily)
-3. **Discovery External** - Hiring.cafe API (on-demand, any job type)
+Implement a **two-section job discovery architecture** backed by parallel data fetching:
+
+1. **"Apply & Know Today"** — Internal (paying employer) jobs with exam pipeline
+2. **"Matched For You"** — External jobs (career page scrapes + hiring.cafe), matched to resume
 
 ### 1.3 Success Metrics
 - Support any job type (not just tech)
-- 100% fresh listings (≤15 days old)
-- ≤20 second response time for resume matching
-- 75%+ relevance matching threshold
-- Zero Vercel timeouts
+- 100% fresh listings (≤15 days old for external, unexpired for internal)
+- ≤17s response time for first-time non-tech queries; ≤2.5s for cached/tech queries
+- 40%+ relevance matching threshold with tiered display
+- Zero Vercel cron timeouts (scraping moved to GitHub Actions)
 
 ---
 
-## 2. Goals & Non-Goals
+## 2. Product Positioning
 
-### 2.1 Goals
-- [ ] Universal job coverage (tech, hospitality, trades, healthcare)
-- [ ] Real-time discovery via hiring.cafe API
-- [ ] Strict freshness enforcement (15-day cutoff)
+### 2.1 Two Sections, Two Value Props
+
+**Section 1: "Apply & Know Today"** — Internal (paying employer) jobs
+- Employer paid to post on Recrutas → exam pipeline → score within minutes → pass/fail same day → qualified candidates get direct chat with hiring manager
+- Metadata shown: `hasExam`, `examPassingScore`, `applicationCount`, `maxChatCandidates`, `expiresAt`
+- CTA: "Take Exam Now" / "Apply & Get Results Today"
+- **Why this is premium:** The candidate gets a definitive answer, not a black hole. The employer gets pre-screened candidates ranked by exam score. Both sides save time.
+
+**Section 2: "Matched For You"** — External jobs (career page scrapes + hiring.cafe)
+- Recrutas scraped 94+ company career pages directly, verified each job is real and active, and matched them to YOUR resume
+- The candidate didn't have to search Stripe, Google, Netflix career pages themselves — Recrutas did it and found what fits
+- Hiring.cafe extends coverage to any industry (hospitality, trades, healthcare) for non-tech users
+- Metadata shown: source company, freshness label ("Posted 2 days ago"), verification badge ("Verified Active"), match score tier
+- CTA: "Apply on Company Site"
+- **Why this has value:** Real jobs from real career pages, not aggregator spam. Fresh (≤15 days). Actively verified. Matched to your specific skills.
+
+### 2.2 No Unified Scoring Boost
+Internal and external jobs are **not ranked on the same axis**. They appear in separate sections. Within each section, jobs are ranked by match score (skill overlap %) with tiered labels:
+
+| Tier | Score Range | Display | Style |
+|------|-------------|---------|-------|
+| **Great Match** | 75%+ | Highlighted | Accent border/badge |
+| **Good Match** | 50-74% | Normal display | Standard card |
+| **Worth a Look** | 40-49% | Muted | Reduced opacity |
+| Below 40% | — | Filtered out | Not shown |
+
+---
+
+## 3. Goals & Non-Goals
+
+### 3.1 Goals
+- [ ] Universal job coverage (tech, hospitality, trades, healthcare) via hiring.cafe
+- [ ] Real-time discovery via hiring.cafe API with cache-on-read
+- [ ] Strict freshness enforcement (15-day cutoff for external, expiry check for internal)
 - [ ] Quality over quantity (20 highly relevant external jobs max)
-- [ ] Internal jobs prioritized (direct platform value)
-- [ ] GitHub Actions migration for long-running scrapes
+- [ ] Two-section UX: internal premium + external matched
+- [ ] GitHub Actions migration for long-running tech company scrapes
+- [ ] Graceful degradation when hiring.cafe is unavailable
 
-### 2.2 Non-Goals
-- [ ] Real-time WebSocket updates (out of scope for MVP)
-- [ ] Multi-page company scraping (>2 pages per source)
-- [ ] Background job queues (use simple caching strategy)
-- [ ] Machine learning for matching (use keyword/skill matching)
-
----
-
-## 3. Technical Architecture
-
-### 3.1 System Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        USER REQUEST                         │
-│                    POST /api/jobs/discover                  │
-│                      { resume: string }                     │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-            ┌──────────────────────┐
-            │   Resume Parser      │
-            │   - Extract skills   │
-            │   - Extract title    │
-            │   - Build query      │
-            └──────────┬───────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-        ▼              ▼              ▼
-┌──────────────┐ ┌────────────┐ ┌──────────────────┐
-│  INTERNAL    │ │  CACHED    │ │  HIRING.CAFE     │
-│  JOBS        │ │  TECH COs  │ │  (On-Demand)     │
-│              │ │            │ │                  │
-│  PostgreSQL  │ │  PostgreSQL│ │  API Call        │
-│  Instant     │ │  Instant   │ │  10-15s          │
-└──────┬───────┘ └─────┬──────┘ └────────┬─────────┘
-       │               │                  │
-       └───────────────┼──────────────────┘
-                       │
-                       ▼
-            ┌──────────────────────┐
-            │   Job Aggregator     │
-            │   - Deduplicate      │
-            │   - Score (75% min)  │
-            │   - Filter (15 days) │
-            └──────────┬───────────┘
-                       │
-                       ▼
-            ┌──────────────────────┐
-            │   Rank & Limit       │
-            │   - Score: match +   │
-            │     internal boost   │
-            │   - Limit: ∞ internal│
-            │     + 20 external    │
-            └──────────┬───────────┘
-                       │
-                       ▼
-            ┌──────────────────────┐
-            │   Response           │
-            │   - Jobs[]           │
-            │   - Metadata         │
-            │   - Source breakdown │
-            └──────────────────────┘
-```
-
-### 3.2 Data Flow
-
-1. **Parse Phase** (2s): Extract skills and current job title from resume
-2. **Query Phase** (1s): Query internal jobs + cached tech companies in parallel
-3. **Discovery Phase** (10-15s): Call hiring.cafe API with 2 pages (2,000 jobs)
-4. **Aggregation Phase** (2s): Combine, deduplicate, score, filter, rank
-5. **Response** (<20s total): Return top matches
+### 3.2 Non-Goals
+- Real-time WebSocket updates (out of scope for v1)
+- ML-based matching (use keyword/skill matching for now)
+- Background job queues (use simple cache-on-read strategy)
+- Unified scoring across internal and external (separate sections)
 
 ---
 
-## 4. Component Specifications
+## 4. Technical Architecture
 
-### 4.1 HiringCafeService
-**Purpose:** Interface with hiring.cafe API for on-demand job discovery
+### 4.1 Request Flow
 
-**Interface:**
-```typescript
-interface HiringCafeService {
-  scrapeByKeywords(
-    keywords: string,      // "Senior Developer react node"
-    options: {
-      maxPages: number;     // 2 (max)
-      signal?: AbortSignal; // For timeout handling
-    }
-  ): Promise<ExternalJobInput[]>;
-}
+```
+User uploads resume
+       │
+       ├──→ [1] Parse resume (skills, title)  ~2s
+       │         └── Existing: OpenAI API, fallback to keyword extraction
+       │
+       ├──→ [2a] Query DB (internal + cached external jobs)  ~100ms
+       │         └── Existing: storage.getJobRecommendations() (extended)
+       │         └── Returns instantly, split into internal vs external
+       │
+       └──→ [2b] Call hiring.cafe API (2 pages, 2000 jobs)  ~10-15s
+                  └── NEW: HiringCafeService
+                  └── Returns discovered jobs for any industry
+       │
+       ▼
+[3] Merge external sources + deduplicate + score + filter (40%+)  ~500ms
+       │         └── Dedup by externalId + source
+       │         └── Skill-overlap scoring with tier labels
+       │
+       ▼
+[4] Cache hiring.cafe results into job_postings  (async, non-blocking)
+       │         └── Existing: jobIngestionService.ingestExternalJobs()
+       │         └── Next person with similar skills gets instant DB hits
+       │
+       ▼
+[5] Return response:
+    - section 1: "Apply & Know Today" (internal jobs with exam/chat metadata)
+    - section 2: "Matched For You" (external jobs with freshness/source metadata)
+    - match tier labels on both sections
 ```
 
-**Implementation Details:**
+- Steps 2a and 2b run **in parallel** via `Promise.all`
+- Hiring.cafe results are **cached on read** into `job_postings` via `jobIngestionService` — next person with similar skills gets instant DB hits
+- 15s timeout on hiring.cafe — if it fails/times out, return DB-only results (graceful degradation)
+
+### 4.2 Fallback Strategy When Hiring.cafe Is Down
+1. Return DB-only results (cached tech jobs + any previously cached hiring.cafe jobs)
+2. If DB results are thin (<5 matches), also query `job-aggregator.ts` sources (JSearch, RemoteOK) as supplementary
+3. Flag to user: "Showing cached results. Some sources are temporarily unavailable."
+
+---
+
+## 5. Existing Code Inventory
+
+### 5.1 Reused As-Is (No Changes)
+
+| File | What It Does | Why It Works |
+|------|-------------|-------------|
+| `shared/schema.ts` | `jobPostings` table definition | All needed columns exist: `source`, `externalUrl`, `expiresAt`, `trustScore`, `livenessStatus`, `hasExam`, `examPassingScore`, `maxChatCandidates`, `applicationCount`, `externalId`, `lastLivenessCheck`, `workType` |
+| `server/services/job-ingestion.service.ts` | Persists external jobs with dedup by `externalId + source` | Works as-is for hiring.cafe jobs — just pass `ExternalJobInput` objects |
+| `server/job-liveness-service.ts` | Background freshness validation every 6 hours | Already handles trust score management, stale detection, HTTP checks |
+| `server/advanced-matching-engine.ts` | Multi-factor scoring (semantic 45%, recency 25%, liveness 20%, personalization 10%) | Used for candidate-to-job matching within each section |
+| `server/job-aggregator.ts` | JSearch, RemoteOK, TheMuse, ArbeitNow fallback sources | Used as supplementary when hiring.cafe is down and DB is thin |
+
+### 5.2 Extended (Modified)
+
+| File | Change |
+|------|--------|
+| `server/storage.ts` | Extend `getJobRecommendations()` to return two-section response with match tier labels and internal job metadata |
+| `server/services/sota-scraper.service.ts` | Add `scrapeSubset(tier)` method for tiered scraping from GitHub Actions |
+| `vercel.json` | Repurpose single cron slot for stale job cleanup; remove scrape cron |
+
+### 5.3 New Files
+
+| File | Purpose |
+|------|---------|
+| `server/services/hiring-cafe.service.ts` | HiringCafeService: API client + data transformer for hiring.cafe |
+| `.github/workflows/scrape-tech-companies.yml` | GitHub Actions workflow for tiered tech company scraping |
+| `scripts/scrape-tier.ts` | CLI script invoked by GitHub Actions to scrape a specific company tier |
+
+---
+
+## 6. Component Specifications
+
+### 6.1 HiringCafeService (NEW)
+
+**File:** `server/services/hiring-cafe.service.ts`
+
+**Purpose:** Real-time job discovery via hiring.cafe API for any industry.
+
+**API Details:**
 - Endpoint: `POST https://hiring.cafe/api/search-jobs`
 - Page size: 1,000 jobs per request
-- Max pages: 2 (configurable, default 2)
-- Request timeout: 30s per page
-- Total timeout budget: 60s (leaves 5s buffer)
+- Max pages: 2 (2,000 jobs total)
+- Headers: Browser-spoofed (User-Agent, Origin, Referer) — no auth required but fragile
+- Request timeout: 15s total
 
-**API Request Structure:**
+**Request Structure:**
 ```json
 {
   "size": 1000,
   "page": 0,
   "searchState": {
-    "searchQuery": "Senior Developer react node",
+    "searchQuery": "dishwasher",
     "dateFetchedPastNDays": 15,
     "locations": [{"formatted_address": "United States"}],
-    "workplaceTypes": ["Remote", "Hybrid", "Onsite"]
+    "workplaceTypes": ["Remote", "Hybrid", "Onsite"],
+    "commitmentTypes": ["Full Time", "Part Time", "Contract"],
+    "seniorityLevel": ["No Prior Experience Required", "Entry Level", "Mid Level"]
   }
 }
 ```
 
-**Error Handling:**
-- Timeout: Return partial results from successful pages
-- API failure: Log error, return empty array (don't block other sources)
-- Rate limit: Implement exponential backoff (1s, 2s, 4s)
-
-### 4.2 JobDiscoveryService
-**Purpose:** Orchestrate all job sources and return unified results
-
-**Interface:**
-```typescript
-interface JobDiscoveryService {
-  discoverJobs(
-    resumeText: string,
-    options?: DiscoveryOptions
-  ): Promise<DiscoveryResult>;
-}
-
-interface DiscoveryResult {
-  jobs: Job[];
-  metadata: {
-    internalCount: number;
-    externalVerifiedCount: number;
-    externalDiscoveredCount: number;
-    totalMatchScore: number;
-    executionTimeMs: number;
-  };
-}
-```
-
-**Algorithm:**
-```typescript
-async function discoverJobs(resumeText: string) {
-  // 1. Parse resume
-  const parsed = await resumeParser.parse(resumeText);
-  const searchQuery = `${parsed.currentTitle} ${parsed.skills.slice(0, 3).join(' ')}`;
-  
-  // 2. Parallel fetch from all sources
-  const [internal, cachedTech, discovered] = await Promise.all([
-    internalJobService.findBySkills(parsed.skills),
-    techCompanyService.findBySkills(parsed.skills), // From cached 73 companies
-    hiringCafeService.scrapeByKeywords(searchQuery, { maxPages: 2 })
-  ]);
-  
-  // 3. Combine and process
-  const allJobs = [...internal, ...cachedTech, ...discovered];
-  
-  // 4. Filter by freshness (15 days)
-  const freshJobs = allJobs.filter(job => 
-    freshnessService.getDaysOld(job.postedDate) <= 15
-  );
-  
-  // 5. Score and filter by match quality (75% threshold)
-  const scoredJobs = freshJobs.map(job => ({
-    ...job,
-    matchScore: calculateMatchScore(job, parsed.skills),
-    finalScore: calculateFinalScore(job, parsed.skills) // Includes internal boost
-  })).filter(job => job.matchScore >= 75);
-  
-  // 6. Sort by final score (descending)
-  scoredJobs.sort((a, b) => b.finalScore - a.finalScore);
-  
-  // 7. Apply limits
-  const internalJobs = scoredJobs.filter(j => j.source === 'internal');
-  const externalJobs = scoredJobs.filter(j => j.source !== 'internal').slice(0, 20);
-  
-  return {
-    jobs: [...internalJobs, ...externalJobs],
-    metadata: {
-      internalCount: internalJobs.length,
-      externalVerifiedCount: externalJobs.filter(j => j.source === 'tech-companies').length,
-      externalDiscoveredCount: externalJobs.filter(j => j.source === 'hiring-cafe').length,
-      totalMatchScore: scoredJobs.reduce((sum, j) => sum + j.matchScore, 0) / scoredJobs.length,
-      executionTimeMs: Date.now() - startTime
+**Response Structure:**
+```json
+{
+  "results": [{
+    "id": "job-123",
+    "board_token": "company-456",
+    "source": "Company Name",
+    "apply_url": "https://...",
+    "job_information": {
+      "title": "Job Title",
+      "description": "<p>HTML description...</p>"
     }
-  };
+  }]
 }
 ```
 
-### 4.3 FreshnessService
-**Purpose:** Enforce 15-day freshness rule across all sources
+**Transformation to `ExternalJobInput`:**
 
-**Interface:**
+| ExternalJobInput field | Source |
+|----------------------|--------|
+| `title` | `result.job_information.title` |
+| `company` | `result.source` |
+| `description` | Strip HTML from `result.job_information.description` |
+| `skills` | Extract from description via keyword matching (no AI call) |
+| `externalId` | `result.id` |
+| `externalUrl` | `result.apply_url` |
+| `source` | `'hiring-cafe'` |
+| `workType` | Detect from description text ("remote", "hybrid", "on-site") |
+| `location` | Extract from description or default to search location |
+| `postedDate` | Current date (API pre-filters by `dateFetchedPastNDays: 15`) |
+| `requirements` | Extract from description (sentence-level matching) |
+
+**Error Handling:**
+- Timeout (15s): Return empty array, let DB-only results serve the request
+- API failure: Log error, return empty array (don't block other sources)
+- Rate limit: Not observed yet; add exponential backoff if needed
+
+### 6.2 SOTAScraperService Extension
+
+**File:** `server/services/sota-scraper.service.ts` (existing)
+
+**New Method:** `scrapeSubset(tier: 1 | 2 | 3)`
+
+Scrapes a subset of the 94 companies based on tier:
+
+| Tier | Companies | ATS Type | Count | Budget |
+|------|-----------|----------|-------|--------|
+| 1 | Greenhouse companies | API-based (fast) | 29 | 15 min |
+| 2 | Lever + Workday companies | API-based + page scraping | 22 | 10 min |
+| 3 | Custom career pages | AI extraction + HTML parsing | 21 | 5 min |
+
+Uses the existing `LEGACY_COMPANIES` array, filtered by tier. Returns the same `ScrapeResult` type.
+
+### 6.3 Storage Extension
+
+**File:** `server/storage.ts` (existing)
+
+**Extended Method:** `getJobRecommendations(candidateId)`
+
+Current behavior: Returns flat array of up to 20 jobs sorted by match score.
+
+New behavior: Returns two-section response:
+
 ```typescript
-interface FreshnessService {
-  getDaysOld(postedDate: Date): number;
-  isFresh(job: Job): boolean;      // ≤15 days
-  isValid(job: Job): boolean;      // Internal: check expiry, External: ≤15 days
-  getFreshnessLabel(job: Job): 'just-posted' | 'this-week' | 'recent';
+interface TwoSectionJobResponse {
+  applyAndKnowToday: ScoredJob[];  // Internal jobs (source = 'platform')
+  matchedForYou: ScoredJob[];       // External jobs (all other sources)
+}
+
+interface ScoredJob extends JobPosting {
+  matchScore: number;
+  matchTier: 'great' | 'good' | 'worth-a-look';
+  skillMatches: string[];
+  freshness: 'just-posted' | 'this-week' | 'recent';
+  daysOld: number;
 }
 ```
 
-**Rules:**
-| Source Type | Validation Rule |
-|-------------|----------------|
-| Internal | `currentDate < expiresAt` |
-| Tech Companies (73) | `daysOld <= 15` |
-| Hiring.cafe | `daysOld <= 15` |
+**Scoring logic:**
+- Skill overlap percentage: `matchingSkills.length / max(candidateSkills.length, 1) * 100`
+- Filter: only include jobs with matchScore ≥ 40
+- Tier assignment: ≥75 = great, ≥50 = good, ≥40 = worth-a-look
 
-**Freshness Labels:**
-- `just-posted`: ≤3 days
-- `this-week`: 4-7 days
-- `recent`: 8-15 days
-
-### 4.4 ResumeParser
-**Purpose:** Extract structured data from resume text
-
-**Interface:**
-```typescript
-interface ParsedResume {
-  skills: string[];           // Extracted technical skills
-  currentTitle: string;       // Most recent job title
-  titles: string[];           // All job titles (chronological)
-  yearsExperience: number;    // Total years
-  industries: string[];       // Industries worked in
-}
-```
-
-**Implementation:**
-- Use OpenAI API for initial parsing
-- Fallback to keyword extraction if API fails
-- Cache parsed results for 1 hour (avoid re-parsing)
-
-### 4.5 TechCompanyService
-**Purpose:** Query cached jobs from 73 tech companies
-
-**Interface:**
-```typescript
-interface TechCompanyService {
-  findBySkills(skills: string[]): Promise<ExternalJobInput[]>;
-  refreshCache(): Promise<void>; // Called by GitHub Actions
-}
-```
-
-**Implementation:**
-- Query PostgreSQL: `SELECT * FROM job_postings WHERE source = 'tech-company' AND posted_date >= NOW() - INTERVAL '15 days'`
-- Returns cached results instantly
-- Cache refreshed by GitHub Actions 2x daily
+**Freshness labels:**
+- `just-posted`: ≤3 days old
+- `this-week`: 4-7 days old
+- `recent`: 8-15 days old
 
 ---
 
-## 5. API Specifications
+## 7. GitHub Actions Configuration
 
-### 5.1 Discover Jobs Endpoint
+### 7.1 Why GitHub Actions
 
-**Endpoint:** `POST /api/jobs/discover`
+The existing Vercel cron (`api/cron/scrape-external-jobs.ts`) tries to scrape 94 companies in 55s and times out. Vercel Hobby plan allows **only 1 cron job** with a 60s execution limit. GitHub Actions provides:
+- 30-minute timeout (vs 60s)
+- Tiered execution (run companies in sequence by priority)
+- Free for public repos, 2000 min/month for private
 
-**Request:**
-```json
-{
-  "resume": "string (base64 or plain text)",
-  "options": {
-    "maxExternalJobs": 20,      // Optional, default 20
-    "minMatchScore": 75,        // Optional, default 75
-    "includeExpired": false     // Optional, default false
-  }
-}
-```
+### 7.2 Workflow
 
-**Response (200 OK):**
+**File:** `.github/workflows/scrape-tech-companies.yml`
+
+- **Schedule:** `cron: '0 6,18 * * *'` (6 AM and 6 PM UTC)
+- **Manual trigger:** `workflow_dispatch` for on-demand runs
+- **Timeout:** 30 minutes
+- **Steps:**
+  1. Scrape Tier 1 (Greenhouse, 29 companies) — 15 min budget
+  2. Scrape Tier 2 (Lever + Workday, 22 companies) — 10 min budget
+  3. Scrape Tier 3 (Custom career pages, 21 companies) — 5 min budget
+  4. Cleanup stale jobs (>15 days)
+
+### 7.3 Vercel Cron Repurposed
+
+The single Vercel cron slot is repurposed for lightweight stale job cleanup only. The `api/cron/scrape-external-jobs.ts` endpoint is kept but simplified to just expire stale jobs.
+
+---
+
+## 8. API Response Structure
+
 ```json
 {
   "success": true,
   "data": {
-    "jobs": [
-      {
-        "id": "uuid",
-        "title": "Senior React Developer",
-        "company": "TechCorp",
-        "location": "Remote",
-        "description": "string",
-        "requirements": ["string"],
-        "skills": ["React", "TypeScript", "Node.js"],
-        "salaryMin": 120000,
-        "salaryMax": 160000,
-        "source": "internal",           // "internal" | "tech-companies" | "hiring-cafe"
-        "externalUrl": "string",        // null for internal
-        "postedDate": "2024-02-05",
-        "expiresAt": "2024-03-05",      // null for external
-        "matchScore": 92,               // 0-100
-        "finalScore": 122,              // matchScore + internal boost
-        "freshness": "just-posted",     // "just-posted" | "this-week" | "recent"
-        "daysOld": 2
-      }
-    ],
+    "applyAndKnowToday": {
+      "jobs": [{
+        "id": 123,
+        "title": "Line Cook",
+        "company": "Restaurant Group",
+        "matchScore": 82,
+        "matchTier": "great",
+        "hasExam": true,
+        "examPassingScore": 70,
+        "applicationCount": 4,
+        "maxChatCandidates": 5,
+        "expiresAt": "2026-02-20T00:00:00Z",
+        "source": "platform"
+      }],
+      "count": 3
+    },
+    "matchedForYou": {
+      "jobs": [{
+        "id": 456,
+        "title": "Dishwasher",
+        "company": "Hilton Hotels",
+        "matchScore": 71,
+        "matchTier": "good",
+        "freshness": "just-posted",
+        "daysOld": 2,
+        "verifiedActive": true,
+        "sourceDetail": "From Hilton careers page",
+        "externalUrl": "https://careers.hilton.com/...",
+        "source": "hiring-cafe"
+      }],
+      "count": 15,
+      "maxShown": 20
+    },
     "metadata": {
-      "totalJobs": 28,
-      "internalCount": 8,
-      "externalVerifiedCount": 5,
-      "externalDiscoveredCount": 15,
-      "averageMatchScore": 84.5,
-      "executionTimeMs": 18500,
-      "sources": {
-        "internal": { "count": 8, "avgScore": 94 },
-        "techCompanies": { "count": 5, "avgScore": 88 },
-        "hiringCafe": { "count": 15, "avgScore": 79 }
-      }
+      "executionTimeMs": 12500,
+      "resumeParsed": true,
+      "skillsExtracted": ["food prep", "sanitation", "customer service"],
+      "hiringCafeAvailable": true,
+      "sourcesQueried": ["database", "hiring-cafe"]
     }
   }
 }
 ```
 
-**Response (Timeout - 504):**
-```json
-{
-  "success": false,
-  "error": "Request timeout",
-  "data": {
-    "jobs": [...],                    // Partial results from cache
-    "partial": true,
-    "message": "Showing cached results. Retry for latest jobs."
-  }
-}
-```
+---
 
-### 5.2 Error Handling
+## 9. Performance Budget
 
-| Status Code | Scenario | Response |
-|-------------|----------|----------|
-| 200 | Success | Full job list with metadata |
-| 400 | Invalid resume | Error message, no jobs |
-| 408 | Timeout (>60s) | Partial results from cache |
-| 500 | Server error | Error message, empty array |
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| Resume parsing | ~2s | OpenAI API, fallback to keyword extraction |
+| DB query | ~100ms | PostgreSQL, indexed by skills (jsonb), trust score |
+| Hiring.cafe API (parallel) | 10-15s | 2 pages of 1000 jobs each, 15s timeout |
+| Merge + score + filter | ~500ms | In-memory, split into two sections |
+| Cache results (async) | non-blocking | Fire-and-forget via `jobIngestionService` |
+| **Total (tech user, DB hit)** | **~2.5s** | DB has cached results from career page scrapes |
+| **Total (non-tech, hiring.cafe needed)** | **~12-17s** | First query for this skill set |
+| **Total (repeat non-tech query)** | **~2.5s** | Cached from previous hiring.cafe query |
 
 ---
 
-## 6. Data Models
+## 10. Files to Create/Modify
 
-### 6.1 Database Schema Updates
+### New Files
+1. `server/services/hiring-cafe.service.ts` — HiringCafeService (API client + data transformer)
+2. `.github/workflows/scrape-tech-companies.yml` — GitHub Actions workflow for tiered scraping
+3. `scripts/scrape-tier.ts` — CLI script invoked by GH Actions to scrape a company tier
 
-**Table: job_postings**
-```sql
--- Add columns for freshness tracking
-ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS posted_date DATE;
-ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS source VARCHAR(50);
-ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS source_type VARCHAR(20); -- 'internal' | 'external'
-ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS external_url VARCHAR(500);
-ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP; -- For internal jobs
+### Modified Files
+1. `vercel.json` — Repurpose single cron for cleanup, remove scrape cron
+2. `server/storage.ts` — Extend `getJobRecommendations()` to return two-section response with match tier labels and internal job metadata
+3. `server/services/sota-scraper.service.ts` — Add `scrapeSubset(tier: 1|2|3)` method to scrape company slices
 
--- Add indexes for performance
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_jobs_posted_date 
-  ON job_postings(posted_date) 
-  WHERE posted_date >= CURRENT_DATE - INTERVAL '15 days';
-
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_jobs_source 
-  ON job_postings(source, posted_date);
-
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_jobs_skills 
-  ON job_postings USING GIN(skills);
-```
-
-**Table: job_discovery_logs** (Optional, for analytics)
-```sql
-CREATE TABLE IF NOT EXISTS job_discovery_logs (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  query TEXT,
-  internal_count INTEGER,
-  external_count INTEGER,
-  execution_time_ms INTEGER,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-### 6.2 TypeScript Interfaces
-
-```typescript
-// Job representation
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  description: string;
-  requirements: string[];
-  skills: string[];
-  salaryMin?: number;
-  salaryMax?: number;
-  source: 'internal' | 'tech-companies' | 'hiring-cafe';
-  externalUrl?: string;
-  postedDate: Date;
-  expiresAt?: Date; // For internal jobs
-  
-  // Scoring metadata
-  matchScore: number;  // 0-100, skill match quality
-  finalScore: number;  // matchScore + internal boost (30 pts)
-  freshness: 'just-posted' | 'this-week' | 'recent';
-  daysOld: number;
-}
-
-// For ingestion (matches existing ExternalJobInput)
-interface ExternalJobInput {
-  title: string;
-  company: string;
-  location: string;
-  description: string;
-  requirements: string[];
-  skills: string[];
-  salaryMin?: number;
-  salaryMax?: number;
-  source: string;
-  externalId: string;
-  externalUrl: string;
-  postedDate: string;
-}
-```
+### Existing Code Reused (not changed)
+- `shared/schema.ts` — All needed columns exist
+- `server/services/job-ingestion.service.ts` — Works as-is for hiring.cafe jobs (dedup by `externalId + source`)
+- `server/job-liveness-service.ts` — Already handles freshness validation
+- `server/advanced-matching-engine.ts` — Already has multi-factor scoring (semantic 45%, recency 25%, liveness 20%, personalization 10%)
+- `server/job-aggregator.ts` — JSearch/RemoteOK fallback sources already working
 
 ---
 
-## 7. Configuration
-
-### 7.1 Constants
-
-```typescript
-// server/config/job-discovery.config.ts
-export const JOB_DISCOVERY_CONFIG = {
-  // Source limits
-  MAX_EXTERNAL_JOBS: 20,
-  UNLIMITED_INTERNAL: true,
-  
-  // Quality thresholds
-  MIN_MATCH_SCORE: 75,           // 0-100
-  INTERNAL_JOB_BOOST: 30,        // Points added to internal jobs
-  
-  // Freshness
-  MAX_AGE_DAYS_EXTERNAL: 15,
-  FRESHNESS_THRESHOLDS: {
-    JUST_POSTED: 3,              // days
-    THIS_WEEK: 7                 // days
-  },
-  
-  // Hiring.cafe
-  HIRING_CAFE_MAX_PAGES: 2,      // 2,000 jobs max
-  HIRING_CAFE_PAGE_SIZE: 1000,
-  HIRING_CAFE_TIMEOUT_MS: 30000, // 30s per page
-  
-  // Resume parsing
-  RESUME_PARSER_MAX_SKILLS: 20,
-  RESUME_PARSER_TIMEOUT_MS: 5000,
-  
-  // Overall timeout
-  DISCOVERY_TIMEOUT_MS: 60000    // 60s total
-};
-```
-
-### 7.2 Environment Variables
-
-```bash
-# Required
-HIRING_CAFE_API_URL=https://hiring.cafe/api/search-jobs
-OPENAI_API_KEY=sk-...          # For resume parsing
-DATABASE_URL=postgresql://...  # Existing
-
-# Optional (defaults shown)
-MAX_EXTERNAL_JOBS=20
-MIN_MATCH_SCORE=75
-MAX_AGE_DAYS=15
-```
-
----
-
-## 8. GitHub Actions Configuration
-
-### 8.1 Workflow: Scrape Tech Companies
-
-**File:** `.github/workflows/scrape-tech-companies.yml`
-
-```yaml
-name: Scrape Tech Company Jobs
-
-on:
-  schedule:
-    - cron: '0 6,18 * * *'  # 6:00 AM and 6:00 PM UTC
-  workflow_dispatch:  # Manual trigger
-
-jobs:
-  scrape:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Scrape Tier 1 Companies (High Priority)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx tsx scripts/scrape-tier.ts --tier=1 --timeout=900000
-        # 15 min timeout for 20 top companies
-      
-      - name: Scrape Tier 2 Companies (Medium Priority)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx tsx scripts/scrape-tier.ts --tier=2 --timeout=900000
-        # 15 min timeout for next 25 companies
-      
-      - name: Cleanup Stale Jobs
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx tsx scripts/cleanup-stale-jobs.ts --days=15
-      
-      - name: Notify on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1
-        with:
-          payload: |
-            {
-              "text": "⚠️ Job scraping failed for ${{ github.repository }}"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-```
-
-### 8.2 Company Tiers
-
-| Tier | Companies | Frequency | Examples |
-|------|-----------|-----------|----------|
-| Tier 1 | 20 | Every run (2x daily) | Stripe, Airbnb, Figma, Netflix, Google |
-| Tier 2 | 25 | Every run (2x daily) | Remaining high-priority |
-| Tier 3 | 28 | Every 2 days | Lower priority |
-
----
-
-## 9. Scoring Algorithm
-
-### 9.1 Match Score Calculation (0-100)
-
-```typescript
-function calculateMatchScore(job: Job, userSkills: string[]): number {
-  let score = 0;
-  
-  // Skill overlap (70% weight)
-  const jobSkills = new Set(job.skills.map(s => s.toLowerCase()));
-  const userSkillsLower = userSkills.map(s => s.toLowerCase());
-  const matchedSkills = userSkillsLower.filter(s => jobSkills.has(s));
-  const skillScore = (matchedSkills.length / Math.max(jobSkills.size, 1)) * 70;
-  score += skillScore;
-  
-  // Title similarity (20% weight)
-  const titleScore = calculateTitleSimilarity(job.title, userSkills) * 20;
-  score += titleScore;
-  
-  // Location match (10% weight)
-  if (job.location.toLowerCase().includes('remote') || 
-      isLocationMatch(job.location, userLocation)) {
-    score += 10;
-  }
-  
-  return Math.min(100, Math.round(score));
-}
-```
-
-### 9.2 Final Score (Ranking)
-
-```typescript
-function calculateFinalScore(job: Job, userSkills: string[]): number {
-  const matchScore = calculateMatchScore(job, userSkills);
-  let finalScore = matchScore;
-  
-  // Internal job boost
-  if (job.source === 'internal') {
-    finalScore += JOB_DISCOVERY_CONFIG.INTERNAL_JOB_BOOST; // +30
-  }
-  
-  // Freshness boost (up to +10)
-  if (job.daysOld <= 3) {
-    finalScore += 10;
-  } else if (job.daysOld <= 7) {
-    finalScore += 5;
-  }
-  
-  return finalScore;
-}
-```
-
----
-
-## 10. Testing Strategy
-
-### 10.1 Unit Tests
-
-| Component | Test Cases | Priority |
-|-----------|-----------|----------|
-| HiringCafeService | API response parsing, pagination, error handling | High |
-| FreshnessService | Date calculations, boundary conditions | High |
-| ResumeParser | Skill extraction, title detection | High |
-| Scoring | Match algorithm accuracy | Medium |
-
-### 10.2 Integration Tests
-
-| Scenario | Expected Result |
-|----------|----------------|
-| Resume with "React" skills | Returns React jobs, 75%+ match |
-| 60s timeout | Returns cached results, partial=true |
-| All sources fail | Returns empty array, logs error |
-| 100 internal jobs | Returns all 100 + top 20 external |
-| Stale external jobs | Filtered out, not returned |
-
-### 10.3 Performance Tests
-
-| Metric | Target | Worst Case |
-|--------|--------|------------|
-| Response time | <20s | <60s (timeout) |
-| Memory usage | <512MB | <1GB |
-| Database queries | <10 | <20 |
-| Hiring.cafe API calls | 2 | 2 |
-
----
-
-## 11. Deployment Plan
-
-### 11.1 Phase 1: Database Migration (Week 1)
-- [ ] Add new columns to job_postings table
-- [ ] Create indexes
-- [ ] Backfill posted_date for existing jobs
-- [ ] Test migration on staging
-
-### 11.2 Phase 2: GitHub Actions (Week 1-2)
-- [ ] Create `.github/workflows/scrape-tech-companies.yml`
-- [ ] Test scraper locally
-- [ ] Verify GitHub Actions execution
-- [ ] Monitor for 3 days
-
-### 11.3 Phase 3: API Implementation (Week 2-3)
-- [ ] Implement HiringCafeService
-- [ ] Implement JobDiscoveryService
-- [ ] Implement FreshnessService
-- [ ] Update resume parser
-- [ ] Create `/api/jobs/discover` endpoint
-
-### 11.4 Phase 4: Integration & Testing (Week 3-4)
-- [ ] End-to-end testing
-- [ ] Performance testing
-- [ ] Edge case handling
-- [ ] Production deployment
-
----
-
-## 12. Risks & Mitigations
+## 11. Risks & Mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Hiring.cafe API changes | Medium | High | Abstract behind interface, version checks |
-| Vercel timeout (60s) | High | Medium | Cache-first, partial results, GitHub Actions |
-| Rate limiting from hiring.cafe | Low | Medium | Implement backoff, monitor logs |
-| Poor match quality | Medium | High | 75% threshold, user feedback loop |
-| Database performance | Low | Medium | Indexes, query optimization |
+| Hiring.cafe API changes/breaks | Medium | High | Browser-spoofed headers, cache-on-read means prior results survive, JSearch/RemoteOK fallback |
+| Hiring.cafe rate limiting | Low | Medium | 15s timeout, max 2 pages, cache results to reduce repeat calls |
+| GitHub Actions secrets leak | Low | High | Use GitHub encrypted secrets for `DATABASE_URL`, never log connection strings |
+| Poor match quality for non-tech | Medium | Medium | 40% threshold (not 75%), tiered labels let users self-filter |
+| Stale cached hiring.cafe jobs | Low | Low | `job-liveness-service.ts` already checks freshness every 6 hours |
+| Database performance with more jobs | Low | Medium | Existing jsonb GIN indexes, trust score sorting, 100-row query limit |
 
 ---
 
-## 13. Open Questions
+## 12. Deployment Plan
 
-1. **Should we cache hiring.cafe results?**
-   - Current: Real-time only
-   - Alternative: Cache for 6-12 hours to reduce API calls
+### Phase 1: Infrastructure (Week 1)
+- [ ] Create `.github/workflows/scrape-tech-companies.yml`
+- [ ] Create `scripts/scrape-tier.ts`
+- [ ] Add `scrapeSubset(tier)` to `sota-scraper.service.ts`
+- [ ] Update `vercel.json` cron to cleanup-only
+- [ ] Test GitHub Actions with manual `workflow_dispatch`
+- [ ] Add `DATABASE_URL` secret to GitHub repo settings
 
-2. **How to handle hiring.cafe API failures?**
-   - Current: Return empty array for that source
-   - Alternative: Retry with exponential backoff
+### Phase 2: Hiring.cafe Integration (Week 2)
+- [ ] Create `server/services/hiring-cafe.service.ts`
+- [ ] Integration test with live API (manual, non-production)
+- [ ] Add `hiring-cafe` trust score to `job-ingestion.service.ts`
+- [ ] Test cache-on-read flow end-to-end
 
-3. **Should we implement user feedback on job quality?**
-   - "This job matched well" / "Not relevant" buttons
-   - Could improve matching algorithm over time
+### Phase 3: Two-Section UX (Week 2-3)
+- [ ] Extend `storage.getJobRecommendations()` for two-section response
+- [ ] Update API endpoint to return new response shape
+- [ ] Update frontend to render two sections with tier badges
+- [ ] Test with tech resume (should get DB hits instantly)
+- [ ] Test with non-tech resume (should trigger hiring.cafe)
 
-4. **Geographic filtering?**
-   - Current: US-focused
-   - Future: Allow users to specify location preferences
-
----
-
-## 14. Appendix
-
-### A. Hiring.cafe API Response Format
-```json
-{
-  "results": [
-    {
-      "id": "job-123",
-      "board_token": "company-456",
-      "source": "Company Name",
-      "apply_url": "https://...",
-      "job_information": {
-        "title": "Job Title",
-        "description": "HTML description...",
-        "viewedByUsers": [],
-        "appliedFromUsers": []
-      }
-    }
-  ]
-}
-```
-
-### B. Existing Code References
-- Current 73 companies: `server/services/sota-scraper.service.ts:15-94`
-- Job ingestion: `server/services/job-ingestion.service.ts`
-- Existing scraper: `server/scraper-v2/engine.ts`
-
-### C. Success Metrics Dashboard
-- Jobs discovered per day (by source)
-- Average match score
-- Response time distribution
-- User engagement (clicks, applications)
-- Freshness distribution (% jobs by age)
+### Phase 4: Verification (Week 3)
+- [ ] Monitor GitHub Actions for 3 days (no failures)
+- [ ] Verify hiring.cafe cache-on-read reduces repeat latency
+- [ ] Confirm stale job cleanup works end-to-end
+- [ ] Load test: 10 concurrent resume uploads
+- [ ] Verify no TypeScript compilation errors
 
 ---
 
-**Reviewers:** Please comment on:
-1. Architecture approach
-2. Scoring algorithm (75% threshold, +30 internal boost)
-3. GitHub Actions schedule (2x daily sufficient?)
-4. API design
-5. Any missing edge cases
+## 13. Verification Checklist
 
-**Next Steps:** Await approval, then proceed to implementation Phase 1.
+After implementation:
+- [ ] Two-section UX model clearly implemented with separate sections
+- [ ] Every new component references existing code where applicable
+- [ ] No redundant schema changes (all columns already exist)
+- [ ] All open questions from original PRD resolved with decisions
+- [ ] Performance budget reflects parallel architecture with realistic timings
+- [ ] Hiring.cafe fragility mitigated with cache-on-read + JSearch/RemoteOK fallback
+- [ ] Internal job premium (exam/chat pipeline) is a first-class concept, not a score hack
+- [ ] Match tiers (great/good/worth-a-look) render correctly at 75%/50%/40% thresholds
+- [ ] Freshness labels (just-posted/this-week/recent) compute correctly from `createdAt`
+
+---
+
+**Note:** The `examTimeMinutes` field referenced in the product positioning is not currently in the `job_postings` schema. If needed for display, it can be derived from the `job_exams` table's duration or added as a schema migration in a future iteration.

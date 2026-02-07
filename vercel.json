@@ -43,7 +43,7 @@
   "crons": [
     {
       "path": "/api/cron/scrape-external-jobs",
-      "schedule": "0 6 * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
