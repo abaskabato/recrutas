@@ -58,12 +58,16 @@ export default function AdvancedAnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("30d");
   const [selectedJob, setSelectedJob] = useState("all");
 
-  const { data: analytics, isLoading } = useQuery({
+  const { data: analytics, isLoading, isError } = useQuery({
     queryKey: ["/api/analytics/advanced", timeRange, selectedJob],
     queryFn: async () => {
       const response = await fetch(`/api/analytics/advanced?timeRange=${timeRange}&jobId=${selectedJob}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics');
+      }
       return response.json();
     },
+    retry: false,
   });
 
   const { data: jobs } = useQuery({
@@ -80,6 +84,20 @@ export default function AdvancedAnalyticsDashboard() {
     return (
       <div className="h-96 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (isError || !analytics) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center space-y-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Analytics Unavailable</h3>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Advanced analytics is coming soon.</p>
+        </div>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Refresh
+        </Button>
       </div>
     );
   }

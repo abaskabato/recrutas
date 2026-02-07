@@ -1112,7 +1112,9 @@ export default function TalentDashboard() {
                 <CardContent>
                   <div className="space-y-4">
                     {jobs.slice(0, 5).map((job, index) => {
-                      const performance = Math.min(100, (job.applicationCount / Math.max(job.viewCount, 1)) * 100);
+                      const viewCount = job.viewCount || 0;
+                      const applicationCount = job.applicationCount || 0;
+                      const performance = Math.min(100, (applicationCount / Math.max(viewCount, 1)) * 100);
                       return (
                         <div key={job.id} className="space-y-2">
                           <div className="flex justify-between text-sm">
@@ -1126,8 +1128,8 @@ export default function TalentDashboard() {
                             />
                           </div>
                           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                            <span>{job.viewCount} views</span>
-                            <span>{job.applicationCount} applications</span>
+                            <span>{viewCount} views</span>
+                            <span>{applicationCount} applications</span>
                           </div>
                         </div>
                       );
@@ -1165,6 +1167,7 @@ export default function TalentDashboard() {
 
                       const maxApps = Math.max(...periods.map(period => {
                         return allApplicants.filter(app => {
+                          if (!app.appliedAt) return false;
                           const appliedDate = new Date(app.appliedAt);
                           return appliedDate >= period.start && appliedDate < period.end;
                         }).length;
@@ -1172,6 +1175,7 @@ export default function TalentDashboard() {
 
                       return periods.map((period) => {
                         const applications = allApplicants.filter(app => {
+                          if (!app.appliedAt) return false;
                           const appliedDate = new Date(app.appliedAt);
                           return appliedDate >= period.start && appliedDate < period.end;
                         }).length;
