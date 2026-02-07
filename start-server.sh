@@ -81,7 +81,7 @@ echo "----------------------------------------" | tee -a "$LOG_FILE"
 # Start server with proper output redirection
 # Using unbuffered output for real-time logs
 NODE_ENV=${NODE_ENV:-development} \
-tsx standalone-server.js \
+npx tsx standalone-server.js \
     > >(tee -a "$LOG_FILE") \
     2> >(tee -a "$ERROR_LOG" >&2) &
 

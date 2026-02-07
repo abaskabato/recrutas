@@ -1,5 +1,5 @@
 
-import { seedDatabase } from '../server/seed.ts';
+import { seedDatabase } from '../server/seed.js';
 
 async function runSeed() {
   console.log('--- Running Database Seed Script ---');

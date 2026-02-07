@@ -9,8 +9,8 @@
  */
 
 import { db } from "../db";
-import * as d from "drizzle-orm";
-const { sql, ilike, inArray, eq, and, or, desc, asc } = d;
+import { eq, and, or, desc, asc } from "drizzle-orm";
+import { sql, ilike, inArray } from "drizzle-orm/sql";
 import {
   jobPostings,
   jobMatches,
@@ -104,7 +104,7 @@ export class JobService {
       })
       .where(eq(jobPostings.id, id));
 
-    return result.rowCount > 0;
+    return (result.count ?? 0) > 0;
   }
 
   /**
@@ -121,7 +121,7 @@ export class JobService {
       sortOrder = 'desc'
     } = options;
 
-    let query = db.select().from(jobPostings);
+    let query = db.select().from(jobPostings).$dynamic();
 
     // Apply filters
     const conditions = [eq(jobPostings.status, 'active')];
@@ -343,7 +343,7 @@ export class JobService {
       })
       .where(eq(jobPostings.id, jobId));
 
-    return result.rowCount > 0;
+    return (result.count ?? 0) > 0;
   }
 
   /**

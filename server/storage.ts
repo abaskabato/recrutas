@@ -552,7 +552,8 @@ export class DatabaseStorage implements IStorage {
 
   async getJobStatistics(): Promise<any> {
     try {
-      const { sql, count } = await import('drizzle-orm');
+      const { sql } = await import('drizzle-orm/sql');
+      const { count } = await import('drizzle-orm/sql/functions');
 
       // Total jobs
       const totalJobs = await db

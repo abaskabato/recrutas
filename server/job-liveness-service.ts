@@ -12,7 +12,8 @@
 
 import { db } from './db';
 import { jobPostings } from '@shared/schema';
-import { eq, lt, and, isNotNull, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { lt, isNotNull, sql } from 'drizzle-orm/sql';
 
 export interface LivenessCheckResult {
   jobId: number;

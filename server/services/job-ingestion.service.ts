@@ -5,7 +5,8 @@
 
 import { db } from '../db';
 import { jobPostings, users } from '@shared/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm/sql';
 
 // System user UUID for external jobs (well-known constant)
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -158,7 +159,7 @@ export class JobIngestionService {
         )
       );
 
-    return result.rowCount || 0;
+    return result.count ?? 0;
   }
 }
 

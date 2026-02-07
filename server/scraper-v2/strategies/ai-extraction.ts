@@ -6,9 +6,12 @@
  * It's significantly better than regex-based parsing.
  */
 
+import crypto from 'crypto';
 import Groq from 'groq-sdk';
 import { ScrapedJob, CompanyConfig, JobLocation } from '../types.js';
 import { logger } from '../utils/logger.js';
+
+const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
 
 interface AIExtractedJob {
   title: string;
@@ -66,8 +69,17 @@ export async function extractWithAI(
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
+    // Check Content-Length before reading body
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+      throw new Error(`Response too large: ${contentLength} bytes`);
+    }
+
     const html = await response.text();
-    
+    if (html.length > MAX_RESPONSE_SIZE) {
+      throw new Error(`Response body too large: ${html.length} chars`);
+    }
+
     // Clean HTML for AI processing
     const cleanedHtml = cleanHtmlForAI(html);
     
@@ -190,13 +202,13 @@ function convertToScrapedJobs(aiJobs: AIExtractedJob[], company: CompanyConfig):
     const location: JobLocation = {
       raw: job.location || 'Remote',
       isRemote: job.workType === 'remote' || job.location?.toLowerCase().includes('remote'),
-      country: 'Unknown',
-      countryCode: 'US',
+      country: '',
+      countryCode: '',
       normalized: (job.location || 'remote').toLowerCase()
     };
 
     return {
-      id: `ai_${company.id}_${index}_${Date.now()}`,
+      id: crypto.createHash('sha256').update(`${company.id}:${job.title}:${job.location || ''}`).digest('hex').slice(0, 16),
       title: job.title,
       normalizedTitle: '',
       company: company.name,

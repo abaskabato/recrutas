@@ -133,35 +133,24 @@ export type EmploymentType = 'full-time' | 'part-time' | 'contract' | 'internshi
 export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'staff' | 'principal' | 'executive';
 export type JobStatus = 'active' | 'filled' | 'expired' | 'paused';
 
-export type SourceType = 
-  | 'career_page' 
-  | 'ats_api' 
-  | 'job_board' 
+export type SourceType =
+  | 'career_page'
+  | 'ats_api'
+  | 'job_board'
   | 'aggregator'
-  | 'rss'
-  | 'sitemap'
   | 'api';
 
-export type ATSType = 
-  | 'greenhouse' 
-  | 'lever' 
-  | 'workday'
+export type ATSType =
+  | 'greenhouse'
+  | 'lever'
   | 'ashby'
-  | 'bamboohr'
-  | 'smartrecruiters'
-  | 'icims'
-  | 'taleo'
-  | 'custom';
+  | 'smartrecruiters';
 
-export type ScrapeMethod = 
+export type ScrapeMethod =
   | 'api'
   | 'json_ld'
-  | 'data_island'
   | 'html_parsing'
-  | 'ai_extraction'
-  | 'browser_automation'
-  | 'rss'
-  | 'sitemap';
+  | 'ai_extraction';
 
 // ============================================================================
 // Company Configuration
@@ -234,17 +223,6 @@ export interface ScrapeConfig {
     excludeKeywords?: string[];
   };
   
-  // Browser automation (for JS-heavy sites)
-  useBrowser?: boolean;
-  browserConfig?: BrowserConfig;
-}
-
-export interface BrowserConfig {
-  headless: boolean;
-  waitForSelector?: string;
-  waitTime: number;
-  scrollToBottom: boolean;
-  interceptRequests: boolean;
 }
 
 export interface CompanyMetadata {
@@ -292,31 +270,6 @@ export interface ScrapingError {
   timestamp: Date;
 }
 
-// ============================================================================
-// Queue and Scheduling
-// ============================================================================
-
-export interface ScrapeJob {
-  id: string;
-  type: 'full_scrape' | 'incremental' | 'refresh';
-  companyId: string;
-  priority: number;
-  scheduledAt: Date;
-  attempts: number;
-  maxAttempts: number;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: ScrapingResult;
-  error?: ScrapingError;
-}
-
-export interface QueueStats {
-  pending: number;
-  running: number;
-  completed: number;
-  failed: number;
-  averageWaitTime: number;
-  averageProcessingTime: number;
-}
 
 // ============================================================================
 // Deduplication
@@ -344,52 +297,3 @@ export interface DuplicateGroup {
   reason: string;
 }
 
-// ============================================================================
-// Enrichment
-// ============================================================================
-
-export interface EnrichmentConfig {
-  geocoding: boolean;
-  companyInfo: boolean;
-  salaryData: boolean;
-  skillNormalization: boolean;
-  titleNormalization: boolean;
-}
-
-export interface EnrichmentResult {
-  jobId: string;
-  enrichedFields: string[];
-  before: Partial<ScrapedJob>;
-  after: Partial<ScrapedJob>;
-  confidence: number;
-  timestamp: Date;
-}
-
-// ============================================================================
-// Monitoring and Observability
-// ============================================================================
-
-export interface ScrapingMetrics {
-  timestamp: Date;
-  totalJobsScraped: number;
-  successRate: number;
-  averageLatency: number;
-  errorsByType: Record<string, number>;
-  topSources: Array<{ source: string; count: number }>;
-  companiesScraped: number;
-  activeJobs: number;
-  newJobs: number;
-}
-
-export interface HealthCheck {
-  status: 'healthy' | 'degraded' | 'down';
-  checks: {
-    database: boolean;
-    queue: boolean;
-    apiKeys: boolean;
-    proxies: boolean;
-    aiService: boolean;
-  };
-  lastSuccessfulScrape: Date;
-  uptime: number;
-}

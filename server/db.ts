@@ -32,9 +32,9 @@ try {
     max: isServerless ? 1 : 3, // Single connection per serverless function to prevent pool exhaustion
     idle_timeout: 10, // Close idle connections very fast in serverless
     connect_timeout: 10, // Connection timeout
-    statement_timeout: 20000, // 20 second statement timeout
     connection: {
       application_name: 'recrutas-app',
+      statement_timeout: 20000, // 20 second statement timeout
     },
     ssl: 'require', // Required for Supabase/Neon
     debug: false, // Disable debug to reduce overhead

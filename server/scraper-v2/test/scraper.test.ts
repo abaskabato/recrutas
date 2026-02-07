@@ -4,17 +4,17 @@
  * Unit and integration tests for the SOTA scraper components
  */
 
-import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { sotaScraperService } from '../server/services/sota-scraper.service.js';
-import { scraperOrchestrator } from '../server/scraper-v2/index.js';
-import { convertToIngestionFormat } from '../server/services/sota-scraper.service.js';
-import { ScrapedJob } from '../server/scraper-v2/types.js';
+import { describe, it, expect, vi } from 'vitest';
+import { SOTAScraperService, convertToIngestionFormat } from '../../services/sota-scraper.service.js';
+import { ScraperOrchestrator } from '../index.js';
+import { ScrapedJob } from '../types.js';
 
 describe('SOTA Scraper Integration', () => {
   
   describe('Service Initialization', () => {
     it('should initialize with all configured companies', () => {
-      const companies = sotaScraperService.getCompanies();
+      const service = new SOTAScraperService();
+      const companies = service.getCompanies();
       expect(companies.length).toBeGreaterThan(0);
       expect(companies[0]).toHaveProperty('id');
       expect(companies[0]).toHaveProperty('name');
@@ -22,9 +22,10 @@ describe('SOTA Scraper Integration', () => {
     });
 
     it('should have companies with valid priorities', () => {
-      const companies = sotaScraperService.getCompanies();
+      const service = new SOTAScraperService();
+      const companies = service.getCompanies();
       const validPriorities = ['high', 'medium', 'low'];
-      
+
       companies.forEach(company => {
         expect(validPriorities).toContain(company.priority);
       });
@@ -123,36 +124,36 @@ describe('SOTA Scraper Integration', () => {
 
   describe('Company Scraping (Integration)', () => {
     it('should scrape Stripe (Greenhouse API)', async () => {
-      // This is an integration test - may be slow
-      const result = await sotaScraperService.scrapeCompany('stripe');
-      
+      const service = new SOTAScraperService();
+      const result = await service.scrapeCompany('stripe');
+
       expect(result.success).toBe(true);
       expect(result.companiesScraped).toBe(1);
       expect(result.errors).toHaveLength(0);
-      
-      // Stripe should have jobs
+
       expect(result.totalJobsFound).toBeGreaterThan(0);
-    }, 30000); // 30s timeout
+    }, 30000);
 
     it('should handle non-existent company', async () => {
+      const service = new SOTAScraperService();
       await expect(
-        sotaScraperService.scrapeCompany('non-existent-company')
+        service.scrapeCompany('non-existent-company')
       ).rejects.toThrow('Company non-existent-company not found');
     });
   });
 
   describe('Error Handling', () => {
     it('should return error details in result', async () => {
-      // Mock a failing scrape
       const mockError = new Error('Network error');
-      vi.spyOn(scraperOrchestrator, 'scrapeCompany').mockRejectedValueOnce(mockError);
-      
-      const result = await sotaScraperService.scrapeCompany('stripe');
-      
+      vi.spyOn(ScraperOrchestrator.prototype, 'scrapeCompanies').mockRejectedValueOnce(mockError);
+
+      const service = new SOTAScraperService();
+      const result = await service.scrapeCompany('stripe');
+
       expect(result.success).toBe(false);
-      expect(result.errors).toHaveLengthGreaterThan(0);
+      expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0]).toContain('Network error');
-      
+
       vi.restoreAllMocks();
     });
   });

@@ -11,7 +11,8 @@
 
 import { db } from './db';
 import { jobPostings, discoveredCompanies } from '@shared/schema';
-import { sql, isNotNull, ne, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { sql, isNotNull, ne } from 'drizzle-orm/sql';
 import { wikipediaDiscovery } from './wikipedia-discovery'; // NEW
 
 // ATS detection patterns
@@ -75,17 +76,7 @@ const KNOWN_COMPANIES = new Set([
   'palantir', 'doordash', 'uber', 'lyft', 'pinterest', 'snap', 'reddit'
 ]);
 
-interface DiscoveredCompany {
-  id?: number; // NEW
-  name: string;
-  normalizedName: string;
-  careerPageUrl?: string;
-  discoverySource: string; // Changed from 'source' for consistency with DB
-  detectedAts?: string;
-  atsId?: string; // NEW
-  jobCount: number;
-  status: 'pending' | 'approved' | 'rejected' | 'in_scraper';
-}
+type DiscoveredCompany = typeof discoveredCompanies.$inferSelect;
 
 interface CompanyDiscoveryStats {
   totalDiscovered: number;
@@ -376,14 +367,14 @@ class CompanyDiscoveryPipeline {
     const result = await db.update(discoveredCompanies)
       .set({ status: 'approved', updatedAt: new Date() })
       .where(eq(discoveredCompanies.normalizedName, normalizedName));
-    return result.rowCount > 0;
+    return (result.count ?? 0) > 0;
   }
 
   async rejectCompany(normalizedName: string): Promise<boolean> {
     const result = await db.update(discoveredCompanies)
       .set({ status: 'rejected', updatedAt: new Date() })
       .where(eq(discoveredCompanies.normalizedName, normalizedName));
-    return result.rowCount > 0;
+    return (result.count ?? 0) > 0;
   }
 
   async markAsInScraper(normalizedName: string): Promise<boolean> {
@@ -391,7 +382,7 @@ class CompanyDiscoveryPipeline {
       .set({ status: 'in_scraper', updatedAt: new Date() })
       .where(eq(discoveredCompanies.normalizedName, normalizedName));
 
-    if (result.rowCount > 0) {
+    if ((result.count ?? 0) > 0) {
       KNOWN_COMPANIES.add(normalizedName);
       return true;
     }

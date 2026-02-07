@@ -79,19 +79,35 @@ export class ExternalJobsScheduler {
 
       // Store jobs in database
       const { jobIngestionService } = await import('./job-ingestion.service');
-      const ingestStats = await jobIngestionService.ingestExternalJobs(jobs);
+      const ingestStats = await jobIngestionService.ingestExternalJobs(
+        jobs.map((job: any) => ({
+          title: job.title || '',
+          company: job.company || '',
+          location: job.location || '',
+          description: job.description || '',
+          requirements: job.requirements || [],
+          skills: job.skills || [],
+          workType: job.workType || 'hybrid',
+          salaryMin: job.salaryMin,
+          salaryMax: job.salaryMax,
+          source: job.source || 'external',
+          externalId: job.externalId || job.id || `ext-${Date.now()}`,
+          externalUrl: job.externalUrl || '',
+          postedDate: job.postedDate || new Date().toISOString(),
+        }))
+      );
 
       this.lastRunTime = Date.now();
 
       console.log(
         `[ExternalJobsScheduler] Completed: scraped ${jobs.length} jobs, ` +
-        `stored ${ingestStats?.created || 0}, updated ${ingestStats?.updated || 0}`
+        `stored ${ingestStats?.inserted || 0}, duplicates ${ingestStats?.duplicates || 0}`
       );
 
       return {
         jobsScraped: jobs.length,
-        jobsStored: ingestStats?.created || 0,
-        jobsUpdated: ingestStats?.updated || 0,
+        jobsStored: ingestStats?.inserted || 0,
+        jobsUpdated: ingestStats?.duplicates || 0,
         totalTime: scrapingTime,
         message: 'External jobs scrape completed successfully'
       };

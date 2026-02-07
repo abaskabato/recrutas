@@ -9,9 +9,9 @@ import {
   integer,
   boolean,
   numeric,
-  unique,
-  uuid,
 } from "drizzle-orm/pg-core";
+import { unique } from "drizzle-orm/pg-core/unique-constraint";
+import { uuid } from "drizzle-orm/pg-core/columns/uuid";
 import { primaryKey } from "drizzle-orm/pg-core/primary-keys";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";

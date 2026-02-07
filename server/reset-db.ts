@@ -1,13 +1,10 @@
 import { db } from "./db";
-import { sql } from "drizzle-orm";
-
-import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql } from "drizzle-orm/sql";
 
 async function resetDatabase() {
   try {
     console.log("Dropping existing tables...");
-    
+
     await db.execute(sql`DROP TABLE IF EXISTS interviews CASCADE`);
     await db.execute(sql`DROP TABLE IF EXISTS connection_status CASCADE`);
     await db.execute(sql`DROP TABLE IF EXISTS notification_preferences CASCADE`);
@@ -38,7 +35,5 @@ async function resetDatabase() {
     process.exit(1);
   }
 }
-
-resetDatabase();
 
 resetDatabase();

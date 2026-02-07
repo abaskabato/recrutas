@@ -6,7 +6,7 @@
  * job-ingestion.service.ts
  */
 
-import { scraperOrchestrator, CompanyConfig } from '../scraper-v2/index.js';
+import { ScraperOrchestrator, CompanyConfig } from '../scraper-v2/index.js';
 import { ScrapedJob } from '../scraper-v2/types.js';
 import { jobIngestionService, ExternalJobInput } from './job-ingestion.service.js';
 import { logger } from '../scraper-v2/utils/logger.js';
@@ -100,20 +100,19 @@ function convertToSOTAConfig(legacy: any): CompanyConfig {
   const id = legacy.name.toLowerCase().replace(/\s+/g, '-');
   
   let ats = undefined;
+  let strategies: string[];
+
   if (legacy.greenhouseId) {
     ats = { type: 'greenhouse' as const, boardId: legacy.greenhouseId };
+    strategies = ['api', 'json_ld', 'ai_extraction'];
   } else if (legacy.leverId) {
     ats = { type: 'lever' as const, boardId: legacy.leverId };
-  } else if (legacy.workdayId) {
-    ats = { type: 'workday' as const, boardId: legacy.workdayId };
-  }
-  
-  // Determine best strategies based on ATS availability
-  let strategies: string[];
-  if (ats) {
     strategies = ['api', 'json_ld', 'ai_extraction'];
+  } else if (legacy.workdayId) {
+    // Workday API parser was removed — fallback to page-based strategies
+    strategies = ['json_ld', 'ai_extraction', 'html_parsing'];
   } else {
-    strategies = ['json_ld', 'data_island', 'ai_extraction', 'html_parsing'];
+    strategies = ['json_ld', 'ai_extraction', 'html_parsing'];
   }
   
   return {
@@ -136,7 +135,7 @@ function convertToSOTAConfig(legacy: any): CompanyConfig {
 /**
  * Convert SOTA scraped job to ingestion format
  */
-function convertToIngestionFormat(job: ScrapedJob): ExternalJobInput {
+export function convertToIngestionFormat(job: ScrapedJob): ExternalJobInput {
   // Generate external ID from job ID or create one
   const externalId = job.id || `${job.company}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
@@ -181,17 +180,18 @@ export interface ScrapeResult {
  */
 export class SOTAScraperService {
   private companies: CompanyConfig[];
+  private orchestrator: ScraperOrchestrator;
 
   constructor() {
-    // Convert all legacy companies to SOTA format
     this.companies = LEGACY_COMPANIES.map(convertToSOTAConfig);
+    this.orchestrator = new ScraperOrchestrator();
     logger.info(`Initialized SOTA scraper with ${this.companies.length} companies`);
   }
 
   /**
    * Run full scrape of all companies
    */
-  async scrapeAll(): Promise<ScrapeResult> {
+  async scrapeAll(options?: { signal?: AbortSignal }): Promise<ScrapeResult> {
     const startTime = Date.now();
     const result: ScrapeResult = {
       success: true,
@@ -204,31 +204,28 @@ export class SOTAScraperService {
 
     try {
       logger.info('Starting SOTA scraper full run');
-      
-      // Scrape all companies
-      const { results, jobs, metrics } = await scraperOrchestrator.scrapeCompanies(this.companies);
-      
+
+      const { results, jobs } = await this.orchestrator.scrapeCompanies(this.companies, options?.signal);
+
       result.companiesScraped = results.length;
       result.totalJobsFound = jobs.length;
-      
-      // Collect errors
+
       for (const scrapeResult of results) {
         if (scrapeResult.error) {
           result.errors.push(`${scrapeResult.companyName}: ${scrapeResult.error.message}`);
         }
       }
 
-      // Convert and ingest jobs
       if (jobs.length > 0) {
         const ingestionInputs = jobs.map(convertToIngestionFormat);
         const ingestionStats = await jobIngestionService.ingestExternalJobs(ingestionInputs);
         result.jobsIngested = ingestionStats.inserted;
-        
+
         logger.info(`Ingestion complete: ${ingestionStats.inserted} new, ${ingestionStats.duplicates} duplicates, ${ingestionStats.errors} errors`);
       }
 
       result.duration = Date.now() - startTime;
-      logger.info(`SOTA scraper complete in ${result.duration}ms`, { 
+      logger.info(`SOTA scraper complete in ${result.duration}ms`, {
         companiesScraped: result.companiesScraped,
         totalJobsFound: result.totalJobsFound,
         jobsIngested: result.jobsIngested,
@@ -264,11 +261,12 @@ export class SOTAScraperService {
     };
 
     try {
-      const { result: scrapeResult, jobs } = await scraperOrchestrator.scrapeCompany(company);
-      
+      const { results, jobs } = await this.orchestrator.scrapeCompanies([company]);
+
       result.totalJobsFound = jobs.length;
-      
-      if (scrapeResult.error) {
+
+      const scrapeResult = results[0];
+      if (scrapeResult?.error) {
         result.errors.push(`${scrapeResult.companyName}: ${scrapeResult.error.message}`);
       }
 
@@ -279,7 +277,7 @@ export class SOTAScraperService {
       }
 
       result.duration = Date.now() - startTime;
-      
+
     } catch (error) {
       result.success = false;
       result.errors.push(`Error: ${error instanceof Error ? error.message : String(error)}`);

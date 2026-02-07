@@ -1,6 +1,6 @@
 /**
  * ATS API Integration
- * 
+ *
  * Fetches job data directly from Applicant Tracking System APIs.
  * This is the fastest and most reliable method when available.
  */
@@ -8,30 +8,33 @@
 import { ScrapedJob, CompanyConfig, ATSType, JobLocation, SalaryInfo } from '../types.js';
 import { logger } from '../utils/logger.js';
 
-// ATS API Endpoints
-const ATS_ENDPOINTS: Record<ATSType, (boardId: string) => string> = {
+const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
+
+// ATS API Endpoints (only APIs with known working formats)
+const ATS_ENDPOINTS: Record<string, (boardId: string) => string> = {
   greenhouse: (id) => `https://boards-api.greenhouse.io/v1/boards/${id}/jobs`,
   lever: (id) => `https://api.lever.co/v0/postings/${id}`,
-  workday: (id) => `https://${id}.myworkdayjobs.com/wday/cbsi/${id}/jobs`,
   ashby: (id) => `https://api.ashbyhq.com/posting-api/job-board/${id}`,
-  bamboohr: (id) => `https://${id}.bamboohr.com/careers`,
   smartrecruiters: (id) => `https://api.smartrecruiters.com/v1/companies/${id}/postings`,
-  icims: (id) => `https://${id}.icims.com/jobs`,
-  taleo: (id) => `https://${id}.taleo.net/careersection/rest/jobboard/searchjobs`,
-  custom: (id) => id
 };
 
 /**
  * Fetch jobs from ATS API
  */
-export async function fetchFromATS(company: CompanyConfig): Promise<ScrapedJob[]> {
+export async function fetchFromATS(company: CompanyConfig, fetchOptions?: RequestInit): Promise<ScrapedJob[]> {
   if (!company.ats?.type || !company.ats.boardId) {
     throw new Error('ATS configuration missing');
   }
 
   const atsType = company.ats.type;
   const boardId = company.ats.boardId;
-  const endpoint = ATS_ENDPOINTS[atsType](boardId);
+  const endpointFn = ATS_ENDPOINTS[atsType];
+
+  if (!endpointFn) {
+    throw new Error(`Unsupported ATS type: ${atsType}`);
+  }
+
+  const endpoint = endpointFn(boardId);
 
   logger.info(`Fetching jobs from ${atsType} API for ${company.name}`, {
     company: company.name,
@@ -41,10 +44,10 @@ export async function fetchFromATS(company: CompanyConfig): Promise<ScrapedJob[]
 
   try {
     const response = await fetch(endpoint, {
+      ...fetchOptions,
       headers: {
-        'User-Agent': 'RecrutasJobBot/1.0 (https://recrutas.io)',
+        ...((fetchOptions?.headers as Record<string, string>) || {}),
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
       }
     });
 
@@ -52,11 +55,21 @@ export async function fetchFromATS(company: CompanyConfig): Promise<ScrapedJob[]
       throw new Error(`ATS API returned ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json();
-    
-    // Parse based on ATS type
+    // Check Content-Length before reading body
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
+      throw new Error(`Response too large: ${contentLength} bytes`);
+    }
+
+    const text = await response.text();
+    if (text.length > MAX_RESPONSE_SIZE) {
+      throw new Error(`Response body too large: ${text.length} chars`);
+    }
+
+    const data = JSON.parse(text);
+
     const jobs = parseATSResponse(atsType, data, company);
-    
+
     logger.info(`Successfully fetched ${jobs.length} jobs from ${atsType} for ${company.name}`);
     return jobs;
 
@@ -72,21 +85,19 @@ export async function fetchFromATS(company: CompanyConfig): Promise<ScrapedJob[]
 /**
  * Parse ATS-specific response formats
  */
-function parseATSResponse(atsType: ATSType, data: any, company: CompanyConfig): ScrapedJob[] {
+function parseATSResponse(atsType: string, data: any, company: CompanyConfig): ScrapedJob[] {
   switch (atsType) {
     case 'greenhouse':
       return parseGreenhouseResponse(data, company);
     case 'lever':
       return parseLeverResponse(data, company);
-    case 'workday':
-      return parseWorkdayResponse(data, company);
     case 'ashby':
       return parseAshbyResponse(data, company);
     case 'smartrecruiters':
       return parseSmartRecruitersResponse(data, company);
     default:
-      logger.warn(`Unknown ATS type: ${atsType}, attempting generic parsing`);
-      return parseGenericResponse(data, company);
+      logger.warn(`Unknown ATS type: ${atsType}`);
+      return [];
   }
 }
 
@@ -99,13 +110,14 @@ function parseGreenhouseResponse(data: any, company: CompanyConfig): ScrapedJob[
 
   for (const job of jobListings) {
     try {
+      const locationRaw = job.location?.name || 'Remote';
       const location: JobLocation = {
-        raw: job.location?.name || 'Remote',
+        raw: locationRaw,
         city: job.location?.name?.split(',')[0],
-        country: 'Unknown',
-        countryCode: 'US',
-        isRemote: job.location?.name?.toLowerCase().includes('remote') || false,
-        normalized: (job.location?.name || 'remote').toLowerCase()
+        country: '',
+        countryCode: '',
+        isRemote: locationRaw.toLowerCase().includes('remote'),
+        normalized: locationRaw.toLowerCase()
       };
 
       jobs.push({
@@ -121,7 +133,7 @@ function parseGreenhouseResponse(data: any, company: CompanyConfig): ScrapedJob[
         responsibilities: [],
         skills: [],
         skillCategories: [],
-        workType: 'hybrid',
+        workType: determineWorkType(locationRaw),
         employmentType: 'full-time',
         experienceLevel: 'mid',
         salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
@@ -157,12 +169,13 @@ function parseLeverResponse(data: any, company: CompanyConfig): ScrapedJob[] {
 
   for (const job of jobListings) {
     try {
+      const locationRaw = job.categories?.location || 'Remote';
       const location: JobLocation = {
-        raw: job.categories?.location || 'Remote',
-        isRemote: job.categories?.location?.toLowerCase().includes('remote') || false,
-        country: 'Unknown',
-        countryCode: 'US',
-        normalized: (job.categories?.location || 'remote').toLowerCase()
+        raw: locationRaw,
+        isRemote: locationRaw.toLowerCase().includes('remote'),
+        country: '',
+        countryCode: '',
+        normalized: locationRaw.toLowerCase()
       };
 
       jobs.push({
@@ -178,7 +191,7 @@ function parseLeverResponse(data: any, company: CompanyConfig): ScrapedJob[] {
         responsibilities: [],
         skills: [],
         skillCategories: [],
-        workType: determineWorkType(job.categories?.location),
+        workType: determineWorkType(locationRaw),
         employmentType: job.categories?.commitment || 'full-time',
         experienceLevel: 'mid',
         salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
@@ -206,61 +219,6 @@ function parseLeverResponse(data: any, company: CompanyConfig): ScrapedJob[] {
 }
 
 /**
- * Parse Workday API response
- */
-function parseWorkdayResponse(data: any, company: CompanyConfig): ScrapedJob[] {
-  // Workday APIs vary, this is a generic parser
-  const jobs: ScrapedJob[] = [];
-  const jobListings = data.jobPostings || data.jobs || data.data?.jobs || [];
-
-  for (const job of jobListings) {
-    try {
-      jobs.push({
-        id: `workday_${company.ats?.boardId}_${job.id || job.bulletinId}`,
-        title: job.title || job.jobTitle,
-        normalizedTitle: '',
-        company: company.name,
-        companyId: company.id,
-        location: {
-          raw: job.location?.city || job.primaryLocation || 'Remote',
-          isRemote: false,
-          country: 'Unknown',
-          countryCode: 'US',
-          normalized: 'unknown'
-        },
-        description: stripHtml(job.description || job.jobDescription || ''),
-        requirements: [],
-        responsibilities: [],
-        skills: [],
-        skillCategories: [],
-        workType: 'hybrid',
-        employmentType: 'full-time',
-        experienceLevel: 'mid',
-        salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
-        benefits: [],
-        externalUrl: job.externalApplyUrl || job.applyUrl || company.careerPageUrl,
-        source: {
-          type: 'ats_api',
-          company: company.name,
-          url: company.careerPageUrl,
-          ats: 'workday',
-          scrapeMethod: 'api'
-        },
-        postedDate: new Date(job.postedDate || Date.now()),
-        scrapedAt: new Date(),
-        updatedAt: new Date(),
-        status: 'active',
-        isRemote: false
-      });
-    } catch (error) {
-      logger.warn(`Failed to parse Workday job for ${company.name}`, { error });
-    }
-  }
-
-  return jobs;
-}
-
-/**
  * Parse Ashby API response
  */
 function parseAshbyResponse(data: any, company: CompanyConfig): ScrapedJob[] {
@@ -269,6 +227,7 @@ function parseAshbyResponse(data: any, company: CompanyConfig): ScrapedJob[] {
 
   for (const job of jobListings) {
     try {
+      const locationRaw = job.location || 'Remote';
       jobs.push({
         id: `ashby_${company.ats?.boardId}_${job.id}`,
         title: job.title,
@@ -276,18 +235,18 @@ function parseAshbyResponse(data: any, company: CompanyConfig): ScrapedJob[] {
         company: company.name,
         companyId: company.id,
         location: {
-          raw: job.location || 'Remote',
-          isRemote: job.location?.toLowerCase().includes('remote') || false,
-          country: 'Unknown',
-          countryCode: 'US',
-          normalized: (job.location || 'remote').toLowerCase()
+          raw: locationRaw,
+          isRemote: locationRaw.toLowerCase().includes('remote'),
+          country: '',
+          countryCode: '',
+          normalized: locationRaw.toLowerCase()
         },
         description: job.description || '',
         requirements: [],
         responsibilities: [],
         skills: [],
         skillCategories: [],
-        workType: 'hybrid',
+        workType: determineWorkType(locationRaw),
         employmentType: job.employmentType || 'full-time',
         experienceLevel: 'mid',
         salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
@@ -323,6 +282,7 @@ function parseSmartRecruitersResponse(data: any, company: CompanyConfig): Scrape
 
   for (const job of jobListings) {
     try {
+      const locationRaw = job.location?.city ? `${job.location.city}, ${job.location.country}` : 'Remote';
       jobs.push({
         id: `smartrecruiters_${company.ats?.boardId}_${job.id}`,
         title: job.name,
@@ -330,18 +290,18 @@ function parseSmartRecruitersResponse(data: any, company: CompanyConfig): Scrape
         company: company.name,
         companyId: company.id,
         location: {
-          raw: job.location?.city ? `${job.location.city}, ${job.location.country}` : 'Remote',
+          raw: locationRaw,
           isRemote: job.location?.remote || false,
-          country: job.location?.country || 'Unknown',
-          countryCode: 'US',
-          normalized: (job.location?.city || 'remote').toLowerCase()
+          country: job.location?.country || '',
+          countryCode: '',
+          normalized: locationRaw.toLowerCase()
         },
         description: job.jobDescription || '',
         requirements: [],
         responsibilities: [],
         skills: [],
         skillCategories: [],
-        workType: job.typeOfEmployment?.label?.toLowerCase().includes('remote') ? 'remote' : 'hybrid',
+        workType: determineWorkType(locationRaw),
         employmentType: 'full-time',
         experienceLevel: 'mid',
         salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
@@ -368,59 +328,6 @@ function parseSmartRecruitersResponse(data: any, company: CompanyConfig): Scrape
   return jobs;
 }
 
-/**
- * Generic parser for unknown ATS formats
- */
-function parseGenericResponse(data: any, company: CompanyConfig): ScrapedJob[] {
-  logger.warn(`Using generic parser for ${company.name}`, { dataKeys: Object.keys(data) });
-  
-  // Try to find job arrays in common locations
-  const jobsArray = data.jobs || data.postings || data.data || data.results || [];
-  
-  if (!Array.isArray(jobsArray)) {
-    logger.error(`Could not find jobs array in response for ${company.name}`);
-    return [];
-  }
-
-  return jobsArray.map((job: any, index: number) => ({
-    id: `generic_${company.id}_${index}`,
-    title: job.title || job.name || job.position || 'Unknown',
-    normalizedTitle: '',
-    company: company.name,
-    companyId: company.id,
-    location: {
-      raw: job.location || 'Remote',
-      isRemote: false,
-      country: 'Unknown',
-      countryCode: 'US',
-      normalized: 'unknown'
-    },
-    description: job.description || '',
-    requirements: [],
-    responsibilities: [],
-    skills: [],
-    skillCategories: [],
-    workType: 'hybrid',
-    employmentType: 'full-time',
-    experienceLevel: 'mid',
-    salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
-    benefits: [],
-    externalUrl: job.url || job.applyUrl || company.careerPageUrl,
-    source: {
-      type: 'ats_api',
-      company: company.name,
-      url: company.careerPageUrl,
-      ats: company.ats?.type || 'custom',
-      scrapeMethod: 'api'
-    },
-    postedDate: new Date(),
-    scrapedAt: new Date(),
-    updatedAt: new Date(),
-    status: 'active',
-    isRemote: false
-  }));
-}
-
 // Helper functions
 function stripHtml(html: string): string {
   return html
@@ -434,14 +341,13 @@ function stripHtml(html: string): string {
 function extractRequirementsFromHtml(html: string): any[] {
   const requirements: any[] = [];
   const text = stripHtml(html).toLowerCase();
-  
-  // Look for common requirement patterns
+
   const patterns = [
     { type: 'experience', regex: /(\d+\+?\s*years?\s+of\s+experience)/gi },
     { type: 'education', regex: /(bachelor|master|phd|degree)/gi },
     { type: 'skill', regex: /(proficiency|experience)\s+with/gi }
   ];
-  
+
   for (const { type, regex } of patterns) {
     const matches = text.match(regex);
     if (matches) {
@@ -452,11 +358,12 @@ function extractRequirementsFromHtml(html: string): any[] {
       });
     }
   }
-  
+
   return requirements;
 }
 
 function determineWorkType(location: string): 'remote' | 'onsite' | 'hybrid' {
+  if (!location) return 'hybrid';
   const lower = location.toLowerCase();
   if (lower.includes('remote')) return 'remote';
   if (lower.includes('hybrid')) return 'hybrid';

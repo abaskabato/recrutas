@@ -17,7 +17,8 @@ import {
   usageTracking,
   users
 } from '../../shared/schema';
-import { eq, and, sql, gte, lte } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { sql, gte, lte } from 'drizzle-orm/sql';
 
 // Free tier limits
 const FREE_TIER_LIMITS: Record<string, number> = {
@@ -43,7 +44,7 @@ class StripeService {
   constructor() {
     if (process.env.STRIPE_SECRET_KEY) {
       this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: '2024-12-18.acacia',
+        apiVersion: '2025-12-15.clover',
       });
     } else {
       console.log('[StripeService] STRIPE_SECRET_KEY not configured - payment features disabled');
@@ -377,8 +378,10 @@ class StripeService {
     await db.update(userSubscriptions)
       .set({
         status: this.mapStripeStatus(subscription.status),
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date((subscription.start_date ?? subscription.billing_cycle_anchor) * 1000),
+        currentPeriodEnd: subscription.cancel_at
+          ? new Date(subscription.cancel_at * 1000)
+          : new Date(Date.now()),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         updatedAt: new Date(),
       })
@@ -405,7 +408,7 @@ class StripeService {
    * Handle payment failure
    */
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    if (!invoice.subscription) return;
+    if (!invoice.parent?.subscription_details?.subscription) return;
 
     const customerId = invoice.customer as string;
 
@@ -423,7 +426,7 @@ class StripeService {
    * Handle payment success
    */
   private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
-    if (!invoice.subscription) return;
+    if (!invoice.parent?.subscription_details?.subscription) return;
 
     const customerId = invoice.customer as string;
 
