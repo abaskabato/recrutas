@@ -29,7 +29,6 @@
     "test:playwright:ui": "npx playwright test --ui",
     "test:playwright:headed": "npx playwright test --headed",
     "test:resume:upload": "tsx test_resume_upload.mjs",
-
     "wait-for-server": "tsx scripts/wait-for-server.js",
     "test-resume-upload-direct": "tsx test_resume_upload.mjs",
     "test:all": "npm run test:unit:backend && npm run test:integration:backend && npm run test:frontend && npm run test:e2e",
@@ -143,6 +142,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/supertest": "^6.0.3",
     "@types/ws": "^8.5.13",
+    "@vercel/node": "^5.5.33",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.21",
     "cross-port-killer": "^1.4.0",

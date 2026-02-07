@@ -12,8 +12,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { SOTAScraperService } from '../server/services/sota-scraper.service.js';
-import { logger } from '../server/scraper-v2/utils/logger.js';
+import { SOTAScraperService } from '../../server/services/sota-scraper.service';
+import { logger } from '../../server/scraper-v2/utils/logger';
 
 // Vercel Hobby plan has 60s execution limit
 const MAX_EXECUTION_TIME = 55000; // Leave 5s buffer
