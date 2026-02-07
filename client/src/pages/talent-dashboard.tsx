@@ -1005,7 +1005,7 @@ export default function TalentDashboard() {
                                 </div>
                                 <p className="text-sm text-gray-500">{applicant.candidate.email}</p>
                                 <div className="flex flex-wrap gap-2 mt-3">
-                                  {applicant.profile.skills.map((skill: string) => (
+                                  {(applicant.profile?.skills || []).map((skill: string) => (
                                     <Badge key={skill} variant="secondary">{skill}</Badge>
                                   ))}
                                 </div>

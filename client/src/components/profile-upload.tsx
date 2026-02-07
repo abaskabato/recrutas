@@ -244,7 +244,7 @@ export default function ProfileUpload() {
             <div>
               <Label className="font-semibold">Detected Skills</Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {parsedResumeData.skills.map((skill, index) => (
+                {(parsedResumeData.skills || []).map((skill, index) => (
                   <Badge key={index} variant="secondary" className="flex items-center gap-1">
                     {skill}
                     <button onClick={() => setParsedResumeData(prev => prev ? ({ ...prev, skills: prev.skills.filter(s => s !== skill) }) : null)}>
