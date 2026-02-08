@@ -109,6 +109,9 @@ export async function configureApp() {
     credentials: true
   }));
 
+  // Trust the first proxy (Vercel/reverse proxy) so express-rate-limit reads X-Forwarded-For correctly
+  app.set('trust proxy', 1);
+
   // Rate limiting: 100 requests per 15 minutes per IP
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
