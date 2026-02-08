@@ -18,6 +18,8 @@ import PricingPage from "@/pages/pricing";
 import PrivacyPolicy from "@/pages/privacy";
 import TermsOfService from "@/pages/terms";
 import { TopRightButtons } from '@/components/TopRightButtons';
+import { RoleGuard } from '@/components/role-guard';
+import { AuthGuard } from '@/components/auth-guard';
 
 
 function App() {
@@ -31,12 +33,24 @@ function App() {
           <Route path="/signup/candidate" component={SignUpCandidatePage} />
           <Route path="/signup/talent-owner" component={SignUpTalentPage} />
           <Route path="/forgot-password" component={ForgotPasswordPage} />
-          <Route path="/role-selection" component={GuidedSetup} />
-          <Route path="/candidate-dashboard" component={CandidateDashboard} />
-          <Route path="/talent-dashboard" component={TalentDashboard} />
-          <Route path="/exam/:id" component={ExamPage} />
-          <Route path="/chat/:id" component={Chat} />
-          <Route path="/chat" component={Chat} />
+          <Route path="/role-selection">
+            <AuthGuard><GuidedSetup /></AuthGuard>
+          </Route>
+          <Route path="/candidate-dashboard">
+            <RoleGuard allowedRoles={['candidate']}><CandidateDashboard /></RoleGuard>
+          </Route>
+          <Route path="/talent-dashboard">
+            <RoleGuard allowedRoles={['talent_owner', 'recruiter']}><TalentDashboard /></RoleGuard>
+          </Route>
+          <Route path="/exam/:id">
+            <RoleGuard allowedRoles={['candidate', 'talent_owner', 'recruiter']}><ExamPage /></RoleGuard>
+          </Route>
+          <Route path="/chat/:id">
+            <RoleGuard allowedRoles={['candidate', 'talent_owner', 'recruiter']}><Chat /></RoleGuard>
+          </Route>
+          <Route path="/chat">
+            <RoleGuard allowedRoles={['candidate', 'talent_owner', 'recruiter']}><Chat /></RoleGuard>
+          </Route>
           <Route path="/pricing" component={PricingPage} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfService} />

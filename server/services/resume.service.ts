@@ -77,7 +77,7 @@ export class ResumeService {
       await this.storage.upsertCandidateUser({
         userId,
         resumeProcessingStatus: 'failed'
-      }).catch(() => {});
+      }).catch((e: any) => console.warn('[ResumeService] Failed to update status after upload error:', e?.message));
       throw new ResumeProcessingError(`Failed to upload resume: ${uploadError?.message}`, uploadError);
     }
 
@@ -157,7 +157,7 @@ export class ResumeService {
         parsingSuccess
           ? `Resume parsed with ${parseResult?.confidence || 0}% confidence. Extracted ${aiExtracted.skills?.technical?.length || 0} skills.`
           : `Resume uploaded. AI parsing failed - you can add skills manually.`
-      ).catch(() => {});
+      ).catch((e: any) => console.warn('[ResumeService] Failed to create activity log:', e?.message));
 
     } catch (saveError: any) {
       console.error(`[ResumeService] Failed to save profile:`, saveError);

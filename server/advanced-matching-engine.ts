@@ -48,6 +48,7 @@ const RANKING_WEIGHTS = {
 export class AdvancedMatchingEngine {
   private matchCache: Map<string, EnhancedJobMatch[]> = new Map();
   private readonly CACHE_DURATION = 60 * 1000; // 1 minute for fresh matches
+  private static readonly MAX_CACHE_SIZE = 200;
 
   async generateAdvancedMatches(criteria: AdvancedMatchCriteria): Promise<EnhancedJobMatch[]> {
     const cacheKey = this.generateCacheKey(criteria);
@@ -78,7 +79,11 @@ export class AdvancedMatchingEngine {
       // Sort by PRD hybrid formula: FinalScore = w1*Semantic + w2*Recency + w3*Liveness + w4*Personalization
       matches.sort((a, b) => b.finalScore - a.finalScore);
 
-      // Cache results
+      // Cache results with size limit to prevent unbounded growth
+      if (this.matchCache.size >= AdvancedMatchingEngine.MAX_CACHE_SIZE) {
+        const oldestKey = this.matchCache.keys().next().value;
+        if (oldestKey !== undefined) this.matchCache.delete(oldestKey);
+      }
       this.matchCache.set(cacheKey, matches.slice(0, 50)); // Top 50 matches
       setTimeout(() => this.matchCache.delete(cacheKey), this.CACHE_DURATION);
 
