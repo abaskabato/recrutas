@@ -165,8 +165,8 @@ test.describe('Authentication - Critical Path Tests', () => {
     // Try to access protected route
     await page.goto('/candidate-dashboard');
     
-    // Should redirect to auth
-    await page.waitForTimeout(2000);
+    // Should redirect to auth - wait for navigation
+    await page.waitForURL('**/auth**', { timeout: 5000 });
     expect(page.url()).toContain('/auth');
   });
 
