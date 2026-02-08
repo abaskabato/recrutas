@@ -81,10 +81,14 @@ npm audit fix --force  # WARNING: May have breaking changes
 
 ## 🟠 HIGH - MVP BLOCKING (5 issues)
 
-4. **Job Feed Auto-Refresh** - After resume upload  
-   **Fix:** Invalidate `/api/ai-matches` query  
-   **Time:** 1 hour  
-   **Status:** ❌ NOT STARTED
+4. **Job Feed Auto-Refresh** - AFTER RESUME UPLOAD  
+   **Status:** ✅ ALREADY FIXED - NO ACTION NEEDED  
+   **Evidence:** Fix already implemented in ResumeUploadStep.tsx (lines 78-81, 180)  
+   **How it works:** 
+   - After resume upload: `queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] })`
+   - React Query automatically refetches job matches
+   - Job feed updates with new AI matches
+   **Verification:** Code inspection confirms fix is in place
 
 5. **Post-Verification Redirect** - After email confirmation  
    **Fix:** Redirect to dashboard after verification  
@@ -166,10 +170,10 @@ npm audit fix --force  # WARNING: May have breaking changes
 | Phase | Issues | Status | Completion |
 |-------|--------|--------|------------|
 | Security | 3 | 1.5/3 | 50% |
-| MVP Blockers | 6 | 0/6 | 0% |
+| MVP Blockers | 6 | 1/6 | 17% |
 | Quality | 4 | 0/4 | 0% |
 | Polish | 4 | 0/4 | 0% |
-| **TOTAL** | **16** | **2/16** | **12.5%** |
+| **TOTAL** | **16** | **3/16** | **18.75%** |
 
 ---
 
