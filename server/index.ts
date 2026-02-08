@@ -7,6 +7,7 @@ import { registerChatRoutes } from "./chat-routes.js";
 
 import { supabaseAdmin } from './lib/supabase-admin.js';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { errorHandlerMiddleware, requestTracingMiddleware, captureException } from './error-monitoring.js';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 
@@ -93,7 +94,65 @@ async function initializeBackgroundServices() {
 }
 
 export async function configureApp() {
-  app.use(cors());
+  // CORS: restrict to frontend origin in production, allow localhost in dev
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000']
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+  }));
+
+  // Rate limiting: 100 requests per 15 minutes per IP
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+      res.status(429).json({ message: 'Too many requests, please try again later.' });
+    }
+  });
+  app.use(limiter);
+
+  // Stricter rate limiting for auth endpoints: 10 requests per 15 minutes
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 auth requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+      res.status(429).json({ message: 'Too many authentication attempts, please try again later.' });
+    }
+  });
+  app.use('/api/auth/', authLimiter);
+
+  // Stripe webhook needs raw body for signature verification — must be before express.json()
+  app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req: any, res) => {
+    try {
+      const { stripeService } = await import('./services/stripe.service.js');
+      const sig = req.headers['stripe-signature'];
+
+      if (!sig) {
+        return res.status(400).json({ message: "Missing stripe-signature header" });
+      }
+
+      const event = stripeService.constructWebhookEvent(req.body, sig);
+      await stripeService.handleWebhook(event);
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error("Webhook error:", error.message);
+      res.status(400).json({ message: `Webhook Error: ${error.message}` });
+    }
+  });
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 

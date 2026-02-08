@@ -1,6 +1,13 @@
 import { generateJobMatch } from './ai-service';
 import { storage } from './storage';
 
+export class MatchingEngineError extends Error {
+  constructor(message: string, public cause?: Error) {
+    super(message);
+    this.name = 'MatchingEngineError';
+  }
+}
+
 interface AdvancedMatchCriteria {
   candidateId: string;
   skills: string[];
@@ -66,10 +73,19 @@ export class AdvancedMatchingEngine {
       ]);
 
       const allJobs = [...internalJobs, ...externalJobs];
+
+      // Limit to 500 jobs, prioritizing most recent
+      allJobs.sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.created_at || 0).getTime();
+        const dateB = new Date(b.createdAt || b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+      const limitedJobs = allJobs.slice(0, 500);
+
       const matches: EnhancedJobMatch[] = [];
 
       // Process each job for advanced matching
-      for (const job of allJobs) {
+      for (const job of limitedJobs) {
         const match = await this.calculateAdvancedMatch(criteria, job);
         if (match.matchScore >= 0.6) { // Only include good matches
           matches.push(match);
@@ -90,7 +106,10 @@ export class AdvancedMatchingEngine {
       return matches;
     } catch (error) {
       console.error('Advanced matching error:', error);
-      return [];
+      throw new MatchingEngineError(
+        'Failed to generate job matches. Please try again later.',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 

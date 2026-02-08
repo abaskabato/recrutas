@@ -73,7 +73,6 @@ export default function JobPostStep() {
       return response.json();
     },
     onSuccess: () => {
-      console.log('Job post successful');
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
       toast({

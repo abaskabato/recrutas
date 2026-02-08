@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +69,7 @@ export default function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('hero');
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { data: session, isPending } = useSession();
   const user = session?.user;
   const isAuthenticated = !!user;
@@ -115,20 +117,20 @@ export default function Landing() {
   };
 
   const handleLogin = () => {
-    window.location.href = "/auth";
+    setLocation("/auth");
   };
 
   const handleStartMatching = () => {
     setShowInstantMatch(false);
     if (isAuthenticated && (user as any)?.role === 'candidate') {
-      window.location.href = "/candidate-dashboard";
+      setLocation("/candidate-dashboard");
     } else {
       handleLogin();
     }
   };
 
   if (isAuthenticated && user && !(user as any)?.role) {
-    window.location.href = '/role-selection';
+    setLocation('/role-selection');
     return null;
   }
 
@@ -286,7 +288,7 @@ export default function Landing() {
               ) : (
                 <Button 
                   className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                  onClick={() => window.location.href = (user as any)?.role === 'candidate' ? '/candidate-dashboard' : '/recruiter-dashboard'}
+                  onClick={() => setLocation((user as any)?.role === 'candidate' ? '/candidate-dashboard' : '/recruiter-dashboard')}
                 >
                   Go to Dashboard
                 </Button>

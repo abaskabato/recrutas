@@ -56,7 +56,7 @@ import {
   type InsertNotificationPreferences
 } from "../shared/schema.js";
 import { db } from "./db";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, asc, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
@@ -1420,33 +1420,57 @@ export class DatabaseStorage implements IStorage {
       const job = await this.getJobPosting(jobId);
       if (!job || !job.maxChatCandidates) return;
 
+      // Use a transaction to ensure atomic ranking updates
+      await db.transaction(async (tx) => {
+        const attempts = await tx
+          .select()
+          .from(examAttempts)
+          .where(and(
+            eq(examAttempts.jobId, jobId),
+            eq(examAttempts.status, 'completed'),
+            eq(examAttempts.passedExam, true)
+          ))
+          .orderBy(desc(examAttempts.score))
+          .for('update'); // Lock rows to prevent concurrent modifications
+
+        // Update rankings and grant chat access to top candidates
+        for (let i = 0; i < attempts.length; i++) {
+          const ranking = i + 1;
+          const qualifiedForChat = ranking <= job.maxChatCandidates;
+
+          await tx
+            .update(examAttempts)
+            .set({
+              ranking,
+              qualifiedForChat,
+              updatedAt: new Date()
+            })
+            .where(eq(examAttempts.id, attempts[i].id));
+
+          // Grant chat access to top candidates (outside transaction to avoid deadlock)
+          if (qualifiedForChat && job.hiringManagerId) {
+            // We commit the transaction first, then grant chat access
+          }
+        }
+
+        return attempts;
+      });
+
+      // Grant chat access after transaction completes to avoid deadlocks
       const attempts = await db
         .select()
         .from(examAttempts)
         .where(and(
           eq(examAttempts.jobId, jobId),
           eq(examAttempts.status, 'completed'),
-          eq(examAttempts.passedExam, true)
+          eq(examAttempts.passedExam, true),
+          eq(examAttempts.qualifiedForChat, true)
         ))
-        .orderBy(desc(examAttempts.score));
+        .orderBy(asc(examAttempts.ranking));
 
-      // Update rankings and grant chat access to top candidates
-      for (let i = 0; i < attempts.length; i++) {
-        const ranking = i + 1;
-        const qualifiedForChat = ranking <= job.maxChatCandidates;
-
-        await db
-          .update(examAttempts)
-          .set({
-            ranking,
-            qualifiedForChat,
-            updatedAt: new Date()
-          })
-          .where(eq(examAttempts.id, attempts[i].id));
-
-        // Grant chat access to top candidates
-        if (qualifiedForChat && job.hiringManagerId) {
-          await this.grantChatAccess(jobId, attempts[i].candidateId, attempts[i].id, ranking);
+      for (const attempt of attempts) {
+        if (job.hiringManagerId && attempt.ranking && attempt.ranking <= job.maxChatCandidates) {
+          await this.grantChatAccess(jobId, attempt.candidateId, attempt.id, attempt.ranking);
         }
       }
     } catch (error) {
@@ -1760,14 +1784,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateTalentTransparencySettings(talentId: string, settings: any): Promise<any> {
     try {
-      // Store talent transparency preferences in user profile
+      // Store talent transparency preferences in talent owner profile
       const [result] = await db
-        .update(users)
+        .update(talentOwnerProfiles)
         .set({
-          transparencySettings: JSON.stringify(settings),
+          transparencySettings: settings,
           updatedAt: new Date()
         })
-        .where(eq(users.id, talentId))
+        .where(eq(talentOwnerProfiles.userId, talentId))
         .returning();
 
       return result;

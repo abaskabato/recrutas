@@ -5,8 +5,10 @@ import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
 
 export default function RoleSelectionStep() {
+  const [, setLocation] = useLocation();
   const { setRole, setStep } = useGuidedSetup();
   const { toast } = useToast();
 
@@ -23,9 +25,9 @@ export default function RoleSelectionStep() {
 
       // Redirect to appropriate dashboard based on role
       if (role === 'talent_owner') {
-        window.location.href = '/talent-dashboard';
+        setLocation('/talent-dashboard');
       } else if (role === 'candidate') {
-        window.location.href = '/candidate-dashboard';
+        setLocation('/candidate-dashboard');
       }
     },
     onError: () => {

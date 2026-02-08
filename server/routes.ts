@@ -16,9 +16,12 @@ import { newsService } from './news-service';
 import {
   insertCandidateProfileSchema,
   insertJobPostingSchema,
+  updateJobPostingSchema,
+  scheduleInterviewSchema,
+  completeTalentOwnerProfileSchema,
 } from "@shared/schema";
 import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
-import { db } from "./db";
+import { db, testDbConnection } from "./db";
 import { seedDatabase } from "./seed.js";
 import { advancedMatchingEngine } from "./advanced-matching-engine";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
@@ -46,6 +49,13 @@ interface AIMatch {
 // Instantiate services
 const resumeService = new ResumeService(storage, aiResumeParser);
 const examService = new ExamService(storage, notificationService);
+
+// Helper function to safely parse integer params
+function parseIntParam(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? null : parsed;
+}
 
 // Background job processor for async job posting
 // Processes candidate matching and notifications in the background
@@ -226,8 +236,19 @@ async function findMatchingCandidates(job: any) {
 export async function registerRoutes(app: Express): Promise<Express> {
   console.log('registerRoutes called!');
 
-  // Dev-only route for seeding the database
+  // Dev-only route for seeding the database - DISABLED in production
   app.post('/api/dev/seed', async (req, res) => {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "This endpoint is disabled in production" });
+    }
+
+    // Require a secret key even in development
+    const devSecret = req.headers['x-dev-secret'];
+    if (!process.env.DEV_SECRET || devSecret !== process.env.DEV_SECRET) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     try {
       await seedDatabase();
       res.status(200).json({ message: "Database seeded successfully" });
@@ -238,12 +259,40 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Health check endpoint
-  app.get('/api/health', (req, res) => {
-    res.status(200).json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || '1.0.0',
-    });
+  app.get('/api/health', async (req, res) => {
+    try {
+      // Check database connectivity
+      const isDbHealthy = await testDbConnection();
+      
+      if (!isDbHealthy) {
+        return res.status(503).json({
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          version: process.env.npm_package_version || '1.0.0',
+          checks: {
+            database: 'unavailable'
+          }
+        });
+      }
+
+      res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || '1.0.0',
+        checks: {
+          database: 'connected'
+        }
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || '1.0.0',
+        checks: {
+          database: 'error'
+        }
+      });
+    }
   });
 
   // Layoff news endpoint
@@ -337,6 +386,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       if (!job || !candidate) {
         return res.status(404).json({ message: "Job or Candidate not found" });
+      }
+
+      // Only the job owner can generate screening questions
+      if (job.talentOwnerId !== req.user.id) {
+        return res.status(403).json({ message: "Unauthorized: You do not own this job posting" });
       }
 
       const questions = await generateScreeningQuestions(candidate, job);
@@ -582,10 +636,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Unsave a job for a candidate
   app.delete('/api/candidate/saved-jobs/:jobId', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
-      if (!jobId) {
-        return res.status(400).json({ message: "jobId is required" });
-      }
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       await storage.unsaveJob(req.user.id, jobId);
       res.status(200).json({ message: "Job unsaved successfully" });
     } catch (error) {
@@ -630,7 +682,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/candidate/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
       if (existingApplication) return res.status(400).json({ message: "Already applied to this job" });
 
@@ -798,7 +851,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Update job posting (PUT /api/jobs/:jobId)
   app.put('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const userId = req.user.id;
 
       // Verify ownership
@@ -807,10 +861,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(404).json({ message: 'Job not found' });
       }
 
-      const updatedJob = await storage.updateJobPosting(jobId, userId, req.body);
+      // Validate request body
+      const validatedData = updateJobPostingSchema.parse(req.body);
+
+      const updatedJob = await storage.updateJobPosting(jobId, userId, validatedData);
       await storage.createActivityLog(userId, "job_updated", `Job updated: ${updatedJob.title}`);
       res.json(updatedJob);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid job data",
+          errors: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
       console.error("Error updating job posting:", error);
       res.status(500).json({ message: "Failed to update job posting" });
     }
@@ -819,7 +882,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Delete job posting (DELETE /api/jobs/:jobId)
   app.delete('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const userId = req.user.id;
 
       // Verify ownership
@@ -840,7 +904,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Update job status (pause/resume/close)
   app.patch('/api/jobs/:jobId/status', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const userId = req.user.id;
       const { status } = req.body;
 
@@ -865,6 +930,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/talent-owner/profile/complete', isAuthenticated, async (req: any, res) => {
     try {
+      const validated = completeTalentOwnerProfileSchema.parse(req.body);
+
       const {
         firstName,
         lastName,
@@ -876,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         industry,
         companyLocation,
         companyDescription,
-      } = req.body;
+      } = validated;
 
       console.log(`[routes] Completing profile for talent owner ${req.user.id}`);
 
@@ -908,6 +975,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
         phoneNumber,
       });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid profile data",
+          errors: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
       console.error("Error completing talent owner profile:", error);
       res.status(500).json({ message: "Failed to complete profile" });
     }
@@ -916,7 +989,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.get('/api/jobs/:jobId/applicants', isAuthenticated, async (req: any, res) => {
     try {
-      const applicants = await storage.getApplicantsForJob(parseInt(req.params.jobId), req.user.id);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      const applicants = await storage.getApplicantsForJob(jobId, req.user.id);
       res.json(applicants);
     } catch (error) {
       console.error("Error fetching applicants:", error);
@@ -928,7 +1003,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Get screening questions for a job
   app.get('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const questions = await storage.getScreeningQuestions(jobId);
       res.json(questions);
     } catch (error) {
@@ -940,7 +1016,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Create/Update screening questions for a job
   app.post('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const userId = req.user.id;
 
       // Verify ownership
@@ -965,7 +1042,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Submit screening answers for an application
   app.post('/api/applications/:applicationId/screening-answers', isAuthenticated, async (req: any, res) => {
     try {
-      const applicationId = parseInt(req.params.applicationId);
+      const applicationId = parseIntParam(req.params.applicationId);
+      if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
       const { answers } = req.body;
 
       if (!Array.isArray(answers)) {
@@ -982,7 +1060,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.get('/api/jobs/:jobId/discovery', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const job = await storage.getJobPosting(jobId);
 
       if (!job || job.talentOwnerId !== req.user.id) {
@@ -1001,7 +1080,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const { status } = req.body;
       if (!status) return res.status(400).json({ message: "Status is required." });
-      const updatedApplication = await storage.updateApplicationStatus(parseInt(req.params.applicationId), status, req.user.id);
+      const applicationId = parseIntParam(req.params.applicationId);
+      if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
+      const updatedApplication = await storage.updateApplicationStatus(applicationId, status, req.user.id);
 
       // Track AI event for status change
       try {
@@ -1057,7 +1138,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
     try {
-      const notificationId = parseInt(req.params.id);
+      const notificationId = parseIntParam(req.params.id);
+      if (!notificationId) return res.status(400).json({ message: "Invalid notification id" });
       await notificationService.markAsRead(notificationId, req.user.id);
       res.json({ success: true });
     } catch (error) {
@@ -1128,33 +1210,29 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Interview scheduling endpoint
   app.post('/api/interviews/schedule', isAuthenticated, async (req: any, res) => {
     try {
-      const { candidateId, jobId, applicationId, scheduledAt, duration, platform, meetingLink, notes } = req.body;
-
-      if (!candidateId || !jobId || !applicationId || !scheduledAt) {
-        return res.status(400).json({ message: "candidateId, jobId, applicationId, and scheduledAt are required" });
-      }
+      const validated = scheduleInterviewSchema.parse(req.body);
 
       // Verify the talent owner has permission to schedule interviews for this job
-      const job = await storage.getJobPosting(jobId);
+      const job = await storage.getJobPosting(validated.jobId);
       if (!job || job.talentOwnerId !== req.user.id) {
         return res.status(403).json({ message: "Unauthorized to schedule interviews for this job" });
       }
 
       const interview = await storage.createInterview({
-        candidateId,
+        candidateId: validated.candidateId,
         interviewerId: req.user.id,
-        jobId,
-        applicationId,
-        scheduledAt,
-        duration: duration || 60,
-        platform: platform || 'video',
-        meetingLink,
-        notes
+        jobId: validated.jobId,
+        applicationId: validated.applicationId,
+        scheduledAt: validated.scheduledAt,
+        duration: validated.duration || 60,
+        platform: validated.platform || 'video',
+        meetingLink: validated.meetingLink,
+        notes: validated.notes,
       });
 
       // Notify the candidate about the scheduled interview
-      const candidate = await storage.getCandidateUser(candidateId);
-      const formattedDate = new Date(scheduledAt).toLocaleDateString('en-US', {
+      const candidate = await storage.getCandidateUser(validated.candidateId);
+      const formattedDate = new Date(validated.scheduledAt).toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -1164,15 +1242,21 @@ export async function registerRoutes(app: Express): Promise<Express> {
       });
 
       await notificationService.notifyInterviewScheduled(
-        candidateId,
+        validated.candidateId,
         job.company,
         job.title,
         formattedDate,
-        applicationId
+        validated.applicationId
       );
 
       res.json(interview);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid interview data",
+          errors: error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        });
+      }
       console.error("Error scheduling interview:", error);
       res.status(500).json({ message: "Failed to schedule interview" });
     }
@@ -1211,7 +1295,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Exam retrieval endpoint
   app.get('/api/jobs/:jobId/exam', isAuthenticated, async (req: any, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const job = await storage.getJobPosting(jobId);
 
       if (!job) {
@@ -1333,29 +1418,21 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  // Stripe webhook (must be before body parser for raw body)
-  // Note: This should be set up at the Express app level with raw body parser
-  app.post('/api/stripe/webhook', async (req: any, res) => {
-    try {
-      const sig = req.headers['stripe-signature'];
+  // Stripe webhook route is in index.ts (before express.json() for raw body verification)
 
-      if (!sig) {
-        return res.status(400).json({ message: "Missing stripe-signature header" });
-      }
-
-      // The body should be raw for webhook verification
-      const event = stripeService.constructWebhookEvent(req.body, sig);
-      await stripeService.handleWebhook(event);
-
-      res.json({ received: true });
-    } catch (error: any) {
-      console.error("Webhook error:", error.message);
-      res.status(400).json({ message: `Webhook Error: ${error.message}` });
-    }
-  });
-
-  // Initialize default subscription tiers (admin endpoint)
+  // Initialize default subscription tiers (admin endpoint) - DISABLED in production
   app.post('/api/admin/init-subscription-tiers', async (req, res) => {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "This endpoint is disabled in production" });
+    }
+
+    // Require admin secret
+    const adminSecret = req.headers['x-admin-secret'];
+    if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     try {
       await stripeService.initializeDefaultTiers();
       res.json({ success: true, message: "Subscription tiers initialized" });
@@ -1369,9 +1446,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Returns immediately and scrapes in background (non-blocking)
   app.post('/api/cron/scrape-external-jobs', async (req, res) => {
     try {
-      // Optional: Verify cron secret for security
+      // Verify cron secret for security (required if CRON_SECRET is set)
       const cronSecret = req.headers['x-cron-secret'];
-      if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 

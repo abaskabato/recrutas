@@ -162,7 +162,6 @@ export default function ResumeUploadStep() {
       }
     },
     onSuccess: (data) => {
-      console.log('Resume upload successful:', data);
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
 

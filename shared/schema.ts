@@ -48,6 +48,7 @@ export const talentOwnerProfiles = pgTable("talent_owner_profiles", {
   hiringTimeline: text("hiring_timeline"),
   hiringBudget: text("hiring_budget"),
   profileComplete: boolean("profile_complete").default(false),
+  transparencySettings: jsonb("transparency_settings"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -132,6 +133,7 @@ export const jobPostings = pgTable("job_postings", {
   // Indices for common queries
   idxJobLiveness: index("idx_job_liveness").on(table.livenessStatus, table.expiresAt),
   idxJobTrustScore: index("idx_job_trust_score").on(table.trustScore),
+  idxJobTalentOwner: index("idx_job_talent_owner").on(table.talentOwnerId),
 }));
 
 export const jobExams = pgTable("job_exams", {
@@ -186,10 +188,10 @@ export const jobMatches = pgTable("job_matches", {
 
 export const chatRooms = pgTable("chat_rooms", {
   id: serial("id").primaryKey(),
-  jobId: integer("job_id").notNull().references(() => jobPostings.id),
-  candidateId: uuid("candidate_id").notNull().references(() => users.id),
-  hiringManagerId: uuid("hiring_manager_id").notNull().references(() => users.id),
-  examAttemptId: integer("exam_attempt_id").references(() => examAttempts.id),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  hiringManagerId: uuid("hiring_manager_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  examAttemptId: integer("exam_attempt_id").references(() => examAttempts.id, { onDelete: 'cascade' }),
   status: varchar("status", { enum: ["active", "closed"] }).default("active"),
   candidateRanking: integer("candidate_ranking"),
   accessGrantedAt: timestamp("access_granted_at").defaultNow(),
@@ -198,12 +200,13 @@ export const chatRooms = pgTable("chat_rooms", {
 }, (table) => ({
   // Unique constraint to prevent duplicate chat rooms
   chatRoomUnique: unique('chat_room_unique').on(table.jobId, table.candidateId),
+  idxChatRoomCandidate: index("idx_chat_room_candidate").on(table.candidateId),
 }));
 
 export const chatMessages = pgTable("chat_messages", {
   id: serial("id").primaryKey(),
-  chatRoomId: integer("chat_room_id").notNull().references(() => chatRooms.id),
-  senderId: uuid("sender_id").notNull().references(() => users.id),
+  chatRoomId: integer("chat_room_id").notNull().references(() => chatRooms.id, { onDelete: 'cascade' }),
+  senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -229,6 +232,8 @@ export const jobApplications = pgTable("job_applications", {
 }, (table) => ({
   // Unique constraint to prevent duplicate applications
   jobCandidateUnique: unique('job_candidate_unique').on(table.jobId, table.candidateId),
+  idxApplicationCandidate: index("idx_application_candidate").on(table.candidateId),
+  idxApplicationStatus: index("idx_application_status").on(table.status),
 }));
 
 export const applicationUpdates = pgTable("application_updates", {
@@ -302,7 +307,7 @@ export const activityLogs = pgTable("activity_logs", {
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().references(() => users.id),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   type: varchar("type", {
     enum: [
       "application_viewed",
@@ -324,9 +329,9 @@ export const notifications = pgTable("notifications", {
   data: jsonb("data"),
   read: boolean("read").default(false),
   priority: varchar("priority", { enum: ["low", "medium", "high", "urgent"] }).default("medium"),
-  relatedJobId: integer("related_job_id").references(() => jobPostings.id),
-  relatedApplicationId: integer("related_application_id").references(() => jobApplications.id),
-  relatedMatchId: integer("related_match_id").references(() => jobMatches.id),
+  relatedJobId: integer("related_job_id").references(() => jobPostings.id, { onDelete: 'cascade' }),
+  relatedApplicationId: integer("related_application_id").references(() => jobApplications.id, { onDelete: 'cascade' }),
+  relatedMatchId: integer("related_match_id").references(() => jobMatches.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
   readAt: timestamp("read_at"),
 });
@@ -677,9 +682,34 @@ export const usageTrackingRelations = relations(usageTracking, ({ one }) => ({
 export const insertUserSchema = createInsertSchema(users);
 export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles);
 export const insertTalentOwnerProfileSchema = createInsertSchema(talentOwnerProfiles);
-export const insertJobPostingSchema = createInsertSchema(jobPostings, {
+export const insertJobPostingSchema = createInsertSchema(jobPostings);
+
+// Update schema for job postings - all updatable fields are optional
+export const updateJobPostingSchema = z.object({
+  title: z.string().optional(),
+  company: z.string().optional(),
+  description: z.string().optional(),
+  requirements: z.array(z.string()).optional(),
+  skills: z.array(z.string()).optional(),
+  location: z.string().optional().nullable(),
+  salaryMin: z.number().optional().nullable(),
+  salaryMax: z.number().optional().nullable(),
+  workType: z.enum(["remote", "hybrid", "onsite"]).optional().nullable(),
+  industry: z.string().optional().nullable(),
+  status: z.enum(["active", "paused", "closed"]).optional(),
+  hiringManagerId: z.string().uuid().optional().nullable(),
+  externalUrl: z.string().optional().nullable(),
+  careerPageUrl: z.string().optional().nullable(),
+  companyLogoUrl: z.string().optional().nullable(),
+  applicationUrl: z.string().optional().nullable(),
+  urgency: z.enum(["low", "medium", "high"]).optional(),
+  hasExam: z.boolean().optional(),
+  examPassingScore: z.number().optional(),
+  autoRankCandidates: z.boolean().optional(),
+  maxChatCandidates: z.number().optional(),
   expiresAt: z.coerce.date().optional().nullable(),
 });
+
 export const insertJobMatchSchema = createInsertSchema(jobMatches);
 export const insertChatMessageSchema = createInsertSchema(chatMessages);
 export const insertNotificationSchema = createInsertSchema(notifications);
@@ -689,6 +719,32 @@ export const insertConnectionStatusSchema = createInsertSchema(connectionStatus)
 export const insertSubscriptionTierSchema = createInsertSchema(subscriptionTiers);
 export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions);
 export const insertUsageTrackingSchema = createInsertSchema(usageTracking);
+
+// Validation schema for interview scheduling
+export const scheduleInterviewSchema = z.object({
+  candidateId: z.string().uuid(),
+  jobId: z.number().int().positive(),
+  applicationId: z.number().int().positive(),
+  scheduledAt: z.coerce.date().refine(d => d > new Date(), { message: "Interview must be scheduled in the future" }),
+  duration: z.number().int().min(15).max(480).optional(),
+  platform: z.string().optional(),
+  meetingLink: z.string().url().optional().or(z.literal("")),
+  notes: z.string().optional(),
+});
+
+// Validation schema for talent owner profile completion
+export const completeTalentOwnerProfileSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  phoneNumber: z.string().optional(),
+  jobTitle: z.string().min(1, "Job title is required"),
+  companyName: z.string().min(1, "Company name is required"),
+  industry: z.string().min(1, "Industry is required"),
+  companyLocation: z.string().min(1, "Company location is required"),
+  companyWebsite: z.string().url().optional().or(z.literal("")),
+  companySize: z.enum(["1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5001+"]).optional(),
+  companyDescription: z.string().max(2000).optional(),
+});
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;

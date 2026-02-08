@@ -17,26 +17,20 @@ export default function AuthPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log("AuthPage useEffect triggered. Session:", session);
     if (session) {
       const userRole = session.user?.user_metadata?.role;
-      console.log("User role:", userRole);
       if (userRole === 'candidate') {
-        console.log("Redirecting to /candidate-dashboard");
-        window.location.href = "/candidate-dashboard";
+        setLocation("/candidate-dashboard");
       } else if (userRole === 'talent_owner' || userRole === 'recruiter') {
-        console.log("Redirecting to /talent-dashboard");
-        window.location.href = "/talent-dashboard";
+        setLocation("/talent-dashboard");
       } else {
-        console.log("Redirecting to /role-selection");
-        window.location.href = "/role-selection";
+        setLocation("/role-selection");
       }
     }
   }, [session, setLocation]);
 
   const handleSignIn = async (e) => {
     e.preventDefault();
-    console.log("Attempting to sign in...");
     setSignInLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -59,8 +53,15 @@ export default function AuthPage() {
 
 
   if (session) {
-    // Render a loading state or null while redirecting
-    return null;
+    // Show loading state while redirecting
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -2,6 +2,13 @@ import type { Express } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./middleware/auth";
 
+// Helper function to safely parse integer params
+function parseIntParam(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? null : parsed;
+}
+
 // Maximum message length (5000 characters)
 const MAX_MESSAGE_LENGTH = 5000;
 
@@ -47,7 +54,10 @@ export function registerChatRoutes(app: Express) {
     // Get messages for a specific chat room
     app.get('/api/chat/rooms/:roomId/messages', isAuthenticated, async (req: any, res) => {
         try {
-            const roomId = parseInt(req.params.roomId);
+            const roomId = parseIntParam(req.params.roomId);
+            if (!roomId) {
+                return res.status(400).json({ message: "Invalid roomId" });
+            }
 
             // Verify user has access to this room
             const rooms = await storage.getChatRoomsForUser(req.user.id);
@@ -68,7 +78,11 @@ export function registerChatRoutes(app: Express) {
     // Send a message in a chat room
     app.post('/api/chat/rooms/:roomId/messages', isAuthenticated, async (req: any, res) => {
         try {
-            const roomId = parseInt(req.params.roomId);
+            const roomId = parseIntParam(req.params.roomId);
+            if (!roomId) {
+                return res.status(400).json({ message: "Invalid roomId" });
+            }
+
             const { message } = req.body;
 
             if (!message || message.trim().length === 0) {
@@ -118,15 +132,42 @@ export function registerChatRoutes(app: Express) {
                 return res.status(403).json({ message: "Only talent owners can initiate chats" });
             }
 
+            // Validate jobId is a valid number
+            const parsedJobId = parseIntParam(jobId?.toString());
+            if (!parsedJobId) {
+                return res.status(400).json({ message: "Invalid jobId. Must be a valid number." });
+            }
+
+            // Validate candidateId is a valid UUID
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!candidateId || typeof candidateId !== 'string' || !uuidRegex.test(candidateId)) {
+                return res.status(400).json({ message: "Invalid candidateId. Must be a valid UUID." });
+            }
+
+            // Verify job exists and belongs to the talent owner
+            const job = await storage.getJobPosting(parsedJobId);
+            if (!job) {
+                return res.status(404).json({ message: "Job not found" });
+            }
+            if (job.talentOwnerId !== req.user.id) {
+                return res.status(403).json({ message: "You don't have permission to create a chat room for this job" });
+            }
+
+            // Verify candidate exists
+            const candidate = await storage.getUser(candidateId);
+            if (!candidate) {
+                return res.status(404).json({ message: "Candidate not found" });
+            }
+
             // Check if room already exists
-            const existingRoom = await storage.getChatRoom(jobId, candidateId);
+            const existingRoom = await storage.getChatRoom(parsedJobId, candidateId);
             if (existingRoom) {
                 return res.json(existingRoom);
             }
 
             // Create new chat room
             const room = await storage.createChatRoom({
-                jobId,
+                jobId: parsedJobId,
                 candidateId,
                 hiringManagerId: req.user.id
             });

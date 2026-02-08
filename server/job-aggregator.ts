@@ -178,6 +178,23 @@ interface AdzunaApiResponse {
 
 export class JobAggregator {
 
+  // Fetch with exponential backoff retry on 429/503
+  private async fetchWithRetry(url: string, options?: RequestInit, maxRetries = 3): Promise<Response> {
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const response = await fetch(url, options);
+      if (response.status !== 429 && response.status !== 503) {
+        return response;
+      }
+      lastError = new Error(`HTTP ${response.status}`);
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw lastError!;
+  }
+
   // Add new open source job sources
   async fetchFromJSearchAPI(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
@@ -213,7 +230,7 @@ export class JobAggregator {
       });
 
       // Using RapidAPI free tier for JSearch
-      const response = await fetch(`https://jsearch.p.rapidapi.com/search?${params}`, {
+      const response = await this.fetchWithRetry(`https://jsearch.p.rapidapi.com/search?${params}`, {
         headers: {
           'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
           'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
@@ -240,7 +257,7 @@ export class JobAggregator {
     try {
       console.log('Fetching from ArbeitNow (free European jobs)...');
 
-      const response = await fetch('https://www.arbeitnow.com/api/job-board-api', {
+      const response = await this.fetchWithRetry('https://www.arbeitnow.com/api/job-board-api', {
         headers: {
           'User-Agent': 'JobPlatform/1.0',
           'Accept': 'application/json'
@@ -277,7 +294,7 @@ export class JobAggregator {
         page: '1'
       });
 
-      const response = await fetch(`https://jooble.org/api/${process.env.JOOBLE_API_KEY || 'demo'}?${params}`, {
+      const response = await this.fetchWithRetry(`https://jooble.org/api/${process.env.JOOBLE_API_KEY || 'demo'}?${params}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -308,7 +325,7 @@ export class JobAggregator {
         ? userSkills.join('+')
         : 'software+developer';
 
-      const response = await fetch(`https://www.indeed.com/rss?q=${query}&l=&sort=date`, {
+      const response = await this.fetchWithRetry(`https://www.indeed.com/rss?q=${query}&l=&sort=date`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; JobBot/1.0)',
           'Accept': 'application/rss+xml, application/xml'
@@ -350,7 +367,7 @@ export class JobAggregator {
         SortDirection: 'Descending'
       });
 
-      const response = await fetch(`https://data.usajobs.gov/api/search?${params}`, {
+      const response = await this.fetchWithRetry(`https://data.usajobs.gov/api/search?${params}`, {
         headers: {
           'Host': 'data.usajobs.gov',
           'User-Agent': 'Recrutas-Platform/1.0 (recrutas@replit.com)',
@@ -383,7 +400,7 @@ export class JobAggregator {
 
       for (const query of queries) {
         try {
-          const response = await fetch(`https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(query)}&page=1&num_pages=1&date_posted=today`, {
+          const response = await this.fetchWithRetry(`https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(query)}&page=1&num_pages=1&date_posted=today`, {
             headers: {
               'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || 'demo-key',
               'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
@@ -976,7 +993,7 @@ export class JobAggregator {
   // RemoteOK API - free, no authentication required
   async fetchRemoteOKJobs(): Promise<ExternalJob[]> {
     try {
-      const response = await fetch('https://remoteok.io/api', {
+      const response = await this.fetchWithRetry('https://remoteok.io/api', {
         headers: {
           'User-Agent': 'Recrutas-Platform/1.0'
         }
@@ -1007,7 +1024,7 @@ export class JobAggregator {
       for (const category of categories) {
         try {
           const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level`;
-          const response = await fetch(url, {
+          const response = await this.fetchWithRetry(url, {
             headers: {
               'User-Agent': 'Recrutas-Platform/1.0'
             }

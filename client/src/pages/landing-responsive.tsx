@@ -71,12 +71,12 @@ export default function LandingResponsive() {
   };
 
   const handleLogin = () => {
-    window.location.href = "/auth";
+    setLocation("/auth");
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    setLocation("/");
   };
 
   const handleStartMatching = () => {

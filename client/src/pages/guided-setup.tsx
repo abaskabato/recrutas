@@ -26,7 +26,6 @@ function GuidedSetupContent() {
       await apiRequest('POST', '/api/auth/role', { role });
     },
     onSuccess: () => {
-      console.log('✅ Mutation Success: Role set, advancing step...');
       toast({
         title: 'Role selected!',
         description: 'Your profile has been updated.',
@@ -44,7 +43,6 @@ function GuidedSetupContent() {
   });
 
   const handleRoleSelect = (selectedRole: 'candidate' | 'talent_owner') => {
-    console.log('👉 handleRoleSelect called with:', selectedRole);
     setRole(selectedRole);
     setRoleMutation.mutate(selectedRole);
   };

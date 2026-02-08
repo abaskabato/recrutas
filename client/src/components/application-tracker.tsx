@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const statusConfig: Record<string, { label: string; color: string; progress: num
 };
 
 export default function ApplicationTracker() {
+  const [, setLocation] = useLocation();
   const { data: applications, isLoading } = useQuery<ApplicationStatus[]>({
     queryKey: ["/api/candidate/applications"],
   });
@@ -192,11 +194,11 @@ export default function ApplicationTracker() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => window.location.href = '/chat'}>
+                        <Button variant="outline" size="sm" onClick={() => setLocation('/chat')}>
                           <MessageSquare className="h-4 w-4 mr-1" />
                           Message
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => window.location.href = `/candidate-dashboard?tab=jobs&job=${application.job.id}`}>
+                        <Button variant="outline" size="sm" onClick={() => setLocation(`/candidate-dashboard?tab=jobs&job=${application.job.id}`)}>
                           <ExternalLink className="h-4 w-4 mr-1" />
                           View Job
                         </Button>

@@ -1,4 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
 
 export const isAuthenticated = async (req: Request, res: Response, next: NextFunction) => {
   let token: string | undefined;
@@ -20,28 +23,13 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
   }
 
   try {
-    // Parse and validate JWT locally without network request to Supabase
-    // This eliminates the "fetch failed" error when Supabase is unreachable
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return res.status(401).json({ message: 'Unauthorized: Invalid token format' });
+    if (!JWT_SECRET) {
+      console.error('isAuthenticated: SUPABASE_JWT_SECRET is not configured');
+      return res.status(500).json({ message: 'Server authentication configuration error' });
     }
 
-    // Decode JWT payload (middle part)
-    let payload: any;
-    try {
-      const decoded = Buffer.from(parts[1], 'base64').toString('utf-8');
-      payload = JSON.parse(decoded);
-    } catch (parseError) {
-      console.error('isAuthenticated: Failed to parse JWT payload');
-      return res.status(401).json({ message: 'Unauthorized: Invalid token' });
-    }
-
-    // Validate token expiration
-    if (payload.exp && payload.exp < Date.now() / 1000) {
-      console.warn('isAuthenticated: Token expired');
-      return res.status(401).json({ message: 'Unauthorized: Token expired' });
-    }
+    // Verify JWT signature and decode payload
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
 
     // Validate token has required fields
     if (!payload.sub && !payload.user_id) {
@@ -61,6 +49,14 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     console.log('isAuthenticated: User authenticated:', user.id);
     next();
   } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      console.warn('isAuthenticated: Token expired');
+      return res.status(401).json({ message: 'Unauthorized: Token expired' });
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      console.warn('isAuthenticated: Invalid token signature');
+      return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+    }
     console.error('isAuthenticated: Error during authentication:', error);
     return res.status(500).json({ message: 'Internal server error during authentication' });
   }

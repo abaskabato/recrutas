@@ -290,6 +290,11 @@ export class SOTAScraperService {
         logger.info(`Tier ${tier} ingestion: ${ingestionStats.inserted} new, ${ingestionStats.duplicates} duplicates`);
       }
 
+      // If every company errored, mark the overall result as failed
+      if (result.errors.length === tierCompanies.length) {
+        result.success = false;
+      }
+
       result.duration = Date.now() - startTime;
       logger.info(`Tier ${tier} complete in ${result.duration}ms`, {
         companiesScraped: result.companiesScraped,

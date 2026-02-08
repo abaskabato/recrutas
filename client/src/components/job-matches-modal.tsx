@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation as useWouterLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,7 @@ const sampleJobs: JobResult[] = [
 ];
 
 export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProps) {
+  const [, navigate] = useWouterLocation();
   // Search/Filter state
   const [skills, setSkills] = useState("");
   const [role, setRole] = useState("");
@@ -138,7 +140,7 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
   };
 
   const handleSignUpPrompt = (action: string) => {
-    window.location.href = `/auth?action=${action}&redirect=candidate-dashboard`;
+    navigate(`/auth?action=${action}&redirect=candidate-dashboard`);
   };
 
   const formatSalary = (min?: number, max?: number) => {

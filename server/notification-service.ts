@@ -45,6 +45,7 @@ class NotificationService {
   private pollingClients: Map<string, PollingState> = new Map();
   private readonly POLLING_TIMEOUT = 30000; // 30 seconds for long-polling
   private readonly STALE_CONNECTION_TIMEOUT = 60000; // 1 minute
+  private readonly MAX_CONNECTIONS_PER_USER = 5; // Limit connections per user
 
   // WebSocket connection management
   addConnection(userId: string, ws: WebSocketClient) {
@@ -52,6 +53,15 @@ class NotificationService {
     ws.isAlive = true;
     
     const userConnections = this.connectedClients.get(userId) || [];
+    
+    // Enforce max connections per user - remove oldest if limit reached
+    if (userConnections.length >= this.MAX_CONNECTIONS_PER_USER) {
+      const oldestConnection = userConnections.shift();
+      if (oldestConnection) {
+        oldestConnection.close(1000, 'Max connections exceeded');
+      }
+    }
+    
     userConnections.push(ws);
     this.connectedClients.set(userId, userConnections);
 
@@ -699,6 +709,44 @@ class NotificationService {
 
     return hasWebSocket || hasPolling;
   }
+
+  /**
+   * Clean up stale WebSocket connections
+   */
+  cleanupStaleConnections(): void {
+    const now = Date.now();
+    
+    for (const [userId, connections] of this.connectedClients.entries()) {
+      const activeConnections = connections.filter(ws => {
+        // Check if connection is still alive
+        if (!ws.isAlive) {
+          ws.terminate();
+          return false;
+        }
+        return true;
+      });
+      
+      if (activeConnections.length === 0) {
+        this.connectedClients.delete(userId);
+        this.updateConnectionStatus(userId, false);
+      } else {
+        this.connectedClients.set(userId, activeConnections);
+      }
+    }
+  }
+
+  /**
+   * Start periodic cleanup of stale connections
+   */
+  startConnectionCleanup(): void {
+    // Run cleanup every 30 seconds
+    setInterval(() => {
+      this.cleanupStaleConnections();
+    }, 30000);
+  }
 }
 
 export const notificationService = new NotificationService();
+
+// Start connection cleanup
+notificationService.startConnectionCleanup();

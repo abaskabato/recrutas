@@ -181,11 +181,9 @@ export default function JobPostingWizard({
   };
 
   const nextStep = () => {
-    console.log('[JobWizard] nextStep called, currentStep:', currentStep);
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     } else {
-      console.log('[JobWizard] Submitting job data:', jobData);
       onSubmit(jobData);
     }
   };

@@ -13,12 +13,10 @@ export function useWebSocket() {
       socketRef.current = socket;
 
       socket.onopen = () => {
-        console.log('WebSocket connected');
         setIsConnected(true);
       };
 
       socket.onclose = () => {
-        console.log('WebSocket disconnected');
         setIsConnected(false);
       };
 

@@ -35,8 +35,6 @@ export function useWebSocketNotifications(userId?: string) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected for notifications');
-        
         // Clear any reconnection timeout
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -75,7 +73,6 @@ export function useWebSocketNotifications(userId?: string) {
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
         wsRef.current = null;
         
         // Attempt to reconnect after 3 seconds
@@ -170,6 +167,6 @@ function playNotificationSound() {
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.3);
   } catch (error) {
-    console.log('Could not play notification sound:', error);
+    // Notification sound not supported in this browser
   }
 }

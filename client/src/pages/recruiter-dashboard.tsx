@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +12,7 @@ import JobCard from "@/components/job-card";
 import RealTimeNotifications from "@/components/real-time-notifications";
 
 export default function RecruiterDashboard() {
+  const [, setLocation] = useLocation();
   const session = useSession();
   const supabase = useSupabaseClient();
   const { toast } = useToast();
@@ -25,7 +27,7 @@ export default function RecruiterDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/auth";
+        setLocation("/auth");
       }, 500);
       return;
     }
@@ -53,7 +55,7 @@ export default function RecruiterDashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    setLocation("/");
   };
 
   return (
@@ -95,7 +97,7 @@ export default function RecruiterDashboard() {
                 <h2 className="text-xl sm:text-2xl font-bold text-neutral-800">Recruiter Dashboard</h2>
                 <p className="text-sm sm:text-base text-neutral-600">Manage your job postings and candidate matches</p>
               </div>
-              <Button className="flex items-center space-x-2 w-full sm:w-auto" onClick={() => window.location.href = '/talent-dashboard?tab=jobs&action=new'}>
+              <Button className="flex items-center space-x-2 w-full sm:w-auto" onClick={() => setLocation('/talent-dashboard?tab=jobs&action=new')}>
                 <Plus className="h-4 w-4" />
                 <span>Post New Job</span>
               </Button>
@@ -209,7 +211,7 @@ export default function RecruiterDashboard() {
                     <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No job postings yet</h3>
                     <p className="text-gray-600 mb-6">Create your first job posting to start finding great candidates.</p>
-                    <Button onClick={() => window.location.href = '/talent-dashboard?tab=jobs&action=new'}>
+                    <Button onClick={() => setLocation('/talent-dashboard?tab=jobs&action=new')}>
                       <Plus className="h-4 w-4 mr-2" />
                       Post Your First Job
                     </Button>
@@ -222,8 +224,8 @@ export default function RecruiterDashboard() {
                         <JobCard
                           key={job.id}
                           job={job}
-                          onEdit={(job) => window.location.href = `/talent-dashboard?tab=jobs&edit=${job.id}`}
-                          onViewMatches={(job) => window.location.href = `/talent-dashboard?tab=candidates&job=${job.id}`}
+                          onEdit={(job) => setLocation(`/talent-dashboard?tab=jobs&edit=${job.id}`)}
+                          onViewMatches={(job) => setLocation(`/talent-dashboard?tab=candidates&job=${job.id}`)}
                         />
                       ))}
                   </div>

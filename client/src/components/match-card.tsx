@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ match }: MatchCardProps) {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -33,7 +35,7 @@ export default function MatchCard({ match }: MatchCardProps) {
       return response.json();
     },
     onSuccess: (room) => {
-      window.location.href = `/chat/${room.id}`;
+      setLocation(`/chat/${room.id}`);
     },
   });
 

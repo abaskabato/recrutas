@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +15,7 @@ export default function CompanyProfileStep() {
   });
   const { toast } = useToast();
   const { setStep } = useGuidedSetup();
+  const [, setLocation] = useLocation();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -21,7 +23,6 @@ export default function CompanyProfileStep() {
       return response.json();
     },
     onSuccess: () => {
-      console.log('Company profile update successful');
       queryClient.invalidateQueries({ queryKey: ['user'] });
       // Invalidate session/auth explicitly
       queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
@@ -31,7 +32,7 @@ export default function CompanyProfileStep() {
         description: 'Your company profile has been saved. Redirecting to dashboard...',
       });
       // Redirect to dashboard as requested, skipping Job Post step in setup
-      window.location.href = '/talent-dashboard';
+      setLocation('/talent-dashboard');
     },
     onError: (error) => {
       console.error('Company profile update failed:', error);

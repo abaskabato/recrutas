@@ -61,6 +61,7 @@ const GENERIC_CAREER_PAGE_PATTERNS = [
 export class JobLivenessService {
   private checkInterval: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
+  private isChecking: boolean = false;
   private userAgent = 'RecrutasJobValidator/1.0 (+https://recrutas.ai)';
 
   /**
@@ -100,6 +101,13 @@ export class JobLivenessService {
    * Run liveness checks on jobs based on their age
    */
   async runLivenessChecks(): Promise<void> {
+    // Prevent concurrent check runs
+    if (this.isChecking) {
+      console.log('[LivenessService] Check run already in progress, skipping...');
+      return;
+    }
+
+    this.isChecking = true;
     console.log('[LivenessService] Starting liveness check run...');
 
     const now = new Date();
@@ -145,6 +153,8 @@ export class JobLivenessService {
       console.log(`[LivenessService] Check completed. Checked: ${stats.checked}, Active: ${stats.active}, Stale: ${stats.stale}, Errors: ${stats.errors}`);
     } catch (error) {
       console.error('[LivenessService] Error running liveness checks:', error);
+    } finally {
+      this.isChecking = false;
     }
   }
 
@@ -196,6 +206,7 @@ export class JobLivenessService {
    */
   async checkJobLiveness(job: { id: number; externalUrl: string }): Promise<LivenessCheckResult> {
     const startTime = Date.now();
+    let timeoutId: NodeJS.Timeout | undefined;
 
     try {
       // Validate URL format
@@ -211,7 +222,7 @@ export class JobLivenessService {
 
       // Make HTTP request with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(job.externalUrl, {
         method: 'GET',
@@ -224,11 +235,11 @@ export class JobLivenessService {
         redirect: 'follow'
       });
 
-      clearTimeout(timeoutId);
       const responseTime = Date.now() - startTime;
 
       // Check HTTP status
       if (response.status === 404 || response.status === 410) {
+        clearTimeout(timeoutId);
         return {
           jobId: job.id,
           externalUrl: job.externalUrl,
@@ -243,6 +254,7 @@ export class JobLivenessService {
       // Check for redirect to generic career page
       const finalUrl = response.url;
       if (this.isGenericCareerPage(finalUrl, job.externalUrl)) {
+        clearTimeout(timeoutId);
         return {
           jobId: job.id,
           externalUrl: job.externalUrl,
@@ -257,6 +269,7 @@ export class JobLivenessService {
       // Check page content for stale indicators
       if (response.ok) {
         const html = await response.text();
+        clearTimeout(timeoutId);
         const staleReason = this.checkForStaleIndicators(html);
 
         if (staleReason) {
@@ -284,18 +297,27 @@ export class JobLivenessService {
 
     } catch (error: any) {
       // Handle network errors, timeouts, etc.
-      const reason = error.name === 'AbortError'
+      const isTimeout = error.name === 'AbortError';
+      const reason = isTimeout
         ? 'Request timeout'
         : `Network error: ${error.message}`;
 
+      // For timeouts, assume job is still active (might be slow server)
+      // For other network errors (DNS, connection refused, etc.), mark as unknown
+      // The runLivenessChecks function will track consecutive failures
       return {
         jobId: job.id,
         externalUrl: job.externalUrl,
-        isActive: true, // Don't mark as inactive on network errors
+        isActive: isTimeout, // Timeout = assume active, other errors = mark inactive
         reason,
         lastChecked: new Date(),
-        responseTime: Date.now() - startTime
+        responseTime: Date.now() - startTime,
+        livenessStatus: isTimeout ? 'active' : 'unknown'
       };
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

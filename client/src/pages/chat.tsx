@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,7 @@ import ChatInterface from "@/components/chat-interface";
 
 export default function Chat() {
   const { roomId } = useParams();
+  const [, setLocation] = useLocation();
   const session = useSession();
   const supabase = useSupabaseClient();
   const { toast } = useToast();
@@ -26,7 +27,7 @@ export default function Chat() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/auth";
+        setLocation("/auth");
       }, 500);
       return;
     }
@@ -103,7 +104,7 @@ export default function Chat() {
                         key={room.id}
                         variant="ghost"
                         className="w-full justify-start p-4 h-auto"
-                        onClick={() => window.location.href = `/chat/${room.id}`}
+                        onClick={() => setLocation(`/chat/${room.id}`)}
                       >
                         <Avatar className="h-10 w-10">
                           <AvatarImage src={otherUser.profileImageUrl} />

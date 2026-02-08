@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useRoleBasedAuth as useAuth } from "@/hooks/useRoleBasedAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -51,6 +52,7 @@ interface NotificationPreferences {
 }
 
 export default function AdvancedNotificationCenter() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -136,7 +138,7 @@ export default function AdvancedNotificationCenter() {
     }
     
     if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
+      setLocation(notification.actionUrl);
     }
   };
 

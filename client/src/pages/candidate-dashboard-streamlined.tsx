@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -81,6 +82,7 @@ interface Application {
 }
 
 export default function CandidateStreamlinedDashboard() {
+  const [, setLocation] = useLocation();
   const session = useSession();
   const user = session?.user;
   const supabase = useSupabaseClient();
@@ -93,7 +95,7 @@ export default function CandidateStreamlinedDashboard() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/auth";
+    setLocation("/auth");
   };
 
   // Redirect to login if not authenticated
@@ -105,7 +107,7 @@ export default function CandidateStreamlinedDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/auth";
+        setLocation("/auth");
       }, 1000);
       return;
     }
@@ -122,7 +124,7 @@ export default function CandidateStreamlinedDashboard() {
     meta: {
       onError: (error: Error) => {
         if (isUnauthorizedError(error)) {
-          window.location.href = "/api/login";
+          setLocation("/api/login");
         }
       },
     },
@@ -328,7 +330,7 @@ export default function CandidateStreamlinedDashboard() {
             <CardContent>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</div>
               <p className="text-xs text-muted-foreground pt-2">Direct conversations with hiring managers.</p>
-              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => window.location.href = '/chat'}>
+              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setLocation('/chat')}>
                 <MessageCircle className="h-4 w-4 mr-2" />
                 View Chats
               </Button>

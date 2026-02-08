@@ -78,62 +78,71 @@ export class JobIngestionService {
 
     for (const job of jobs) {
       try {
-        // Check if job already exists (by externalId + source)
-        const existing = await db
-          .select()
-          .from(jobPostings)
-          .where(
-            and(
-              eq(jobPostings.externalId, job.externalId),
-              eq(jobPostings.source, job.source)
+        // Use transaction to ensure atomic check-and-insert (prevent race conditions)
+        const result = await db.transaction(async (tx) => {
+          // Check if job already exists (by externalId + source) within transaction
+          const existing = await tx
+            .select()
+            .from(jobPostings)
+            .where(
+              and(
+                eq(jobPostings.externalId, job.externalId),
+                eq(jobPostings.source, job.source)
+              )
             )
-          )
-          .limit(1);
+            .limit(1)
+            .for('update', { skipLocked: true }); // Lock row to prevent concurrent modifications
 
-        if (existing.length > 0) {
-          stats.duplicates++;
-          // Update liveness for existing jobs
-          await db
-            .update(jobPostings)
-            .set({
-              lastLivenessCheck: new Date(),
-              livenessStatus: 'active',
-              updatedAt: new Date()
-            })
-            .where(eq(jobPostings.id, existing[0].id));
-          continue;
-        }
+          if (existing.length > 0) {
+            // Update liveness for existing jobs
+            await tx
+              .update(jobPostings)
+              .set({
+                lastLivenessCheck: new Date(),
+                livenessStatus: 'active',
+                updatedAt: new Date()
+              })
+              .where(eq(jobPostings.id, existing[0].id));
+            return 'duplicate';
+          }
 
-        // Calculate trust score and expiration
-        const trustScore = getSourceTrustScore(job.source);
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 60);
+          // Calculate trust score and expiration
+          const trustScore = getSourceTrustScore(job.source);
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 60);
 
-        // Insert new external job with valid system user UUID
-        await db.insert(jobPostings).values({
-          talentOwnerId: systemUserId,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          description: job.description,
-          requirements: job.requirements,
-          skills: job.skills,
-          workType: job.workType,
-          salaryMin: job.salaryMin,
-          salaryMax: job.salaryMax,
-          source: job.source,
-          externalId: job.externalId,
-          externalUrl: job.externalUrl,
-          trustScore: trustScore,
-          livenessStatus: 'unknown',
-          lastLivenessCheck: new Date(),
-          expiresAt: expiresAt,
-          status: 'active',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          // Insert new external job with valid system user UUID
+          await tx.insert(jobPostings).values({
+            talentOwnerId: systemUserId,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            description: job.description,
+            requirements: job.requirements,
+            skills: job.skills,
+            workType: job.workType,
+            salaryMin: job.salaryMin,
+            salaryMax: job.salaryMax,
+            source: job.source,
+            externalId: job.externalId,
+            externalUrl: job.externalUrl,
+            trustScore: trustScore,
+            livenessStatus: 'unknown',
+            lastLivenessCheck: new Date(),
+            expiresAt: expiresAt,
+            status: 'active',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+
+          return 'inserted';
         });
 
-        stats.inserted++;
+        if (result === 'duplicate') {
+          stats.duplicates++;
+        } else {
+          stats.inserted++;
+        }
       } catch (error) {
         console.error(`[JobIngestion] Error ingesting job ${job.title}:`, error);
         stats.errors++;

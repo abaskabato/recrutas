@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -109,6 +110,7 @@ export default function TalentDashboard() {
   const isAuthenticated = !!user;
   const { toast } = useToast();
   const supabase = useSupabaseClient();
+  const [, setLocation] = useLocation();
   // Parse tab from URL search params
   const getTabFromUrl = (): 'overview' | 'jobs' | 'candidates' | 'analytics' => {
     const params = new URLSearchParams(window.location.search);
@@ -196,7 +198,7 @@ export default function TalentDashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/auth";
+        setLocation("/auth");
       }, 1000);
       return;
     }
@@ -398,7 +400,7 @@ export default function TalentDashboard() {
         description: "Opening chat room...",
       });
       // Navigate to chat room
-      window.location.href = `/chat/${data.id}`;
+      setLocation(`/chat/${data.id}`);
     },
     onError: (error: any) => {
       toast({
@@ -422,7 +424,7 @@ export default function TalentDashboard() {
         variant: "destructive",
       });
     } else {
-      window.location.href = "/auth";
+      setLocation("/auth");
     }
   };
 
@@ -664,7 +666,7 @@ export default function TalentDashboard() {
                       {statsLoading ? "..." : stats?.activeChats || 0}
                     </div>
                     <p className="text-xs text-muted-foreground pt-1">Conversations with top candidates.</p>
-                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => window.location.href = '/chat'}>
+                    <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setLocation('/chat')}>
                       Open Chats
                     </Button>
                   </CardContent>
@@ -1368,7 +1370,6 @@ export default function TalentDashboard() {
               isSubmitting={createJobMutation.isPending}
               onSubmit={async (jobData) => {
                 try {
-                  console.log('[TalentDashboard] Job submission started with data:', jobData);
                   // Transform wizard data to match API format
                   const jobPayload = {
                     title: jobData.title,
@@ -1390,9 +1391,7 @@ export default function TalentDashboard() {
                     } : null
                   };
 
-                  console.log('[TalentDashboard] Sending request with payload:', jobPayload);
-                  const result = await createJobMutation.mutateAsync(jobPayload);
-                  console.log('[TalentDashboard] Job created successfully:', result);
+                  await createJobMutation.mutateAsync(jobPayload);
                   toast({
                     title: "Success",
                     description: "Job posted successfully! Candidates will be matched shortly.",

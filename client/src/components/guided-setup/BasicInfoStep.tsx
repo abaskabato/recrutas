@@ -22,7 +22,6 @@ export default function BasicInfoStep() {
       return response.json();
     },
     onSuccess: () => {
-      console.log('Basic info update successful');
       queryClient.invalidateQueries({ queryKey: ['user'] });
       toast({
         title: 'Profile Updated',
