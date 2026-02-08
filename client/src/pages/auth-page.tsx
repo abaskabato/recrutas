@@ -1,4 +1,3 @@
-// Triggering redeploy
 import { useState, useEffect } from "react";
 import { useSupabaseClient, useSession } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
@@ -77,7 +76,7 @@ export default function AuthPage() {
           <p className="text-sm text-muted-foreground">Sign in to your account</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSignIn}>
             <div>
               <label
                 htmlFor="email"
@@ -146,7 +145,7 @@ export default function AuthPage() {
 
             <div className="flex flex-col items-center space-y-4">
               <button
-                onClick={handleSignIn}
+                type="submit"
                 disabled={signInLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >

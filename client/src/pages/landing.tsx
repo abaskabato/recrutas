@@ -36,7 +36,7 @@ import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useSession } from "@/lib/auth-client";
+import { useAuth } from "@/hooks/use-auth";
 import InstantMatchModal from "@/components/instant-match-modal";
 import { motion } from "framer-motion";
 
@@ -70,10 +70,7 @@ export default function Landing() {
   const [activeSection, setActiveSection] = useState('hero');
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { data: session, isPending } = useSession();
-  const user = session?.user;
-  const isAuthenticated = !!user;
-  const isLoading = isPending;
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   // Auto-open instant match modal for engagement
   useEffect(() => {

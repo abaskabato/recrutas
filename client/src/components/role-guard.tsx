@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useSession } from '@/lib/auth-client';
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 
 interface RoleGuardProps {
@@ -10,9 +10,11 @@ interface RoleGuardProps {
 }
 
 export function RoleGuard({ allowedRoles, children, fallbackPath = '/' }: RoleGuardProps) {
-  const { user, isAuthenticated, isLoading } = useSession();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  const userRole = user?.user_metadata?.role || user?.app_metadata?.role;
 
   useEffect(() => {
     if (isLoading) return;
@@ -22,12 +24,12 @@ export function RoleGuard({ allowedRoles, children, fallbackPath = '/' }: RoleGu
       return;
     }
 
-    if (!user?.role) {
+    if (!userRole) {
       setLocation('/role-selection');
       return;
     }
 
-    if (!allowedRoles.includes(user.role as any)) {
+    if (!allowedRoles.includes(userRole as any)) {
       toast({
         title: 'Access Denied',
         description: 'You do not have permission to access this page.',
@@ -36,7 +38,7 @@ export function RoleGuard({ allowedRoles, children, fallbackPath = '/' }: RoleGu
       setLocation(fallbackPath);
       return;
     }
-  }, [isAuthenticated, user?.role, allowedRoles, setLocation, toast, isLoading, fallbackPath]);
+  }, [isAuthenticated, userRole, allowedRoles, setLocation, toast, isLoading, fallbackPath]);
 
   if (isLoading) {
     return (
@@ -46,7 +48,7 @@ export function RoleGuard({ allowedRoles, children, fallbackPath = '/' }: RoleGu
     );
   }
 
-  if (!isAuthenticated || !user?.role || !allowedRoles.includes(user.role as any)) {
+  if (!isAuthenticated || !userRole || !allowedRoles.includes(userRole as any)) {
     return null;
   }
 
