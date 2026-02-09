@@ -125,6 +125,13 @@ export const jobPostings = pgTable("job_postings", {
   lastLivenessCheck: timestamp("last_liveness_check"),
   livenessStatus: varchar("liveness_status", { enum: ["active", "stale", "unknown"] }).default("unknown"),
   trustScore: integer("trust_score").default(50), // 0-100, internal/platform jobs get 100
+  // Ghost job detection fields
+  ghostJobScore: integer("ghost_job_score").default(0), // 0-100, higher = more likely ghost job
+  ghostJobStatus: varchar("ghost_job_status", { enum: ["clean", "suspicious", "flagged", "confirmed"] }).default("clean"),
+  ghostJobReasons: jsonb("ghost_job_reasons").default([] as any), // Array of reasons for flagging
+  lastGhostCheck: timestamp("last_ghost_check"), // When ghost detection was last run
+  companyVerified: boolean("company_verified").default(false), // Whether company email domain is verified
+  recruiterEmailDomain: varchar("recruiter_email_domain"), // For company verification
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -134,6 +141,7 @@ export const jobPostings = pgTable("job_postings", {
   idxJobLiveness: index("idx_job_liveness").on(table.livenessStatus, table.expiresAt),
   idxJobTrustScore: index("idx_job_trust_score").on(table.trustScore),
   idxJobTalentOwner: index("idx_job_talent_owner").on(table.talentOwnerId),
+  idxJobGhostScore: index("idx_job_ghost_score").on(table.ghostJobScore),
 }));
 
 export const jobExams = pgTable("job_exams", {

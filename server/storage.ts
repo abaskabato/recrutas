@@ -645,6 +645,11 @@ export class DatabaseStorage implements IStorage {
           or(
             eq(jobPostings.livenessStatus, 'active'),
             eq(jobPostings.livenessStatus, 'unknown')
+          ),
+          // Filter out likely ghost jobs
+          or(
+            sql`${jobPostings.ghostJobScore} IS NULL`,
+            sql`${jobPostings.ghostJobScore} < 60`
           )
         ))
         .orderBy(
@@ -667,6 +672,10 @@ export class DatabaseStorage implements IStorage {
           isDirectFromCompany: (job.trustScore || 0) >= 85,
           freshness,
           daysOld,
+          ghostJobScore: job.ghostJobScore || 0,
+          ghostJobStatus: job.ghostJobStatus || 'clean',
+          ghostJobReasons: job.ghostJobReasons || [],
+          companyVerified: job.companyVerified || false,
         };
       });
     }
@@ -729,9 +738,14 @@ export class DatabaseStorage implements IStorage {
           isDirectFromCompany: job.trustScore >= 85,
           freshness,
           daysOld,
+          ghostJobScore: job.ghostJobScore || 0,
+          ghostJobStatus: job.ghostJobStatus || 'clean',
+          ghostJobReasons: job.ghostJobReasons || [],
+          companyVerified: job.companyVerified || false,
         };
       })
       .filter(job => job.matchScore >= 40) // 40% minimum threshold
+      .filter(job => (job.ghostJobScore || 0) < 60) // Filter out likely ghost jobs (60%+ confidence)
       .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           const jobSalaryMin = job.salaryMin || 0;

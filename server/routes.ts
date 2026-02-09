@@ -1530,5 +1530,126 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Ghost job detection endpoints
+  app.post('/api/admin/run-ghost-job-detection', async (req, res) => {
+    try {
+      // Verify admin secret
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { ghostJobDetectionService } = await import('./ghost-job-detection.service');
+      
+      // Run in background
+      res.json({ message: "Ghost job detection started", status: "in_progress" });
+      
+      ghostJobDetectionService.runBatchAnalysis()
+        .then(stats => {
+          console.log('[Routes] Ghost job detection completed:', stats);
+        })
+        .catch(error => {
+          console.error('[Routes] Ghost job detection failed:', error?.message);
+        });
+    } catch (error: any) {
+      console.error("Error running ghost job detection:", error?.message);
+      res.status(500).json({ message: "Failed to run ghost job detection", error: error?.message });
+    }
+  });
+
+  app.get('/api/admin/ghost-job-stats', async (req, res) => {
+    try {
+      // Verify admin secret
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { ghostJobDetectionService } = await import('./ghost-job-detection.service');
+      const stats = await ghostJobDetectionService.getStatistics();
+      const flaggedJobs = await ghostJobDetectionService.getFlaggedJobs(50);
+      
+      res.json({ stats, flaggedJobs });
+    } catch (error: any) {
+      console.error("Error fetching ghost job stats:", error?.message);
+      res.status(500).json({ message: "Failed to fetch ghost job stats", error: error?.message });
+    }
+  });
+
+  // Company verification endpoints
+  app.post('/api/admin/run-company-verification', async (req, res) => {
+    try {
+      // Verify admin secret
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { companyVerificationService } = await import('./company-verification.service');
+      
+      // Run in background
+      res.json({ message: "Company verification started", status: "in_progress" });
+      
+      companyVerificationService.runBatchVerification()
+        .then(stats => {
+          console.log('[Routes] Company verification completed:', stats);
+        })
+        .catch(error => {
+          console.error('[Routes] Company verification failed:', error?.message);
+        });
+    } catch (error: any) {
+      console.error("Error running company verification:", error?.message);
+      res.status(500).json({ message: "Failed to run company verification", error: error?.message });
+    }
+  });
+
+  app.get('/api/admin/company-verification-stats', async (req, res) => {
+    try {
+      // Verify admin secret
+      const adminSecret = req.headers['x-admin-secret'];
+      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { companyVerificationService } = await import('./company-verification.service');
+      const stats = await companyVerificationService.getStatistics();
+      
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Error fetching company verification stats:", error?.message);
+      res.status(500).json({ message: "Failed to fetch company verification stats", error: error?.message });
+    }
+  });
+
+  // Job quality indicators for candidates
+  app.get('/api/jobs/:jobId/quality-indicators', async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      if (isNaN(jobId)) {
+        return res.status(400).json({ message: "Invalid job ID" });
+      }
+
+      const job = await storage.getJobPosting(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Return quality indicators without exposing sensitive data
+      res.json({
+        trustScore: job.trustScore || 50,
+        livenessStatus: job.livenessStatus || 'unknown',
+        ghostJobScore: job.ghostJobScore || 0,
+        ghostJobStatus: job.ghostJobStatus || 'clean',
+        companyVerified: job.companyVerified || false,
+        viewCount: job.viewCount || 0,
+        applicationCount: job.applicationCount || 0,
+        isExternal: job.source !== 'platform',
+      });
+    } catch (error: any) {
+      console.error("Error fetching job quality indicators:", error?.message);
+      res.status(500).json({ message: "Failed to fetch job quality indicators", error: error?.message });
+    }
+  });
+
   return app;
 }
