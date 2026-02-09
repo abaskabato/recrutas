@@ -195,25 +195,22 @@ export class CompanyVerificationService {
   }
 
   /**
-   * Extract domain from company name (best effort)
+   * Extract likely domain from company name (best effort heuristic).
+   * Returns "companyname.com" — only used for comparing against recruiter email domain.
    */
   private extractDomainFromCompany(companyName: string): string | undefined {
-    // Clean up company name
+    if (!companyName) return undefined;
+
     const clean = companyName
       .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, '')
-      .replace(/inc$|llc$|corp$|ltd$/i, '');
+      .replace(/,?\s*(inc\.?|llc\.?|corp\.?|ltd\.?|co\.?|gmbh|plc|s\.?a\.?)$/i, '')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '');
 
-    // Common domain patterns
-    const variations = [
-      clean,
-      clean + '.com',
-      clean.replace(/company/g, ''),
-      clean.replace(/co$/g, ''),
-    ];
+    if (!clean) return undefined;
 
-    return variations[0] + '.com';
+    return clean + '.com';
   }
 
   /**
@@ -226,18 +223,19 @@ export class CompanyVerificationService {
   }
 
   /**
-   * Check if two domains match (accounting for subdomains)
+   * Check if two domains match (accounting for subdomains).
+   * Uses suffix matching so "mail.google.com" matches "google.com",
+   * but "data.com" does NOT match "a.com".
    */
   private domainsMatch(domain1: string, domain2: string): boolean {
     const d1 = domain1.toLowerCase().replace(/^www\./, '');
     const d2 = domain2.toLowerCase().replace(/^www\./, '');
-    
-    // Direct match
+
     if (d1 === d2) return true;
-    
-    // One contains the other
-    if (d1.includes(d2) || d2.includes(d1)) return true;
-    
+
+    // Check if one is a subdomain of the other
+    if (d1.endsWith('.' + d2) || d2.endsWith('.' + d1)) return true;
+
     return false;
   }
 

@@ -1622,7 +1622,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Job quality indicators for candidates
-  app.get('/api/jobs/:jobId/quality-indicators', async (req, res) => {
+  app.get('/api/jobs/:jobId/quality-indicators', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
       if (isNaN(jobId)) {

@@ -112,84 +112,52 @@ export class GhostJobDetectionService {
   }
 
   /**
-   * Get application statistics for a job
+   * Get application statistics for a job (single aggregated query)
    */
   private async getApplicationStats(jobId: number) {
-    const applications = await db
+    const stats = await db
       .select({
-        status: jobApplications.status,
-        createdAt: jobApplications.createdAt,
-        updatedAt: jobApplications.updatedAt,
+        totalApplications: sql<number>`count(*)`,
+        respondedApplications: sql<number>`count(case when ${jobApplications.status} != 'submitted' then 1 end)`,
+        avgResponseTime: sql<number>`coalesce(avg(
+          case when ${jobApplications.status} != 'submitted'
+               and ${jobApplications.updatedAt} is not null
+               and ${jobApplications.createdAt} is not null
+          then extract(epoch from (${jobApplications.updatedAt} - ${jobApplications.createdAt})) / 3600.0
+          end
+        ), 0)`,
       })
       .from(jobApplications)
       .where(eq(jobApplications.jobId, jobId));
 
-    let respondedApplications = 0;
-    let totalResponseTime = 0;
-    let responsesWithTime = 0;
-
-    for (const app of applications) {
-      // Count as responded if status is not just 'submitted'
-      if (app.status !== 'submitted') {
-        respondedApplications++;
-        
-        // Calculate response time
-        if (app.updatedAt && app.createdAt) {
-          const responseTime = new Date(app.updatedAt).getTime() - new Date(app.createdAt).getTime();
-          const hours = responseTime / (1000 * 60 * 60);
-          totalResponseTime += hours;
-          responsesWithTime++;
-        }
-      }
-    }
-
     return {
-      totalApplications: applications.length,
-      respondedApplications,
-      avgResponseTime: responsesWithTime > 0 ? Math.round(totalResponseTime / responsesWithTime) : 0,
+      totalApplications: Number(stats[0].totalApplications),
+      respondedApplications: Number(stats[0].respondedApplications),
+      avgResponseTime: Math.round(Number(stats[0].avgResponseTime)),
     };
   }
 
   /**
-   * Get recruiter's historical statistics
+   * Get recruiter's historical statistics (single aggregated query)
    */
   private async getRecruiterStats(recruiterId: string) {
-    // Get all jobs by this recruiter
-    const recruiterJobs = await db
-      .select({ id: jobPostings.id })
+    const stats = await db
+      .select({
+        totalApps: sql<number>`count(${jobApplications.id})`,
+        respondedApps: sql<number>`count(case when ${jobApplications.status} != 'submitted' then 1 end)`,
+        ghostJobCount: sql<number>`count(distinct case when ${jobPostings.ghostJobScore} > 70 then ${jobPostings.id} end)`,
+      })
       .from(jobPostings)
+      .leftJoin(jobApplications, eq(jobApplications.jobId, jobPostings.id))
       .where(eq(jobPostings.talentOwnerId, recruiterId));
 
-    if (recruiterJobs.length === 0) {
-      return { responseRate: 100, ghostJobCount: 0 };
-    }
-
-    let totalApps = 0;
-    let respondedApps = 0;
-    let ghostJobCount = 0;
-
-    for (const job of recruiterJobs) {
-      const stats = await this.getApplicationStats(job.id);
-      totalApps += stats.totalApplications;
-      respondedApps += stats.respondedApplications;
-
-      // Check if this job is already flagged as ghost
-      const analysis = await db
-        .select({ ghostJobScore: jobPostings.ghostJobScore })
-        .from(jobPostings)
-        .where(eq(jobPostings.id, job.id))
-        .limit(1);
-      
-      if (analysis[0]?.ghostJobScore && analysis[0].ghostJobScore > 70) {
-        ghostJobCount++;
-      }
-    }
-
+    const totalApps = Number(stats[0].totalApps);
+    const respondedApps = Number(stats[0].respondedApps);
     const responseRate = totalApps > 0 ? (respondedApps / totalApps) * 100 : 100;
 
     return {
       responseRate: parseFloat(responseRate.toFixed(2)),
-      ghostJobCount,
+      ghostJobCount: Number(stats[0].ghostJobCount),
     };
   }
 
@@ -299,11 +267,11 @@ export class GhostJobDetectionService {
   }
 
   /**
-   * Update job's ghost job score in database
+   * Analyze and persist ghost job score in a single pass. Returns the analysis.
    */
-  async updateJobGhostScore(jobId: number): Promise<void> {
+  async updateJobGhostScore(jobId: number): Promise<GhostJobIndicators | null> {
     const analysis = await this.analyzeJob(jobId);
-    if (!analysis) return;
+    if (!analysis) return null;
 
     await db
       .update(jobPostings)
@@ -314,6 +282,8 @@ export class GhostJobDetectionService {
         lastGhostCheck: new Date(),
       })
       .where(eq(jobPostings.id, jobId));
+
+    return analysis;
   }
 
   /**
@@ -334,8 +304,7 @@ export class GhostJobDetectionService {
 
     for (const job of activeJobs) {
       try {
-        await this.updateJobGhostScore(job.id);
-        const analysis = await this.analyzeJob(job.id);
+        const analysis = await this.updateJobGhostScore(job.id);
         if (analysis?.isGhostJob) {
           flagged++;
         } else {
