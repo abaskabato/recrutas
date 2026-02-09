@@ -94,16 +94,20 @@ async function initializeBackgroundServices() {
 }
 
 export async function configureApp() {
-  // CORS: restrict to frontend origin in production, allow localhost in dev
-  const allowedOrigins = process.env.FRONTEND_URL
-    ? [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000']
-    : ['http://localhost:5173', 'http://localhost:3000'];
+  // CORS: allow Vercel deployment origins, configured FRONTEND_URL, and localhost for dev
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ].filter(Boolean) as string[];
 
   app.use(cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow any *.vercel.app deployment (preview + production)
+      if (/\.vercel\.app$/.test(new URL(origin).hostname)) return callback(null, true);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true
