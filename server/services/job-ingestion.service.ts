@@ -8,6 +8,7 @@ import { jobPostings, users } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm/sql';
 import { normalizeSkills } from '../skill-normalizer';
+import { isUSLocation } from '../location-filter';
 
 // System user UUID for external jobs (well-known constant)
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -69,8 +70,8 @@ function getSourceTrustScore(source: string): number {
 }
 
 export class JobIngestionService {
-  async ingestExternalJobs(jobs: ExternalJobInput[]): Promise<{ inserted: number; duplicates: number; errors: number }> {
-    const stats = { inserted: 0, duplicates: 0, errors: 0 };
+  async ingestExternalJobs(jobs: ExternalJobInput[]): Promise<{ inserted: number; duplicates: number; errors: number; skippedNonUS: number }> {
+    const stats = { inserted: 0, duplicates: 0, errors: 0, skippedNonUS: 0 };
 
     console.log(`[JobIngestion] Processing ${jobs.length} external jobs...`);
 
@@ -78,6 +79,11 @@ export class JobIngestionService {
     const systemUserId = await ensureSystemUserExists();
 
     for (const job of jobs) {
+      // Skip non-US jobs
+      if (!isUSLocation(job.location)) {
+        stats.skippedNonUS++;
+        continue;
+      }
       try {
         // Use transaction to ensure atomic check-and-insert (prevent race conditions)
         const result = await db.transaction(async (tx) => {
@@ -150,7 +156,7 @@ export class JobIngestionService {
       }
     }
 
-    console.log(`[JobIngestion] Complete. Inserted: ${stats.inserted}, Duplicates: ${stats.duplicates}, Errors: ${stats.errors}`);
+    console.log(`[JobIngestion] Complete. Inserted: ${stats.inserted}, Duplicates: ${stats.duplicates}, Errors: ${stats.errors}, Skipped non-US: ${stats.skippedNonUS}`);
     return stats;
   }
 

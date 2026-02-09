@@ -926,21 +926,19 @@ export class JobAggregator {
       console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
 
       // Fetch from all real sources (no generated/fake jobs)
+      // ArbeitNow removed — European-focused board, not relevant for US-only results
       const [
         jsearchJobs,
-        arbeitNowJobs,
         museJobs,
         remoteOKJobs
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
-        this.fetchFromArbeitNow(),
         this.fetchFromTheMuse(),
         this.fetchRemoteOKJobs()
       ]);
 
       // Add jobs from successful fetches - only real sources
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
-      if (arbeitNowJobs.status === 'fulfilled') allJobs.push(...arbeitNowJobs.value);
       if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
       if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
 
@@ -1023,7 +1021,7 @@ export class JobAggregator {
 
       for (const category of categories) {
         try {
-          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level`;
+          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level&location=United%20States`;
           const response = await this.fetchWithRetry(url, {
             headers: {
               'User-Agent': 'Recrutas-Platform/1.0'

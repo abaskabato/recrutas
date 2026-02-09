@@ -32,6 +32,8 @@ import { supabaseAdmin } from "./lib/supabase-admin";
 import { users, jobPostings, jobApplications, JobPosting } from "@shared/schema";
 import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
+import { hiringCafeService } from './services/hiring-cafe.service';
+import { jobIngestionService } from './services/job-ingestion.service';
 
 type AggregatedJob = (JobPosting | CompanyJob) & { aiCurated: boolean };
 
@@ -312,25 +314,83 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const userId = req.user.id;
       console.log(`Fetching job recommendations for user: ${userId}`);
 
+      // Fetch candidate skills for hiring.cafe query
+      const candidate = await storage.getCandidateUser(userId);
+      const candidateSkills = candidate?.skills || [];
+
       // Add timeout to prevent hanging on database issues
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Job recommendations timeout')), 10000)
       );
 
-      const recommendations = await Promise.race([
+      // Run DB recommendations + hiring.cafe in parallel
+      const dbPromise = Promise.race([
         storage.getJobRecommendations(userId),
         timeoutPromise
-      ]) as any[];
+      ]);
 
-      console.log(`Found ${recommendations?.length || 0} job recommendations`);
+      const hiringCafePromise = candidateSkills.length > 0
+        ? hiringCafeService.searchByKeywords(candidateSkills.slice(0, 5).join(' '))
+        : Promise.resolve([]);
 
-      // Return empty array if no recommendations or timeout
-      if (!recommendations || recommendations.length === 0) {
+      const [dbResult, cafeResult] = await Promise.allSettled([dbPromise, hiringCafePromise]);
+
+      const recommendations = (dbResult.status === 'fulfilled' ? dbResult.value : []) as any[];
+      const cafeJobs = (cafeResult.status === 'fulfilled' ? cafeResult.value : []) as any[];
+
+      if (cafeResult.status === 'rejected') {
+        console.warn('[HiringCafe] Search failed (non-fatal):', cafeResult.reason?.message);
+      }
+
+      // Fire-and-forget: ingest hiring.cafe results for future cache hits
+      if (cafeJobs.length > 0) {
+        console.log(`[HiringCafe] Ingesting ${cafeJobs.length} jobs in background`);
+        jobIngestionService.ingestExternalJobs(cafeJobs)
+          .then(stats => console.log(`[HiringCafe] Ingestion: ${stats.inserted} new, ${stats.duplicates} dupes`))
+          .catch(err => console.error('[HiringCafe] Ingestion failed:', err?.message));
+      }
+
+      // Score hiring.cafe jobs against candidate skills (same logic as fetchScoredJobs)
+      const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
+      const scoredCafeJobs = cafeJobs
+        .map(job => {
+          const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
+          const matchingSkills = normalizedSkills.filter((s: string) => jobSkills.includes(s));
+          const matchScore = matchingSkills.length > 0
+            ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
+            : 0;
+          return {
+            ...job,
+            id: `cafe_${job.externalId}`,
+            matchScore,
+            skillMatches: matchingSkills,
+            aiExplanation: matchingSkills.length > 0
+              ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
+              : 'Recently posted on hiring.cafe',
+            source: 'hiring-cafe',
+          };
+        })
+        .filter(job => job.matchScore >= 40);
+
+      // Merge: DB results first, then hiring.cafe results (deduplicated by title+company)
+      const seenKeys = new Set(
+        recommendations.map((j: any) => `${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
+      );
+      const uniqueCafeJobs = scoredCafeJobs.filter(
+        j => !seenKeys.has(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
+      );
+
+      const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs];
+
+      console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe recommendations`);
+
+      // Return empty array if no recommendations
+      if (allRecommendations.length === 0) {
         console.log('No job recommendations found - candidate may have no skills in profile or no matching jobs');
         return res.json([]);
       }
 
-      const aiMatches = recommendations.map((job, index) => ({
+      const aiMatches = allRecommendations.map((job, index) => ({
         id: index + 1,
         job: {
           ...job,

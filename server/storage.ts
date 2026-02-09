@@ -61,6 +61,7 @@ import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { normalizeSkills } from "./skill-normalizer";
+import { isUSLocation } from "./location-filter";
 
 /**
  * Storage Interface Definition
@@ -697,13 +698,15 @@ export class DatabaseStorage implements IStorage {
       )
       .limit(100);
 
-    const jobsWithSource = allJobs.map((job: any) => ({
-      ...job,
-      requirements: Array.isArray(job.requirements) ? job.requirements : [],
-      skills: Array.isArray(job.skills) ? job.skills : []
-    }));
+    const jobsWithSource = allJobs
+      .filter((job: any) => isUSLocation(job.location))
+      .map((job: any) => ({
+        ...job,
+        requirements: Array.isArray(job.requirements) ? job.requirements : [],
+        skills: Array.isArray(job.skills) ? job.skills : []
+      }));
 
-    console.log(`Found ${jobsWithSource.length} matching jobs (internal + external)`);
+    console.log(`Found ${jobsWithSource.length} matching jobs (internal + external, US only)`);
 
     const recommendations = jobsWithSource
       .map(job => {
