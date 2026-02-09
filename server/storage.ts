@@ -631,6 +631,16 @@ export class DatabaseStorage implements IStorage {
   private async fetchScoredJobs(candidateId: string): Promise<any[] | null> {
     const candidate = await this.getCandidateUser(candidateId);
 
+    // Fetch hidden + applied job IDs to exclude from all recommendation paths
+    const [hiddenIds, appliedIds] = await Promise.all([
+      this.getHiddenJobIds(candidateId),
+      db.select({ jobId: jobApplications.jobId })
+        .from(jobApplications)
+        .where(eq(jobApplications.candidateId, candidateId))
+        .then(rows => rows.map(r => r.jobId)),
+    ]);
+    const excludeIds = [...new Set([...hiddenIds, ...appliedIds])];
+
     if (!candidate || !candidate.skills || candidate.skills.length === 0) {
       console.log(`Candidate ${candidateId} has no skills - returning discovery feed`);
       const discoveryJobs = await db
@@ -650,7 +660,11 @@ export class DatabaseStorage implements IStorage {
           or(
             sql`${jobPostings.ghostJobScore} IS NULL`,
             sql`${jobPostings.ghostJobScore} < 60`
-          )
+          ),
+          // Exclude hidden and applied-to jobs
+          ...(excludeIds.length > 0
+            ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
+            : [])
         ))
         .orderBy(
           sql`${jobPostings.trustScore} DESC NULLS LAST`,
@@ -699,7 +713,11 @@ export class DatabaseStorage implements IStorage {
         or(
           eq(jobPostings.livenessStatus, 'active'),
           eq(jobPostings.livenessStatus, 'unknown')
-        )
+        ),
+        // Exclude hidden and applied-to jobs
+        ...(excludeIds.length > 0
+          ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
+          : [])
       ))
       .orderBy(
         sql`${jobPostings.trustScore} DESC NULLS LAST`,
