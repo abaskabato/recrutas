@@ -74,9 +74,11 @@ function stripHtml(html: string): string {
  * Extract skills from text using keyword matching.
  */
 function extractSkillsFromText(text: string): string[] {
-  const lowerText = text.toLowerCase();
   return COMMON_SKILLS
-    .filter(skill => lowerText.includes(skill.toLowerCase()))
+    .filter(skill => {
+      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
+    })
     .slice(0, 10);
 }
 

@@ -1,6 +1,7 @@
 import { IStorage } from '../storage';
 import { AIResumeParser } from '../ai-resume-parser';
 import { User } from '@shared/schema'; // Assuming User type is available from shared schema
+import { normalizeSkills } from '../skill-normalizer';
 
 // Define a custom error for resume processing failures
 export class ResumeProcessingError extends Error {
@@ -90,11 +91,21 @@ export class ResumeService {
       console.log(`[ResumeService] Starting AI parsing...`);
       parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
       aiExtracted = parseResult?.aiExtracted || {};
-      parsingSuccess = (aiExtracted.skills?.technical?.length > 0);
+      parsingSuccess = (
+        (aiExtracted.skills?.technical?.length > 0) ||
+        (aiExtracted.skills?.soft?.length > 0) ||
+        (aiExtracted.skills?.tools?.length > 0)
+      );
+      const totalSkills = (aiExtracted.skills?.technical?.length || 0) +
+        (aiExtracted.skills?.soft?.length || 0) +
+        (aiExtracted.skills?.tools?.length || 0);
       console.log(`[ResumeService] AI parsing completed:`, {
         hasText: !!parseResult?.text,
         textLength: parseResult?.text?.length || 0,
-        skillsCount: aiExtracted.skills?.technical?.length || 0,
+        technicalSkills: aiExtracted.skills?.technical?.length || 0,
+        softSkills: aiExtracted.skills?.soft?.length || 0,
+        toolSkills: aiExtracted.skills?.tools?.length || 0,
+        totalSkills,
         confidence: parseResult?.confidence || 0,
         parsingSuccess
       });
@@ -119,19 +130,26 @@ export class ResumeService {
         resumeParsingData: {
           confidence: parseResult?.confidence || 0,
           processingTime,
-          extractedSkillsCount: aiExtracted.skills?.technical?.length || 0,
+          extractedSkillsCount: (aiExtracted.skills?.technical?.length || 0) +
+            (aiExtracted.skills?.soft?.length || 0) +
+            (aiExtracted.skills?.tools?.length || 0),
           parsingError: parsingSuccess ? null : 'AI parsing failed',
         },
       };
 
-      // Merge skills if we got any
-      if (aiExtracted.skills?.technical?.length > 0) {
+      // Merge all skill types (technical, soft, tools)
+      const extractedSkills = [
+        ...(aiExtracted.skills?.technical || []),
+        ...(aiExtracted.skills?.soft || []),
+        ...(aiExtracted.skills?.tools || []),
+      ];
+      if (extractedSkills.length > 0) {
         const existingProfile = await this.storage.getCandidateUser(userId);
         const allSkills = [
           ...(existingProfile?.skills || []),
-          ...aiExtracted.skills.technical,
+          ...extractedSkills,
         ];
-        profileUpdate.skills = Array.from(new Set(allSkills)).slice(0, 25);
+        profileUpdate.skills = normalizeSkills(Array.from(new Set(allSkills))).slice(0, 30);
       }
 
       if (aiExtracted.experience?.level) {
@@ -155,7 +173,7 @@ export class ResumeService {
         userId,
         parsingSuccess ? "resume_parsing_complete" : "resume_upload_complete",
         parsingSuccess
-          ? `Resume parsed with ${parseResult?.confidence || 0}% confidence. Extracted ${aiExtracted.skills?.technical?.length || 0} skills.`
+          ? `Resume parsed with ${parseResult?.confidence || 0}% confidence. Extracted ${extractedSkills.length} skills.`
           : `Resume uploaded. AI parsing failed - you can add skills manually.`
       ).catch((e: any) => console.warn('[ResumeService] Failed to create activity log:', e?.message));
 
@@ -174,7 +192,9 @@ export class ResumeService {
         processingTime,
       },
       extractedInfo: parsingSuccess ? {
-        skillsCount: aiExtracted.skills?.technical?.length || 0,
+        skillsCount: (aiExtracted.skills?.technical?.length || 0) +
+          (aiExtracted.skills?.soft?.length || 0) +
+          (aiExtracted.skills?.tools?.length || 0),
         softSkillsCount: aiExtracted.skills?.soft?.length || 0,
         experience: aiExtracted.experience?.level || 'unknown',
         workHistoryCount: aiExtracted.experience?.positions?.length || 0,
@@ -187,7 +207,7 @@ export class ResumeService {
         linkedinFound: !!aiExtracted.personalInfo?.linkedin,
         githubFound: !!aiExtracted.personalInfo?.github,
       } : null,
-      autoMatchingTriggered: (aiExtracted.skills?.technical?.length || 0) > 0,
+      autoMatchingTriggered: parsingSuccess,
     };
   }
 

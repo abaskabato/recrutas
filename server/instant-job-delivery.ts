@@ -135,10 +135,12 @@ export class InstantJobDelivery {
       const jobSkills = job.skills?.map((s: string) => s.toLowerCase()) || [];
       const jobText = `${job.title} ${job.description}`.toLowerCase();
       
-      const matchedSkills = request.skills.filter(skill => 
-        jobSkills.some(js => js.includes(skill.toLowerCase())) ||
-        jobText.includes(skill.toLowerCase())
-      );
+      const matchedSkills = request.skills.filter(skill => {
+        const skillLower = skill.toLowerCase();
+        const escaped = skillLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return jobSkills.some(js => js === skillLower) ||
+          new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(jobText);
+      });
       
       score += (matchedSkills.length / request.skills.length) * 40;
     }
@@ -326,10 +328,10 @@ export class InstantJobDelivery {
       'AI', 'Data Science', 'Frontend', 'Backend', 'Full Stack'
     ];
 
-    const textLower = text.toLowerCase();
-    return commonSkills.filter(skill => 
-      textLower.includes(skill.toLowerCase())
-    );
+    return commonSkills.filter(skill => {
+      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
+    });
   }
 
   private extractWorkTypeFromText(text: string): string {

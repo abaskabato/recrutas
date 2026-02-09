@@ -60,6 +60,7 @@ import { eq, desc, asc, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
+import { normalizeSkills } from "./skill-normalizer";
 
 /**
  * Storage Interface Definition
@@ -630,20 +631,56 @@ export class DatabaseStorage implements IStorage {
     const candidate = await this.getCandidateUser(candidateId);
 
     if (!candidate || !candidate.skills || candidate.skills.length === 0) {
-      console.log(`Candidate ${candidateId} has no skills - returning empty (upload resume first)`);
-      return null;
+      console.log(`Candidate ${candidateId} has no skills - returning discovery feed`);
+      const discoveryJobs = await db
+        .select()
+        .from(jobPostings)
+        .where(and(
+          eq(jobPostings.status, 'active'),
+          or(
+            sql`${jobPostings.expiresAt} IS NULL`,
+            sql`${jobPostings.expiresAt} > NOW()`
+          ),
+          or(
+            eq(jobPostings.livenessStatus, 'active'),
+            eq(jobPostings.livenessStatus, 'unknown')
+          )
+        ))
+        .orderBy(
+          sql`${jobPostings.trustScore} DESC NULLS LAST`,
+          sql`${jobPostings.createdAt} DESC`
+        )
+        .limit(20);
+
+      return discoveryJobs.map((job: any) => {
+        const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
+        return {
+          ...job,
+          requirements: Array.isArray(job.requirements) ? job.requirements : [],
+          skills: Array.isArray(job.skills) ? job.skills : [],
+          matchScore: 0,
+          matchTier: 'discovery' as const,
+          skillMatches: [],
+          aiExplanation: 'Upload your resume to get personalized matches',
+          isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore || 0) >= 90,
+          isDirectFromCompany: (job.trustScore || 0) >= 85,
+          freshness,
+          daysOld,
+        };
+      });
     }
 
     const jobPreferences = (candidate as any)?.jobPreferences || {};
-    console.log(`Candidate skills: ${candidate.skills.join(', ')}`);
+    const candidateSkills = normalizeSkills(candidate.skills);
+    console.log(`Candidate skills (normalized): ${candidateSkills.join(', ')}`);
 
     const allJobs = await db
       .select()
       .from(jobPostings)
       .where(and(
         eq(jobPostings.status, 'active'),
-        or(...candidate.skills.map(skill =>
-          sql`${jobPostings.skills} @> jsonb_build_array(${skill}::text)`
+        or(...candidateSkills.map(skill =>
+          sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
         )),
         or(
           sql`${jobPostings.expiresAt} IS NULL`,
@@ -670,11 +707,11 @@ export class DatabaseStorage implements IStorage {
 
     const recommendations = jobsWithSource
       .map(job => {
-        const matchingSkills = candidate.skills.filter(skill =>
-          job.skills && job.skills.includes(skill)
+        const matchingSkills = candidateSkills.filter(skill =>
+          job.skills?.some((js: string) => js.toLowerCase() === skill.toLowerCase())
         );
         const skillMatchPercentage = matchingSkills.length > 0
-          ? Math.round((matchingSkills.length / Math.max(candidate.skills.length, 1)) * 100)
+          ? Math.round((matchingSkills.length / Math.max(candidateSkills.length, 1)) * 100)
           : 0;
 
         const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
@@ -778,7 +815,9 @@ export class DatabaseStorage implements IStorage {
         .from(candidateProfiles)
         .innerJoin(users, eq(candidateProfiles.userId, users.id))
         .where(
-          or(...job.skills.map(skill => sql`${candidateProfiles.skills} @> ARRAY[${skill}]::text[]`))
+          or(...job.skills.map(skill =>
+            sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${candidateProfiles.skills}) AS cs WHERE LOWER(cs) = LOWER(${skill}))`
+          ))
         )
         .limit(50);
 

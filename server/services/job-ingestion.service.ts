@@ -7,6 +7,7 @@ import { db } from '../db';
 import { jobPostings, users } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm/sql';
+import { normalizeSkills } from '../skill-normalizer';
 
 // System user UUID for external jobs (well-known constant)
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -119,7 +120,7 @@ export class JobIngestionService {
             location: job.location,
             description: job.description,
             requirements: job.requirements,
-            skills: job.skills,
+            skills: normalizeSkills(job.skills),
             workType: job.workType,
             salaryMin: job.salaryMin,
             salaryMax: job.salaryMax,

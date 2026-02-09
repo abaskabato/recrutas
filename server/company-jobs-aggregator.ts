@@ -549,10 +549,10 @@ export class CompanyJobsAggregator {
       'PyTorch', 'Data Science', 'Scala', 'Kotlin', 'Swift', 'Objective-C'
     ];
 
-    const lowerText = text.toLowerCase();
-    return techSkills.filter(skill =>
-      lowerText.includes(skill.toLowerCase())
-    ).slice(0, 8);
+    return techSkills.filter(skill => {
+      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
+    }).slice(0, 8);
   }
 
   // Fallback methods with real company job examples

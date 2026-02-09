@@ -913,10 +913,10 @@ export class JobAggregator {
       'Redis', 'Elasticsearch', 'Machine Learning', 'AI', 'Data Science'
     ];
 
-    const lowerText = text.toLowerCase();
-    return commonSkills.filter(skill =>
-      lowerText.includes(skill.toLowerCase())
-    ).slice(0, 8);
+    return commonSkills.filter(skill => {
+      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
+    }).slice(0, 8);
   }
 
   async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {

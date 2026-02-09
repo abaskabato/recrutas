@@ -196,8 +196,11 @@ class CareerPageScraper {
     // Filter by user skills if provided
     if (userSkills && userSkills.length > 0) {
       const filteredJobs = allJobs.filter(job => {
-        const jobText = `${job.title} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
-        return userSkills.some(skill => jobText.includes(skill.toLowerCase()));
+        const jobText = `${job.title} ${job.description} ${job.skills.join(' ')}`;
+        return userSkills.some(skill => {
+          const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(jobText);
+        });
       });
       console.log(`[CareerScraper] Filtered to ${filteredJobs.length} jobs matching user skills`);
       return this.deduplicateJobs(filteredJobs);
@@ -513,9 +516,11 @@ class CareerPageScraper {
       'iOS', 'Android', 'Swift', 'Kotlin', 'Flutter', 'React Native'
     ];
 
-    const lowerText = text.toLowerCase();
     return commonSkills
-      .filter(skill => lowerText.includes(skill.toLowerCase()))
+      .filter(skill => {
+        const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
+      })
       .slice(0, 8);
   }
 

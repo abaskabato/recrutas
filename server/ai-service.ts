@@ -374,7 +374,7 @@ function analyzeSkillGaps(currentSkills: string[]): string[] {
 
   const currentSkillsLower = currentSkills.map(s => s.toLowerCase());
   return inDemandSkills.filter(skill =>
-    !currentSkillsLower.some(cs => cs.includes(skill.toLowerCase()))
+    !currentSkillsLower.some(cs => cs === skill.toLowerCase())
   );
 }
 
@@ -535,8 +535,10 @@ function extractTechSkillsFromText(text: string): string[] {
     'SQL', 'NoSQL', 'Linux', 'Git', 'Agile', 'Scrum'
   ];
 
-  const lowerText = text.toLowerCase();
-  return commonSkills.filter(skill => lowerText.includes(skill.toLowerCase()));
+  return commonSkills.filter(skill => {
+    const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
+  });
 }
 
 /**
