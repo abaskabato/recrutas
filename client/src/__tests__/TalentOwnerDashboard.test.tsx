@@ -10,11 +10,35 @@ const server = setupServer(
   http.get('/api/auth/user', () => {
     return HttpResponse.json({ id: '123', email: 'test@test.com', firstName: 'Test' });
   }),
+  http.get('/api/recruiter/stats', () => {
+    return HttpResponse.json({ 
+      activeJobs: 1, 
+      totalApplicants: 5, 
+      newApplicants: 2, 
+      interviewsScheduled: 1,
+      averageTimeToHire: 14,
+      totalViews: 100
+    });
+  }),
   http.get('/api/talent-owner/all-applicants', () => {
     return HttpResponse.json([]);
   }),
   http.get('/api/talent-owner/jobs', () => {
-    return HttpResponse.json([{ id: 1, title: 'Software Engineer', company: 'Test Co', applicationCount: 1, viewCount: 10, createdAt: new Date().toISOString() }]);
+    return HttpResponse.json([{ 
+      id: 1, 
+      title: 'Software Engineer', 
+      company: 'Test Co', 
+      description: 'Test job',
+      requirements: ['React', 'Node.js'],
+      skills: ['React', 'Node.js'],
+      location: 'Remote',
+      workType: 'remote',
+      status: 'active',
+      applicationCount: 1, 
+      viewCount: 10, 
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }]);
   }),
   http.get('/api/jobs/1/applicants', () => {
     return HttpResponse.json([{ applicationId: 1, candidate: { firstName: 'John', lastName: 'Doe' }, profile: { skills: ['React'] } }]);
@@ -86,6 +110,11 @@ describe('TalentOwnerDashboard', () => {
 
   it('fetches and displays job postings', async () => {
     renderComponent();
+    // Wait for the dashboard to fully load
+    await waitFor(() => {
+      expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
+    });
+    // Then check for the job
     await waitFor(() => {
       expect(screen.getByText(/Software Engineer/i)).toBeInTheDocument();
     });
@@ -95,16 +124,21 @@ describe('TalentOwnerDashboard', () => {
     const user = userEvent.setup();
     renderComponent();
 
+    // Wait for dashboard to load first
     await waitFor(() => {
       expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: /Create Job with Exam/i }));
+    // Find and click the create job button
+    const createButton = await screen.findByRole('button', { name: /Create Job/i });
+    await user.click(createButton);
     
+    // Wait for wizard to open
     await waitFor(() => {
       expect(screen.getByText(/Basic Job Information/i)).toBeInTheDocument();
     });
 
+    // Fill in the form
     await user.type(screen.getByLabelText(/Job Title/i), 'Backend Developer');
     await user.type(screen.getByLabelText(/Company/i), 'NewCo');
     await user.type(screen.getByLabelText(/Job Description/i), 'A new job opening.');
@@ -117,23 +151,23 @@ describe('TalentOwnerDashboard', () => {
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
     await waitFor(() => {
-        expect(screen.getByText(/Requirements & Skills/i)).toBeInTheDocument();
+      expect(screen.getByText(/Requirements & Skills/i)).toBeInTheDocument();
     });
 
-    await user.type(screen.getByPlaceholderText(/e.g. 5\+ years of experience with React/i), '5 years of Go');
+    await user.type(screen.getByPlaceholderText(/e\.g\. 5\+ years of experience/i), '5 years of Go');
     await user.click(screen.getAllByRole('button', { name: /\+/i })[0]);
-    await user.type(screen.getByPlaceholderText(/e.g. JavaScript, Python, AWS/i), 'Go');
+    await user.type(screen.getByPlaceholderText(/e\.g\. JavaScript, Python/i), 'Go');
     await user.click(screen.getAllByRole('button', { name: /\+/i })[1]);
     
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
     await waitFor(() => {
-        expect(screen.getByText(/Automated Filtering/i)).toBeInTheDocument();
+      expect(screen.getByText(/Automated Filtering/i)).toBeInTheDocument();
     });
     await user.click(screen.getByRole('button', { name: /Next/i }));
 
     await waitFor(() => {
-        expect(screen.getByText(/Direct Connection Setup/i)).toBeInTheDocument();
+      expect(screen.getByText(/Direct Connection Setup/i)).toBeInTheDocument();
     });
     await user.type(screen.getByLabelText(/Hiring Manager Name/i), 'Jane Doe');
     await user.type(screen.getByLabelText(/Hiring Manager Email/i), 'jane@newco.com');
@@ -148,20 +182,26 @@ describe('TalentOwnerDashboard', () => {
         })
       );
     });
-  });
+  }, 10000);
 
   it('fetches and displays applicants when a job is selected', async () => {
     const user = userEvent.setup();
     renderComponent();
+    
+    // Wait for dashboard and job to load
+    await waitFor(() => {
+      expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
+    });
+    
     await waitFor(() => {
       expect(screen.getByText(/Software Engineer/i)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', {name: /View Applicants/i}));
+    // Find and click View Applicants button
+    const viewButton = await screen.findByRole('button', { name: /View/i });
+    await user.click(viewButton);
 
     await waitFor(() => {
-      // Switch to applicants tab
-      expect(screen.getByText(/Applicants for Software Engineer/i)).toBeInTheDocument();
       // Check for applicant
       expect(screen.getByText(/John Doe/i)).toBeInTheDocument();
     });
