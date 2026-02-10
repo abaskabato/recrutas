@@ -22,18 +22,49 @@ export interface ResumeProcessingResult {
     processingTime: number;
   };
   extractedInfo: {
+    // Full extracted data
+    skills: {
+      technical: string[];
+      soft: string[];
+      tools: string[];
+    };
+    experience: {
+      level: string;
+      years: number;
+      positions: Array<{
+        title: string;
+        company: string;
+        duration: string;
+        description?: string;
+      }>;
+    };
+    education: Array<{
+      institution: string;
+      degree: string;
+      field?: string;
+      year?: string;
+    }>;
+    certifications: string[];
+    projects: Array<{
+      name: string;
+      description?: string;
+      technologies?: string[];
+    }>;
+    personalInfo: {
+      name: string;
+      email: string;
+      phone: string;
+      location: string;
+      linkedin: string;
+      github: string;
+      website: string;
+    };
+    // Summary counts
     skillsCount: number;
-    softSkillsCount: number;
-    experience: string;
     workHistoryCount: number;
     educationCount: number;
     certificationsCount: number;
     projectsCount: number;
-    hasContactInfo: boolean;
-    extractedName: string;
-    extractedLocation: string;
-    linkedinFound: boolean;
-    githubFound: boolean;
   } | null;
   autoMatchingTriggered: boolean;
 }
@@ -192,20 +223,37 @@ export class ResumeService {
         processingTime,
       },
       extractedInfo: parsingSuccess ? {
+        // Full extracted data for display
+        skills: {
+          technical: aiExtracted.skills?.technical || [],
+          soft: aiExtracted.skills?.soft || [],
+          tools: aiExtracted.skills?.tools || []
+        },
+        experience: {
+          level: aiExtracted.experience?.level || 'unknown',
+          years: aiExtracted.experience?.years || 0,
+          positions: aiExtracted.experience?.positions || []
+        },
+        education: aiExtracted.education || [],
+        certifications: aiExtracted.certifications || [],
+        projects: aiExtracted.projects || [],
+        personalInfo: {
+          name: aiExtracted.personalInfo?.name || '',
+          email: aiExtracted.personalInfo?.email || '',
+          phone: aiExtracted.personalInfo?.phone || '',
+          location: aiExtracted.personalInfo?.location || '',
+          linkedin: aiExtracted.personalInfo?.linkedin || '',
+          github: aiExtracted.personalInfo?.github || '',
+          website: aiExtracted.personalInfo?.website || ''
+        },
+        // Summary counts
         skillsCount: (aiExtracted.skills?.technical?.length || 0) +
           (aiExtracted.skills?.soft?.length || 0) +
           (aiExtracted.skills?.tools?.length || 0),
-        softSkillsCount: aiExtracted.skills?.soft?.length || 0,
-        experience: aiExtracted.experience?.level || 'unknown',
         workHistoryCount: aiExtracted.experience?.positions?.length || 0,
         educationCount: aiExtracted.education?.length || 0,
         certificationsCount: aiExtracted.certifications?.length || 0,
         projectsCount: aiExtracted.projects?.length || 0,
-        hasContactInfo: !!(aiExtracted.personalInfo?.email || aiExtracted.personalInfo?.phone),
-        extractedName: aiExtracted.personalInfo?.name || '',
-        extractedLocation: aiExtracted.personalInfo?.location || '',
-        linkedinFound: !!aiExtracted.personalInfo?.linkedin,
-        githubFound: !!aiExtracted.personalInfo?.github,
       } : null,
       autoMatchingTriggered: parsingSuccess,
     };

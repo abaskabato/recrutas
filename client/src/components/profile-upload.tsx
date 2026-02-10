@@ -12,9 +12,47 @@ import { Badge } from "./ui/badge";
 import { fetchProfileWithCache } from "@/lib/queryClient";
 
 interface ExtractedInfo {
-  skills: string[];
-  experience: string;
+  skills: {
+    technical: string[];
+    soft: string[];
+    tools: string[];
+  };
+  experience: {
+    level: string;
+    years: number;
+    positions: Array<{
+      title: string;
+      company: string;
+      duration: string;
+      description?: string;
+    }>;
+  };
+  education: Array<{
+    institution: string;
+    degree: string;
+    field?: string;
+    year?: string;
+  }>;
+  certifications: string[];
+  projects: Array<{
+    name: string;
+    description?: string;
+    technologies?: string[];
+  }>;
+  personalInfo: {
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    linkedin: string;
+    github: string;
+    website: string;
+  };
+  skillsCount: number;
   workHistoryCount: number;
+  educationCount: number;
+  certificationsCount: number;
+  projectsCount: number;
 }
 
 interface ProfileUploadProps {
@@ -248,20 +286,73 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
             <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-blue-500" /> AI-Powered Profile Update</CardTitle>
             <p className="text-sm text-gray-600">We've extracted the following information from your resume. Please review and confirm.</p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="font-semibold">Detected Skills</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {(parsedResumeData.skills || []).map((skill, index) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                    {skill}
-                    <button onClick={() => setParsedResumeData(prev => prev ? ({ ...prev, skills: prev.skills.filter(s => s !== skill) }) : null)}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+          <CardContent className="space-y-6">
+            {/* Personal Information */}
+            {parsedResumeData.personalInfo?.name && (
+              <div>
+                <Label className="font-semibold">Name</Label>
+                <p className="mt-1 text-gray-700">{parsedResumeData.personalInfo.name}</p>
               </div>
-            </div>
+            )}
+            
+            {/* Contact Information */}
+            {(parsedResumeData.personalInfo?.email || parsedResumeData.personalInfo?.phone || parsedResumeData.personalInfo?.location) && (
+              <div>
+                <Label className="font-semibold">Contact Information</Label>
+                <div className="mt-2 space-y-1 text-sm">
+                  {parsedResumeData.personalInfo.email && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-gray-500">Email:</span> {parsedResumeData.personalInfo.email}
+                    </p>
+                  )}
+                  {parsedResumeData.personalInfo.phone && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-gray-500">Phone:</span> {parsedResumeData.personalInfo.phone}
+                    </p>
+                  )}
+                  {parsedResumeData.personalInfo.location && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-gray-500">Location:</span> {parsedResumeData.personalInfo.location}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Professional Links */}
+            {(parsedResumeData.personalInfo?.linkedin || parsedResumeData.personalInfo?.github || parsedResumeData.personalInfo?.website) && (
+              <div>
+                <Label className="font-semibold">Professional Links</Label>
+                <div className="mt-2 space-y-1 text-sm">
+                  {parsedResumeData.personalInfo.linkedin && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-gray-500">LinkedIn:</span> 
+                      <a href={parsedResumeData.personalInfo.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-md">
+                        {parsedResumeData.personalInfo.linkedin}
+                      </a>
+                    </p>
+                  )}
+                  {parsedResumeData.personalInfo.github && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-gray-500">GitHub:</span> 
+                      <a href={parsedResumeData.personalInfo.github} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-md">
+                        {parsedResumeData.personalInfo.github}
+                      </a>
+                    </p>
+                  )}
+                  {parsedResumeData.personalInfo.website && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-gray-500">Website:</span> 
+                      <a href={parsedResumeData.personalInfo.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-md">
+                        {parsedResumeData.personalInfo.website}
+                      </a>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Experience Level */}
             <div>
               <Label className="font-semibold">Experience Level</Label>
               <div className="mt-2">
@@ -273,12 +364,147 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
                       senior: 'Senior Level',
                       executive: 'Executive Level'
                     };
-                    return levelMap[parsedResumeData.experience?.toLowerCase()] || parsedResumeData.experience || 'Not detected';
+                    return levelMap[parsedResumeData.experience?.level?.toLowerCase()] || parsedResumeData.experience?.level || 'Not detected';
                   })()}
                 </Badge>
+                {parsedResumeData.experience?.years > 0 && (
+                  <span className="ml-2 text-sm text-gray-600">({parsedResumeData.experience.years} years)</span>
+                )}
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+
+            {/* Work History */}
+            {parsedResumeData.experience?.positions?.length > 0 && (
+              <div>
+                <Label className="font-semibold">Work History ({parsedResumeData.experience.positions.length})</Label>
+                <div className="mt-2 space-y-3">
+                  {parsedResumeData.experience.positions.map((position: any, index: number) => (
+                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                      <p className="font-medium">{position.title}</p>
+                      <p className="text-sm text-gray-600">{position.company}</p>
+                      {position.duration && (
+                        <p className="text-xs text-gray-500 mt-1">{position.duration}</p>
+                      )}
+                      {position.description && (
+                        <p className="text-sm text-gray-700 mt-2">{position.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Education */}
+            {parsedResumeData.education?.length > 0 && (
+              <div>
+                <Label className="font-semibold">Education ({parsedResumeData.education.length})</Label>
+                <div className="mt-2 space-y-2">
+                  {parsedResumeData.education.map((edu: any, index: number) => (
+                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                      <p className="font-medium">{edu.degree}{edu.field && ` in ${edu.field}`}</p>
+                      <p className="text-sm text-gray-600">{edu.institution}</p>
+                      {edu.year && (
+                        <p className="text-xs text-gray-500 mt-1">{edu.year}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Certifications */}
+            {parsedResumeData.certifications?.length > 0 && (
+              <div>
+                <Label className="font-semibold">Certifications ({parsedResumeData.certifications.length})</Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {parsedResumeData.certifications.map((cert: string, index: number) => (
+                    <Badge key={index} variant="outline" className="bg-blue-50">
+                      {cert}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Projects */}
+            {parsedResumeData.projects?.length > 0 && (
+              <div>
+                <Label className="font-semibold">Projects ({parsedResumeData.projects.length})</Label>
+                <div className="mt-2 space-y-2">
+                  {parsedResumeData.projects.map((project: any, index: number) => (
+                    <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                      <p className="font-medium">{project.name}</p>
+                      {project.description && (
+                        <p className="text-sm text-gray-600 mt-1">{project.description}</p>
+                      )}
+                      {project.technologies && project.technologies.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {project.technologies.map((tech: string, techIndex: number) => (
+                            <Badge key={techIndex} variant="secondary" className="text-xs">
+                              {tech}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Skills */}
+            {(parsedResumeData.skills?.technical?.length > 0 || parsedResumeData.skills?.soft?.length > 0 || parsedResumeData.skills?.tools?.length > 0) && (
+              <div>
+                <Label className="font-semibold">Skills ({parsedResumeData.skillsCount})</Label>
+                <div className="mt-2 space-y-2">
+                  {parsedResumeData.skills.technical?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Technical</p>
+                      <div className="flex flex-wrap gap-2">
+                        {parsedResumeData.skills.technical.map((skill: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                            {skill}
+                            <button onClick={() => {
+                              const newSkills = { ...parsedResumeData.skills };
+                              newSkills.technical = newSkills.technical.filter((s: string) => s !== skill);
+                              setParsedResumeData(prev => prev ? { ...prev, skills: newSkills, skillsCount: (newSkills.technical?.length || 0) + (newSkills.soft?.length || 0) + (newSkills.tools?.length || 0) } : null);
+                            }}>
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {parsedResumeData.skills.soft?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Soft Skills</p>
+                      <div className="flex flex-wrap gap-2">
+                        {parsedResumeData.skills.soft.map((skill: string, index: number) => (
+                          <Badge key={index} variant="outline" className="flex items-center gap-1">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {parsedResumeData.skills.tools?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Tools & Technologies</p>
+                      <div className="flex flex-wrap gap-2">
+                        {parsedResumeData.skills.tools.map((skill: string, index: number) => (
+                          <Badge key={index} variant="outline" className="bg-gray-100 flex items-center gap-1">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setParsedResumeData(null)}>Cancel</Button>
               <Button onClick={handleSaveParsedData} className="bg-blue-600 hover:bg-blue-700">
                 <Check className="h-4 w-4 mr-2" />
