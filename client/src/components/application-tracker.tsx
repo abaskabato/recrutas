@@ -145,12 +145,16 @@ export default function ApplicationTracker() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{application.job.title}</CardTitle>
+                      <CardTitle className="text-lg">{application.job?.title || 'Unknown Job'}</CardTitle>
                       <CardDescription className="flex items-center gap-2 mt-1">
-                        <span>{application.job.company}</span>
-                        <span>•</span>
-                        <span>{application.job.location}</span>
-                        {application.job.workType && (
+                        <span>{application.job?.company || 'Unknown Company'}</span>
+                        {application.job?.location && (
+                          <>
+                            <span>•</span>
+                            <span>{application.job.location}</span>
+                          </>
+                        )}
+                        {application.job?.workType && (
                           <>
                             <span>•</span>
                             <span className="capitalize">{application.job.workType}</span>
@@ -184,9 +188,11 @@ export default function ApplicationTracker() {
                       <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          Applied {formatDistanceToNow(new Date(application.appliedAt), { addSuffix: true })}
+                          Applied {application.appliedAt && !isNaN(new Date(application.appliedAt).getTime()) 
+                            ? formatDistanceToNow(new Date(application.appliedAt), { addSuffix: true })
+                            : 'recently'}
                         </span>
-                        {application.viewedByEmployerAt && (
+                        {application.viewedByEmployerAt && !isNaN(new Date(application.viewedByEmployerAt).getTime()) && (
                           <span className="flex items-center gap-1">
                             <Eye className="h-4 w-4" />
                             Viewed {formatDistanceToNow(new Date(application.viewedByEmployerAt), { addSuffix: true })}
@@ -198,7 +204,7 @@ export default function ApplicationTracker() {
                           <MessageSquare className="h-4 w-4 mr-1" />
                           Message
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => setLocation(`/candidate-dashboard?tab=jobs&job=${application.job.id}`)}>
+                        <Button variant="outline" size="sm" onClick={() => setLocation(`/candidate-dashboard?tab=jobs&job=${application.job?.id || ''}`)}>
                           <ExternalLink className="h-4 w-4 mr-1" />
                           View Job
                         </Button>
@@ -206,9 +212,9 @@ export default function ApplicationTracker() {
                     </div>
 
                     {/* Salary Range */}
-                    {(application.job.salaryMin || application.job.salaryMax) && (
+                    {(application.job?.salaryMin || application.job?.salaryMax) && (
                       <div className="text-sm text-gray-600">
-                        Salary: ${application.job.salaryMin?.toLocaleString()} - ${application.job.salaryMax?.toLocaleString()}
+                        Salary: ${application.job?.salaryMin?.toLocaleString() || 'N/A'} - ${application.job?.salaryMax?.toLocaleString() || 'N/A'}
                       </div>
                     )}
 
@@ -249,8 +255,8 @@ export default function ApplicationTracker() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium">{application.job.title}</h4>
-                      <p className="text-sm text-gray-600">{application.job.company}</p>
+                      <h4 className="font-medium">{application.job?.title || 'Unknown Job'}</h4>
+                      <p className="text-sm text-gray-600">{application.job?.company || 'Unknown Company'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(application.status)}

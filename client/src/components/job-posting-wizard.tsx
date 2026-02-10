@@ -393,7 +393,7 @@ export default function JobPostingWizard({
                   placeholder="e.g. 5+ years of experience with React"
                   onKeyPress={(e) => e.key === 'Enter' && addRequirement()}
                 />
-                <Button onClick={addRequirement} type="button">
+                <Button onClick={addRequirement} type="button" aria-label="Add requirement">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -426,7 +426,7 @@ export default function JobPostingWizard({
                   placeholder="e.g. JavaScript, Python, AWS"
                   onKeyPress={(e) => e.key === 'Enter' && addSkill()}
                 />
-                <Button onClick={addSkill} type="button">
+                <Button onClick={addSkill} type="button" aria-label="Add skill">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
