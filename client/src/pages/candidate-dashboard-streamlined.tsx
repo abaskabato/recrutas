@@ -502,7 +502,7 @@ export default function CandidateStreamlinedDashboard() {
 
         {activeTab === 'profile' && (
           <div className="max-w-4xl">
-            <ProfileUpload />
+            <ProfileUpload onProfileSaved={() => setActiveTab('jobs')} />
           </div>
         )}
 

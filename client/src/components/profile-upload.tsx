@@ -15,7 +15,13 @@ interface ExtractedInfo {
   skills: string[];
   experience: string;
   workHistoryCount: number;
-}interface JobPreferences {
+}
+
+interface ProfileUploadProps {
+  onProfileSaved?: () => void;
+}
+
+interface JobPreferences {
   salaryMin?: number;
   salaryMax?: number;
   commitmentTypes?: string[];
@@ -26,7 +32,7 @@ interface ExtractedInfo {
   maxTravelDays?: number;
 }
 
-export default function ProfileUpload() {
+export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   const [profileLinks, setProfileLinks] = useState({
     linkedinUrl: '',
     githubUrl: '',
@@ -111,11 +117,13 @@ export default function ProfileUpload() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
       toast({
         title: "Profile Updated",
         description: "Your profile has been saved successfully!",
       });
       setParsedResumeData(null);
+      onProfileSaved?.();
     },
     onError: (error: Error) => {
       toast({
@@ -255,8 +263,20 @@ export default function ProfileUpload() {
               </div>
             </div>
             <div>
-              <Label htmlFor="experience" className="font-semibold">Experience Summary</Label>
-              <Input id="experience" value={parsedResumeData.experience} onChange={(e) => setParsedResumeData(prev => prev ? ({ ...prev, experience: e.target.value }) : null)} />
+              <Label className="font-semibold">Experience Level</Label>
+              <div className="mt-2">
+                <Badge variant="secondary" className="text-sm px-3 py-1">
+                  {(() => {
+                    const levelMap: Record<string, string> = {
+                      entry: 'Entry Level',
+                      mid: 'Mid Level',
+                      senior: 'Senior Level',
+                      executive: 'Executive Level'
+                    };
+                    return levelMap[parsedResumeData.experience?.toLowerCase()] || parsedResumeData.experience || 'Not detected';
+                  })()}
+                </Badge>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setParsedResumeData(null)}>Cancel</Button>

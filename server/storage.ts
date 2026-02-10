@@ -698,6 +698,12 @@ export class DatabaseStorage implements IStorage {
     const candidateSkills = normalizeSkills(candidate.skills);
     console.log(`Candidate skills (normalized): ${candidateSkills.join(', ')}`);
 
+    // Safety guard: if skills array is empty after normalization, fall back to discovery feed
+    if (candidateSkills.length === 0) {
+      console.log(`Candidate ${candidateId} has no skills after normalization - returning discovery feed`);
+      return this.fetchScoredJobs(candidateId);
+    }
+
     const allJobs = await db
       .select()
       .from(jobPostings)
