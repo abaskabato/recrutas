@@ -523,6 +523,7 @@ export class DatabaseStorage implements IStorage {
       const cutoffDateStr = ninetyDaysAgo.toISOString();
 
       // Query external jobs (source = 'external' or externalUrl is set)
+      // Exclude ArbeitNow - European-focused board, not relevant for US-only results
       const query = db
         .select()
         .from(jobPostings)
@@ -532,6 +533,8 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.source} = 'external'`,
             sql`${jobPostings.externalUrl} IS NOT NULL`
           ),
+          // Exclude ArbeitNow jobs (European job board)
+          sql`${jobPostings.source} != 'ArbeitNow'`,
           or(
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
@@ -678,6 +681,8 @@ export class DatabaseStorage implements IStorage {
           ),
           // Only recent jobs - last 90 days
           sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
+          // Exclude ArbeitNow jobs (European job board)
+          sql`${jobPostings.source} != 'ArbeitNow'`,
           // Exclude hidden and applied-to jobs
           ...(excludeIds.length > 0
             ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
@@ -744,6 +749,8 @@ export class DatabaseStorage implements IStorage {
         ),
         // Only recent jobs - last 90 days
         sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
+        // Exclude ArbeitNow jobs (European job board)
+        sql`${jobPostings.source} != 'ArbeitNow'`,
         // Exclude hidden and applied-to jobs
         ...(excludeIds.length > 0
           ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]

@@ -79,6 +79,12 @@ export class JobIngestionService {
     const systemUserId = await ensureSystemUserExists();
 
     for (const job of jobs) {
+      // Skip ArbeitNow jobs (European job board, not relevant for US-only platform)
+      if (job.source?.toLowerCase() === 'arbeitnow') {
+        stats.skippedNonUS++;
+        continue;
+      }
+
       // Skip non-US jobs
       if (!isUSLocation(job.location)) {
         stats.skippedNonUS++;
