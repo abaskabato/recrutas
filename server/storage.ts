@@ -520,6 +520,7 @@ export class DatabaseStorage implements IStorage {
       // Only show jobs from last 90 days for fresh results (reduced from unlimited, will tighten to 30 once scraper is stable)
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const cutoffDateStr = ninetyDaysAgo.toISOString();
 
       // Query external jobs (source = 'external' or externalUrl is set)
       const query = db
@@ -535,8 +536,8 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
           ),
-          // Only recent jobs - last 90 days (temporarily extended from 30)
-          sql`${jobPostings.createdAt} > ${ninetyDaysAgo}`
+          // Only recent jobs - last 90 days
+          sql`${jobPostings.createdAt} > ${cutoffDateStr}`
         ))
         .orderBy(sql`${jobPostings.createdAt} DESC`)
         .limit(100);
@@ -655,6 +656,7 @@ export class DatabaseStorage implements IStorage {
       // Only show jobs from last 90 days for fresh results
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const cutoffDateStr = ninetyDaysAgo.toISOString();
 
       const discoveryJobs = await db
         .select()
@@ -675,7 +677,7 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.ghostJobScore} < 60`
           ),
           // Only recent jobs - last 90 days
-          sql`${jobPostings.createdAt} > ${ninetyDaysAgo}`,
+          sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
           // Exclude hidden and applied-to jobs
           ...(excludeIds.length > 0
             ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
@@ -722,6 +724,7 @@ export class DatabaseStorage implements IStorage {
     // Only show jobs from last 90 days for fresh results
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const cutoffDateStr = ninetyDaysAgo.toISOString();
 
     const allJobs = await db
       .select()
@@ -740,7 +743,7 @@ export class DatabaseStorage implements IStorage {
           eq(jobPostings.livenessStatus, 'unknown')
         ),
         // Only recent jobs - last 90 days
-        sql`${jobPostings.createdAt} > ${ninetyDaysAgo}`,
+        sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
         // Exclude hidden and applied-to jobs
         ...(excludeIds.length > 0
           ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
