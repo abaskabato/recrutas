@@ -28,16 +28,16 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
           echo "Ollama installed successfully"
 
+      - name: Start Ollama server
+        run: |
+          ollama serve &
+          sleep 10
+          echo "Ollama server started"
+
       - name: Pull Ollama model
         run: |
           ollama pull llama3.2
           echo "Model pulled successfully"
-
-      - name: Start Ollama server
-        run: |
-          ollama serve &
-          sleep 5
-          echo "Ollama server started"
 
       - name: Scrape Tier 1 — Greenhouse companies (29)
         id: tier1
