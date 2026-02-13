@@ -1,3 +1,5 @@
+import { hiringCafeService } from './services/hiring-cafe.service';
+
 // Trust scores for different job sources (0-100)
 // Higher scores indicate more trustworthy/verified sources
 export const SOURCE_TRUST_SCORES: Record<string, number> = {
@@ -6,6 +8,7 @@ export const SOURCE_TRUST_SCORES: Record<string, number> = {
   'The Muse': 70,           // Curated tech jobs from real companies
   'RemoteOK': 65,           // Remote-focused jobs, generally accurate
   'ArbeitNow': 60,          // European job board aggregator
+  'hiring-cafe': 55,       // Multi-industry aggregator, less vetted
   'default': 50             // Default for unknown sources
 };
 
@@ -926,21 +929,44 @@ export class JobAggregator {
       console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
 
       // Fetch from all real sources (no generated/fake jobs)
-      // ArbeitNow removed — European-focused board, not relevant for US-only results
+      // Use a mix of skills for Hiring.cafe to get diverse results
+      const hiringCafeKeywords = userSkills && userSkills.length > 0 
+        ? userSkills.slice(0, 3).join(' ')
+        : 'software engineer developer';
+      
       const [
         jsearchJobs,
         museJobs,
-        remoteOKJobs
+        remoteOKJobs,
+        hiringCafeResults
       ] = await Promise.allSettled([
         this.fetchFromJSearchAPI(userSkills),
         this.fetchFromTheMuse(),
-        this.fetchRemoteOKJobs()
+        this.fetchRemoteOKJobs(),
+        hiringCafeService.searchByKeywords(hiringCafeKeywords, { maxPages: 1 })
       ]);
 
       // Add jobs from successful fetches - only real sources
       if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
       if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
       if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
+      if (hiringCafeResults.status === 'fulfilled') {
+        const cafeJobs = hiringCafeResults.value.map(job => ({
+          id: `cafe_${job.externalId}`,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          description: job.description,
+          requirements: job.requirements,
+          skills: job.skills,
+          workType: job.workType,
+          source: job.source,
+          externalUrl: job.externalUrl,
+          postedDate: job.postedDate,
+          trustScore: getSourceTrustScore('hiring-cafe')
+        } as ExternalJob));
+        allJobs.push(...cafeJobs);
+      }
 
       console.log(`Successfully aggregated ${allJobs.length} jobs from external sources`);
 

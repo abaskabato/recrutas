@@ -153,7 +153,11 @@ function parseGreenhouseResponse(data: any, company: CompanyConfig): ScrapedJob[
         isRemote: location.isRemote
       });
     } catch (error) {
-      logger.warn(`Failed to parse Greenhouse job for ${company.name}`, { error });
+      logger.warn(`Failed to parse Greenhouse job for ${company.name}`, { 
+        error: error instanceof Error ? error.message : String(error),
+        jobId: job.id,
+        jobTitle: job.title 
+      });
     }
   }
 
@@ -329,7 +333,8 @@ function parseSmartRecruitersResponse(data: any, company: CompanyConfig): Scrape
 }
 
 // Helper functions
-function stripHtml(html: string): string {
+function stripHtml(html: string | undefined): string {
+  if (!html) return '';
   return html
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')

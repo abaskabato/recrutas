@@ -164,6 +164,94 @@ function parseJobPosting(posting: JsonLdJobPosting, company: CompanyConfig): Scr
 }
 
 /**
+ * Map country name to ISO 3166-1 alpha-2 country code
+ */
+function mapCountryToCode(countryName?: string): string {
+  if (!countryName) return 'US';
+  
+  const countryMap: Record<string, string> = {
+    'United States': 'US',
+    'United States of America': 'US',
+    'USA': 'US',
+    'US': 'US',
+    'United Kingdom': 'GB',
+    'UK': 'GB',
+    'Great Britain': 'GB',
+    'England': 'GB',
+    'Scotland': 'GB',
+    'Wales': 'GB',
+    'Canada': 'CA',
+    'Australia': 'AU',
+    'Germany': 'DE',
+    'France': 'FR',
+    'Netherlands': 'NL',
+    'Spain': 'ES',
+    'Italy': 'IT',
+    'Japan': 'JP',
+    'China': 'CN',
+    'India': 'IN',
+    'Brazil': 'BR',
+    'Mexico': 'MX',
+    'Singapore': 'SG',
+    'Hong Kong': 'HK',
+    'South Korea': 'KR',
+    'Ireland': 'IE',
+    'Switzerland': 'CH',
+    'Sweden': 'SE',
+    'Norway': 'NO',
+    'Denmark': 'DK',
+    'Finland': 'FI',
+    'Austria': 'AT',
+    'Belgium': 'BE',
+    'Poland': 'PL',
+    'Portugal': 'PT',
+    'New Zealand': 'NZ',
+    'Israel': 'IL',
+    'United Arab Emirates': 'AE',
+    'UAE': 'AE',
+    'Saudi Arabia': 'SA',
+    'South Africa': 'ZA',
+    'Argentina': 'AR',
+    'Chile': 'CL',
+    'Colombia': 'CO',
+    'Peru': 'PE',
+    'Russia': 'RU',
+    'Turkey': 'TR',
+    'Thailand': 'TH',
+    'Vietnam': 'VN',
+    'Indonesia': 'ID',
+    'Malaysia': 'MY',
+    'Philippines': 'PH',
+    'Taiwan': 'TW',
+    'Czech Republic': 'CZ',
+    'Hungary': 'HU',
+    'Greece': 'GR',
+    'Ukraine': 'UA',
+    'Romania': 'RO',
+    'Bulgaria': 'BG',
+    'Croatia': 'HR',
+    'Slovakia': 'SK',
+    'Slovenia': 'SI',
+    'Estonia': 'EE',
+    'Latvia': 'LV',
+    'Lithuania': 'LT',
+    'Luxembourg': 'LU',
+    'Malta': 'MT',
+    'Cyprus': 'CY',
+    'Iceland': 'IS',
+    'Liechtenstein': 'LI',
+    'Monaco': 'MC',
+    'San Marino': 'SM',
+    'Andorra': 'AD',
+    'Global': 'GL',
+    'Worldwide': 'GL',
+    'Remote': 'GL',
+  };
+
+  return countryMap[countryName] || countryMap[countryName.toLowerCase()] || 'US';
+}
+
+/**
  * Parse location from JSON-LD
  */
 function parseLocation(jobLocation?: JsonLdJobPosting['jobLocation']): JobLocation {
@@ -186,7 +274,7 @@ function parseLocation(jobLocation?: JsonLdJobPosting['jobLocation']): JobLocati
     city: address?.addressLocality,
     state: address?.addressRegion,
     country: address?.addressCountry || 'Unknown',
-    countryCode: 'US', // TODO: Map country names to codes
+    countryCode: mapCountryToCode(address?.addressCountry),
     postalCode: address?.postalCode,
     isRemote: raw.toLowerCase().includes('remote'),
     normalized: raw.toLowerCase()

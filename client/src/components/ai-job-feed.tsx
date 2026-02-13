@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -62,7 +62,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: filteredMatches, isLoading } = useQuery<AIJobMatch[]>({
+  const { data: filteredMatches, isLoading, isFetching, refetch } = useQuery<AIJobMatch[]>({
     queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -250,9 +250,19 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Job count summary */}
+          {/* Job count summary with refresh */}
           <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
             <span>Showing {Math.min(displayLimit, filteredMatches.length)} of {filteredMatches.length} matches</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+              {isFetching ? 'Refreshing...' : 'Refresh'}
+            </Button>
           </div>
 
           <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto">

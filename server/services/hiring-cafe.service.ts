@@ -15,6 +15,8 @@ const HIRING_CAFE_API_URL = 'https://hiring.cafe/api/search-jobs';
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 2;
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 1000;
 
 /** Shape of a single job result from hiring.cafe API */
 interface HiringCafeJobResult {
@@ -134,6 +136,7 @@ export class HiringCafeService {
   /**
    * Search hiring.cafe for jobs matching the given keywords.
    * Returns ExternalJobInput[] ready for scoring and optional ingestion.
+   * Includes retry logic with exponential backoff for resilience.
    */
   async searchByKeywords(
     keywords: string,
@@ -145,26 +148,57 @@ export class HiringCafeService {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    // If caller provides an external signal, propagate abort
     if (options.signal) {
       options.signal.addEventListener('abort', () => controller.abort());
     }
 
     try {
       for (let page = 0; page < maxPages; page++) {
-        const body = {
-          size: PAGE_SIZE,
-          page,
-          searchState: {
-            searchQuery: keywords,
-            dateFetchedPastNDays: 15,
-            locations: [{ formatted_address: 'United States' }],
-            workplaceTypes: ['Remote', 'Hybrid', 'Onsite'],
-            commitmentTypes: ['Full Time', 'Part Time', 'Contract'],
-            seniorityLevel: ['No Prior Experience Required', 'Entry Level', 'Mid Level', 'Senior Level'],
-          },
-        };
+        const pageJobs = await this.fetchPageWithRetry(keywords, page, controller.signal);
+        if (pageJobs.length === 0) break;
+        
+        allJobs.push(...pageJobs);
+        console.log(`[HiringCafe] Page ${page}: ${pageJobs.length} jobs`);
 
+        if (pageJobs.length < PAGE_SIZE) break;
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn(`[HiringCafe] Request timed out — returning ${allJobs.length} partial results`);
+      } else {
+        console.error('[HiringCafe] API error:', error.message);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    console.log(`[HiringCafe] Total: ${allJobs.length} jobs for query "${keywords}"`);
+    return allJobs;
+  }
+
+  /**
+   * Fetch a single page with retry logic and exponential backoff
+   */
+  private async fetchPageWithRetry(
+    keywords: string,
+    page: number,
+    signal: AbortSignal
+  ): Promise<ExternalJobInput[]> {
+    const body = {
+      size: PAGE_SIZE,
+      page,
+      searchState: {
+        searchQuery: keywords,
+        dateFetchedPastNDays: 15,
+        locations: [{ formatted_address: 'United States' }],
+        workplaceTypes: ['Remote', 'Hybrid', 'Onsite'],
+        commitmentTypes: ['Full Time', 'Part Time', 'Contract'],
+        seniorityLevel: ['No Prior Experience Required', 'Entry Level', 'Mid Level', 'Senior Level'],
+      },
+    };
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
         const response = await fetch(HIRING_CAFE_API_URL, {
           method: 'POST',
           headers: {
@@ -175,42 +209,38 @@ export class HiringCafeService {
             'Accept': 'application/json',
           },
           body: JSON.stringify(body),
-          signal: controller.signal,
+          signal,
         });
 
+        if (response.status === 429 || response.status === 503) {
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+          console.warn(`[HiringCafe] Rate limited (${response.status}), retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
         if (!response.ok) {
-          console.error(`[HiringCafe] API returned ${response.status} on page ${page}`);
-          break;
+          console.error(`[HiringCafe] API returned ${response.status}`);
+          return [];
         }
 
         const data: HiringCafeApiResponse = await response.json();
         const results = data.results ?? [];
 
-        if (results.length === 0) break;
-
-        const transformed = results
+        return results
           .filter(r => r.id && r.apply_url && r.job_information?.title)
           .map(r => this.transformToExternalJobInput(r));
 
-        allJobs.push(...transformed);
-
-        console.log(`[HiringCafe] Page ${page}: ${results.length} results, ${transformed.length} valid`);
-
-        // If we got fewer results than page size, no more pages
-        if (results.length < PAGE_SIZE) break;
+      } catch (error: any) {
+        if (signal.aborted) throw error;
+        if (attempt === MAX_RETRIES - 1) throw error;
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`[HiringCafe] Error on attempt ${attempt + 1}, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.warn(`[HiringCafe] Request timed out after ${REQUEST_TIMEOUT_MS}ms — returning ${allJobs.length} partial results`);
-      } else {
-        console.error('[HiringCafe] API error:', error.message);
-      }
-    } finally {
-      clearTimeout(timeout);
     }
 
-    console.log(`[HiringCafe] Total: ${allJobs.length} jobs for query "${keywords}"`);
-    return allJobs;
+    return [];
   }
 
   /**
