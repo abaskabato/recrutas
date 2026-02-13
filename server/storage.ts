@@ -746,8 +746,11 @@ export class DatabaseStorage implements IStorage {
         const matchingSkills = candidateSkills.filter(skill =>
           job.skills?.some((js: string) => js.toLowerCase() === skill.toLowerCase())
         );
+        // Calculate match score based on job's required skills, not candidate's total skills
+        // This gives a better measure of how well the candidate matches the specific job
+        const jobSkillsCount = job.skills?.length || 1;
         const skillMatchPercentage = matchingSkills.length > 0
-          ? Math.round((matchingSkills.length / Math.max(candidateSkills.length, 1)) * 100)
+          ? Math.round((matchingSkills.length / Math.max(jobSkillsCount, 1)) * 100)
           : 0;
 
         const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
@@ -768,7 +771,7 @@ export class DatabaseStorage implements IStorage {
           companyVerified: job.companyVerified || false,
         };
       })
-      .filter(job => job.matchScore >= 40) // 40% minimum threshold
+      .filter(job => job.matchScore >= 20) // 20% minimum threshold (1 out of 5 skills)
       .filter(job => (job.ghostJobScore || 0) < 60) // Filter out likely ghost jobs (60%+ confidence)
       .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
