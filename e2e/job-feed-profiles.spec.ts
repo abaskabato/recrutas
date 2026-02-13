@@ -52,17 +52,19 @@ test.describe('Job Feed - Different Candidate Profiles', () => {
   
   for (const profile of TEST_PROFILES) {
     test(`Job feed for ${profile.name} profile`, async ({ page }) => {
-      // Step 1: Login as candidate - use getByLabel for better accessibility
+      // Step 1: Login as candidate
       await page.goto('/auth');
-      await page.waitForLoadState('networkidle');
       
-      // Fill email and password using more reliable selectors
-      await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-      await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-      await page.getByRole('button', { name: /sign in/i }).click();
+      // Wait for the form to actually render
+      await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+      
+      // Fill email and password
+      await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+      await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+      await page.click('button:has-text("Sign in")');
 
       // Wait for redirect to dashboard
-      await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+      await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
       await page.waitForTimeout(3000);
 
       // Step 2: Navigate to profile and update skills
@@ -142,11 +144,11 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Empty profile - no skills', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-    await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
     await page.waitForTimeout(3000);
 
     // Go to job feed with potentially empty profile
@@ -165,11 +167,11 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Search functionality works', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-    await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
     await page.waitForTimeout(3000);
 
     // Go to job feed
@@ -196,11 +198,11 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Filter by work type', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-    await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
     await page.waitForTimeout(3000);
 
     // Go to job feed
@@ -221,11 +223,11 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Refresh button works', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-    await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
     await page.waitForTimeout(3000);
 
     // Go to job feed
@@ -246,11 +248,11 @@ test.describe('Job Feed - Edge Cases', () => {
   test('No jobs found state', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-    await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
     await page.waitForTimeout(3000);
 
     // Search for very specific/rare term
@@ -279,11 +281,11 @@ test.describe('Job Feed - Job Application Flow', () => {
   test('Can view job details and apply', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(TEST_USERS.candidate.email);
-    await page.getByLabel('Password').fill(TEST_USERS.candidate.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in")');
+    await page.waitForURL('**/candidate-dashboard**', { timeout: 20000 });
     await page.waitForTimeout(3000);
 
     // Go to job feed
