@@ -1,7 +1,7 @@
 /**
  * AI-Powered Job Extraction
- * 
- * Uses LLM (Groq API) to intelligently extract job listings from HTML.
+ *
+ * Uses LLM (Groq API or Ollama) to intelligently extract job listings from HTML.
  * This is the fallback method when structured data and APIs are not available.
  * It's significantly better than regex-based parsing.
  */
@@ -52,6 +52,19 @@ function getGroqClient(): Groq {
     groqClient = new Groq({ apiKey });
   }
   return groqClient;
+}
+
+/**
+ * Check if Ollama is available
+ */
+async function isOllamaAvailable(): Promise<boolean> {
+  try {
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const response = await fetch(`${ollamaUrl}/api/tags`, { method: 'GET' });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -109,19 +122,7 @@ export async function extractWithAI(
   }
 }
 
-/**
- * Call Groq AI for job extraction
- */
-async function callAIForExtraction(html: string, company: CompanyConfig): Promise<AIResponse> {
-  const groq = getGroqClient();
-  
-  // Truncate HTML to fit in context window
-  const maxLength = 25000;
-  const truncatedHtml = html.length > maxLength 
-    ? html.substring(0, maxLength) + '\n...[truncated]'
-    : html;
-
-  const systemPrompt = `You are a precise job listing extractor. Extract all job postings from the provided HTML.
+const systemPrompt = `You are a precise job listing extractor. Extract all job postings from the provided HTML.
 
 Rules:
 1. Only extract actual job postings, not navigation links or other content
@@ -159,37 +160,131 @@ Return JSON in this exact format:
   "totalFound": 5
 }`;
 
+/**
+ * Call Ollama AI for job extraction (open source, unlimited)
+ */
+async function callOllamaForExtraction(html: string, company: CompanyConfig): Promise<AIResponse> {
+  const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+
+  // Truncate HTML to fit in context window
+  const maxLength = 15000;
+  const truncatedHtml = html.length > maxLength
+    ? html.substring(0, maxLength) + '\n...[truncated]'
+    : html;
+
+  logger.info(`Using Ollama with model ${ollamaModel} for ${company.name}`);
+
+  const response = await fetch(`${ollamaUrl}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: ollamaModel,
+      prompt: `${systemPrompt}\n\nExtract job listings from ${company.name}'s careers page:\n\n${truncatedHtml}\n\nRespond with valid JSON only.`,
+      stream: false,
+      options: {
+        temperature: 0.1,
+        num_predict: 4000
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama returned ${response.status}: ${await response.text()}`);
+  }
+
+  const result = await response.json() as { response?: string };
+  const content = result.response;
+
+  if (!content) {
+    throw new Error('Empty response from Ollama');
+  }
+
+  // Extract JSON from response (Ollama might add markdown or extra text)
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('No JSON found in Ollama response');
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]) as AIResponse;
+
+  if (!parsed.jobs || !Array.isArray(parsed.jobs)) {
+    throw new Error('Invalid AI response structure from Ollama');
+  }
+
+  return parsed;
+}
+
+/**
+ * Call Groq AI for job extraction
+ */
+async function callGroqForExtraction(html: string, company: CompanyConfig): Promise<AIResponse> {
+  const groq = getGroqClient();
+
+  // Truncate HTML to fit in context window
+  const maxLength = 25000;
+  const truncatedHtml = html.length > maxLength
+    ? html.substring(0, maxLength) + '\n...[truncated]'
+    : html;
+
+  const completion = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Extract job listings from ${company.name}'s careers page:\n\n${truncatedHtml}`
+      }
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.1,
+    max_tokens: 4000
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('Empty response from AI');
+  }
+
+  const parsed = JSON.parse(content) as AIResponse;
+
+  if (!parsed.jobs || !Array.isArray(parsed.jobs)) {
+    throw new Error('Invalid AI response structure');
+  }
+
+  return parsed;
+}
+
+/**
+ * Call AI for job extraction (tries Ollama first if available, then Groq)
+ */
+async function callAIForExtraction(html: string, company: CompanyConfig): Promise<AIResponse> {
+  const useOllama = process.env.USE_OLLAMA === 'true';
+
+  // Try Ollama first if enabled
+  if (useOllama) {
+    try {
+      if (await isOllamaAvailable()) {
+        return await callOllamaForExtraction(html, company);
+      } else {
+        logger.warn('Ollama not available, falling back to Groq');
+      }
+    } catch (error) {
+      logger.warn(`Ollama failed for ${company.name}, trying Groq:`, error);
+    }
+  }
+
+  // Fall back to Groq
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { 
-          role: 'user', 
-          content: `Extract job listings from ${company.name}'s careers page:\n\n${truncatedHtml}` 
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 4000
-    });
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Empty response from AI');
+    return await callGroqForExtraction(html, company);
+  } catch (error: any) {
+    // If Groq rate limited and Ollama is available but not tried, use Ollama
+    if (error?.message?.includes('429') || error?.status === 429) {
+      logger.warn(`Groq rate limited for ${company.name}, trying Ollama...`);
+      if (await isOllamaAvailable()) {
+        return await callOllamaForExtraction(html, company);
+      }
     }
-
-    const parsed = JSON.parse(content) as AIResponse;
-    
-    // Validate response structure
-    if (!parsed.jobs || !Array.isArray(parsed.jobs)) {
-      throw new Error('Invalid AI response structure');
-    }
-
-    return parsed;
-
-  } catch (error) {
-    logger.error('AI extraction API call failed', { error });
     throw error;
   }
 }
