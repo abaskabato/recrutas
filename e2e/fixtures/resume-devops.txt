@@ -1,0 +1,45 @@
+MIKE CHEN
+DevOps Engineer
+mike.chen@email.com | (555) 345-6789 | Seattle, WA | linkedin.com/in/mikechen | github.com/mikechen
+
+PROFESSIONAL SUMMARY
+DevOps Engineer with 6 years of experience in infrastructure automation, CI/CD pipelines,
+and cloud architecture. Expert in containerization and orchestration.
+
+TECHNICAL SKILLS
+- Cloud: AWS, GCP, Azure, Kubernetes, Docker
+- Automation: Terraform, Ansible, Chef, Puppet
+- CI/CD: Jenkins, GitLab CI, GitHub Actions, CircleCI
+- Monitoring: Prometheus, Grafana, Datadog, CloudWatch
+- Scripting: Bash, Python, Go
+- Infrastructure: Linux, Nginx, PostgreSQL, Redis, MongoDB
+
+WORK EXPERIENCE
+Senior DevOps Engineer | CloudNative Inc. | 2020 - Present
+- Architected Kubernetes clusters serving 500+ microservices
+- Reduced deployment time from 2 hours to 15 minutes
+- Implemented GitOps workflows with ArgoCD
+- Built monitoring infrastructure handling 1B+ metrics daily
+
+DevOps Engineer | TechScale | 2018 - 2020
+- Built CI/CD pipelines processing 200+ deployments per week
+- Automated infrastructure provisioning with Terraform
+- Implemented containerization strategy reducing infrastructure costs by 40%
+
+Site Reliability Engineer | ReliableTech | 2016 - 2018
+- Managed 99.99% uptime for production systems
+- Developed automation scripts reducing manual work by 70%
+- Implemented disaster recovery solutions
+
+EDUCATION
+Bachelor of Science in Computer Engineering | University of Washington | 2016
+
+CERTIFICATIONS
+- AWS Solutions Architect Professional
+- CKA (Certified Kubernetes Administrator)
+- GCP Professional Cloud DevOps Engineer
+
+PROJECTS
+Multi-Cloud Orchestration - Built unified control plane across AWS/GCP/Azure
+Zero-Downtime Deployments - Implemented blue-green deployments for 50+ services
+Self-Healing Infrastructure - Automated recovery systems reducing MTTR by 80%
