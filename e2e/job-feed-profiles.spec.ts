@@ -54,9 +54,11 @@ test.describe('Job Feed - Different Candidate Profiles', () => {
     test(`Job feed for ${profile.name} profile`, async ({ page }) => {
       // Step 1: Login as candidate
       await page.goto('/auth');
-      await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-      await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-      await page.click('button:has-text("Sign in")');
+
+      // Sign in - use more flexible selectors
+      await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+      await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+      await page.click('button:has-text("Sign in"), button:has-text("Continue")');
 
       // Wait for redirect to dashboard
       await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
@@ -139,9 +141,9 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Empty profile - no skills', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-    await page.click('button:has-text("Sign in")');
+    await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in"), button:has-text("Continue")');
     await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
     await page.waitForTimeout(3000);
 
@@ -161,9 +163,9 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Search functionality works', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-    await page.click('button:has-text("Sign in")');
+    await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in"), button:has-text("Continue")');
     await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
     await page.waitForTimeout(3000);
 
@@ -191,9 +193,9 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Filter by work type', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-    await page.click('button:has-text("Sign in")');
+    await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in"), button:has-text("Continue")');
     await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
     await page.waitForTimeout(3000);
 
@@ -215,9 +217,9 @@ test.describe('Job Feed - Edge Cases', () => {
   test('Refresh button works', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-    await page.click('button:has-text("Sign in")');
+    await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in"), button:has-text("Continue")');
     await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
     await page.waitForTimeout(3000);
 
@@ -239,9 +241,9 @@ test.describe('Job Feed - Edge Cases', () => {
   test('No jobs found state', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-    await page.click('button:has-text("Sign in")');
+    await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in"), button:has-text("Continue")');
     await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
     await page.waitForTimeout(3000);
 
@@ -271,9 +273,9 @@ test.describe('Job Feed - Job Application Flow', () => {
   test('Can view job details and apply', async ({ page }) => {
     // Login
     await page.goto('/auth');
-    await page.fill('input[name="email"]', TEST_USERS.candidate.email);
-    await page.fill('input[name="password"]', TEST_USERS.candidate.password);
-    await page.click('button:has-text("Sign in")');
+    await page.fill('input[id="email"], input[name="email"], input[type="email"]', TEST_USERS.candidate.email);
+    await page.fill('input[id="password"], input[name="password"], input[type="password"]', TEST_USERS.candidate.password);
+    await page.click('button:has-text("Sign in"), button:has-text("Continue")');
     await page.waitForURL('**/candidate-dashboard**', { timeout: 15000 });
     await page.waitForTimeout(3000);
 
