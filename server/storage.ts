@@ -517,9 +517,9 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('[storage] Fetching external jobs', skills.length > 0 ? `with skills: ${skills.join(', ')}` : '');
 
-      // Only show jobs from last 30 days for fresh results
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Only show jobs from last 90 days for fresh results (reduced from unlimited, will tighten to 30 once scraper is stable)
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
       // Query external jobs (source = 'external' or externalUrl is set)
       const query = db
@@ -535,8 +535,8 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
           ),
-          // Only recent jobs - last 30 days
-          sql`${jobPostings.createdAt} > ${thirtyDaysAgo}`
+          // Only recent jobs - last 90 days (temporarily extended from 30)
+          sql`${jobPostings.createdAt} > ${ninetyDaysAgo}`
         ))
         .orderBy(sql`${jobPostings.createdAt} DESC`)
         .limit(100);
@@ -652,9 +652,9 @@ export class DatabaseStorage implements IStorage {
 
     if (!candidate || !candidate.skills || candidate.skills.length === 0) {
       console.log(`Candidate ${candidateId} has no skills - returning discovery feed`);
-      // Only show jobs from last 30 days for fresh results
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Only show jobs from last 90 days for fresh results
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
       const discoveryJobs = await db
         .select()
@@ -674,8 +674,8 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.ghostJobScore} IS NULL`,
             sql`${jobPostings.ghostJobScore} < 60`
           ),
-          // Only recent jobs - last 30 days
-          sql`${jobPostings.createdAt} > ${thirtyDaysAgo}`,
+          // Only recent jobs - last 90 days
+          sql`${jobPostings.createdAt} > ${ninetyDaysAgo}`,
           // Exclude hidden and applied-to jobs
           ...(excludeIds.length > 0
             ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
@@ -719,9 +719,9 @@ export class DatabaseStorage implements IStorage {
       return this.fetchScoredJobs(candidateId);
     }
 
-    // Only show jobs from last 30 days for fresh results
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Only show jobs from last 90 days for fresh results
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
     const allJobs = await db
       .select()
@@ -739,8 +739,8 @@ export class DatabaseStorage implements IStorage {
           eq(jobPostings.livenessStatus, 'active'),
           eq(jobPostings.livenessStatus, 'unknown')
         ),
-        // Only recent jobs - last 30 days
-        sql`${jobPostings.createdAt} > ${thirtyDaysAgo}`,
+        // Only recent jobs - last 90 days
+        sql`${jobPostings.createdAt} > ${ninetyDaysAgo}`,
         // Exclude hidden and applied-to jobs
         ...(excludeIds.length > 0
           ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
