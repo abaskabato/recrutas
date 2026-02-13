@@ -221,8 +221,15 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
 
   const handleSaveParsedData = () => {
     if (parsedResumeData) {
+      // Flatten skills from nested object to array format expected by backend
+      const flattenedSkills = [
+        ...(parsedResumeData.skills?.technical || []),
+        ...(parsedResumeData.skills?.soft || []),
+        ...(parsedResumeData.skills?.tools || []),
+      ];
+      
       updateProfileMutation.mutate({
-        skills: parsedResumeData.skills,
+        skills: flattenedSkills,
         experience: parsedResumeData.experience,
       });
     }
