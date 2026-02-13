@@ -290,9 +290,11 @@ export class SOTAScraperService {
         logger.info(`Tier ${tier} ingestion: ${ingestionStats.inserted} new, ${ingestionStats.duplicates} duplicates`);
       }
 
-      // If every company errored, mark the overall result as failed
-      if (result.errors.length === tierCompanies.length) {
+      // Mark as failed if >50% of companies failed or no jobs found
+      const errorRate = result.errors.length / tierCompanies.length;
+      if (errorRate > 0.5 || result.totalJobsFound === 0) {
         result.success = false;
+        logger.error(`Tier ${tier} marked as failed: ${(errorRate * 100).toFixed(1)}% error rate, ${result.totalJobsFound} jobs found`);
       }
 
       result.duration = Date.now() - startTime;

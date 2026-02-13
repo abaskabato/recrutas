@@ -24,24 +24,39 @@ jobs:
         run: npm ci
 
       - name: Scrape Tier 1 — Greenhouse companies (29)
+        id: tier1
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx tsx scripts/scrape-tier.ts --tier=1 --timeout=900000
-        continue-on-error: true
 
       - name: Scrape Tier 2 — Lever + Workday companies (22)
+        id: tier2
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx tsx scripts/scrape-tier.ts --tier=2 --timeout=600000
-        continue-on-error: true
 
       - name: Scrape Tier 3 — Custom career pages (21)
+        id: tier3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx tsx scripts/scrape-tier.ts --tier=3 --timeout=300000
-        continue-on-error: true
 
       - name: Cleanup stale jobs (>15 days)
+        id: cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx tsx scripts/scrape-tier.ts --cleanup --days=15
+
+      - name: Report Status
+        if: always()
+        run: |
+          echo "=== Scraping Results ==="
+          echo "Tier 1 (Greenhouse): ${{ steps.tier1.outcome }}"
+          echo "Tier 2 (Lever+Workday): ${{ steps.tier2.outcome }}"
+          echo "Tier 3 (Custom): ${{ steps.tier3.outcome }}"
+          echo "Cleanup: ${{ steps.cleanup.outcome }}"
+          echo "======================="
+          if [[ "${{ steps.tier1.outcome }}" == "failure" && "${{ steps.tier2.outcome }}" == "failure" && "${{ steps.tier3.outcome }}" == "failure" ]]; then
+            echo "::error::All scrape tiers failed!"
+            exit 1
+          fi

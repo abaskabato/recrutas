@@ -5,7 +5,7 @@
 
 import { db } from '../db';
 import { jobPostings, users } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { sql } from 'drizzle-orm/sql';
 import { normalizeSkills } from '../skill-normalizer';
 import { isUSLocation } from '../location-filter';
@@ -160,7 +160,10 @@ export class JobIngestionService {
     return stats;
   }
 
-  async expireStaleJobs(): Promise<number> {
+  async expireStaleJobs(daysOld: number = 60): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
     const result = await db
       .update(jobPostings)
       .set({
@@ -170,7 +173,10 @@ export class JobIngestionService {
       .where(
         and(
           sql`${jobPostings.source} != 'platform'`,
-          sql`${jobPostings.expiresAt} < NOW()`,
+          or(
+            sql`${jobPostings.expiresAt} < NOW()`,
+            sql`${jobPostings.createdAt} < ${cutoffDate}`
+          ),
           eq(jobPostings.status, 'active')
         )
       );

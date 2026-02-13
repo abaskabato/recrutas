@@ -32,7 +32,7 @@ function parseArgs(): { tier?: number; timeout?: number; cleanup?: boolean; days
 
 async function runCleanup(days: number) {
   console.log(`[scrape-tier] Cleaning up stale jobs older than ${days} days...`);
-  const expired = await jobIngestionService.expireStaleJobs();
+  const expired = await jobIngestionService.expireStaleJobs(days);
   console.log(`[scrape-tier] Expired ${expired} stale jobs`);
 }
 
