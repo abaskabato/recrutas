@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { TEST_USERS } from './auth.setup';
 
 const TEST_PROFILES = [
+  // Tech profiles
   {
     name: 'Senior Software Engineer',
     skills: ['React', 'TypeScript', 'Node.js', 'Python', 'AWS', 'PostgreSQL'],
@@ -19,6 +20,31 @@ const TEST_PROFILES = [
     skills: ['Kubernetes', 'Docker', 'AWS', 'Terraform', 'Jenkins', 'CI/CD'],
     location: 'Seattle, WA',
     expectedJobTitles: ['DevOps', 'SRE', 'Cloud Engineer', 'Infrastructure'],
+  },
+  // Non-tech profiles
+  {
+    name: 'Marketing Manager',
+    skills: ['Digital Marketing', 'SEO', 'Social Media', 'Google Analytics', 'Content Strategy', 'HubSpot'],
+    location: 'Chicago, IL',
+    expectedJobTitles: ['Marketing', 'Digital Marketing', 'Content', 'Brand Manager'],
+  },
+  {
+    name: 'Sales Representative',
+    skills: ['B2B Sales', 'Salesforce', 'Cold Calling', 'Account Management', 'Lead Generation', 'CRM'],
+    location: 'Austin, TX',
+    expectedJobTitles: ['Sales', 'Account Executive', 'Business Development', 'Sales Representative'],
+  },
+  {
+    name: 'Medical Assistant',
+    skills: ['Patient Care', 'EKG', 'Phlebotomy', 'Electronic Medical Records', 'HIPAA', 'Vital Signs'],
+    location: 'Miami, FL',
+    expectedJobTitles: ['Medical Assistant', 'Healthcare', 'Clinical', 'Patient Services'],
+  },
+  {
+    name: 'Server / Food Service',
+    skills: ['Customer Service', 'Food Handling', 'POS Systems', 'Sanitation', 'Table Service'],
+    location: 'Las Vegas, NV',
+    expectedJobTitles: ['Server', 'Food Service', 'Restaurant', 'Hospitality'],
   },
 ];
 
