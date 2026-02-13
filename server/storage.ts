@@ -537,15 +537,18 @@ export class DatabaseStorage implements IStorage {
 
       const jobs = await query;
 
-      // Filter by skills if provided
+      // Filter by location (US only) and skills if provided
+      let filteredJobs = jobs.filter((job: any) => isUSLocation(job.location));
+      
       if (skills.length > 0) {
-        return jobs.filter(job => {
+        filteredJobs = filteredJobs.filter(job => {
           const jobSkills = Array.isArray(job.skills) ? job.skills : [];
           return skills.some(skill => jobSkills.includes(skill));
         });
       }
 
-      return jobs;
+      console.log(`[storage] Returning ${filteredJobs.length} US external jobs (filtered from ${jobs.length})`);
+      return filteredJobs;
     } catch (error) {
       console.error('Error fetching external jobs:', error);
       throw error;
