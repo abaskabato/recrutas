@@ -27,24 +27,28 @@ jobs:
         id: tier1
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: npx tsx scripts/scrape-tier.ts --tier=1 --timeout=900000
 
       - name: Scrape Tier 2 — Lever + Workday companies (22)
         id: tier2
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: npx tsx scripts/scrape-tier.ts --tier=2 --timeout=600000
 
       - name: Scrape Tier 3 — Custom career pages (21)
         id: tier3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: npx tsx scripts/scrape-tier.ts --tier=3 --timeout=300000
 
       - name: Cleanup stale jobs (>15 days)
         id: cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: npx tsx scripts/scrape-tier.ts --cleanup --days=15
 
       - name: Report Status
