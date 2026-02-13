@@ -45,13 +45,37 @@ const COMMON_SKILLS = [
   'HTML', 'CSS', 'Vue.js', 'Angular', 'Express', 'Django', 'Flask',
   'Git', 'CI/CD', 'GraphQL', 'REST', 'API', 'Microservices',
   'Machine Learning', 'AI', 'Data Science', 'Analytics',
-  // Hospitality / Trades / Healthcare / General
-  'Food Prep', 'Sanitation', 'Customer Service', 'Cash Handling', 'POS Systems',
-  'HVAC', 'Plumbing', 'Electrical', 'Welding', 'Carpentry',
-  'Patient Care', 'CPR', 'HIPAA', 'Phlebotomy', 'EMR',
-  'Forklift', 'Inventory Management', 'Safety Compliance',
-  'Microsoft Office', 'Excel', 'Communication', 'Teamwork', 'Leadership',
-  'Sales', 'Marketing', 'Accounting', 'Project Management',
+  // Hospitality & Food Service
+  'Dishwashing', 'Kitchen Staff', 'Line Cook', 'Prep Cook', 'Server', 'Bartender',
+  'Host', 'Busser', 'Food Preparation', 'Culinary Arts', 'Barista', 'Housekeeping',
+  'Sanitation', 'Food Safety', 'ServSafe', 'HACCP', 'POS Systems', 'Cash Handling',
+  'Cashier', 'Restaurant', 'Hospitality',
+  // Trades & Construction
+  'Electrical', 'Plumbing', 'Carpentry', 'Welding', 'HVAC', 'Roofing', 'Masonry',
+  'Painting', 'Landscaping', 'General Labor', 'Construction', 'Warehouse',
+  'Forklift Operation', 'Blueprint Reading', 'OSHA',
+  // Healthcare
+  'Certified Nursing Assistant', 'CNA', 'Home Health Aide', 'HHA',
+  'Medical Assistant', 'Phlebotomy', 'CPR Certified', 'BLS Certified',
+  'Patient Care', 'Electronic Medical Records', 'EMR', 'HIPAA Compliance',
+  'Medical Terminology', 'Vital Signs',
+  // Retail & Customer Service
+  'Retail Sales', 'Sales', 'Customer Service', 'Call Center', 'Receptionist',
+  'Front Desk', 'Clerical', 'Data Entry', 'Inventory Management', 'Stocking',
+  'Merchandising', 'Visual Merchandising', 'Loss Prevention',
+  // Transportation
+  'Delivery Driver', 'Truck Driver', 'CDL', 'Commercial Drivers License',
+  'Rideshare Driver', 'Courier', 'DOT', 'Delivery',
+  // Cleaning & Maintenance
+  'Janitorial', 'Cleaning', 'Housekeeping', 'Maintenance', 'Handyman',
+  'Property Maintenance', 'Groundskeeping',
+  // Security
+  'Security', 'Security Guard', 'Security Officer', 'Surveillance',
+  'Safety Compliance', 'First Aid',
+  // General
+  'Microsoft Office', 'Excel', 'Word', 'Communication', 'Teamwork', 'Leadership',
+  'Time Management', 'Problem Solving', 'Attention to Detail', 'Multitasking',
+  'Physical Stamina', 'Heavy Lifting',
 ];
 
 /**

@@ -771,7 +771,7 @@ export class DatabaseStorage implements IStorage {
           companyVerified: job.companyVerified || false,
         };
       })
-      .filter(job => job.matchScore >= 20) // 20% minimum threshold (1 out of 5 skills)
+      .filter(job => job.matchScore >= 10) // 10% minimum threshold for broader job matching including non-tech roles
       .filter(job => (job.ghostJobScore || 0) < 60) // Filter out likely ghost jobs (60%+ confidence)
       .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
