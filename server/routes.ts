@@ -888,26 +888,38 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
       if (existingApplication) return res.status(400).json({ message: "Already applied to this job" });
 
-      // Fetch candidate profile to get professional links
-      const candidateProfile = await storage.getCandidateUser(userId);
+      const job = await storage.getJobPosting(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Check if it's an internal/platform job (not external)
+      const isInternalJob = !job.externalUrl && (job.source === 'platform' || job.source === 'internal' || !job.source);
+      
+      let applicationMetadata = undefined;
+      
+      // Only store professional links for internal jobs
+      if (isInternalJob) {
+        const candidateProfile = await storage.getCandidateUser(userId);
+        applicationMetadata = {
+          linkedinUrl: (candidateProfile as any)?.linkedinUrl,
+          githubUrl: (candidateProfile as any)?.githubUrl,
+          portfolioUrl: (candidateProfile as any)?.portfolioUrl,
+        };
+      }
       
       const application = await storage.createJobApplication({ 
         jobId, 
         candidateId: userId, 
         status: 'applied',
-        // Include professional links in application metadata
-        metadata: {
-          linkedinUrl: (candidateProfile as any)?.linkedinUrl,
-          githubUrl: (candidateProfile as any)?.githubUrl,
-          portfolioUrl: (candidateProfile as any)?.portfolioUrl,
-        }
+        metadata: applicationMetadata
       });
+      
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
-      const job = await storage.getJobPosting(jobId);
-      if (job) {
-        // Enhanced notification with professional links preview
-        const hasLinks = (candidateProfile as any)?.linkedinUrl || (candidateProfile as any)?.githubUrl || (candidateProfile as any)?.portfolioUrl;
+      if (isInternalJob) {
+        // Enhanced notification for internal jobs with professional links
+        const hasLinks = applicationMetadata?.linkedinUrl || applicationMetadata?.githubUrl || applicationMetadata?.portfolioUrl;
         await notificationService.createNotification({
           userId: job.talentOwnerId,
           type: 'new_application',
@@ -916,6 +928,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
           relatedApplicationId: application.id,
         });
       }
+      
       res.json(application);
     } catch (error) {
       console.error("Error applying to job:", error);

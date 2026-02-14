@@ -231,7 +231,7 @@ export default function CandidateStreamlinedDashboard() {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <RecrutasLogo size={32} />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Recrutas<span className="text-blue-600">Digital</span></h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white font-mono tracking-wider">RECRUTAS</h1>
             </div>
 
             {/* User Menu */}
