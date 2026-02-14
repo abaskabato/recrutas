@@ -17,6 +17,14 @@ const MAX_PAGES = 2;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+interface CacheEntry {
+  jobs: ExternalJobInput[];
+  timestamp: number;
+}
+
+const jobCache = new Map<string, CacheEntry>();
 
 /** Shape of a single job result from hiring.cafe API */
 interface HiringCafeJobResult {
@@ -142,6 +150,15 @@ export class HiringCafeService {
     keywords: string,
     options: SearchOptions = {}
   ): Promise<ExternalJobInput[]> {
+    const cacheKey = keywords.toLowerCase().trim();
+    
+    // Check cache first
+    const cached = jobCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      console.log(`[HiringCafe] Cache hit for "${keywords}" - returning ${cached.jobs.length} cached jobs`);
+      return cached.jobs;
+    }
+    
     const maxPages = options.maxPages ?? MAX_PAGES;
     const allJobs: ExternalJobInput[] = [];
 
@@ -173,6 +190,13 @@ export class HiringCafeService {
     }
 
     console.log(`[HiringCafe] Total: ${allJobs.length} jobs for query "${keywords}"`);
+    
+    // Cache the results
+    if (allJobs.length > 0) {
+      jobCache.set(cacheKey, { jobs: allJobs, timestamp: Date.now() });
+      console.log(`[HiringCafe] Cached ${allJobs.length} jobs for "${keywords}"`);
+    }
+    
     return allJobs;
   }
 

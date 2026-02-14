@@ -224,6 +224,13 @@ export class SOTAScraperService {
         logger.info(`Ingestion complete: ${ingestionStats.inserted} new, ${ingestionStats.duplicates} duplicates, ${ingestionStats.errors} errors`);
       }
 
+      // Mark as failed if >50% of companies failed or no jobs found
+      const errorRate = result.errors.length / this.companies.length;
+      if (errorRate > 0.5 || result.totalJobsFound === 0) {
+        result.success = false;
+        logger.error(`SOTA scraper marked as failed: ${(errorRate * 100).toFixed(1)}% error rate, ${result.totalJobsFound} jobs found`);
+      }
+
       result.duration = Date.now() - startTime;
       logger.info(`SOTA scraper complete in ${result.duration}ms`, {
         companiesScraped: result.companiesScraped,

@@ -333,10 +333,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
         ? hiringCafeService.searchByKeywords(candidateSkills.slice(0, 5).join(' '))
         : Promise.resolve([]);
 
-      const [dbResult, cafeResult] = await Promise.allSettled([dbPromise, hiringCafePromise]);
+      // Also try RemoteOK as fallback (free, no rate limits)
+      const remoteOkPromise = (async () => {
+        if (candidateSkills.length === 0) return [];
+        try {
+          const { JobAggregator } = await import('./job-aggregator.js');
+          const aggregator = new JobAggregator();
+          const jobs = await aggregator.fetchRemoteOKJobs();
+          console.log(`[RemoteOK] Got ${jobs.length} jobs`);
+          return jobs;
+        } catch (err) {
+          console.warn('[RemoteOK] Failed:', err);
+          return [];
+        }
+      })();
+
+      const [dbResult, cafeResult, remoteOkResult] = await Promise.allSettled([dbPromise, hiringCafePromise, remoteOkPromise]);
 
       const recommendations = (dbResult.status === 'fulfilled' ? dbResult.value : []) as any[];
       const cafeJobs = (cafeResult.status === 'fulfilled' ? cafeResult.value : []) as any[];
+      const remoteOkJobs = (remoteOkResult.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
 
       if (cafeResult.status === 'rejected') {
         console.warn('[HiringCafe] Search failed (non-fatal):', cafeResult.reason?.message);
@@ -352,10 +368,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Score hiring.cafe jobs against candidate skills (same logic as fetchScoredJobs)
       const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
-      const scoredCafeJobs = cafeJobs
+      let scoredCafeJobs = cafeJobs
         .map(job => {
           const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
-          const matchingSkills = normalizedSkills.filter((s: string) => jobSkills.includes(s));
+          const matchingSkills = normalizedSkills.filter((s: string) => 
+            jobSkills.some((js: string) => js.includes(s) || s.includes(js))
+          );
           const matchScore = matchingSkills.length > 0
             ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
             : 0;
@@ -367,12 +385,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
             aiExplanation: matchingSkills.length > 0
               ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
               : 'Recently posted on hiring.cafe',
-            source: 'hiring-cafe',
+            source: ' hiring-cafe',
           };
-        })
-        .filter(job => job.matchScore >= 40);
+        });
 
-      // Merge: DB results first, then hiring.cafe results (deduplicated by title+company)
+      // If DB returned matches, filter cafe jobs to 40%+ match
+      // If DB is empty, show ALL hiring.cafe jobs (no skill match required) for broader discovery
+      if (recommendations.length > 0) {
+        scoredCafeJobs = scoredCafeJobs.filter(job => job.matchScore >= 40);
+      } else {
+        console.log(`[HiringCafe] No DB matches - showing all ${scoredCafeJobs.length} hiring.cafe jobs`);
+      }
+
+      // Merge: DB results first, then hiring.cafe results, then RemoteOK (deduplicated by title+company)
       const seenKeys = new Set(
         recommendations.map((j: any) => `${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
       );
@@ -380,11 +405,63 @@ export async function registerRoutes(app: Express): Promise<Express> {
         j => !seenKeys.has(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
       );
 
-      const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs];
+      // Score and add RemoteOK jobs
+      const scoredRemoteOkJobs = remoteOkJobs
+        .map((job: any) => {
+          const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
+          const matchingSkills = normalizedSkills.filter((s: string) => 
+            jobSkills.some((js: string) => js.includes(s) || s.includes(js))
+          );
+          const matchScore = matchingSkills.length > 0
+            ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
+            : 0;
+          return {
+            ...job,
+            id: `remoteok_${job.externalId}`,
+            matchScore,
+            skillMatches: matchingSkills,
+            aiExplanation: matchingSkills.length > 0
+              ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
+              : 'Recently posted on RemoteOK',
+            source: 'remote-ok',
+          };
+        })
+        .filter((job: any) => recommendations.length > 0 ? job.matchScore >= 40 : true);
 
-      console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe recommendations`);
+      // Add RemoteOK to seen keys
+      scoredRemoteOkJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
 
-      // Return empty array if no recommendations
+      const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...scoredRemoteOkJobs];
+
+      console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe + ${scoredRemoteOkJobs.length} RemoteOK recommendations`);
+
+      // If still no recommendations, fetch recent jobs from DB as fallback (no skill matching)
+      if (allRecommendations.length === 0 && candidateSkills.length > 0) {
+        console.log('No skill-matched jobs found - fetching recent jobs as fallback');
+        
+        const { db } = await import('./db.js');
+        const { jobPostings } = await import('../shared/schema.js');
+        
+        const recentJobs = await db
+          .select()
+          .from(jobPostings)
+          .where(sql`${jobPostings.status} = 'active'`)
+          .orderBy(sql`${jobPostings.createdAt} DESC`)
+          .limit(20);
+          
+        if (recentJobs.length > 0) {
+          return res.json(recentJobs.map((job: any, index: number) => ({
+            id: index + 1,
+            job: {
+              ...job,
+              matchScore: 25,
+              aiExplanation: 'Recent job - upload your resume to improve matching'
+            }
+          })));
+        }
+      }
+
+      // Return empty array if still no recommendations
       if (allRecommendations.length === 0) {
         console.log('No job recommendations found - candidate may have no skills in profile or no matching jobs');
         return res.json([]);
