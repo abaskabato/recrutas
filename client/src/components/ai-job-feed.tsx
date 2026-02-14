@@ -202,7 +202,18 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     if (appliedJobIds.has(match.job.id)) return;
     applyMutation.mutate(match.job.id);
     if (match.job.externalUrl) {
-      window.open(match.job.externalUrl, '_blank');
+      toast({
+        title: "Opening External Application",
+        description: `You'll be redirected to ${match.job.company}'s career page. We've tracked this application for you.`,
+      });
+      setTimeout(() => {
+        window.open(match.job.externalUrl, '_blank');
+      }, 500);
+    } else {
+      toast({
+        title: "Application Submitted",
+        description: `Your application for ${match.job.title} at ${match.job.company} has been sent.`,
+      });
     }
   };
 
@@ -369,9 +380,10 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                             onClick={(e) => handleApply(e, match)}
                             disabled={isApplied}
                             className="bg-blue-600 hover:bg-blue-700 text-white"
+                            title={match.job.externalUrl ? "Opens company career page in new tab" : "Submit application for this job"}
                           >
-                            {isApplied ? <Check className="h-4 w-4 mr-2" /> : null}
-                            {isApplied ? "Applied" : "Apply"}
+                            {isApplied ? <Check className="h-4 w-4 mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
+                            {isApplied ? "Applied" : (match.job.externalUrl ? "Apply Externally" : "Apply Now")}
                           </Button>
                           <Button
                             size="sm"

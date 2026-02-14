@@ -35,7 +35,8 @@ import {
   ExternalLink,
   Filter,
   Settings,
-  LogOut
+  LogOut,
+  Bookmark
 } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
 import AIJobFeed from "@/components/ai-job-feed";
@@ -90,7 +91,7 @@ export default function CandidateStreamlinedDashboard() {
   const isLoading = !session;
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'jobs' | 'applications' | 'profile' | 'agent'>('jobs');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'saved' | 'applications' | 'profile' | 'agent'>('jobs');
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -165,8 +166,10 @@ export default function CandidateStreamlinedDashboard() {
   const profileCompletion = useMemo(() => {
     if (!profile) return 0;
     let completed = 0;
-    const total = 5;
+    const total = 6;
 
+    // Resume counts as 1 factor (most important)
+    if ((profile as any).resumeUrl) completed++;
     if ((profile as any).skills && (profile as any).skills.length > 0) completed++;
     if ((profile as any).experience) completed++;
     if ((profile as any).location) completed++;
@@ -228,7 +231,7 @@ export default function CandidateStreamlinedDashboard() {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <RecrutasLogo size={32} />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Recrutas</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Recrutas<span className="text-blue-600">Digital</span></h1>
             </div>
 
             {/* User Menu */}
@@ -250,10 +253,12 @@ export default function CandidateStreamlinedDashboard() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {(user as any)?.firstName || 'User'}
+                        {(user as any)?.firstName && (user as any)?.lastName 
+                          ? `${(user as any).firstName} ${(user as any).lastName}`
+                          : (user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'User'}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        Candidate
+                        {user?.email || 'Candidate'}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -465,6 +470,16 @@ export default function CandidateStreamlinedDashboard() {
               Job Feed
             </button>
             <button
+              onClick={() => setActiveTab('saved')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'saved'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
+                }`}
+            >
+              <Bookmark className="h-4 w-4 mr-2 inline" />
+              Saved
+            </button>
+            <button
               onClick={() => setActiveTab('applications')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'applications'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
@@ -474,6 +489,8 @@ export default function CandidateStreamlinedDashboard() {
               <Briefcase className="h-4 w-4 mr-2 inline" />
               Applications
             </button>
+            {/* Recrutas Agent - hidden for now, will be added as premium feature */}
+            {/* 
             <button
               onClick={() => setActiveTab('agent')}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'agent'
@@ -484,6 +501,7 @@ export default function CandidateStreamlinedDashboard() {
               <Zap className="h-4 w-4 mr-2 inline" />
               Recrutas Agent
             </button>
+            */}
           </nav>
         </div>
 
@@ -491,6 +509,17 @@ export default function CandidateStreamlinedDashboard() {
         {activeTab === 'jobs' && (
           <div>
             <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
+          </div>
+        )}
+
+        {activeTab === 'saved' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Saved Jobs</h2>
+              <p className="text-gray-500 dark:text-gray-400">Jobs you've bookmarked for later</p>
+            </div>
+            {/* Simple saved jobs display - fetches from API */}
+            <SavedJobsList />
           </div>
         )}
 
@@ -629,6 +658,53 @@ export default function CandidateStreamlinedDashboard() {
         onOpenChange={setProfileModalOpen}
         currentProfile={profile}
       />
+    </div>
+  );
+}
+
+// Simple Saved Jobs List Component
+function SavedJobsList() {
+  const { data: savedJobs, isLoading } = useQuery({
+    queryKey: ['/api/candidate/saved-jobs'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", '/api/candidate/saved-jobs');
+      return response.json();
+    },
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-8 text-gray-500">Loading saved jobs...</div>;
+  }
+
+  if (!savedJobs || savedJobs.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <Bookmark className="h-12 w-12 mx-auto mb-4 opacity-30" />
+        <p className="text-lg mb-2">No saved jobs yet</p>
+        <p className="text-sm">Jobs you save will appear here for easy access</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {savedJobs.map((job: any) => (
+        <Card key={job.id} className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold text-lg">{job.title}</h3>
+                <p className="text-gray-600">{job.company}</p>
+                <p className="text-sm text-gray-500">{job.location}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => window.open(job.externalUrl || '#', '_blank')}>
+                <ExternalLink className="h-4 w-4 mr-1" />
+                View
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
