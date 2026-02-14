@@ -38,7 +38,7 @@ import {
   LogOut,
   Bookmark
 } from "lucide-react";
-import RecrutasLogo from "@/components/recrutas-logo";
+import SmartLogo from "@/components/smart-logo";
 import AIJobFeed from "@/components/ai-job-feed";
 import ProfileUpload from "@/components/profile-upload";
 import ApplicationTracker from "@/components/application-tracker";
@@ -229,10 +229,7 @@ export default function CandidateStreamlinedDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <RecrutasLogo size={32} />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white font-mono tracking-wider">RECRUTAS</h1>
-            </div>
+            <SmartLogo size={32} />
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">

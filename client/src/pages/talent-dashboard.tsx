@@ -60,7 +60,7 @@ import {
   Globe,
   ExternalLink
 } from "lucide-react";
-import RecrutasLogo from "@/components/recrutas-logo";
+import SmartLogo from "@/components/smart-logo";
 import JobPostingWizard from "@/components/job-posting-wizard";
 import TalentOwnerProfileCompletion from "@/components/talent-owner-profile-completion";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
@@ -495,7 +495,7 @@ export default function TalentDashboard() {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <RecrutasLogo className="h-8" />
+            <SmartLogo size={32} showText={false} />
           </div>
 
           <div className="flex items-center space-x-2">
@@ -538,7 +538,7 @@ export default function TalentDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
-              <RecrutasLogo className="h-8" />
+              <SmartLogo size={32} showText={false} />
               <nav className="flex space-x-8">
                 {['overview', 'jobs', 'candidates', 'analytics'].map((tab) => (
                   <Button

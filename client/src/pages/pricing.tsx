@@ -23,7 +23,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import RecrutasLogo from '@/components/recrutas-logo';
+import SmartLogo from '@/components/smart-logo';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 interface SubscriptionStatus {
@@ -183,7 +183,7 @@ export default function PricingPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div className="flex items-center gap-2">
-                <RecrutasLogo size={28} />
+                <SmartLogo size={28} showText={false} />
                 <span className="font-semibold text-lg">Recrutas</span>
               </div>
             </div>

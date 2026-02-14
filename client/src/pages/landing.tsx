@@ -32,7 +32,8 @@ import {
   MapPin,
   DollarSign
 } from "lucide-react";
-import RecrutasLogo, { RecrutasLogoSimple } from "@/components/recrutas-logo";
+import SmartLogo from "@/components/smart-logo";
+import { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -224,7 +225,7 @@ export default function Landing() {
         >
           <div className="flex flex-col h-full">
             <div className="flex justify-between items-center p-6 border-b border-slate-700">
-              <RecrutasLogo size={32} />
+              <SmartLogo size={32} showText={false} />
               <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
                 <X className="w-6 h-6 text-primary-foreground" />
               </Button>
@@ -259,8 +260,7 @@ export default function Landing() {
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center space-x-3"
             >
-              <RecrutasLogo size={36} />
-              <h2 className="text-2xl font-bold text-white tracking-tight">Recrutas</h2>
+              <SmartLogo size={36} />
 
             </motion.div>
             
