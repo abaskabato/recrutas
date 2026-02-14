@@ -54,7 +54,11 @@ import {
   BarChart3,
   Building,
   CheckCircle,
-  Loader2
+  Loader2,
+  Linkedin,
+  Github,
+  Globe,
+  ExternalLink
 } from "lucide-react";
 import RecrutasLogo from "@/components/recrutas-logo";
 import JobPostingWizard from "@/components/job-posting-wizard";
@@ -1006,12 +1010,56 @@ export default function TalentDashboard() {
                                   )}
                                 </div>
                                 <p className="text-sm text-gray-500">{applicant.candidate.email}</p>
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                  {(applicant.profile?.skills || []).map((skill: string) => (
-                                    <Badge key={skill} variant="secondary">{skill}</Badge>
-                                  ))}
-                                </div>
-                              </div>
+                                 <div className="flex flex-wrap gap-2 mt-3">
+                                   {(applicant.profile?.skills || []).map((skill: string) => (
+                                     <Badge key={skill} variant="secondary">{skill}</Badge>
+                                   ))}
+                                 </div>
+                                 {/* Professional Links */}
+                                 {(applicant.profile?.linkedinUrl || applicant.profile?.githubUrl || applicant.profile?.portfolioUrl) && (
+                                   <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+                                     <span className="text-xs text-gray-500 font-medium">Professional Links:</span>
+                                     <div className="flex items-center gap-2">
+                                       {applicant.profile?.linkedinUrl && (
+                                         <a 
+                                           href={applicant.profile.linkedinUrl} 
+                                           target="_blank" 
+                                           rel="noopener noreferrer"
+                                           className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-xs transition-colors"
+                                         >
+                                           <Linkedin className="h-3 w-3" />
+                                           LinkedIn
+                                           <ExternalLink className="h-2 w-2 ml-1" />
+                                         </a>
+                                       )}
+                                       {applicant.profile?.githubUrl && (
+                                         <a 
+                                           href={applicant.profile.githubUrl} 
+                                           target="_blank" 
+                                           rel="noopener noreferrer"
+                                           className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors"
+                                         >
+                                           <Github className="h-3 w-3" />
+                                           GitHub
+                                           <ExternalLink className="h-2 w-2 ml-1" />
+                                         </a>
+                                       )}
+                                       {applicant.profile?.portfolioUrl && (
+                                         <a 
+                                           href={applicant.profile.portfolioUrl} 
+                                           target="_blank" 
+                                           rel="noopener noreferrer"
+                                           className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-600 rounded text-xs transition-colors"
+                                         >
+                                           <Globe className="h-3 w-3" />
+                                           Portfolio
+                                           <ExternalLink className="h-2 w-2 ml-1" />
+                                         </a>
+                                       )}
+                                     </div>
+                                   </div>
+                                 )}
+                               </div>
                               <div className="flex flex-col items-end gap-2">
                                 <Select
                                   defaultValue={applicant.status}
