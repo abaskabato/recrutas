@@ -794,6 +794,31 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Get saved jobs for a candidate
+  app.get('/api/candidate/saved-jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const savedJobIds = await storage.getSavedJobIds(req.user.id);
+      if (savedJobIds.length === 0) {
+        return res.json([]);
+      }
+      
+      // Fetch full job details for saved jobs
+      const { db } = await import('./db.js');
+      const { jobPostings } = await import('../shared/schema.js');
+      const { sql } = await import('drizzle-orm/sql');
+      
+      const savedJobs = await db
+        .select()
+        .from(jobPostings)
+        .where(sql`${jobPostings.id} IN (${savedJobIds.join(',')})`);
+      
+      res.json(savedJobs);
+    } catch (error) {
+      console.error("Error fetching saved jobs:", error);
+      res.status(500).json({ message: "Failed to fetch saved jobs" });
+    }
+  });
+
   // Save a job for a candidate
   app.post('/api/candidate/saved-jobs', isAuthenticated, async (req: any, res) => {
     try {
