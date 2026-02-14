@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSupabaseClient, useSession } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import SmartLogo from "@/components/smart-logo";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
@@ -67,12 +68,9 @@ export default function AuthPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <a href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xl">R</span>
-            </div>
-            <span className="text-2xl font-bold text-foreground">Recrutas</span>
-          </a>
+          <div className="flex justify-center mb-4">
+            <SmartLogo size={40} />
+          </div>
           <p className="text-sm text-muted-foreground">Sign in to your account</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
