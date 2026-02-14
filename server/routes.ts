@@ -863,16 +863,31 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
       if (existingApplication) return res.status(400).json({ message: "Already applied to this job" });
 
-      const application = await storage.createJobApplication({ jobId, candidateId: userId, status: 'applied' });
+      // Fetch candidate profile to get professional links
+      const candidateProfile = await storage.getCandidateUser(userId);
+      
+      const application = await storage.createJobApplication({ 
+        jobId, 
+        candidateId: userId, 
+        status: 'applied',
+        // Include professional links in application metadata
+        metadata: {
+          linkedinUrl: (candidateProfile as any)?.linkedinUrl,
+          githubUrl: (candidateProfile as any)?.githubUrl,
+          portfolioUrl: (candidateProfile as any)?.portfolioUrl,
+        }
+      });
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
       const job = await storage.getJobPosting(jobId);
       if (job) {
+        // Enhanced notification with professional links preview
+        const hasLinks = (candidateProfile as any)?.linkedinUrl || (candidateProfile as any)?.githubUrl || (candidateProfile as any)?.portfolioUrl;
         await notificationService.createNotification({
           userId: job.talentOwnerId,
           type: 'new_application',
           title: 'New Application Received',
-          message: `You have a new application for ${job.title}.`,
+          message: `You have a new application for ${job.title}.${hasLinks ? ' Candidate has provided professional links.' : ''}`,
           relatedApplicationId: application.id,
         });
       }

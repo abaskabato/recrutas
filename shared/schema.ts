@@ -235,6 +235,7 @@ export const jobApplications = pgTable("job_applications", {
   autoFilled: boolean("auto_filled").default(false),
   resumeUrl: varchar("resume_url"),
   coverLetter: text("cover_letter"),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

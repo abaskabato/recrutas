@@ -1321,6 +1321,9 @@ export class DatabaseStorage implements IStorage {
             skills: candidateProfiles.skills,
             experience: candidateProfiles.experience,
             resumeUrl: candidateProfiles.resumeUrl,
+            linkedinUrl: candidateProfiles.linkedinUrl,
+            githubUrl: candidateProfiles.githubUrl,
+            portfolioUrl: candidateProfiles.portfolioUrl,
           },
           match: {
             matchScore: jobMatches.matchScore,
