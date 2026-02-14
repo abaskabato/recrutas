@@ -10,6 +10,8 @@ import { ScraperOrchestrator, CompanyConfig } from '../scraper-v2/index.js';
 import { ScrapedJob } from '../scraper-v2/types.js';
 import { jobIngestionService, ExternalJobInput } from './job-ingestion.service.js';
 import { logger } from '../scraper-v2/utils/logger.js';
+import { companyDiscoveryService, DiscoveredCompany } from './company-discovery.service.js';
+import { atsDetectionService } from './ats-detection.service.js';
 
 // Import the company list from career-page-scraper and convert to SOTA format
 const LEGACY_COMPANIES = [
@@ -184,8 +186,40 @@ export class SOTAScraperService {
 
   constructor() {
     this.companies = LEGACY_COMPANIES.map(convertToSOTAConfig);
+    this.mergeDiscoveredCompanies();
     this.orchestrator = new ScraperOrchestrator();
     logger.info(`Initialized SOTA scraper with ${this.companies.length} companies`);
+  }
+
+  /**
+   * Merge in verified companies from CompanyDiscoveryService that aren't already in LEGACY_COMPANIES.
+   * Only adds companies with confidence >= 1.0 and a known ATS type.
+   */
+  private mergeDiscoveredCompanies(): void {
+    const existingNames = new Set(this.companies.map(c => c.name.toLowerCase()));
+    const verified = companyDiscoveryService.getVerifiedCompanies();
+
+    for (const dc of verified) {
+      if (existingNames.has(dc.name.toLowerCase())) continue;
+      if (dc.atsType === 'unknown' || dc.atsType === 'custom') continue;
+      if (!dc.atsId) continue;
+
+      const legacy = this.discoveredToLegacy(dc);
+      const config = convertToSOTAConfig(legacy);
+      this.companies.push(config);
+      existingNames.add(dc.name.toLowerCase());
+    }
+  }
+
+  /**
+   * Convert a DiscoveredCompany to the legacy format used by convertToSOTAConfig
+   */
+  private discoveredToLegacy(dc: DiscoveredCompany): any {
+    const base: any = { name: dc.name, careerUrl: dc.careerUrl };
+    if (dc.atsType === 'greenhouse') base.greenhouseId = dc.atsId;
+    else if (dc.atsType === 'lever') base.leverId = dc.atsId;
+    else if (dc.atsType === 'workday') base.workdayId = dc.atsId;
+    return base;
   }
 
   /**

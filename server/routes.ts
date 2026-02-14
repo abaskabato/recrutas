@@ -35,6 +35,10 @@ import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { hiringCafeService } from './services/hiring-cafe.service';
 import { jobIngestionService } from './services/job-ingestion.service';
 
+// In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
+let remoteOkCache: { data: any[]; timestamp: number } | null = null;
+const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
 type AggregatedJob = (JobPosting | CompanyJob) & { aiCurated: boolean };
 
 interface AIMatch {
@@ -333,17 +337,28 @@ export async function registerRoutes(app: Express): Promise<Express> {
         ? hiringCafeService.searchByKeywords(candidateSkills.slice(0, 5).join(' '))
         : Promise.resolve([]);
 
-      // Also try RemoteOK as fallback (free, no rate limits)
+      // Also try RemoteOK as fallback (free, no rate limits) — cached for 15 min
       const remoteOkPromise = (async () => {
         if (candidateSkills.length === 0) return [];
+        // Return cached data if fresh
+        if (remoteOkCache && Date.now() - remoteOkCache.timestamp < REMOTEOK_CACHE_TTL) {
+          console.log(`[RemoteOK] Cache hit (${remoteOkCache.data.length} jobs)`);
+          return remoteOkCache.data;
+        }
         try {
           const { JobAggregator } = await import('./job-aggregator.js');
           const aggregator = new JobAggregator();
           const jobs = await aggregator.fetchRemoteOKJobs();
           console.log(`[RemoteOK] Got ${jobs.length} jobs`);
+          remoteOkCache = { data: jobs, timestamp: Date.now() };
           return jobs;
         } catch (err) {
           console.warn('[RemoteOK] Failed:', err);
+          // Return stale cache on error
+          if (remoteOkCache) {
+            console.log(`[RemoteOK] Returning stale cache (${remoteOkCache.data.length} jobs)`);
+            return remoteOkCache.data;
+          }
           return [];
         }
       })();
@@ -385,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
             aiExplanation: matchingSkills.length > 0
               ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
               : 'Recently posted on hiring.cafe',
-            source: ' hiring-cafe',
+            source: 'hiring-cafe',
           };
         });
 
@@ -405,11 +420,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
         j => !seenKeys.has(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
       );
 
-      // Score and add RemoteOK jobs
+      // Add cafe job keys to seenKeys so RemoteOK deduplicates against them
+      uniqueCafeJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
+
+      // Score and add RemoteOK jobs (deduplicated against DB + cafe jobs)
       const scoredRemoteOkJobs = remoteOkJobs
         .map((job: any) => {
           const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
-          const matchingSkills = normalizedSkills.filter((s: string) => 
+          const matchingSkills = normalizedSkills.filter((s: string) =>
             jobSkills.some((js: string) => js.includes(s) || s.includes(js))
           );
           const matchScore = matchingSkills.length > 0
@@ -426,10 +444,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
             source: 'remote-ok',
           };
         })
-        .filter((job: any) => recommendations.length > 0 ? job.matchScore >= 40 : true);
-
-      // Add RemoteOK to seen keys
-      scoredRemoteOkJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
+        .filter((job: any) => {
+          if (!seenKeys.has(`${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`)) {
+            if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
+              return true;
+            }
+          }
+          return false;
+        });
 
       const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...scoredRemoteOkJobs];
 

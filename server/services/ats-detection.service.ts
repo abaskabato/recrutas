@@ -183,17 +183,23 @@ export class AtsDetectionService {
       switch (atsType) {
         case 'greenhouse':
           // Pattern: https://boards.greenhouse.io/{boardToken}
-          const ghMatch = urlObj.hostname.match(/boards\.greenhouse\.io\/([^/]+)/);
-          return ghMatch?.[1];
-          
+          if (urlObj.hostname === 'boards.greenhouse.io') {
+            const ghMatch = urlObj.pathname.match(/^\/([^/]+)/);
+            return ghMatch?.[1];
+          }
+          return undefined;
+
         case 'lever':
           // Pattern: https://jobs.lever.co/{boardToken}
-          const leverMatch = urlObj.hostname.match(/jobs\.lever\.co\/([^/]+)/);
-          return leverMatch?.[1];
-          
+          if (urlObj.hostname === 'jobs.lever.co') {
+            const leverMatch = urlObj.pathname.match(/^\/([^/]+)/);
+            return leverMatch?.[1];
+          }
+          return undefined;
+
         case 'workday':
           // Pattern: https://{company}.wd5.myworkdayjobs.com/{company}
-          const wdMatch = urlObj.hostname.match(/^([^.]+)\.wd5\.myworkdayjobs\.com/);
+          const wdMatch = urlObj.hostname.match(/^([^.]+)\.wd\d+\.myworkdayjobs\.com/);
           return wdMatch?.[1];
           
         default:
