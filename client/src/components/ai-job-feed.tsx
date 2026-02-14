@@ -41,6 +41,12 @@ export interface AIJobMatch {
   // PRD fields
   isVerifiedActive?: boolean;
   isDirectFromCompany?: boolean;
+  section?: 'applyAndKnowToday' | 'matchedForYou';
+}
+
+interface SectionedResponse {
+  applyAndKnowToday: AIJobMatch[];
+  matchedForYou: AIJobMatch[];
 }
 
 const INITIAL_JOB_LIMIT = 15;
@@ -73,7 +79,18 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
       const url = `/api/ai-matches?${params.toString()}`;
       const response = await apiRequest("GET", url);
-      return response.json();
+      const data = await response.json();
+
+      // Handle sectioned response: { applyAndKnowToday, matchedForYou }
+      if (data && !Array.isArray(data) && data.applyAndKnowToday) {
+        const sectioned = data as SectionedResponse;
+        return [
+          ...sectioned.applyAndKnowToday.map((m: AIJobMatch) => ({ ...m, section: 'applyAndKnowToday' as const })),
+          ...sectioned.matchedForYou.map((m: AIJobMatch) => ({ ...m, section: 'matchedForYou' as const })),
+        ];
+      }
+      // Backward compat: flat array
+      return Array.isArray(data) ? data : [];
     },
     refetchInterval: 300000, // Refresh every 5 minutes
   });
@@ -161,8 +178,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     onMutate: async (jobId: number) => {
       await queryClient.cancelQueries({ queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter] });
       const previousMatches = queryClient.getQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter]);
-      queryClient.setQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter], (oldData: any) => 
-        oldData.filter((match: AIJobMatch) => match.job.id !== jobId)
+      queryClient.setQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter], (oldData: any) =>
+        Array.isArray(oldData) ? oldData.filter((match: AIJobMatch) => match.job.id !== jobId) : oldData
       );
       return { previousMatches };
     },
@@ -266,7 +283,9 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
           </div>
 
           <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto">
-            {filteredMatches.slice(0, displayLimit).map((match) => {
+            {filteredMatches.slice(0, displayLimit).map((match, idx) => {
+              const prevSection = idx > 0 ? filteredMatches[idx - 1]?.section : undefined;
+              const showSectionHeader = match.section && match.section !== prevSection;
               const isSaved = savedJobIds.has(match.job.id);
               const isApplied = appliedJobIds.has(match.job.id);
               // Determine trust badges
@@ -275,6 +294,19 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
               return (
                 <div key={match.id}>
+                  {showSectionHeader && match.section === 'applyAndKnowToday' && (
+                    <div className="flex items-center gap-2 pb-3 pt-1">
+                      <Shield className="h-5 w-5 text-green-600" />
+                      <h2 className="font-semibold text-lg text-green-700 dark:text-green-400">Apply & Know Today</h2>
+                      <Badge variant="secondary" className="bg-green-50 text-green-700 text-xs">Results within 24h</Badge>
+                    </div>
+                  )}
+                  {showSectionHeader && match.section === 'matchedForYou' && (
+                    <div className="flex items-center gap-2 pb-3 pt-4 border-t mt-2">
+                      <Sparkles className="h-5 w-5 text-blue-600" />
+                      <h2 className="font-semibold text-lg text-blue-700 dark:text-blue-400">Matched For You</h2>
+                    </div>
+                  )}
                   <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
