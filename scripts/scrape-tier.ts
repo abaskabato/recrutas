@@ -12,6 +12,25 @@
 import { SOTAScraperService } from '../server/services/sota-scraper.service.js';
 import { jobIngestionService } from '../server/services/job-ingestion.service.js';
 
+function checkRequiredEnvVars(): void {
+  const required = ['DATABASE_URL'];
+  const missing: string[] = [];
+  
+  for (const envVar of required) {
+    if (!process.env[envVar]) {
+      missing.push(envVar);
+    }
+  }
+  
+  if (missing.length > 0) {
+    console.error(`[scrape-tier] ERROR: Missing required environment variables: ${missing.join(', ')}`);
+    console.error('[scrape-tier] Aborting scrape. Please set these in GitHub Actions secrets.');
+    process.exit(1);
+  }
+  
+  console.log('[scrape-tier] Environment variables verified');
+}
+
 function parseArgs(): { tier?: number; timeout?: number; cleanup?: boolean; days?: number } {
   const args: Record<string, string> = {};
   for (const arg of process.argv.slice(2)) {
@@ -71,6 +90,8 @@ async function runTierScrape(tier: number, timeoutMs: number) {
 }
 
 async function main() {
+  checkRequiredEnvVars();
+  
   const { tier, timeout, cleanup, days } = parseArgs();
 
   if (cleanup) {

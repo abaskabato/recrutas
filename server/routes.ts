@@ -312,6 +312,36 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Helper function to format job match
+  function formatJobMatch(job: any, index: number, aiExplanation?: string): any {
+    return {
+      id: index + 1,
+      job: {
+        ...job,
+        id: job.id,
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        workType: job.workType,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        description: job.description,
+        requirements: job.requirements || [],
+        skills: job.skills || [],
+        aiCurated: job.source !== 'internal' && job.source !== 'platform',
+        confidenceScore: job.matchScore,
+        externalSource: job.source,
+        externalUrl: job.externalUrl
+      },
+      matchScore: `${job.matchScore}%`,
+      confidenceLevel: job.matchScore > 80 ? 3 : (job.matchScore > 60 ? 2 : 1),
+      skillMatches: job.skillMatches || [],
+      aiExplanation: aiExplanation || job.aiExplanation,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+  }
+
   // AI-powered job matching
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
     try {
@@ -472,51 +502,38 @@ export async function registerRoutes(app: Express): Promise<Express> {
           .limit(20);
           
         if (recentJobs.length > 0) {
-          return res.json(recentJobs.map((job: any, index: number) => ({
-            id: index + 1,
-            job: {
-              ...job,
-              matchScore: 25,
-              aiExplanation: 'Recent job - upload your resume to improve matching'
-            }
-          })));
+          // Return sectioned format
+          const applyAndKnowToday = recentJobs
+            .filter((job: any) => job.source === 'platform' || !job.externalUrl)
+            .map((job: any, index: number) => formatJobMatch(job, index, 'Recent job - upload your resume to improve matching'));
+          
+          const matchedForYou = recentJobs
+            .filter((job: any) => job.source !== 'platform' && job.externalUrl)
+            .map((job: any, index: number) => formatJobMatch(job, index, 'Recent job - upload your resume to improve matching'));
+          
+          return res.json({ applyAndKnowToday, matchedForYou });
         }
       }
 
       // Return empty array if still no recommendations
       if (allRecommendations.length === 0) {
         console.log('No job recommendations found - candidate may have no skills in profile or no matching jobs');
-        return res.json([]);
+        return res.json({ applyAndKnowToday: [], matchedForYou: [] });
       }
 
-      const aiMatches = allRecommendations.map((job, index) => ({
-        id: index + 1,
-        job: {
-          ...job,
-          id: job.id,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          workType: job.workType,
-          salaryMin: job.salaryMin,
-          salaryMax: job.salaryMax,
-          description: job.description,
-          requirements: job.requirements || [],
-          skills: job.skills || [],
-          aiCurated: job.source !== 'internal',
-          confidenceScore: job.matchScore,
-          externalSource: job.source,
-          externalUrl: job.externalUrl
-        },
-        matchScore: `${job.matchScore}%`,
-        confidenceLevel: job.matchScore > 80 ? 3 : (job.matchScore > 60 ? 2 : 1),
-        skillMatches: job.skillMatches || [],
-        aiExplanation: job.aiExplanation,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      }));
+      // Transform into sectioned format
+      const applyAndKnowToday = allRecommendations
+        .filter((job: any) => job.source === 'platform' || !job.externalUrl)
+        .map((job: any, index: number) => formatJobMatch(job, index));
 
-      res.json(aiMatches);
+      const matchedForYou = allRecommendations
+        .filter((job: any) => job.source !== 'platform' && job.externalUrl)
+        .map((job: any, index: number) => formatJobMatch(job, index));
+
+      console.log(`Sectioned: ${applyAndKnowToday.length} applyAndKnowToday, ${matchedForYou.length} matchedForYou`);
+
+      // Return sectioned response
+      res.json({ applyAndKnowToday, matchedForYou });
     } catch (error: any) {
       console.error('Error fetching job matches:', error?.message);
 
@@ -1253,6 +1270,34 @@ export async function registerRoutes(app: Express): Promise<Express> {
         );
       } catch (error) {
         console.error("Error tracking application event:", error);
+      }
+
+      // Send richer notifications for terminal states
+      if (status === 'accepted' || status === 'offer' || status === 'rejected') {
+        try {
+          const application = await storage.getApplicationById(applicationId);
+          if (application) {
+            const job = await storage.getJobPosting(application.jobId);
+            
+            if (status === 'accepted' || status === 'offer') {
+              await notificationService.notifyApplicationAccepted(
+                application.candidateId,
+                job?.title || 'Unknown Job',
+                job?.company || 'Unknown Company',
+                applicationId
+              );
+            } else if (status === 'rejected') {
+              await notificationService.notifyApplicationRejected(
+                application.candidateId,
+                job?.title || 'Unknown Job',
+                job?.company || 'Unknown Company',
+                applicationId
+              );
+            }
+          }
+        } catch (notifyError) {
+          console.error("Error sending status notification:", notifyError);
+        }
       }
 
       res.json(updatedApplication);

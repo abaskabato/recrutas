@@ -1,5 +1,6 @@
 import { generateJobMatch } from './ai-service';
 import { storage } from './storage';
+import { sql } from "drizzle-orm/sql";
 
 export class MatchingEngineError extends Error {
   constructor(message: string, public cause?: Error) {
@@ -387,26 +388,37 @@ export class AdvancedMatchingEngine {
   }
 
   private async fetchExternalJobs(criteria: AdvancedMatchCriteria): Promise<any[]> {
-    // In production, this would fetch from multiple job APIs
-    // For now, return sample jobs that match criteria
-    return [
-      {
-        id: 'ext_1',
-        title: 'Senior Software Engineer',
-        company: 'TechCorp',
-        skills: criteria.skills.slice(0, 3),
-        requirements: ['5+ years experience', 'Full-stack development'],
-        description: 'Join our innovative team building next-generation software solutions',
-        location: criteria.location || 'San Francisco',
-        workType: criteria.workType || 'hybrid',
-        industry: criteria.industry || 'Technology',
-        salaryMin: 120000,
-        salaryMax: 180000,
-        postedDate: new Date().toISOString(),
-        applicationCount: 15,
-        source: 'external'
-      }
-    ];
+    // Fetch real external jobs from the database
+    try {
+      const { db } = await import('./db.js');
+      const { jobPostings } = await import('../shared/schema.js');
+      
+      // Use simple query - just get all active external jobs
+      const externalJobs = await db
+        .select()
+        .from(jobPostings)
+        .where(sql`${jobPostings.status} = 'active'`)
+        .limit(50);
+
+      return externalJobs.map((job: any) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        workType: job.workType,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        description: job.description,
+        skills: job.skills || [],
+        source: job.source || 'external',
+        externalUrl: job.externalUrl,
+        postedDate: job.createdAt?.toISOString() || new Date().toISOString(),
+        requirements: [],
+      }));
+    } catch (error) {
+      console.error('[AdvancedMatchingEngine] Error fetching external jobs:', error);
+      return [];
+    }
   }
 
   private generateCacheKey(criteria: AdvancedMatchCriteria): string {
