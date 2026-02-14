@@ -537,9 +537,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error: any) {
       console.error('Error fetching job matches:', error?.message);
 
-      // Return empty array on timeout/connection errors - better UX than 500 error
+      // Return empty sections on timeout/connection errors - better UX than 500 error
       if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
-        return res.json([]);
+        return res.json({ applyAndKnowToday: [], matchedForYou: [] });
       }
 
       res.status(500).json({

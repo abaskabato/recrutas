@@ -393,11 +393,11 @@ export class AdvancedMatchingEngine {
       const { db } = await import('./db.js');
       const { jobPostings } = await import('../shared/schema.js');
       
-      // Use simple query - just get all active external jobs
+      // Only fetch external jobs (have an externalUrl)
       const externalJobs = await db
         .select()
         .from(jobPostings)
-        .where(sql`${jobPostings.status} = 'active'`)
+        .where(sql`${jobPostings.status} = 'active' AND ${jobPostings.externalUrl} IS NOT NULL`)
         .limit(50);
 
       return externalJobs.map((job: any) => ({

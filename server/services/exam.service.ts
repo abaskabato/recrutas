@@ -39,7 +39,7 @@ export class ExamService {
         throw new ExamProcessingError("Exam not found for this job");
       }
 
-      const { score, correctAnswers } = this.calculateScoreWithDetails(exam.questions, answers, {
+      const { score, correctAnswers } = await this.calculateScoreWithDetails(exam.questions, answers, {
         title: job.title,
         description: job.description || undefined
       });
@@ -76,7 +76,6 @@ export class ExamService {
         applicationId
       );
 
-
       return { score };
     } catch (error) {
       console.error("[ExamService] Error submitting exam:", error);
@@ -87,12 +86,12 @@ export class ExamService {
     }
   }
 
-  private calculateScore(questions: any[], answers: any): number {
-    const { score } = this.calculateScoreWithDetails(questions, answers);
+  private async calculateScore(questions: any[], answers: any): Promise<number> {
+    const { score } = await this.calculateScoreWithDetails(questions, answers);
     return score;
   }
 
-  private calculateScoreWithDetails(questions: any[], answers: any, jobContext?: { title: string; description?: string }): { score: number; correctAnswers: number } {
+  private async calculateScoreWithDetails(questions: any[], answers: any, jobContext?: { title: string; description?: string }): Promise<{ score: number; correctAnswers: number }> {
     let earnedPoints = 0;
     let totalPoints = 0;
     let correctAnswers = 0;
@@ -122,7 +121,7 @@ export class ExamService {
 
     // AI score short-answer questions if Groq is available
     if (shortAnswerQuestions.length > 0 && jobContext) {
-      this.scoreShortAnswersWithAI(shortAnswerQuestions, jobContext, (aiScore, questionPoints) => {
+      await this.scoreShortAnswersWithAI(shortAnswerQuestions, jobContext, (aiScore, questionPoints) => {
         earnedPoints += aiScore * questionPoints;
         if (aiScore >= 0.6) correctAnswers++;
       });
