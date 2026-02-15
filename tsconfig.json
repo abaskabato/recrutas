@@ -27,7 +27,7 @@
     "verbatimModuleSyntax": false
   },
   "include": [
-    "src",
+    "client/src",
     "server",
     "shared",
     "scripts"

@@ -1,5 +1,6 @@
 import { useSession } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
+import RecrutasLogo from "./recrutas-logo";
 import { RecrutasLogoCompact } from "./recrutas-logo";
 
 interface SmartLogoProps {
@@ -15,10 +16,8 @@ export default function SmartLogo({ size = 32, className = "", showText = true }
 
   const handleClick = () => {
     if (!user) {
-      // Not logged in - go to landing page
       setLocation("/");
     } else {
-      // Check user role from user metadata
       const role = (user as any)?.user_metadata?.role || (user as any)?.role;
       
       if (role === 'talent_owner' || role === 'recruiter') {
@@ -35,7 +34,11 @@ export default function SmartLogo({ size = 32, className = "", showText = true }
       className={`flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer ${className}`}
       title="Go to home"
     >
-      <RecrutasLogoCompact size={size} />
+      {showText ? (
+        <RecrutasLogoCompact size={size} />
+      ) : (
+        <RecrutasLogo size={size} />
+      )}
     </button>
   );
 }
