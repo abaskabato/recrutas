@@ -12,6 +12,7 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .env.production
+.env*.local
 
 # Build outputs
 dist/
@@ -75,7 +76,7 @@ attachments/
 
 # Test outputs
 test-results/
-coverage/
+tests/
 
 # Deployment
 .vercel
@@ -93,17 +94,31 @@ docs/.vitepress/cache
 # Misc
 *.tgz
 *.tar.gz
-.nyc_outputsupabase_schema.sql
-
-# Build artifacts
-build log
-ls
-rest-express@1.0.0
-supabase_schema.sql
-test-db-connection.ts.env
-
-
-tests/
-.env*.local
+.nyc_output
 nohup.out
+
+# Debug/scratch scripts
+check-jobs.ts
+scrape-cafe.ts
+test-*.ts
+!tests/**
+
+# Debug artifacts
+*.debug.*
+google-ai-debug.*
+hiring-cafe-test*
+
+# Playwright
+playwright-report/
 e2e/screenshots/
+
+# Task planning (keep todo.md and lessons.md)
+tasks/investment-memo.md
+tasks/recrutas-agent.md
+tasks/launch-playbook.md
+tasks/fix-empty-feed-plan.md
+tasks/session-log-*.md
+tasks/mvp-specs.md
+
+# SQL dumps
+supabase_schema.sql

@@ -18,6 +18,11 @@ export default function ResetPasswordPage() {
   const [, setLocation] = useLocation()
 
   useEffect(() => {
+    // Check if we're already in a recovery session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setIsRecoveryMode(true)
+    })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setIsRecoveryMode(true)

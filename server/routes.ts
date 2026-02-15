@@ -884,6 +884,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const { status } = req.body;
       if (!status) return res.status(400).json({ message: "Status is required" });
+
+      const VALID_CANDIDATE_STATUSES = ['submitted', 'screening', 'interview_scheduled', 'offer', 'rejected', 'withdrawn'];
+      if (!VALID_CANDIDATE_STATUSES.includes(status)) {
+        return res.status(400).json({ message: `Invalid status. Must be one of: ${VALID_CANDIDATE_STATUSES.join(', ')}` });
+      }
       
       const applicationId = parseIntParam(req.params.applicationId);
       if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });

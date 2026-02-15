@@ -114,13 +114,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/apply/${jobId}`, {}),
     onSuccess: (data, variables) => {
       toast({ title: "Application Tracked!", description: "We've marked this job as applied." });
-      queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
-        if (!oldData) return { saved: new Set(), applied: new Set([variables]) };
-        return {
-          saved: oldData.saved,
-          applied: new Set([...Array.from(oldData.applied || []), variables]),
-        };
-      });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
     },
     onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
