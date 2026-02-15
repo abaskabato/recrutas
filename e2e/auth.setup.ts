@@ -5,14 +5,32 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1N
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Test user credentials
-export const TEST_USERS = {
+// Credentials MUST be provided via environment variables
+// DO NOT hardcode credentials in this file
+// Required env vars:
+//   - E2E_CANDIDATE_EMAIL / E2E_CANDIDATE_PASSWORD
+//   - E2E_TALENT_EMAIL / E2E_TALENT_PASSWORD
+// Or use VITE_ prefixed versions for client-side access
+
+export const getTestUsers = () => ({
   candidate: {
-    email: 'abaskabato@gmail.com',
-    password: '123456',
+    email: process.env.E2E_CANDIDATE_EMAIL || process.env.VITE_E2E_CANDIDATE_EMAIL || '',
+    password: process.env.E2E_CANDIDATE_PASSWORD || process.env.VITE_E2E_CANDIDATE_PASSWORD || '',
   },
   talentOwner: {
-    email: 'rainierit@proton.me',
-    password: 'rainierit08',
+    email: process.env.E2E_TALENT_EMAIL || process.env.VITE_E2E_TALENT_EMAIL || '',
+    password: process.env.E2E_TALENT_PASSWORD || process.env.VITE_E2E_TALENT_PASSWORD || '',
   },
-};
+});
+
+// Validate credentials are provided
+const users = getTestUsers();
+if (!users.candidate.email || !users.candidate.password) {
+  console.warn('⚠️  E2E Test Credentials Warning: Candidate credentials not set. Set E2E_CANDIDATE_EMAIL and E2E_CANDIDATE_PASSWORD environment variables.');
+}
+if (!users.talentOwner.email || !users.talentOwner.password) {
+  console.warn('⚠️  E2E Test Credentials Warning: Talent Owner credentials not set. Set E2E_TALENT_EMAIL and E2E_TALENT_PASSWORD environment variables.');
+}
+
+// Legacy export for backwards compatibility (deprecated - use getTestUsers())
+export const TEST_USERS = users;
