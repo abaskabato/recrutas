@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast"
 import { Link } from "wouter"
 import { Loader2, ArrowLeft, Mail } from "lucide-react"
-import { apiRequest } from "@/lib/queryClient"
+import { supabase } from "@/lib/supabase-client"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -16,8 +16,10 @@ export default function ForgotPasswordPage() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest("POST", "/api/auth/forget-password", { email })
-      return response.json()
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
     },
     onSuccess: () => {
       setIsSubmitted(true)
@@ -121,9 +123,9 @@ export default function ForgotPasswordPage() {
                   className="border-input focus:border-ring h-11"
                 />
               </div>
-              
-              <Button 
-                type="submit" 
+
+              <Button
+                type="submit"
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200 h-11"
                 disabled={resetPasswordMutation.isPending || !email}
               >

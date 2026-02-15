@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm/sql/expressions";
 import { sql } from "drizzle-orm/sql";
 import multer from "multer";
 import path from "path";
@@ -805,12 +806,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Fetch full job details for saved jobs
       const { db } = await import('./db.js');
       const { jobPostings } = await import('../shared/schema.js');
-      const { sql } = await import('drizzle-orm/sql');
-      
+
       const savedJobs = await db
         .select()
         .from(jobPostings)
-        .where(sql`${jobPostings.id} IN (${savedJobIds.join(',')})`);
+        .where(inArray(jobPostings.id, savedJobIds));
       
       res.json(savedJobs);
     } catch (error) {
@@ -908,10 +908,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         };
       }
       
-      const application = await storage.createJobApplication({ 
-        jobId, 
-        candidateId: userId, 
-        status: 'applied',
+      const application = await storage.createJobApplication({
+        jobId,
+        candidateId: userId,
+        status: 'submitted',
         metadata: applicationMetadata
       });
       

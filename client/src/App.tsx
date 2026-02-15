@@ -6,6 +6,7 @@ import AppProviders from '@/components/AppProviders';
 import Landing from "@/pages/landing-responsive";
 import AuthPage from "@/pages/auth-page";
 import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import GuidedSetup from "@/pages/guided-setup";
 import CandidateDashboard from "@/pages/candidate-dashboard-streamlined";
 import TalentDashboard from "@/pages/talent-dashboard";
@@ -33,6 +34,7 @@ function App() {
           <Route path="/signup/candidate" component={SignUpCandidatePage} />
           <Route path="/signup/talent-owner" component={SignUpTalentPage} />
           <Route path="/forgot-password" component={ForgotPasswordPage} />
+          <Route path="/reset-password" component={ResetPasswordPage} />
           <Route path="/role-selection">
             <AuthGuard><GuidedSetup /></AuthGuard>
           </Route>
