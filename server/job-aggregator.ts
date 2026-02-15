@@ -1,4 +1,6 @@
 import { hiringCafeService } from './services/hiring-cafe.service';
+import { weWorkRemotelyService } from './services/we-work-remotely.service';
+import { getProfessions, getProfession, detectProfession, ProfessionConfig } from './config/professions';
 
 // Trust scores for different job sources (0-100)
 // Higher scores indicate more trustworthy/verified sources
@@ -6,6 +8,7 @@ export const SOURCE_TRUST_SCORES: Record<string, number> = {
   'platform': 100,          // Internal platform jobs - most trustworthy
   'JSearch': 75,            // JSearch API - aggregates real jobs
   'The Muse': 70,           // Curated tech jobs from real companies
+  'WeWorkRemotely': 80,     // Curated remote jobs with direct URLs - HIGH QUALITY
   'RemoteOK': 65,           // Remote-focused jobs, generally accurate
   'ArbeitNow': 60,          // European job board aggregator
   'hiring-cafe': 55,       // Multi-industry aggregator, less vetted
@@ -44,6 +47,8 @@ interface ExternalJob {
   trustScore?: number;
   isVerifiedActive?: boolean;
   lastLivenessCheck?: string;
+  // Profession classification
+  profession?: string;
 }
 
 interface JSearchJob {
@@ -596,6 +601,25 @@ export class JobAggregator {
     }));
   }
 
+  private transformWeWorkRemotelyJobs(jobs: any[]): ExternalJob[] {
+    return jobs.map(job => ({
+      id: job.id,
+      title: job.title,
+      company: job.company,
+      location: 'Remote',
+      description: job.description,
+      requirements: this.extractRequirements(job.description),
+      skills: this.extractSkills(job.description),
+      workType: 'remote',
+      salaryMin: undefined,
+      salaryMax: undefined,
+      source: 'WeWorkRemotely',
+      externalUrl: job.url,
+      postedDate: job.publicationDate,
+      trustScore: getSourceTrustScore('WeWorkRemotely')
+    }));
+  }
+
   private transformAdzunaJobs(jobs: AdzunaJob[]): ExternalJob[] {
     return jobs.map(job => ({
       id: `adzuna_${job.id}`,
@@ -922,63 +946,96 @@ export class JobAggregator {
     }).slice(0, 8);
   }
 
-  async getAllJobs(userSkills?: string[], limit?: number): Promise<ExternalJob[]> {
+  async getAllJobs(userSkills?: string[], profession?: string, limit?: number): Promise<ExternalJob[]> {
     const allJobs: ExternalJob[] = [];
 
     try {
-      console.log(`Fetching job data from multiple external sources for skills: ${userSkills?.join(', ') || 'general tech'}`);
+      console.log(`[JobAggregator] Fetching jobs for skills: ${userSkills?.join(', ') || 'general'}${profession ? `, profession: ${profession}` : ''}`);
 
-      // Fetch from all real sources (no generated/fake jobs)
-      // Use a mix of skills for Hiring.cafe to get diverse results
-      const hiringCafeKeywords = userSkills && userSkills.length > 0 
-        ? userSkills.slice(0, 3).join(' ')
-        : 'software engineer developer';
+      // Determine which sources to use based on profession
+      const professionConfig = profession ? getProfession(profession) : undefined;
+      const sourcesToUse = professionConfig?.sources || ['jsearch', 'weworkremotely', 'remoteok', 'themuse'];
       
-      const [
-        jsearchJobs,
-        museJobs,
-        remoteOKJobs,
-        hiringCafeResults
-      ] = await Promise.allSettled([
-        this.fetchFromJSearchAPI(userSkills),
-        this.fetchFromTheMuse(),
-        this.fetchRemoteOKJobs(),
-        hiringCafeService.searchByKeywords(hiringCafeKeywords, { maxPages: 1 })
-      ]);
+      console.log(`[JobAggregator] Using sources: ${sourcesToUse.join(', ')}`);
 
-      // Add jobs from successful fetches - only real sources
-      if (jsearchJobs.status === 'fulfilled') allJobs.push(...jsearchJobs.value);
-      if (museJobs.status === 'fulfilled') allJobs.push(...museJobs.value);
-      if (remoteOKJobs.status === 'fulfilled') allJobs.push(...remoteOKJobs.value);
-      if (hiringCafeResults.status === 'fulfilled') {
-        const cafeJobs = hiringCafeResults.value.map(job => ({
-          id: `cafe_${job.externalId}`,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          description: job.description,
-          requirements: job.requirements,
-          skills: job.skills,
-          workType: job.workType,
-          source: job.source,
-          externalUrl: job.externalUrl,
-          postedDate: job.postedDate,
-          trustScore: getSourceTrustScore('hiring-cafe')
-        } as ExternalJob));
-        allJobs.push(...cafeJobs);
+      // Build fetch promises based on profession
+      const fetchPromises: Promise<ExternalJob[]>[] = [];
+      
+      // Always fetch from We Work Remotely (high quality, includes non-tech)
+      if (sourcesToUse.includes('weworkremotely') || sourcesToUse.includes('remoteok')) {
+        fetchPromises.push(this.fetchWeWorkRemotelyJobs(profession));
+      }
+      
+      // JSearch for general coverage
+      if (sourcesToUse.includes('jsearch')) {
+        fetchPromises.push(this.fetchFromJSearchAPI(userSkills));
+      }
+      
+      // The Muse for tech/design
+      if (sourcesToUse.includes('themuse')) {
+        fetchPromises.push(this.fetchFromTheMuse());
+      }
+      
+      // RemoteOK as backup
+      if (sourcesToUse.includes('remoteok')) {
+        fetchPromises.push(this.fetchRemoteOKJobs());
+      }
+      
+      // USAJobs for non-tech (government jobs)
+      if (sourcesToUse.includes('usajobs') || (profession && ['healthcare', 'legal', 'accountant', 'teacher'].some(p => profession.includes(p)))) {
+        fetchPromises.push(this.fetchFromUSAJobs(userSkills));
       }
 
-      console.log(`Successfully aggregated ${allJobs.length} jobs from external sources`);
+      // Execute all fetches with error handling
+      const results = await Promise.allSettled(fetchPromises);
+      
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          allJobs.push(...result.value);
+        } else {
+          console.error(`[JobAggregator] Source ${index} failed:`, result.reason);
+        }
+      });
+
+      // Filter out LinkedIn and Indeed URLs
+      const blockedDomains = ['linkedin.com', 'indeed.com', 'glassdoor.com', 'ziprecruiter.com'];
+      const filteredJobs = allJobs.filter(job => {
+        const url = job.externalUrl.toLowerCase();
+        const isBlocked = blockedDomains.some(domain => url.includes(domain));
+        if (isBlocked) {
+          console.log(`[JobAggregator] Filtered out blocked URL: ${job.externalUrl}`);
+        }
+        return !isBlocked;
+      });
+
+      // Tag jobs with detected profession
+      const jobsWithProfession = filteredJobs.map(job => {
+        const detectedProfession = detectProfession(job.title, job.description);
+        return {
+          ...job,
+          profession: detectedProfession?.code || profession || 'general'
+        };
+      });
+
+      console.log(`[JobAggregator] Successfully aggregated ${jobsWithProfession.length} jobs from external sources`);
 
       // Remove duplicates based on title and company
-      const uniqueJobs = allJobs.filter((job, index, arr) =>
+      const uniqueJobs = jobsWithProfession.filter((job, index, arr) =>
         arr.findIndex(j => j.title === job.title && j.company === job.company) === index
       );
 
-      console.log(`After deduplication: ${uniqueJobs.length} unique jobs`);
+      // Log profession breakdown
+      const professionCounts = uniqueJobs.reduce((acc, job) => {
+        acc[job.profession] = (acc[job.profession] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      console.log(`[JobAggregator] After deduplication: ${uniqueJobs.length} unique jobs`);
+      console.log(`[JobAggregator] Profession breakdown:`, professionCounts);
+
       return uniqueJobs;
     } catch (error) {
-      console.error('Error aggregating jobs:', error);
+      console.error('[JobAggregator] Error aggregating jobs:', error);
       return [];
     }
   }
@@ -1037,6 +1094,23 @@ export class JobAggregator {
     }
 
     return [];
+  }
+
+  // We Work Remotely - High quality remote jobs with direct URLs
+  // Includes both tech and non-tech (sales, support, marketing, etc.)
+  async fetchWeWorkRemotelyJobs(profession?: string): Promise<ExternalJob[]> {
+    try {
+      console.log(`[JobAggregator] Fetching from We Work Remotely${profession ? ` for profession: ${profession}` : ''}...`);
+      
+      const jobs = await weWorkRemotelyService.fetchJobs(profession);
+      const transformedJobs = this.transformWeWorkRemotelyJobs(jobs);
+      
+      console.log(`[JobAggregator] Fetched ${transformedJobs.length} jobs from We Work Remotely`);
+      return transformedJobs.slice(0, 20);
+    } catch (error) {
+      console.error('[JobAggregator] Error fetching from We Work Remotely:', error);
+      return [];
+    }
   }
 
   // The Muse API - Free tier with real job data
