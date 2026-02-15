@@ -1,6 +1,6 @@
 import { useSession } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
-import RecrutasLogo from "./recrutas-logo";
+import { RecrutasLogoCompact } from "./recrutas-logo";
 
 interface SmartLogoProps {
   size?: number;
@@ -32,15 +32,10 @@ export default function SmartLogo({ size = 32, className = "", showText = true }
   return (
     <button 
       onClick={handleClick}
-      className={`flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer ${className}`}
+      className={`flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer ${className}`}
       title="Go to home"
     >
-      <RecrutasLogo size={size} />
-      {showText && (
-        <span className="text-xl font-bold text-gray-900 dark:text-white font-mono tracking-wider">
-          RECRUTAS
-        </span>
-      )}
+      <RecrutasLogoCompact size={size} />
     </button>
   );
 }
