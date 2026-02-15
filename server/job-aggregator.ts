@@ -946,7 +946,16 @@ export class JobAggregator {
     }).slice(0, 8);
   }
 
-  async getAllJobs(userSkills?: string[], profession?: string, limit?: number): Promise<ExternalJob[]> {
+  async getAllJobs(userSkillsOrOpts?: string[] | { skills?: string[]; profession?: string; limit?: number }, profession?: string, limit?: number): Promise<ExternalJob[]> {
+    // Support both old positional args and new options object
+    let userSkills: string[] | undefined;
+    if (Array.isArray(userSkillsOrOpts)) {
+      userSkills = userSkillsOrOpts;
+    } else if (userSkillsOrOpts && typeof userSkillsOrOpts === 'object') {
+      userSkills = userSkillsOrOpts.skills;
+      profession = userSkillsOrOpts.profession;
+      limit = userSkillsOrOpts.limit;
+    }
     const allJobs: ExternalJob[] = [];
 
     try {
@@ -981,14 +990,39 @@ export class JobAggregator {
         fetchPromises.push(this.fetchRemoteOKJobs());
       }
       
-      // USAJobs for non-tech (government jobs)
-      if (sourcesToUse.includes('usajobs') || (profession && ['healthcare', 'legal', 'accountant', 'teacher'].some(p => profession.includes(p)))) {
+      // USAJobs for non-tech (government jobs) — check source list or profession category
+      const usajobsCategories = ['Healthcare', 'Legal', 'Education', 'Trades', 'Business'];
+      const needsUsajobs = sourcesToUse.includes('usajobs') ||
+        (professionConfig && usajobsCategories.includes(professionConfig.category));
+      if (needsUsajobs) {
         fetchPromises.push(this.fetchFromUSAJobs(userSkills));
       }
 
+      // Hiring.cafe for broad coverage (works across all professions)
+      const hiringCafeKeywords = userSkills && userSkills.length > 0
+        ? userSkills.slice(0, 3).join(' ')
+        : 'software engineer developer';
+      fetchPromises.push(
+        hiringCafeService.searchByKeywords(hiringCafeKeywords, { maxPages: 1 })
+          .then(results => results.map(job => ({
+            id: `cafe_${job.externalId}`,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            description: job.description,
+            requirements: job.requirements,
+            skills: job.skills,
+            workType: job.workType,
+            source: job.source,
+            externalUrl: job.externalUrl,
+            postedDate: job.postedDate,
+            trustScore: getSourceTrustScore('hiring-cafe')
+          } as ExternalJob)))
+      );
+
       // Execute all fetches with error handling
       const results = await Promise.allSettled(fetchPromises);
-      
+
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           allJobs.push(...result.value);
@@ -999,14 +1033,16 @@ export class JobAggregator {
 
       // Filter out LinkedIn and Indeed URLs
       const blockedDomains = ['linkedin.com', 'indeed.com', 'glassdoor.com', 'ziprecruiter.com'];
+      let blockedCount = 0;
       const filteredJobs = allJobs.filter(job => {
         const url = job.externalUrl.toLowerCase();
         const isBlocked = blockedDomains.some(domain => url.includes(domain));
-        if (isBlocked) {
-          console.log(`[JobAggregator] Filtered out blocked URL: ${job.externalUrl}`);
-        }
+        if (isBlocked) blockedCount++;
         return !isBlocked;
       });
+      if (blockedCount > 0) {
+        console.log(`[JobAggregator] Filtered out ${blockedCount} jobs from blocked domains`);
+      }
 
       // Tag jobs with detected profession
       const jobsWithProfession = filteredJobs.map(job => {

@@ -167,18 +167,19 @@ export function getProfessionsByCategory(category: string): ProfessionConfig[] {
 
 export function detectProfession(title: string, description: string = ''): ProfessionConfig | undefined {
   const text = (title + ' ' + description).toLowerCase();
-  
-  // Score each profession by keyword matches
+
+  // Score each profession by keyword matches using word boundaries
   const scores = PROFESSIONS.map(profession => {
-    const matches = profession.keywords.filter(keyword => 
-      text.includes(keyword.toLowerCase())
-    ).length;
+    const matches = profession.keywords.filter(keyword => {
+      const escaped = keyword.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+    }).length;
     return { profession, matches };
   });
-  
-  // Return highest scoring profession
-  const best = scores.sort((a, b) => b.matches - a.matches)[0];
-  return best.matches > 0 ? best.profession : undefined;
+
+  // Return highest scoring profession (sort a copy to avoid mutation)
+  const sorted = [...scores].sort((a, b) => b.matches - a.matches);
+  return sorted[0].matches > 0 ? sorted[0].profession : undefined;
 }
 
 export function getSourcesForProfession(professionCode: string): string[] {

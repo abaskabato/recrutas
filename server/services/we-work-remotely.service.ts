@@ -5,6 +5,7 @@
  */
 
 import { parseStringPromise } from 'xml2js';
+import { createHash } from 'crypto';
 
 interface WWRJob {
   id: string;
@@ -83,20 +84,25 @@ export class WeWorkRemotelyService {
       const result = await parseStringPromise(xmlText);
       const items = result.rss?.channel?.[0]?.item || [];
       
-      return items.map((item: any, index: number) => {
+      return items.map((item: any) => {
         const title = item.title?.[0] || '';
         const description = item.description?.[0] || '';
         const link = item.link?.[0] || '';
+        const guid = item.guid?.[0]?._ || item.guid?.[0] || '';
         const pubDate = item.pubDate?.[0] || new Date().toISOString();
         const category = item.category?.[0] || 'general';
-        
+
         // Parse company from title (format: "Company: Job Title")
         const companyMatch = title.match(/^([^:]+):\s*(.+)$/);
         const company = companyMatch ? companyMatch[1].trim() : 'Unknown Company';
         const jobTitle = companyMatch ? companyMatch[2].trim() : title;
-        
+
+        // Stable ID: use guid or hash of URL for deduplication
+        const stableKey = guid || link || title;
+        const hash = createHash('md5').update(stableKey).digest('hex').substring(0, 12);
+
         return {
-          id: `wwr_${index}_${Date.now()}`,
+          id: `wwr_${hash}`,
           title: jobTitle,
           company,
           location: 'Remote',
