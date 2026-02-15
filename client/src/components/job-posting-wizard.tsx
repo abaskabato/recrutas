@@ -62,6 +62,7 @@ interface JobPostingData {
   salaryMin: number;
   salaryMax: number;
   expiresAt?: Date; // Job expiration date
+  externalUrl?: string; // Company job page URL
 
   // Advanced Filtering
   enableFiltering: boolean;
@@ -352,6 +353,19 @@ export default function JobPostingWizard({
                   placeholder="120000"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="externalUrl">Company Job Page URL (optional)</Label>
+              <Input
+                id="externalUrl"
+                value={jobData.externalUrl || ''}
+                onChange={(e) => setJobData(prev => ({ ...prev, externalUrl: e.target.value }))}
+                placeholder="https://company.com/careers/job-title"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Link to the original job posting on your company website
+              </p>
             </div>
 
             <div>

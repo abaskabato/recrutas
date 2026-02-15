@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface ApplicationStatus {
   id: number;
@@ -24,6 +26,7 @@ interface ApplicationStatus {
     salaryMin?: number;
     salaryMax?: number;
     workType: string;
+    externalUrl?: string;
   };
   match?: {
     matchScore: string;
@@ -44,8 +47,25 @@ const statusConfig: Record<string, { label: string; color: string; progress: num
 
 export default function ApplicationTracker() {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: applications, isLoading } = useQuery<ApplicationStatus[]>({
     queryKey: ["/api/candidate/applications"],
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ applicationId, status }: { applicationId: number; status: string }) => {
+      const res = await apiRequest('PUT', `/api/applications/${applicationId}/status`, { status });
+      if (!res.ok) throw new Error('Failed to update status');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Status Updated", description: "Your application status has been updated." });
+      queryClient.invalidateQueries({ queryKey: ["/api/candidate/applications"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    },
   });
 
   const getStatusBadge = (status: string) => {
@@ -174,21 +194,35 @@ export default function ApplicationTracker() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-3">
-                    {/* Progress Bar */}
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>Application Progress</span>
-                        <span>{getProgressPercentage(application.status)}%</span>
+                    {/* Self-service status update for external jobs */}
+                    {application.job?.externalUrl && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">Update Status:</span>
+                        <Select
+                          value={application.status}
+                          onValueChange={(newStatus) => updateStatusMutation.mutate({ applicationId: application.id, status: newStatus })}
+                        >
+                          <SelectTrigger className="w-[180px] h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="submitted">Submitted</SelectItem>
+                            <SelectItem value="screening">In Progress</SelectItem>
+                            <SelectItem value="interview_scheduled">Interview</SelectItem>
+                            <SelectItem value="offer">Offer</SelectItem>
+                            <SelectItem value="rejected">Not Selected</SelectItem>
+                            <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Progress value={getProgressPercentage(application.status)} className="h-2" />
-                    </div>
+                    )}
 
                     {/* Timeline Info */}
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          Applied {application.appliedAt && !isNaN(new Date(application.appliedAt).getTime()) 
+                          Applied {application.appliedAt && !isNaN(new Date(application.appliedAt).getTime())
                             ? formatDistanceToNow(new Date(application.appliedAt), { addSuffix: true })
                             : 'recently'}
                         </span>
@@ -200,11 +234,24 @@ export default function ApplicationTracker() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setLocation('/chat')}>
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          Message
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setLocation(`/candidate-dashboard?tab=jobs&job=${application.job?.id || ''}`)}>
+                        {/* Message button: only for internal jobs at screening+ stage */}
+                        {!application.job?.externalUrl && ['screening', 'interview_scheduled', 'interview_completed', 'offer'].includes(application.status) && (
+                          <Button variant="outline" size="sm" onClick={() => setLocation('/chat')}>
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Message
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (application.job?.externalUrl) {
+                              window.open(application.job.externalUrl, '_blank');
+                            } else {
+                              setLocation(`/candidate-dashboard?tab=jobs&job=${application.job?.id || ''}`);
+                            }
+                          }}
+                        >
                           <ExternalLink className="h-4 w-4 mr-1" />
                           View Job
                         </Button>

@@ -101,8 +101,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       const response = await apiRequest("GET", '/api/candidate/job-actions');
       const data = await response.json();
       return {
-        saved: new Set<number>(data.saved),
-        applied: new Set<number>(data.applied),
+        saved: new Set<number>(data?.saved || []),
+        applied: new Set<number>(data?.applied || []),
       };
     },
   });
@@ -114,10 +114,13 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/apply/${jobId}`, {}),
     onSuccess: (data, variables) => {
       toast({ title: "Application Tracked!", description: "We've marked this job as applied." });
-      queryClient.setQueryData(['userJobActions'], (oldData: any) => ({
-        ...oldData,
-        applied: new Set(oldData.applied).add(variables),
-      }));
+      queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          applied: new Set(oldData.applied).add(variables),
+        };
+      });
     },
     onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
   });
@@ -127,10 +130,13 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     onMutate: async (jobId: number) => {
       await queryClient.cancelQueries({ queryKey: ['/api/candidate/job-actions'] });
       const previousJobActions = queryClient.getQueryData(['/api/candidate/job-actions']);
-      queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => ({
-        ...oldData,
-        saved: new Set(oldData.saved).add(jobId),
-      }));
+      queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          saved: new Set(oldData.saved).add(jobId),
+        };
+      });
       return { previousJobActions };
     },
     onSuccess: () => {
@@ -153,6 +159,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       await queryClient.cancelQueries({ queryKey: ['/api/candidate/job-actions'] });
       const previousJobActions = queryClient.getQueryData(['/api/candidate/job-actions']);
       queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
+        if (!oldData) return oldData;
         const newSaved = new Set(oldData.saved);
         newSaved.delete(jobId);
         return { ...oldData, saved: newSaved };

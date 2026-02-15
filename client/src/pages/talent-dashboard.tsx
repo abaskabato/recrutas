@@ -226,14 +226,22 @@ export default function TalentDashboard() {
   const { data: applicants = [], isLoading: applicantsLoading } = useQuery<any[]>({
     queryKey: ['/api/jobs', selectedJob?.id, 'applicants'],
     enabled: !!selectedJob,
-    queryFn: () => apiRequest('GET', `/api/jobs/${selectedJob!.id}/applicants`),
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/jobs/${selectedJob!.id}/applicants`);
+      if (!res.ok) throw new Error('Failed to fetch applicants');
+      return res.json();
+    },
   });
 
   // Fetch all applicants across all jobs (for analytics)
   const { data: allApplicants = [] } = useQuery<any[]>({
     queryKey: ['/api/talent-owner/all-applicants'],
     enabled: !!user,
-    queryFn: () => apiRequest('GET', '/api/talent-owner/all-applicants'),
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/talent-owner/all-applicants');
+      if (!res.ok) throw new Error('Failed to fetch all applicants');
+      return res.json();
+    },
   });
 
   // Update application status mutation
@@ -828,12 +836,6 @@ export default function TalentDashboard() {
                         ? 'Try adjusting your search or filters'
                         : 'Create your first job posting to start finding great candidates'}
                     </p>
-                    {!searchQuery && filterStatus === 'all' && (
-                      <Button onClick={() => setShowJobWizard(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Post Your First Job
-                      </Button>
-                    )}
                   </CardContent>
                 </Card>
               ) : (
@@ -1429,6 +1431,7 @@ export default function TalentDashboard() {
                     workType: jobData.workType,
                     salaryMin: jobData.salaryMin,
                     salaryMax: jobData.salaryMax,
+                    externalUrl: jobData.externalUrl || null,
                     expiresAt: jobData.expiresAt ? new Date(jobData.expiresAt) : null, // Convert to Date object
                     // Add exam data if filtering is enabled
                     hasExam: jobData.enableFiltering,
