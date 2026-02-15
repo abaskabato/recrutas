@@ -879,6 +879,33 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Candidate can update their own application status (for external jobs)
+  app.put('/api/candidate/application/:applicationId/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ message: "Status is required" });
+      
+      const applicationId = parseIntParam(req.params.applicationId);
+      if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
+      
+      // Verify the application belongs to this candidate
+      const application = await storage.getApplicationById(applicationId);
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      if (application.candidateId !== req.user.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Update the status
+      const updatedApplication = await storage.updateApplicationStatusByCandidate(applicationId, status);
+      res.json(updatedApplication);
+    } catch (error) {
+      console.error("Error updating application status:", error);
+      res.status(500).json({ message: "Failed to update application status" });
+    }
+  });
+
   // Job application
   app.post('/api/candidate/apply/:jobId', isAuthenticated, async (req: any, res) => {
     try {

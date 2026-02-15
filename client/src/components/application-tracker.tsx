@@ -55,7 +55,8 @@ export default function ApplicationTracker() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ applicationId, status }: { applicationId: number; status: string }) => {
-      const res = await apiRequest('PUT', `/api/applications/${applicationId}/status`, { status });
+      // Use candidate-specific endpoint for self-service status update
+      const res = await apiRequest('PUT', `/api/candidate/application/${applicationId}/status`, { status });
       if (!res.ok) throw new Error('Failed to update status');
       return res.json();
     },

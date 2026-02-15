@@ -11,6 +11,29 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Briefcase, MapPin, DollarSign, CheckCircle, AlertCircle, Building2, Shield, ExternalLink } from "lucide-react";
 import { AIJobMatch } from "./ai-job-feed";
 
+// Helper function to strip HTML tags
+function stripHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+// Helper to clean requirement text
+function cleanRequirement(req: string): string {
+  // If it looks like HTML, strip it
+  if (req.includes('<') || req.includes('&')) {
+    return stripHtml(req);
+  }
+  return req;
+}
+
 interface AIMatchBreakdownModalProps {
   match: AIJobMatch | null;
   isOpen: boolean;
@@ -28,10 +51,11 @@ export default function AIMatchBreakdownModal({ match, isOpen, onOpenChange }: A
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="space-y-3">
+      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto rounded-xl border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
+        <div className="bg-gradient-to-b from-blue-50/50 to-transparent absolute top-0 left-0 right-0 h-20 pointer-events-none" />
+        <DialogHeader className="space-y-3 relative">
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center text-xl">
+            <DialogTitle className="flex items-center text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               <Sparkles className="h-5 w-5 mr-2 text-blue-500" />
               AI Match Breakdown
             </DialogTitle>
@@ -137,16 +161,16 @@ export default function AIMatchBreakdownModal({ match, isOpen, onOpenChange }: A
 
           {/* Job Requirements */}
           {match.job.requirements && match.job.requirements.length > 0 && (
-            <div>
-              <h4 className="font-semibold text-sm mb-2 flex items-center">
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+              <h4 className="font-semibold text-sm mb-3 flex items-center">
                 <Briefcase className="h-4 w-4 mr-2 text-purple-500" />
                 Job Requirements
               </h4>
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {match.job.requirements.slice(0, 5).map((req, index) => (
                   <li key={index} className="text-sm text-slate-600 dark:text-slate-400 flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    {req}
+                    <span className="text-purple-500 mr-2 mt-1">•</span>
+                    <span className="leading-relaxed">{cleanRequirement(req)}</span>
                   </li>
                 ))}
               </ul>
