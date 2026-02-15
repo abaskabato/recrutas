@@ -35,10 +35,81 @@ import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { hiringCafeService } from './services/hiring-cafe.service';
 import { jobIngestionService } from './services/job-ingestion.service';
+import { calculateMLMatchScore, getModelInfo } from './ml-matching';
 
 // In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
 let remoteOkCache: { data: any[]; timestamp: number } | null = null;
 const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+// ML-enhanced job scoring (optional enhancement)
+let mlScoringEnabled = true; // Toggle for ML matching
+
+/**
+ * Enhanced job scoring using ML embeddings (open-source)
+ */
+async function scoreJobWithML(
+  candidateSkills: string[],
+  candidateExperience: string,
+  job: any
+): Promise<{
+  matchScore: number;
+  skillMatches: string[];
+  aiExplanation: string;
+  confidenceLevel: number;
+}> {
+  if (!mlScoringEnabled) {
+    // Fallback to simple matching
+    const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
+    const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
+    const matchingSkills = normalizedSkills.filter((s: string) =>
+      jobSkills.some((js: string) => js.includes(s) || s.includes(js))
+    );
+    const matchScore = matchingSkills.length > 0
+      ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
+      : 0;
+    return {
+      matchScore,
+      skillMatches: matchingSkills,
+      aiExplanation: matchingSkills.length > 0
+        ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
+        : 'No skill matches found',
+      confidenceLevel: 1,
+    };
+  }
+
+  try {
+    // Use ML matching
+    const mlResult = await calculateMLMatchScore(
+      candidateSkills,
+      candidateExperience,
+      job.title || '',
+      job.description || '',
+      job.requirements || [],
+      job.skills || []
+    );
+
+    return {
+      matchScore: mlResult.score,
+      skillMatches: mlResult.skillMatches,
+      aiExplanation: mlResult.explanation,
+      confidenceLevel: Math.round(mlResult.confidence / 100),
+    };
+  } catch (error) {
+    console.warn('[ML Scoring] Falling back to simple matching:', error);
+    // Fallback to simple matching on error
+    const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
+    const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
+    const matchingSkills = normalizedSkills.filter((s: string) =>
+      jobSkills.some((js: string) => js.includes(s) || s.includes(js))
+    );
+    return {
+      matchScore: matchingSkills.length > 0 ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100) : 0,
+      skillMatches: matchingSkills,
+      aiExplanation: matchingSkills.length > 0 ? `${matchingSkills.length} skill matches` : 'No match',
+      confidenceLevel: 1,
+    };
+  }
+}
 
 type AggregatedJob = (JobPosting | CompanyJob) & { aiCurated: boolean };
 
@@ -302,6 +373,23 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // ML Matching info endpoint
+  app.get('/api/ml-matching/status', async (req, res) => {
+    try {
+      const modelInfo = getModelInfo();
+      res.json({
+        status: 'available',
+        ...modelInfo,
+        note: 'Using open-source Xenova/all-MiniLM-L6-v2 model for semantic embeddings',
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: 'ML matching service unavailable',
+      });
+    }
+  });
+
   // Layoff news endpoint
   app.get('/api/news/layoffs', async (req, res) => {
     try {
@@ -412,28 +500,30 @@ export async function registerRoutes(app: Express): Promise<Express> {
           .catch(err => console.error('[HiringCafe] Ingestion failed:', err?.message));
       }
 
-      // Score hiring.cafe jobs against candidate skills (same logic as fetchScoredJobs)
-      const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
-      let scoredCafeJobs = cafeJobs
-        .map(job => {
-          const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
-          const matchingSkills = normalizedSkills.filter((s: string) => 
-            jobSkills.some((js: string) => js.includes(s) || s.includes(js))
-          );
-          const matchScore = matchingSkills.length > 0
-            ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
-            : 0;
-          return {
-            ...job,
-            id: `cafe_${job.externalId}`,
-            matchScore,
-            skillMatches: matchingSkills,
-            aiExplanation: matchingSkills.length > 0
-              ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
-              : 'Recently posted on hiring.cafe',
-            source: 'hiring-cafe',
-          };
-        });
+      // Score hiring.cafe jobs using ML matching (open-source transformers)
+      const candidateExperience = candidate?.experience || '';
+      let scoredCafeJobs: any[] = [];
+      
+      // Process in batches to avoid overwhelming the ML model
+      const batchSize = 5;
+      for (let i = 0; i < cafeJobs.length; i += batchSize) {
+        const batch = cafeJobs.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (job) => {
+            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job);
+            return {
+              ...job,
+              id: `cafe_${job.externalId}`,
+              matchScore: mlScore.matchScore,
+              skillMatches: mlScore.skillMatches,
+              aiExplanation: mlScore.aiExplanation,
+              confidenceLevel: mlScore.confidenceLevel,
+              source: 'hiring-cafe',
+            };
+          })
+        );
+        scoredCafeJobs.push(...batchResults);
+      }
 
       // If DB returned matches, filter cafe jobs to 40%+ match
       // If DB is empty, show ALL hiring.cafe jobs (no skill match required) for broader discovery
@@ -454,37 +544,38 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Add cafe job keys to seenKeys so RemoteOK deduplicates against them
       uniqueCafeJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
 
-      // Score and add RemoteOK jobs (deduplicated against DB + cafe jobs)
-      const scoredRemoteOkJobs = remoteOkJobs
-        .map((job: any) => {
-          const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
-          const matchingSkills = normalizedSkills.filter((s: string) =>
-            jobSkills.some((js: string) => js.includes(s) || s.includes(js))
-          );
-          const matchScore = matchingSkills.length > 0
-            ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
-            : 0;
-          return {
-            ...job,
-            id: `remoteok_${job.externalId}`,
-            matchScore,
-            skillMatches: matchingSkills,
-            aiExplanation: matchingSkills.length > 0
-              ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
-              : 'Recently posted on RemoteOK',
-            source: 'remote-ok',
-          };
-        })
-        .filter((job: any) => {
-          if (!seenKeys.has(`${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`)) {
-            if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
-              return true;
-            }
-          }
-          return false;
-        });
+      // Score and add RemoteOK jobs using ML matching
+      let scoredRemoteOkJobs: any[] = [];
+      for (let i = 0; i < remoteOkJobs.length; i += batchSize) {
+        const batch = remoteOkJobs.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (job: any) => {
+            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job);
+            return {
+              ...job,
+              id: `remoteok_${job.externalId}`,
+              matchScore: mlScore.matchScore,
+              skillMatches: mlScore.skillMatches,
+              aiExplanation: mlScore.aiExplanation,
+              confidenceLevel: mlScore.confidenceLevel,
+              source: 'remote-ok',
+            };
+          })
+        );
+        scoredRemoteOkJobs.push(...batchResults);
+      }
 
-      const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...scoredRemoteOkJobs];
+      // Filter RemoteOK jobs by match score and deduplication
+      const filteredRemoteOkJobs = scoredRemoteOkJobs.filter((job: any) => {
+        if (!seenKeys.has(`${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`)) {
+          if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...filteredRemoteOkJobs];
 
       console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe + ${scoredRemoteOkJobs.length} RemoteOK recommendations`);
 
