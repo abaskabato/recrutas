@@ -421,7 +421,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
         aiCurated: job.source !== 'internal' && job.source !== 'platform',
         confidenceScore: job.matchScore,
         externalSource: job.source,
-        externalUrl: job.externalUrl
+        externalUrl: job.externalUrl,
+        postedDate: job.postedDate || job.createdAt
       },
       matchScore: `${job.matchScore}%`,
       confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 90 : (job.matchScore > 60 ? 70 : 50)),
@@ -817,6 +818,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/resume/:resumePath', isAuthenticated, async (req: any, res) => {
     try {
       const resumePath = decodeURIComponent(req.params.resumePath);
+      if (!resumePath.startsWith(`resumes/${req.user.id}/`) && !resumePath.startsWith(`${req.user.id}/`)) {
+        return res.status(403).json({ message: "Not authorized to access this resume" });
+      }
       const signedUrl = await storage.getResumeSignedUrl(resumePath);
       res.json({ url: signedUrl });
     } catch (error) {
@@ -1418,6 +1422,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const applicationId = parseIntParam(req.params.applicationId);
       if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
+
+      const [application] = await db.select({ candidateId: jobApplications.candidateId })
+        .from(jobApplications).where(eq(jobApplications.id, applicationId));
+      if (!application || application.candidateId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
       const { answers } = req.body;
 
       if (!Array.isArray(answers)) {

@@ -44,7 +44,7 @@ function App() {
           <Route path="/talent-dashboard">
             <RoleGuard allowedRoles={['talent_owner', 'recruiter']}><TalentDashboard /></RoleGuard>
           </Route>
-          <Route path="/exam/:id">
+          <Route path="/exam/:jobId">
             <RoleGuard allowedRoles={['candidate', 'talent_owner', 'recruiter']}><ExamPage /></RoleGuard>
           </Route>
           <Route path="/chat/:id">
