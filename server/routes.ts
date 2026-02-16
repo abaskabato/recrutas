@@ -424,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         externalUrl: job.externalUrl
       },
       matchScore: `${job.matchScore}%`,
-      confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 3 : (job.matchScore > 60 ? 2 : 1)),
+      confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 90 : (job.matchScore > 60 ? 70 : 50)),
       skillMatches: job.skillMatches || [],
       aiExplanation: aiExplanation || job.aiExplanation,
       status: 'pending',
