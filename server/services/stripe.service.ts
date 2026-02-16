@@ -19,6 +19,7 @@ import {
 } from '../../shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { sql, gte, lte } from 'drizzle-orm/sql';
+import { CANDIDATE_PLANS, TALENT_OWNER_PLANS } from '../../shared/pricing';
 
 // Free tier limits - Candidates get unlimited everything (100% free model)
 const FREE_TIER_LIMITS: Record<string, number> = {
@@ -106,6 +107,57 @@ class StripeService {
       metadata: {
         userId,
         tierId: tierId.toString(),
+      },
+    });
+
+    return session.url!;
+  }
+
+  /**
+   * Create a Stripe checkout session by tier name (DB `name` column is UNIQUE)
+   */
+  async createCheckoutSessionByName(
+    userId: string,
+    tierName: string,
+    billingCycle: 'monthly' | 'yearly'
+  ): Promise<string> {
+    if (!this.stripe) {
+      throw new Error('Stripe is not configured');
+    }
+
+    const [tier] = await db.select()
+      .from(subscriptionTiers)
+      .where(eq(subscriptionTiers.name, tierName));
+
+    if (!tier) {
+      throw new Error(`Invalid subscription tier: ${tierName}`);
+    }
+
+    const priceId = billingCycle === 'monthly'
+      ? tier.stripePriceIdMonthly
+      : tier.stripePriceIdYearly;
+
+    if (!priceId) {
+      throw new Error('Price not configured for this tier and billing cycle');
+    }
+
+    const customerId = await this.getOrCreateCustomer(userId);
+
+    const session = await this.stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.APP_URL || 'http://localhost:5000'}/pricing`,
+      metadata: {
+        userId,
+        tierId: tier.id.toString(),
       },
     });
 
@@ -497,58 +549,39 @@ class StripeService {
       return;
     }
 
+    const candidateFeatures = CANDIDATE_PLANS[0].features
+      .filter(f => f.included).map(f => f.text);
+    const growthPlan = TALENT_OWNER_PLANS.find(p => p.tierName === 'Growth')!;
+    const scalePlan = TALENT_OWNER_PLANS.find(p => p.tierName === 'Scale')!;
+
     const defaultTiers = [
-      // Candidates are 100% free - no paid tiers
       {
         name: 'Candidate Free',
         type: 'candidate' as const,
         priceMonthly: 0,
         priceYearly: 0,
-        features: [
-          'Unlimited AI job matches',
-          'AI resume enhancement',
-          'Apply to unlimited jobs',
-          'Application tracking',
-          'Interview preparation tools',
-          'Priority support',
-        ],
-        limits: PREMIUM_TIER_LIMITS, // All features unlocked for free
+        features: candidateFeatures,
+        limits: PREMIUM_TIER_LIMITS,
         isActive: true,
       },
       {
-        name: 'Growth',
+        name: growthPlan.tierName!,
         type: 'talent_owner' as const,
-        priceMonthly: 14900, // $149.00
-        priceYearly: 149000, // $1,490.00
-        features: [
-          '10 active job postings',
-          'AI candidate ranking',
-          'Advanced analytics',
-          'Custom screening exams',
-          'Priority support',
-          'Team collaboration (3 users)',
-        ],
+        priceMonthly: growthPlan.priceMonthly * 100,
+        priceYearly: growthPlan.priceYearly * 100,
+        features: growthPlan.features.filter(f => f.included).map(f => f.text),
         limits: {
           ...PREMIUM_TIER_LIMITS,
-          job_post: 10, // Limited to 10 postings
+          job_post: 10,
         },
         isActive: true,
       },
       {
-        name: 'Scale',
+        name: scalePlan.tierName!,
         type: 'talent_owner' as const,
-        priceMonthly: 29900, // $299.00
-        priceYearly: 299000, // $2,990.00
-        features: [
-          'Unlimited job postings',
-          'AI candidate ranking',
-          'Advanced analytics',
-          'Custom screening exams',
-          'Priority support',
-          'Unlimited team members',
-          'API access',
-          'Dedicated account manager',
-        ],
+        priceMonthly: scalePlan.priceMonthly * 100,
+        priceYearly: scalePlan.priceYearly * 100,
+        features: scalePlan.features.filter(f => f.included).map(f => f.text),
         limits: PREMIUM_TIER_LIMITS,
         isActive: true,
       },

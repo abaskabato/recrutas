@@ -25,6 +25,7 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import SmartLogo from '@/components/smart-logo';
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import { CANDIDATE_PLANS, TALENT_OWNER_PLANS, type PricingPlan } from '@shared/pricing';
 
 interface SubscriptionStatus {
   status: string;
@@ -34,85 +35,8 @@ interface SubscriptionStatus {
   limits: Record<string, number>;
 }
 
-// Candidates are 100% FREE - no paid tiers
-const candidatePlans = [
-  {
-    id: 'free-candidate',
-    name: 'Free Forever',
-    description: 'All features included at no cost',
-    priceMonthly: 0,
-    priceYearly: 0,
-    features: [
-      { text: 'Unlimited AI job matches', included: true },
-      { text: 'AI resume enhancement', included: true },
-      { text: 'Apply to unlimited jobs', included: true },
-      { text: 'Application tracking', included: true },
-      { text: 'Interview preparation tools', included: true },
-      { text: 'Priority support', included: true },
-    ],
-    tierId: null,
-    icon: Zap,
-    popular: false,
-  },
-];
-
-// Define plans for talent owners - Updated pricing 2025
-const talentOwnerPlans = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    description: 'Perfect for getting started',
-    priceMonthly: 0,
-    priceYearly: 0,
-    features: [
-      { text: '3 active job postings', included: true },
-      { text: 'Basic applicant view', included: true },
-      { text: 'Manual screening', included: true },
-      { text: 'AI candidate ranking', included: false },
-      { text: 'Advanced analytics', included: false },
-      { text: 'Custom screening exams', included: false },
-    ],
-    tierId: null,
-    icon: Briefcase,
-  },
-  {
-    id: 'growth',
-    name: 'Growth',
-    description: 'For growing teams',
-    priceMonthly: 149,
-    priceYearly: 1490,
-    features: [
-      { text: '10 active job postings', included: true },
-      { text: 'AI candidate ranking', included: true },
-      { text: 'Advanced analytics', included: true },
-      { text: 'Custom screening exams', included: true },
-      { text: 'Priority support', included: true },
-      { text: 'Team collaboration (3 users)', included: true },
-    ],
-    tierId: 2,
-    icon: Building,
-    popular: true,
-  },
-  {
-    id: 'scale',
-    name: 'Scale',
-    description: 'For high-volume hiring',
-    priceMonthly: 299,
-    priceYearly: 2990,
-    features: [
-      { text: 'Unlimited job postings', included: true },
-      { text: 'AI candidate ranking', included: true },
-      { text: 'Advanced analytics', included: true },
-      { text: 'Custom screening exams', included: true },
-      { text: 'Priority support', included: true },
-      { text: 'Unlimited team members', included: true },
-      { text: 'API access', included: true },
-      { text: 'Dedicated account manager', included: true },
-    ],
-    tierId: 3,
-    icon: Crown,
-  },
-];
+const CANDIDATE_ICONS = [Zap] as const;
+const TALENT_OWNER_ICONS = [Briefcase, Building, Crown] as const;
 
 export default function PricingPage() {
   const session = useSession();
@@ -128,9 +52,9 @@ export default function PricingPage() {
 
   // Checkout mutation
   const checkoutMutation = useMutation({
-    mutationFn: async ({ tierId, billingCycle }: { tierId: number; billingCycle: string }) => {
+    mutationFn: async ({ tierName, billingCycle }: { tierName: string; billingCycle: string }) => {
       const response = await apiRequest('POST', '/api/stripe/create-checkout', {
-        tierId,
+        tierName,
         billingCycle,
       });
       const data = await response.json();
@@ -153,23 +77,22 @@ export default function PricingPage() {
     },
   });
 
-  const plans = userType === 'candidate' ? candidatePlans : talentOwnerPlans;
+  const plans = userType === 'candidate' ? CANDIDATE_PLANS : TALENT_OWNER_PLANS;
+  const icons = userType === 'candidate' ? CANDIDATE_ICONS : TALENT_OWNER_ICONS;
   const isPremium = subscription?.status === 'active';
 
-  const handleSelectPlan = (tierId: number | null) => {
+  const handleSelectPlan = (tierName: string | null) => {
     if (!session) {
-      // Redirect to auth with return URL
       setLocation('/auth?redirect=/pricing');
       return;
     }
 
-    if (!tierId) {
-      // Free plan - no action needed
+    if (!tierName) {
       return;
     }
 
     checkoutMutation.mutate({
-      tierId,
+      tierName,
       billingCycle: isYearly ? 'yearly' : 'monthly',
     });
   };
@@ -263,15 +186,15 @@ export default function PricingPage() {
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
+          {plans.map((plan, planIndex) => {
+            const Icon = icons[planIndex] ?? Zap;
             const price = isYearly ? plan.priceYearly : plan.priceMonthly;
-            const isCurrentPlan = isPremium && plan.tierId === subscription?.tier;
-            const isFreeAndActive = !plan.tierId && subscription?.status === 'free';
+            const isCurrentPlan = isPremium && plan.tierName === subscription?.tier;
+            const isFreeAndActive = !plan.tierName && subscription?.status === 'free';
 
             return (
               <Card
-                key={plan.id}
+                key={plan.name}
                 className={`relative transition-all ${
                   plan.popular
                     ? 'border-primary shadow-lg scale-[1.02]'
@@ -339,14 +262,13 @@ export default function PricingPage() {
                       checkoutMutation.isPending ||
                       isCurrentPlan ||
                       isFreeAndActive ||
-                      (!plan.tierId && isPremium)
+                      (!plan.tierName && isPremium)
                     }
                     onClick={() => {
-                      if (isPremium && !plan.tierId) {
-                        // Downgrade - go to portal
+                      if (isPremium && !plan.tierName) {
                         portalMutation.mutate();
                       } else {
-                        handleSelectPlan(plan.tierId);
+                        handleSelectPlan(plan.tierName);
                       }
                     }}
                   >
@@ -359,7 +281,7 @@ export default function PricingPage() {
                       'Current Plan'
                     ) : isFreeAndActive ? (
                       'Current Plan'
-                    ) : !plan.tierId ? (
+                    ) : !plan.tierName ? (
                       session ? 'Current Plan' : 'Get Started Free'
                     ) : (
                       'Upgrade Now'

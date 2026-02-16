@@ -3,79 +3,14 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Check, Building, Zap, Crown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import { apiRequest } from '@/lib/queryClient';
+import { TALENT_OWNER_PLANS, type PricingPlan } from '@shared/pricing';
 
-interface PricingPlan {
-  id: string;
-  name: string;
-  description: string;
-  priceMonthly: number;
-  priceYearly: number;
-  features: { text: string; included: boolean }[];
-  tierId: number | null;
-  icon: React.ElementType;
-  popular?: boolean;
-}
-
-const talentOwnerPlans: PricingPlan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    description: 'Perfect for getting started',
-    priceMonthly: 0,
-    priceYearly: 0,
-    features: [
-      { text: '3 active job postings', included: true },
-      { text: 'Basic applicant view', included: true },
-      { text: 'Manual screening', included: true },
-      { text: 'AI candidate ranking', included: false },
-      { text: 'Advanced analytics', included: false },
-      { text: 'Custom screening exams', included: false },
-    ],
-    tierId: null,
-    icon: Zap,
-  },
-  {
-    id: 'growth',
-    name: 'Growth',
-    description: 'For growing teams',
-    priceMonthly: 149,
-    priceYearly: 1490,
-    features: [
-      { text: '10 active job postings', included: true },
-      { text: 'AI candidate ranking', included: true },
-      { text: 'Advanced analytics', included: true },
-      { text: 'Custom screening exams', included: true },
-      { text: 'Priority support', included: true },
-      { text: 'Team collaboration (3 users)', included: true },
-    ],
-    tierId: 2,
-    icon: Building,
-    popular: true,
-  },
-  {
-    id: 'scale',
-    name: 'Scale',
-    description: 'For high-volume hiring',
-    priceMonthly: 299,
-    priceYearly: 2990,
-    features: [
-      { text: 'Unlimited job postings', included: true },
-      { text: 'AI candidate ranking', included: true },
-      { text: 'Advanced analytics', included: true },
-      { text: 'Custom screening exams', included: true },
-      { text: 'Priority support', included: true },
-      { text: 'Unlimited team members', included: true },
-      { text: 'API access', included: true },
-      { text: 'Dedicated account manager', included: true },
-    ],
-    tierId: 3,
-    icon: Crown,
-  },
-];
+const PLAN_ICONS = [Zap, Building, Crown] as const;
 
 export default function PricingPlanStep() {
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
@@ -87,8 +22,8 @@ export default function PricingPlanStep() {
 
   const handleSelectPlan = async (plan: PricingPlan) => {
     setSelectedPlan(plan);
-    
-    if (!plan.tierId) {
+
+    if (!plan.tierName) {
       // Free plan - skip payment, go to dashboard
       toast({
         title: 'Plan Selected',
@@ -102,7 +37,7 @@ export default function PricingPlanStep() {
     setIsLoading(true);
     try {
       const response = await apiRequest('POST', '/api/stripe/create-checkout', {
-        tierId: plan.tierId,
+        tierName: plan.tierName,
         billingCycle: isYearly ? 'yearly' : 'monthly',
       });
       
@@ -138,18 +73,11 @@ export default function PricingPlanStep() {
         <span className={`text-sm ${!isYearly ? 'font-semibold' : 'text-muted-foreground'}`}>
           Monthly
         </span>
-        <button
-          onClick={() => setIsYearly(!isYearly)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            isYearly ? 'bg-primary' : 'bg-gray-200'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              isYearly ? 'translate-x-6' : 'translate-x-1'
-            }`}
-          />
-        </button>
+        <Switch
+          id="billing-toggle"
+          checked={isYearly}
+          onCheckedChange={setIsYearly}
+        />
         <span className={`text-sm ${isYearly ? 'font-semibold' : 'text-muted-foreground'}`}>
           Yearly
         </span>
@@ -162,14 +90,14 @@ export default function PricingPlanStep() {
 
       {/* Pricing Cards */}
       <div className="grid md:grid-cols-3 gap-4">
-        {talentOwnerPlans.map((plan) => {
-          const Icon = plan.icon;
+        {TALENT_OWNER_PLANS.map((plan, planIndex) => {
+          const Icon = PLAN_ICONS[planIndex] ?? Zap;
           const price = isYearly ? plan.priceYearly : plan.priceMonthly;
-          const isSelected = selectedPlan?.id === plan.id;
+          const isSelected = selectedPlan?.name === plan.name;
 
           return (
             <Card
-              key={plan.id}
+              key={plan.name}
               className={`relative transition-all cursor-pointer ${
                 plan.popular
                   ? 'border-primary shadow-lg scale-[1.02]'
@@ -235,9 +163,9 @@ export default function PricingPlanStep() {
                   variant={plan.popular ? 'default' : 'outline'}
                   disabled={isLoading}
                 >
-                  {isLoading && selectedPlan?.id === plan.id
+                  {isLoading && selectedPlan?.name === plan.name
                     ? 'Processing...'
-                    : plan.tierId
+                    : plan.tierName
                     ? 'Choose Plan'
                     : 'Start Free'}
                 </Button>

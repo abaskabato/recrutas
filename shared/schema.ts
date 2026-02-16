@@ -132,6 +132,9 @@ export const jobPostings = pgTable("job_postings", {
   lastGhostCheck: timestamp("last_ghost_check"), // When ghost detection was last run
   companyVerified: boolean("company_verified").default(false), // Whether company email domain is verified
   recruiterEmailDomain: varchar("recruiter_email_domain"), // For company verification
+  // Pre-computed vector embedding for semantic search (stored as JSON array)
+  vectorEmbedding: text("vector_embedding"), 
+  embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

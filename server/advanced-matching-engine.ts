@@ -1,6 +1,11 @@
 import { generateJobMatch } from './ai-service';
 import { storage } from './storage';
 import { sql } from "drizzle-orm/sql";
+import { generateEmbedding, cosineSimilarity, generateCandidateEmbedding } from './ml-matching.js';
+import { semanticJobSearch, indexJobForSearch, hybridJobSearch, type SearchResult } from './vector-search.js';
+import { rankJobsWithLTR, learnToRank, type RankableJob, type CandidateProfile, type RankedJob } from './learn-to-rank.js';
+import { db } from './db.js';
+import { jobPostings } from '../shared/schema.js';
 
 export class MatchingEngineError extends Error {
   constructor(message: string, public cause?: Error) {
@@ -461,6 +466,207 @@ export class AdvancedMatchingEngine {
     // Clear cache to force refresh
     const keys = Array.from(this.matchCache.keys()).filter(key => key.startsWith(candidateId));
     keys.forEach(key => this.matchCache.delete(key));
+  }
+
+  async generateSOTAMatches(criteria: AdvancedMatchCriteria, limit: number = 50): Promise<EnhancedJobMatch[]> {
+    try {
+      console.log('[SOTA Matching] Starting SOTA job matching...');
+      
+      const [internalJobs, externalJobs] = await Promise.all([
+        storage.getJobPostings(''),
+        this.fetchExternalJobs(criteria)
+      ]);
+
+      const allJobs = [...internalJobs, ...externalJobs];
+
+      const rankableJobs: RankableJob[] = allJobs.map(job => ({
+        jobId: job.id,
+        title: job.title,
+        company: job.company,
+        description: job.description,
+        skills: job.skills || [],
+        requirements: job.requirements || [],
+        experienceLevel: job.experienceLevel,
+        workType: job.workType as any,
+        location: job.location,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        source: job.source,
+        createdAt: job.createdAt,
+        applicationCount: job.applicationCount,
+        trustScore: job.trustScore,
+      }));
+
+      const candidate: CandidateProfile = {
+        candidateId: criteria.candidateId,
+        skills: criteria.skills,
+        experience: criteria.experience,
+        workType: criteria.workType,
+        location: criteria.location,
+        salaryMin: criteria.salaryExpectation,
+        industry: criteria.industry,
+      };
+
+      const mlScores = new Map<number, { semantic?: number; skillMatch?: number }>();
+      for (const job of rankableJobs.slice(0, 100)) {
+        try {
+          const jobText = [job.title, ...job.skills, job.description?.slice(0, 500)].join(' ');
+          const candidateText = [...criteria.skills, criteria.experience].join(' ');
+          
+          const [jobEmb, candEmb] = await Promise.all([
+            generateEmbedding(jobText),
+            generateEmbedding(candidateText)
+          ]);
+          
+          const semanticSim = cosineSimilarity(jobEmb.embedding, candEmb.embedding);
+          const skillMatch = this.calculateSimpleSkillMatch(criteria.skills, job.skills);
+          
+          mlScores.set(job.jobId, { semantic: semanticSim, skillMatch });
+        } catch (e) {
+          console.warn(`[SOTA Matching] Could not compute ML score for job ${job.jobId}:`, e);
+        }
+      }
+
+      console.log('[SOTA Matching] Running learn-to-rank model...');
+      const rankedJobs = rankJobsWithLTR(rankableJobs, candidate, mlScores);
+
+      const matches: EnhancedJobMatch[] = rankedJobs.slice(0, limit).map((ranked: RankedJob) => {
+        const job = rankableJobs.find(j => j.jobId === ranked.jobId)!;
+        
+        return {
+          jobId: ranked.jobId,
+          matchScore: ranked.finalScore * 100,
+          confidenceLevel: Math.round(ranked.finalScore * 100),
+          skillMatches: ranked.features.skillMatchScore > 0.5 ? criteria.skills.slice(0, 5) : [],
+          aiExplanation: ranked.explanation,
+          urgencyScore: this.calculateUrgencyScore(job),
+          semanticRelevance: ranked.features.semanticSimilarity,
+          recencyScore: ranked.features.recencyScore,
+          livenessScore: ranked.features.companyTrustScore,
+          personalizationScore: ranked.features.personalizationScore,
+          finalScore: ranked.finalScore,
+          trustScore: ranked.features.companyTrustScore * 100,
+          livenessStatus: ranked.features.companyTrustScore > 0.8 ? 'active' : 'unknown',
+          isVerifiedActive: ranked.features.companyTrustScore > 0.85,
+          isDirectFromCompany: job.source === 'platform' || job.source === 'internal',
+          compatibilityFactors: {
+            skillAlignment: ranked.features.skillMatchScore,
+            experienceMatch: ranked.features.experienceAlignment,
+            locationFit: ranked.features.locationFit,
+            salaryMatch: ranked.features.salaryFit,
+            industryRelevance: ranked.features.personalizationScore,
+          },
+        };
+      });
+
+      console.log(`[SOTA Matching] Generated ${matches.length} ranked jobs`);
+      return matches;
+    } catch (error) {
+      console.error('[SOTA Matching] Error:', error);
+      throw new MatchingEngineError('SOTA matching failed', error instanceof Error ? error : undefined);
+    }
+  }
+
+  private calculateSimpleSkillMatch(candidateSkills: string[], jobSkills: string[]): number {
+    if (!candidateSkills?.length || !jobSkills?.length) return 0;
+    
+    const normalizedCand = candidateSkills.map(s => s.toLowerCase());
+    const normalizedJob = jobSkills.map(s => s.toLowerCase());
+    
+    let matches = 0;
+    for (const cs of normalizedCand) {
+      if (normalizedJob.some(js => js.includes(cs) || cs.includes(js))) {
+        matches++;
+      }
+    }
+    
+    return Math.min(matches / normalizedJob.length, 1);
+  }
+
+  getLTRStats() {
+    return learnToRank.getStats();
+  }
+
+  async fastMatchWithStoredEmbeddings(
+    criteria: AdvancedMatchCriteria,
+    limit: number = 20
+  ): Promise<EnhancedJobMatch[]> {
+    try {
+      const candidateText = [...criteria.skills, criteria.experience].join(' ');
+      const candidateEmbedding = await generateCandidateEmbedding(criteria.skills, criteria.experience);
+
+      const jobsWithEmbeddings = await db
+        .select({
+          id: jobPostings.id,
+          title: jobPostings.title,
+          company: jobPostings.company,
+          description: jobPostings.description,
+          skills: jobPostings.skills,
+          location: jobPostings.location,
+          workType: jobPostings.workType,
+          salaryMin: jobPostings.salaryMin,
+          salaryMax: jobPostings.salaryMax,
+          source: jobPostings.source,
+          status: jobPostings.status,
+          createdAt: jobPostings.createdAt,
+          trustScore: jobPostings.trustScore,
+          vectorEmbedding: jobPostings.vectorEmbedding,
+        })
+        .from(jobPostings)
+        .where(sql`${jobPostings.status} = 'active' AND ${jobPostings.vectorEmbedding} IS NOT NULL`)
+        .limit(500);
+
+      const matches: EnhancedJobMatch[] = [];
+
+      for (const job of jobsWithEmbeddings) {
+        if (!job.vectorEmbedding) continue;
+
+        try {
+          const jobEmbedding = JSON.parse(job.vectorEmbedding);
+          const semanticSim = cosineSimilarity(candidateEmbedding, jobEmbedding);
+          const skillMatch = this.calculateSimpleSkillMatch(criteria.skills, job.skills || []);
+
+          const finalScore = (semanticSim * 0.6) + (skillMatch * 0.4);
+
+          if (finalScore >= 0.3) {
+            matches.push({
+              jobId: job.id,
+              matchScore: finalScore * 100,
+              confidenceLevel: Math.round(finalScore * 100),
+              skillMatches: criteria.skills.filter(s => 
+                (job.skills || []).some(js => js.toLowerCase().includes(s.toLowerCase()))
+              ),
+              aiExplanation: `Semantic match: ${Math.round(semanticSim * 100)}%, Skill match: ${Math.round(skillMatch * 100)}%`,
+              urgencyScore: 0.5,
+              semanticRelevance: semanticSim,
+              recencyScore: this.calculateRecencyScore(job),
+              livenessScore: (job.trustScore || 50) / 100,
+              personalizationScore: 0.5,
+              finalScore,
+              trustScore: job.trustScore || 50,
+              livenessStatus: (job.trustScore || 50) > 70 ? 'active' : 'unknown',
+              isVerifiedActive: (job.trustScore || 50) > 85,
+              isDirectFromCompany: job.source === 'platform' || job.source === 'internal',
+              compatibilityFactors: {
+                skillAlignment: skillMatch,
+                experienceMatch: 0.5,
+                locationFit: 0.5,
+                salaryMatch: 0.5,
+                industryRelevance: 0.5,
+              },
+            });
+          }
+        } catch (e) {
+          console.warn(`[FastMatch] Error processing job ${job.id}:`, e);
+        }
+      }
+
+      matches.sort((a, b) => b.finalScore - a.finalScore);
+      return matches.slice(0, limit);
+    } catch (error) {
+      console.error('[FastMatch] Error:', error);
+      return [];
+    }
   }
 }
 
