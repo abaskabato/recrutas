@@ -61,12 +61,11 @@ jobs:
           fi
           
           if [ "$FORCE" = "true" ]; then
-            npx tsx server/services/batch-embedding.service.ts --force
+            BATCH_LIMIT=$LIMIT npx tsx server/services/batch-embedding.service.ts --force
           else
-            npx tsx server/services/batch-embedding.service.ts
+            BATCH_LIMIT=$LIMIT npx tsx server/services/batch-embedding.service.ts
           fi
         env:
-          BATCH_LIMIT: ${{ github.event.inputs.limit || '500' }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Report results

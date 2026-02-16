@@ -130,7 +130,7 @@ class LearnToRankModel {
 
   private trainingData: TrainingSample[] = [];
   private isTrained: boolean = false;
-  private bias: number = 0.5;
+  private bias: number = 0;
 
   constructor() {
     this.loadWeights();
@@ -245,8 +245,8 @@ class LearnToRankModel {
     if (!jobMin && !jobMax) return 0.5;
     if (!candidateMin && !candidateMax) return 0.5;
 
-    const jobMid = (jobMin || 0) + (jobMax || 0) / 2;
-    const candidateMid = (candidateMin || 0) + (candidateMax || 0) / 2;
+    const jobMid = ((jobMin || 0) + (jobMax || 0)) / 2;
+    const candidateMid = ((candidateMin || 0) + (candidateMax || 0)) / 2;
 
     if (jobMid >= (candidateMin || 0) && jobMid <= (candidateMax || Infinity)) return 1;
     if (jobMid < candidateMid) return Math.max(0, 1 - (candidateMid - jobMid) / candidateMid);

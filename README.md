@@ -687,7 +687,7 @@ Triggers external job scraping (hiring.cafe, RemoteOK)
 
 ```bash
 # Manual trigger
-npx tsx server/services/batch-embeddings.service.ts --force
+npx tsx server/services/batch-embedding.service.ts --force
 ```
 
 ### In-Process Services
