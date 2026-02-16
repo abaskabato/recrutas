@@ -58,7 +58,6 @@ function GuidedSetupContent() {
   const talentOwnerSteps = [
     { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Company', component: <CompanyProfileStep /> },
-    { name: 'Plan', component: <PricingPlanStep /> },
   ];
 
   const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep /> }];

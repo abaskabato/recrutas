@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { 
   Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, 
   MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, 
-  Loader2, Send, Building, Upload, FileText, CheckCircle, Shield, Globe,
+  Send, Building, Shield, Globe, CheckCircle,
   Target, Rocket, Award, ChevronRight, ArrowLeft
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -178,13 +178,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<Record<number, Array<{sender: string, message: string}>>>({});
   const [newMessage, setNewMessage] = useState("");
-  
-  // Resume upload state
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumeUploading, setResumeUploading] = useState(false);
-  const [resumeUploaded, setResumeUploaded] = useState(false);
-  const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch external jobs based on skills and filters
   const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
@@ -217,38 +210,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
       return () => clearTimeout(timer);
     }
   }, [step]);
-
-  const handleResumeUpload = async (file: File) => {
-    setResumeUploading(true);
-    const formData = new FormData();
-    formData.append('resume', file);
-
-    try {
-      const response = await fetch('/api/resume/parse', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setExtractedSkills(result.skills || []);
-        setSkills(result.skills?.join(', ') || skills);
-        setResumeUploaded(true);
-      }
-    } catch (error) {
-      console.error('Resume upload failed:', error);
-    } finally {
-      setResumeUploading(false);
-    }
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && (file.type === 'application/pdf' || file.type.includes('word'))) {
-      setResumeFile(file);
-      handleResumeUpload(file);
-    }
-  };
 
   const handleSkillsSubmit = () => {
     if (jobTitle.trim() || skills.trim()) {
@@ -335,7 +296,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className={`p-0 border-0 overflow-hidden ${
         theme === 'dark' ? 'bg-slate-900' : 'bg-white'
       } backdrop-blur-2xl shadow-2xl max-w-4xl w-[95vw] max-h-[90vh]`}>
@@ -435,11 +396,15 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}
                 >
-                  Find Your{' '}
+                  Skip the{' '}
                   <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                    Dream Job
-                  </span>{' '}
-                  in 30 Seconds
+                    Recruiters
+                  </span>
+                  <br />
+                  Talk to{' '}
+                  <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                    Real People
+                  </span>
                 </motion.h1>
 
                 {/* Subheadline */}
@@ -449,8 +414,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   transition={{ delay: 0.3 }}
                   className={`text-base sm:text-lg mb-8 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}
                 >
-                  Get matched with real jobs from top companies. Chat directly with recruiters 
-                  and track your applications—all in one place.
+                  Connect directly with hiring managers. No middlemen, no fees, no black holes.
                 </motion.p>
 
                 {/* Benefits Grid */}
@@ -652,52 +616,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                           {option.label}
                         </button>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Resume Upload - Optional */}
-                  <div className={`p-4 rounded-xl border-2 border-dashed ${
-                    theme === 'dark' ? 'border-slate-700/50 bg-slate-800/30' : 'border-gray-300 bg-gray-50'
-                  }`}>
-                    <div className="text-center">
-                      <FileText className={`w-8 h-8 mx-auto mb-2 ${
-                        theme === 'dark' ? 'text-slate-400' : 'text-gray-400'
-                      }`} />
-                      <p className={`text-sm mb-3 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}>
-                        Upload your resume for better matches
-                      </p>
-                      
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                      
-                      {!resumeUploaded ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={resumeUploading}
-                        >
-                          {resumeUploading ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Upload className="w-4 h-4 mr-2" />
-                          )}
-                          {resumeUploading ? 'Processing...' : 'Upload Resume (Optional)'}
-                        </Button>
-                      ) : (
-                        <div className={`flex items-center justify-center gap-2 ${
-                          theme === 'dark' ? 'text-green-400' : 'text-green-600'
-                        }`}>
-                          <CheckCircle className="w-4 h-4" />
-                          <span className="text-sm">Resume uploaded successfully</span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
