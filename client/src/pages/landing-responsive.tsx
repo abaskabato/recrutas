@@ -368,7 +368,7 @@ export default function LandingResponsive() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-sm text-slate-500 dark:text-slate-400 mb-4 md:mb-0">
-              © 2025 Recrutas. All rights reserved.
+              © {new Date().getFullYear()} Recrutas. All rights reserved.
             </div>
             <div className="flex space-x-4">
               <a href="/privacy" className="text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white">Privacy Policy</a>

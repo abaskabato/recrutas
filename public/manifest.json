@@ -1,0 +1,14 @@
+{
+  "name": "Recrutas - Job Search. Reinvented.",
+  "short_name": "Recrutas",
+  "theme_color": "#10B981",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
