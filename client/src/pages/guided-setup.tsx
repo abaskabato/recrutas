@@ -7,6 +7,7 @@ import ResumeUploadStep from '@/components/guided-setup/ResumeUploadStep';
 import BasicInfoStep from '@/components/guided-setup/BasicInfoStep';
 import SkillsStep from '@/components/guided-setup/SkillsStep';
 import CompanyProfileStep from '@/components/guided-setup/CompanyProfileStep';
+import PricingPlanStep from '@/components/guided-setup/PricingPlanStep';
 
 import { ChevronLeft } from 'lucide-react';
 import { SignOutButton } from '@/components/SignOutButton';
@@ -48,18 +49,19 @@ function GuidedSetupContent() {
   };
 
   const candidateSteps = [
-    { name: 'Role', component: <RoleSelectionStep setRoleMutation={handleRoleSelect} /> },
+    { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Resume', component: <ResumeUploadStep /> },
     { name: 'Info', component: <BasicInfoStep /> },
     { name: 'Skills', component: <SkillsStep /> },
   ];
 
   const talentOwnerSteps = [
-    { name: 'Role', component: <RoleSelectionStep setRoleMutation={handleRoleSelect} /> },
+    { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Company', component: <CompanyProfileStep /> },
+    { name: 'Plan', component: <PricingPlanStep /> },
   ];
 
-  const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep setRoleMutation={handleRoleSelect} /> }];
+  const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep /> }];
   const currentStep = steps[step - 1];
   const progress = (step / steps.length) * 100;
 

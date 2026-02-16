@@ -34,49 +34,32 @@ interface SubscriptionStatus {
   limits: Record<string, number>;
 }
 
-// Define plans for candidates
+// Candidates are 100% FREE - no paid tiers
 const candidatePlans = [
   {
     id: 'free-candidate',
-    name: 'Free',
-    description: 'Get started with basic features',
+    name: 'Free Forever',
+    description: 'All features included at no cost',
     priceMonthly: 0,
     priceYearly: 0,
     features: [
-      { text: '10 AI job matches per day', included: true },
-      { text: 'Basic profile', included: true },
-      { text: 'Apply to jobs', included: true },
-      { text: 'Unlimited AI matches', included: false },
-      { text: 'Priority visibility', included: false },
-      { text: 'AI resume enhancement', included: false },
+      { text: 'Unlimited AI job matches', included: true },
+      { text: 'AI resume enhancement', included: true },
+      { text: 'Apply to unlimited jobs', included: true },
+      { text: 'Application tracking', included: true },
+      { text: 'Interview preparation tools', included: true },
+      { text: 'Priority support', included: true },
     ],
     tierId: null,
     icon: Zap,
-  },
-  {
-    id: 'pro-candidate',
-    name: 'Pro',
-    description: 'Supercharge your job search',
-    priceMonthly: 9.99,
-    priceYearly: 99,
-    features: [
-      { text: 'Unlimited AI job matches', included: true },
-      { text: 'Priority visibility to recruiters', included: true },
-      { text: 'AI resume enhancement', included: true },
-      { text: 'Application tracking insights', included: true },
-      { text: 'Interview preparation tips', included: true },
-      { text: 'Priority support', included: true },
-    ],
-    tierId: 1,
-    icon: Crown,
-    popular: true,
+    popular: false,
   },
 ];
 
-// Define plans for talent owners
+// Define plans for talent owners - Updated pricing 2025
 const talentOwnerPlans = [
   {
-    id: 'free-talent',
+    id: 'starter',
     name: 'Starter',
     description: 'Perfect for getting started',
     priceMonthly: 0,
@@ -85,30 +68,49 @@ const talentOwnerPlans = [
       { text: '3 active job postings', included: true },
       { text: 'Basic applicant view', included: true },
       { text: 'Manual screening', included: true },
-      { text: 'Unlimited postings', included: false },
       { text: 'AI candidate ranking', included: false },
       { text: 'Advanced analytics', included: false },
+      { text: 'Custom screening exams', included: false },
     ],
     tierId: null,
     icon: Briefcase,
   },
   {
-    id: 'business-talent',
-    name: 'Business',
-    description: 'Scale your hiring',
-    priceMonthly: 49.99,
-    priceYearly: 499,
+    id: 'growth',
+    name: 'Growth',
+    description: 'For growing teams',
+    priceMonthly: 149,
+    priceYearly: 1490,
     features: [
-      { text: 'Unlimited job postings', included: true },
+      { text: '10 active job postings', included: true },
       { text: 'AI candidate ranking', included: true },
-      { text: 'Advanced analytics dashboard', included: true },
+      { text: 'Advanced analytics', included: true },
       { text: 'Custom screening exams', included: true },
       { text: 'Priority support', included: true },
-      { text: 'Team collaboration', included: true },
+      { text: 'Team collaboration (3 users)', included: true },
     ],
     tierId: 2,
     icon: Building,
     popular: true,
+  },
+  {
+    id: 'scale',
+    name: 'Scale',
+    description: 'For high-volume hiring',
+    priceMonthly: 299,
+    priceYearly: 2990,
+    features: [
+      { text: 'Unlimited job postings', included: true },
+      { text: 'AI candidate ranking', included: true },
+      { text: 'Advanced analytics', included: true },
+      { text: 'Custom screening exams', included: true },
+      { text: 'Priority support', included: true },
+      { text: 'Unlimited team members', included: true },
+      { text: 'API access', included: true },
+      { text: 'Dedicated account manager', included: true },
+    ],
+    tierId: 3,
+    icon: Crown,
   },
 ];
 

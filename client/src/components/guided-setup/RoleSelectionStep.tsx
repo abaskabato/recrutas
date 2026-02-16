@@ -23,12 +23,10 @@ export default function RoleSelectionStep() {
         description: 'Your profile has been updated.',
       });
 
-      // Redirect to appropriate dashboard based on role
-      if (role === 'talent_owner') {
-        setLocation('/talent-dashboard');
-      } else if (role === 'candidate') {
-        setLocation('/candidate-dashboard');
-      }
+      // Move to next step in guided setup flow
+      // Talent owners go through: Role -> Company -> Pricing
+      // Candidates go through: Role -> Resume -> Info -> Skills
+      setStep(2);
     },
     onError: () => {
       toast({

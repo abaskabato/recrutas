@@ -20,13 +20,13 @@ import {
 import { eq, and } from 'drizzle-orm';
 import { sql, gte, lte } from 'drizzle-orm/sql';
 
-// Free tier limits
+// Free tier limits - Candidates get unlimited everything (100% free model)
 const FREE_TIER_LIMITS: Record<string, number> = {
-  ai_match: 10,        // 10 AI matches per day
-  job_post: 3,         // 3 active job postings
-  resume_enhancement: 1, // 1 AI resume enhancement
-  candidate_ranking: 0,  // No AI candidate ranking (premium only)
-  analytics: 0,         // No advanced analytics (premium only)
+  ai_match: -1,        // Unlimited for candidates
+  job_post: 3,         // 3 active job postings (for talent owners)
+  resume_enhancement: -1, // Unlimited for candidates
+  candidate_ranking: 0,  // No AI candidate ranking on free tier
+  analytics: 0,         // No advanced analytics on free tier
 };
 
 // Premium tier limits (-1 means unlimited)
@@ -487,6 +487,7 @@ class StripeService {
 
   /**
    * Initialize default subscription tiers (run once on setup)
+   * Updated 2025: Candidates are free, Recruiters have 3 tiers
    */
   async initializeDefaultTiers(): Promise<void> {
     const existingTiers = await db.select().from(subscriptionTiers);
@@ -497,33 +498,56 @@ class StripeService {
     }
 
     const defaultTiers = [
+      // Candidates are 100% free - no paid tiers
       {
-        name: 'Candidate Pro',
+        name: 'Candidate Free',
         type: 'candidate' as const,
-        priceMonthly: 999, // $9.99
-        priceYearly: 9900, // $99.00
+        priceMonthly: 0,
+        priceYearly: 0,
         features: [
           'Unlimited AI job matches',
-          'Priority visibility to recruiters',
           'AI resume enhancement',
-          'Application tracking insights',
-          'Interview preparation tips',
+          'Apply to unlimited jobs',
+          'Application tracking',
+          'Interview preparation tools',
+          'Priority support',
         ],
-        limits: PREMIUM_TIER_LIMITS,
+        limits: PREMIUM_TIER_LIMITS, // All features unlocked for free
         isActive: true,
       },
       {
-        name: 'Talent Owner Business',
+        name: 'Growth',
         type: 'talent_owner' as const,
-        priceMonthly: 4999, // $49.99
-        priceYearly: 49900, // $499.00
+        priceMonthly: 14900, // $149.00
+        priceYearly: 149000, // $1,490.00
+        features: [
+          '10 active job postings',
+          'AI candidate ranking',
+          'Advanced analytics',
+          'Custom screening exams',
+          'Priority support',
+          'Team collaboration (3 users)',
+        ],
+        limits: {
+          ...PREMIUM_TIER_LIMITS,
+          job_post: 10, // Limited to 10 postings
+        },
+        isActive: true,
+      },
+      {
+        name: 'Scale',
+        type: 'talent_owner' as const,
+        priceMonthly: 29900, // $299.00
+        priceYearly: 299000, // $2,990.00
         features: [
           'Unlimited job postings',
           'AI candidate ranking',
-          'Advanced analytics dashboard',
+          'Advanced analytics',
           'Custom screening exams',
           'Priority support',
-          'Team collaboration',
+          'Unlimited team members',
+          'API access',
+          'Dedicated account manager',
         ],
         limits: PREMIUM_TIER_LIMITS,
         isActive: true,
@@ -531,7 +555,7 @@ class StripeService {
     ];
 
     await db.insert(subscriptionTiers).values(defaultTiers);
-    console.log('[StripeService] Default subscription tiers created');
+    console.log('[StripeService] Default subscription tiers created (2025 pricing)');
   }
 }
 

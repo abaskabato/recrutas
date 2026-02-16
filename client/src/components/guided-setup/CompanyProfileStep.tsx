@@ -29,10 +29,10 @@ export default function CompanyProfileStep() {
 
       toast({
         title: 'Profile Updated',
-        description: 'Your company profile has been saved. Redirecting to dashboard...',
+        description: 'Your company profile has been saved.',
       });
-      // Redirect to dashboard as requested, skipping Job Post step in setup
-      setLocation('/talent-dashboard');
+      // Move to pricing plan selection step
+      setStep(3);
     },
     onError: (error) => {
       console.error('Company profile update failed:', error);
