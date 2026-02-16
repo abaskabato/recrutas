@@ -35,14 +35,41 @@ import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { hiringCafeService } from './services/hiring-cafe.service';
 import { jobIngestionService } from './services/job-ingestion.service';
-import { calculateMLMatchScore, getModelInfo } from './ml-matching';
+import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo } from './ml-matching';
 
 // In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
 let remoteOkCache: { data: any[]; timestamp: number } | null = null;
 const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
-// ML-enhanced job scoring (optional enhancement)
-let mlScoringEnabled = true; // Toggle for ML matching
+// ML-enhanced job scoring (disable with ENABLE_ML_MATCHING=false)
+const mlScoringEnabled = process.env.ENABLE_ML_MATCHING !== 'false';
+
+/**
+ * Simple skill-matching fallback (no ML model needed)
+ */
+function simpleSkillMatch(candidateSkills: string[], job: any): {
+  matchScore: number;
+  skillMatches: string[];
+  aiExplanation: string;
+  confidenceLevel: number;
+} {
+  const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
+  const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
+  const matchingSkills = normalizedSkills.filter((s: string) =>
+    jobSkills.some((js: string) => js.includes(s) || s.includes(js))
+  );
+  const matchScore = matchingSkills.length > 0
+    ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
+    : 0;
+  return {
+    matchScore,
+    skillMatches: matchingSkills,
+    aiExplanation: matchingSkills.length > 0
+      ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
+      : 'No skill matches found',
+    confidenceLevel: 1,
+  };
+}
 
 /**
  * Enhanced job scoring using ML embeddings (open-source)
@@ -50,7 +77,8 @@ let mlScoringEnabled = true; // Toggle for ML matching
 async function scoreJobWithML(
   candidateSkills: string[],
   candidateExperience: string,
-  job: any
+  job: any,
+  precomputedCandidateEmbedding?: number[]
 ): Promise<{
   matchScore: number;
   skillMatches: string[];
@@ -58,56 +86,29 @@ async function scoreJobWithML(
   confidenceLevel: number;
 }> {
   if (!mlScoringEnabled) {
-    // Fallback to simple matching
-    const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
-    const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
-    const matchingSkills = normalizedSkills.filter((s: string) =>
-      jobSkills.some((js: string) => js.includes(s) || s.includes(js))
-    );
-    const matchScore = matchingSkills.length > 0
-      ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
-      : 0;
-    return {
-      matchScore,
-      skillMatches: matchingSkills,
-      aiExplanation: matchingSkills.length > 0
-        ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
-        : 'No skill matches found',
-      confidenceLevel: 1,
-    };
+    return simpleSkillMatch(candidateSkills, job);
   }
 
   try {
-    // Use ML matching
     const mlResult = await calculateMLMatchScore(
       candidateSkills,
       candidateExperience,
       job.title || '',
       job.description || '',
       job.requirements || [],
-      job.skills || []
+      job.skills || [],
+      precomputedCandidateEmbedding
     );
 
     return {
       matchScore: mlResult.score,
       skillMatches: mlResult.skillMatches,
       aiExplanation: mlResult.explanation,
-      confidenceLevel: Math.round(mlResult.confidence / 100),
+      confidenceLevel: mlResult.confidence, // 0-100, no division
     };
   } catch (error) {
     console.warn('[ML Scoring] Falling back to simple matching:', error);
-    // Fallback to simple matching on error
-    const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
-    const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
-    const matchingSkills = normalizedSkills.filter((s: string) =>
-      jobSkills.some((js: string) => js.includes(s) || s.includes(js))
-    );
-    return {
-      matchScore: matchingSkills.length > 0 ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100) : 0,
-      skillMatches: matchingSkills,
-      aiExplanation: matchingSkills.length > 0 ? `${matchingSkills.length} skill matches` : 'No match',
-      confidenceLevel: 1,
-    };
+    return simpleSkillMatch(candidateSkills, job);
   }
 }
 
@@ -423,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         externalUrl: job.externalUrl
       },
       matchScore: `${job.matchScore}%`,
-      confidenceLevel: job.matchScore > 80 ? 3 : (job.matchScore > 60 ? 2 : 1),
+      confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 3 : (job.matchScore > 60 ? 2 : 1)),
       skillMatches: job.skillMatches || [],
       aiExplanation: aiExplanation || job.aiExplanation,
       status: 'pending',
@@ -502,15 +503,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Score hiring.cafe jobs using ML matching (open-source transformers)
       const candidateExperience = candidate?.experience || '';
+
+      // Pre-compute candidate embedding once (reused across all jobs)
+      let candidateEmbedding: number[] | undefined;
+      if (mlScoringEnabled && candidateSkills.length > 0) {
+        try {
+          candidateEmbedding = await generateCandidateEmbedding(candidateSkills, candidateExperience);
+        } catch (err) {
+          console.warn('[ML Scoring] Failed to pre-compute candidate embedding:', err);
+        }
+      }
+
       let scoredCafeJobs: any[] = [];
-      
+
       // Process in batches to avoid overwhelming the ML model
       const batchSize = 5;
       for (let i = 0; i < cafeJobs.length; i += batchSize) {
         const batch = cafeJobs.slice(i, i + batchSize);
         const batchResults = await Promise.all(
           batch.map(async (job) => {
-            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job);
+            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
             return {
               ...job,
               id: `cafe_${job.externalId}`,
@@ -550,7 +562,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         const batch = remoteOkJobs.slice(i, i + batchSize);
         const batchResults = await Promise.all(
           batch.map(async (job: any) => {
-            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job);
+            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
             return {
               ...job,
               id: `remoteok_${job.externalId}`,
@@ -577,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...filteredRemoteOkJobs];
 
-      console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe + ${scoredRemoteOkJobs.length} RemoteOK recommendations`);
+      console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe + ${filteredRemoteOkJobs.length} RemoteOK recommendations`);
 
       // If still no recommendations, fetch recent jobs from DB as fallback (no skill matching)
       if (allRecommendations.length === 0 && candidateSkills.length > 0) {
@@ -1062,7 +1074,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Talent Owner routes
   app.get('/api/talent-owner/jobs', isAuthenticated, async (req: any, res) => {
     try {
+      console.log(`[Talent Owner Jobs] Fetching jobs for user: ${req.user.id}`);
       const jobs = await storage.getJobPostings(req.user.id);
+      console.log(`[Talent Owner Jobs] Found ${jobs.length} jobs for user ${req.user.id}`);
+      if (jobs.length > 0) {
+        console.log(`[Talent Owner Jobs] Job IDs: ${jobs.map((j: any) => j.id).join(', ')}`);
+      }
       res.json(jobs);
     } catch (error) {
       console.error("Error fetching talent owner jobs:", error);
@@ -1140,7 +1157,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       });
 
       const jobData = insertJobPostingSchema.parse({ ...req.body, talentOwnerId: req.user.id });
+      console.log(`[Job Creation] Parsed job data with talentOwnerId: ${jobData.talentOwnerId}`);
       const job = await storage.createJobPosting(jobData);
+      console.log(`[Job Creation] Successfully created job ID: ${job.id} for talent owner: ${job.talentOwnerId}`);
 
       // Return job IMMEDIATELY (within <100ms) before any async operations
       // All heavy processing happens in background to prevent timeouts

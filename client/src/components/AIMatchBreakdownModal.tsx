@@ -7,8 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Target, Briefcase, MapPin, DollarSign, CheckCircle, AlertCircle, Building2, Shield, ExternalLink, GraduationCap, Award } from "lucide-react";
+import { Target, Briefcase, MapPin, DollarSign, CheckCircle, AlertCircle, Building2, Shield, ExternalLink, Award } from "lucide-react";
 import { AIJobMatch } from "./ai-job-feed";
 
 // Helper function to strip HTML tags
@@ -32,48 +31,6 @@ function cleanRequirement(req: string): string {
     return stripHtml(req);
   }
   return req;
-}
-
-// Calculate realistic breakdown scores based on match data
-interface MatchBreakdown {
-  skillsMatch: number;
-  experienceMatch: number;
-  locationMatch: number;
-  salaryMatch: number;
-  workTypeMatch: number;
-  titleRelevance: number;
-}
-
-function calculateMatchBreakdown(match: AIJobMatch): MatchBreakdown {
-  const score = parseInt(match.matchScore) || 0;
-  
-  // Derive realistic breakdown from the overall score
-  // Skills typically account for 35% of match
-  const skillsMatch = Math.min(100, Math.round(score * (0.9 + Math.random() * 0.2)));
-  
-  // Experience accounts for 25%
-  const experienceMatch = Math.min(100, Math.round(score * (0.85 + Math.random() * 0.25)));
-  
-  // Location accounts for 15%
-  const locationMatch = Math.min(100, Math.round(85 + Math.random() * 15));
-  
-  // Salary accounts for 15%
-  const salaryMatch = Math.min(100, Math.round(score * (0.8 + Math.random() * 0.3)));
-  
-  // Work type accounts for 5%
-  const workTypeMatch = Math.min(100, Math.round(90 + Math.random() * 10));
-  
-  // Title relevance accounts for 5%
-  const titleRelevance = Math.min(100, Math.round(score * (0.9 + Math.random() * 0.15)));
-  
-  return {
-    skillsMatch,
-    experienceMatch,
-    locationMatch,
-    salaryMatch,
-    workTypeMatch,
-    titleRelevance
-  };
 }
 
 // Component for breakdown item with progress bar
@@ -128,9 +85,14 @@ export default function AIMatchBreakdownModal({ match, isOpen, onOpenChange }: A
   }
 
   const score = parseInt(match.matchScore) || 0;
-  const breakdown = calculateMatchBreakdown(match);
   const scoreColor = score >= 80 ? "text-green-600" : score >= 60 ? "text-yellow-600" : "text-red-600";
-  const scoreBg = score >= 80 ? "bg-green-100 dark:bg-green-900/30" : score >= 60 ? "bg-yellow-100 dark:bg-yellow-900/30" : "bg-red-100 dark:bg-red-900/30";
+
+  // Derive real skills match percentage from actual data
+  const totalJobSkills = match.job.skills?.length || 0;
+  const matchedSkillCount = match.skillMatches?.length || 0;
+  const skillsMatchPercent = totalJobSkills > 0
+    ? Math.min(100, Math.round((matchedSkillCount / totalJobSkills) * 100))
+    : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -214,48 +176,18 @@ export default function AIMatchBreakdownModal({ match, isOpen, onOpenChange }: A
               <div className={`text-4xl font-bold ${scoreColor}`}>{match.matchScore}%</div>
             </div>
             
-            {/* Detailed Breakdown */}
-            <div className="space-y-4 mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
-              <h5 className="text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Match Factors</h5>
-              <div className="space-y-3">
-                <BreakdownItem 
-                  icon={CheckCircle} 
-                  label="Skills Match" 
-                  score={breakdown.skillsMatch} 
-                  weight="35%" 
-                />
-                <BreakdownItem 
-                  icon={GraduationCap} 
-                  label="Experience Match" 
-                  score={breakdown.experienceMatch} 
-                  weight="25%" 
-                />
-                <BreakdownItem 
-                  icon={MapPin} 
-                  label="Location Match" 
-                  score={breakdown.locationMatch} 
-                  weight="15%" 
-                />
-                <BreakdownItem 
-                  icon={DollarSign} 
-                  label="Salary Alignment" 
-                  score={breakdown.salaryMatch} 
-                  weight="15%" 
-                />
-                <BreakdownItem 
-                  icon={Briefcase} 
-                  label="Work Type Match" 
-                  score={breakdown.workTypeMatch} 
-                  weight="5%" 
-                />
-                <BreakdownItem 
-                  icon={Target} 
-                  label="Title Relevance" 
-                  score={breakdown.titleRelevance} 
-                  weight="5%" 
+            {/* Skills Breakdown (real data) */}
+            {totalJobSkills > 0 && (
+              <div className="space-y-3 mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
+                <h5 className="text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Skills Breakdown</h5>
+                <BreakdownItem
+                  icon={CheckCircle}
+                  label="Skills Match"
+                  score={skillsMatchPercent}
+                  weight={`${matchedSkillCount}/${totalJobSkills} skills`}
                 />
               </div>
-            </div>
+            )}
           </div>
 
           {/* Why This Match */}

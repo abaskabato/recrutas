@@ -8,7 +8,7 @@ import { pipeline, env } from '@xenova/transformers';
 
 // Skip local model checks since we're using pre-converted ONNX models
 env.allowLocalModels = false;
-env.useBrowserCache = true;
+// env.useBrowserCache omitted — no effect in Node.js
 
 // Model: all-MiniLM-L6-v2 - Fast (22MB), good quality embeddings
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
@@ -37,14 +37,14 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResult> 
   try {
     const pipe = await getEmbeddingPipeline();
     
-    // Truncate to 512 tokens (model max)
+    // Truncate to ~512 tokens (approx 2048 chars)
     const truncatedText = text.slice(0, 2048);
     
-    const output: any = pipe(truncatedText, {
+    const output: any = await pipe(truncatedText, {
       pooling: 'mean',
       normalize: true,
     });
-    
+
     // Convert to regular array of numbers
     const embedding: number[] = Array.from(output.data).map((x: any) => Number(x));
     
@@ -68,11 +68,11 @@ export async function generateBatchEmbeddings(texts: string[]): Promise<Embeddin
   
   for (const text of texts) {
     const truncatedText = text.slice(0, 2048);
-    const output: any = pipe(truncatedText, {
+    const output: any = await pipe(truncatedText, {
       pooling: 'mean',
       normalize: true,
     });
-    
+
     results.push({
       embedding: Array.from(output.data).map((x: any) => Number(x)),
       tokens: output.data.length,
@@ -108,6 +108,22 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 /**
+ * Generate a reusable candidate embedding from skills + experience.
+ * Compute once and pass into calculateMLMatchScore for each job.
+ */
+export async function generateCandidateEmbedding(
+  candidateSkills: string[],
+  candidateExperience: string
+): Promise<number[]> {
+  const candidateText = [
+    ...candidateSkills,
+    candidateExperience || '',
+  ].join(' ').trim();
+  const result = await generateEmbedding(candidateText);
+  return result.embedding;
+}
+
+/**
  * Calculate embedding similarity between candidate and job
  * Returns score 0-100
  */
@@ -117,7 +133,8 @@ export async function calculateMLMatchScore(
   jobTitle: string,
   jobDescription: string,
   jobRequirements: string[],
-  jobSkills: string[]
+  jobSkills: string[],
+  precomputedCandidateEmbedding?: number[]
 ): Promise<{
   score: number;
   confidence: number;
@@ -125,28 +142,27 @@ export async function calculateMLMatchScore(
   explanation: string;
 }> {
   try {
-    // Prepare texts for embedding
-    const candidateText = [
-      ...candidateSkills,
-      candidateExperience || '',
-    ].join(' ').trim();
-    
+    // Prepare job text for embedding
     const jobText = [
       jobTitle,
       ...(jobSkills || []),
       ...(jobRequirements || []),
       (jobDescription || '').slice(0, 1000), // Limit description length
     ].join(' ').trim();
-    
-    // Generate embeddings using ML model
-    const [candidateEmbedding, jobEmbedding] = await Promise.all([
-      generateEmbedding(candidateText),
-      generateEmbedding(jobText),
-    ]);
-    
+
+    // Reuse pre-computed candidate embedding or generate a new one
+    let candidateEmbeddingVec: number[];
+    if (precomputedCandidateEmbedding) {
+      candidateEmbeddingVec = precomputedCandidateEmbedding;
+    } else {
+      candidateEmbeddingVec = await generateCandidateEmbedding(candidateSkills, candidateExperience);
+    }
+
+    const jobEmbedding = await generateEmbedding(jobText);
+
     // Calculate semantic similarity using ML
     const baseSimilarity = cosineSimilarity(
-      candidateEmbedding.embedding,
+      candidateEmbeddingVec,
       jobEmbedding.embedding
     );
     
@@ -172,8 +188,9 @@ export async function calculateMLMatchScore(
     const finalScore = Math.min((baseSimilarity * 0.7) + explicitMatchBonus, 1.0);
     
     // Confidence based on text quality
+    const candidateTextLength = candidateSkills.join(' ').length + (candidateExperience || '').length;
     const confidence = Math.min(
-      (candidateText.length / 100 + jobText.length / 500) / 2,
+      (candidateTextLength / 100 + jobText.length / 500) / 2,
       1.0
     );
     
@@ -225,8 +242,8 @@ export function getModelInfo() {
   };
 }
 
-// Warm up the model on startup (optional)
-if (process.env.NODE_ENV !== 'test') {
+// Warm up the model on startup (optional, respects feature flag)
+if (process.env.NODE_ENV !== 'test' && process.env.ENABLE_ML_MATCHING !== 'false') {
   setTimeout(() => {
     console.log('[ML Matching] Warming up embedding model...');
     generateEmbedding('warmup').catch(console.error);
