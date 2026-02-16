@@ -55,6 +55,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Mail, Shield, Palette, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 interface DashboardStats {
   newMatches: number;
@@ -93,6 +104,7 @@ export default function CandidateStreamlinedDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'jobs' | 'saved' | 'applications' | 'profile' | 'agent'>('jobs');
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -264,7 +276,7 @@ export default function CandidateStreamlinedDashboard() {
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSettingsModalOpen(true)}>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </DropdownMenuItem>
@@ -655,7 +667,148 @@ export default function CandidateStreamlinedDashboard() {
         onOpenChange={setProfileModalOpen}
         currentProfile={profile}
       />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        open={settingsModalOpen}
+        onOpenChange={setSettingsModalOpen}
+      />
     </div>
+  );
+}
+
+// Settings Modal Component
+interface SettingsModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
+  const { theme, setTheme } = useTheme();
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [jobAlerts, setJobAlerts] = useState(true);
+  const [applicationUpdates, setApplicationUpdates] = useState(true);
+  const [profileVisibility, setProfileVisibility] = useState(true);
+  const { toast } = useToast();
+
+  const handleSave = () => {
+    toast({
+      title: "Settings Saved",
+      description: "Your preferences have been updated successfully.",
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Settings
+          </DialogTitle>
+          <DialogDescription>
+            Manage your account preferences and notification settings
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Appearance */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+              <Palette className="h-4 w-4 text-purple-500" />
+              Appearance
+            </h4>
+            <div className="space-y-3 pl-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="theme" className="text-sm font-medium">Dark Mode</Label>
+                  <p className="text-xs text-slate-500">Toggle between light and dark theme</p>
+                </div>
+                <Switch
+                  id="theme"
+                  checked={theme === 'dark'}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+              <Bell className="h-4 w-4 text-blue-500" />
+              Notifications
+            </h4>
+            <div className="space-y-3 pl-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="email-notif" className="text-sm font-medium">Email Notifications</Label>
+                  <p className="text-xs text-slate-500">Receive updates via email</p>
+                </div>
+                <Switch
+                  id="email-notif"
+                  checked={emailNotifications}
+                  onCheckedChange={setEmailNotifications}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="job-alerts" className="text-sm font-medium">Job Alerts</Label>
+                  <p className="text-xs text-slate-500">Get notified about new matching jobs</p>
+                </div>
+                <Switch
+                  id="job-alerts"
+                  checked={jobAlerts}
+                  onCheckedChange={setJobAlerts}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="app-updates" className="text-sm font-medium">Application Updates</Label>
+                  <p className="text-xs text-slate-500">Status changes on your applications</p>
+                </div>
+                <Switch
+                  id="app-updates"
+                  checked={applicationUpdates}
+                  onCheckedChange={setApplicationUpdates}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Privacy */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+              <Shield className="h-4 w-4 text-green-500" />
+              Privacy
+            </h4>
+            <div className="space-y-3 pl-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="profile-visibility" className="text-sm font-medium">Profile Visibility</Label>
+                  <p className="text-xs text-slate-500">Make your profile visible to recruiters</p>
+                </div>
+                <Switch
+                  id="profile-visibility"
+                  checked={profileVisibility}
+                  onCheckedChange={setProfileVisibility}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            Save Changes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

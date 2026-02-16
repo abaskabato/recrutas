@@ -1379,11 +1379,13 @@ export class DatabaseStorage implements IStorage {
 
   async updateApplicationStatusByCandidate(applicationId: number, status: string): Promise<any> {
     try {
+      const now = new Date();
       const [updatedApplication] = await db
         .update(jobApplications)
         .set({
           status: status as any,
-          updatedAt: new Date(),
+          updatedAt: now,
+          lastStatusUpdate: now,
         })
         .where(eq(jobApplications.id, applicationId))
         .returning();

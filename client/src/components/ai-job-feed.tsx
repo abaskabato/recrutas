@@ -255,8 +255,68 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border">
-        {/* ... filter JSX ... */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search */}
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search jobs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 w-full"
+            />
+          </div>
+          
+          {/* Filter dropdowns - stack on mobile, row on tablet+ */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <MapPin className="h-4 w-4 mr-2 shrink-0" />
+                <SelectValue placeholder="Location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Locations</SelectItem>
+                {locations.map(loc => (
+                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={workTypeFilter} onValueChange={setWorkTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <Briefcase className="h-4 w-4 mr-2 shrink-0" />
+                <SelectValue placeholder="Work Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {workTypes.map(type => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <Building className="h-4 w-4 mr-2 shrink-0" />
+                <SelectValue placeholder="Company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Companies</SelectItem>
+                {companies.map(company => (
+                  <SelectItem key={company} value={company}>{company}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {(searchTerm || locationFilter !== 'all' || workTypeFilter !== 'all' || companyFilter !== 'all') && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
+                <Filter className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Job Feed */}
@@ -320,93 +380,101 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                     </div>
                   )}
                   <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
+                    <CardContent className="p-3 sm:p-4">
+                      {/* Mobile: Stack vertically, Desktop: Side by side */}
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             {match.job.aiCurated && (
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs">
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 AI Curated
                               </Badge>
                             )}
                             {/* PRD: Trust badges */}
                             {isVerifiedActive && (
-                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 text-xs">
                                 <BadgeCheck className="h-3 w-3 mr-1" />
                                 Verified Active
                               </Badge>
                             )}
                             {isDirectFromCompany && (
-                              <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 text-xs">
                                 <Shield className="h-3 w-3 mr-1" />
-                                Direct from Company
+                                Direct
                               </Badge>
                             )}
-                            <span className="text-xs text-gray-500">Match: {match.matchScore}</span>
+                            <span className="text-xs text-gray-500 hidden sm:inline">Match: {match.matchScore}</span>
                           </div>
-                          <h3 className="font-semibold text-lg truncate hover:text-blue-600 transition-colors">
+                          <h3 className="font-semibold text-base sm:text-lg leading-tight hover:text-blue-600 transition-colors">
                             <button
                               type="button"
-                              className="text-left hover:underline"
+                              className="text-left hover:underline line-clamp-2 sm:line-clamp-1"
                               onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
                             >
                               {match.job.title}
                             </button>
                           </h3>
-                          <div className="flex items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-y-1 sm:gap-x-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
                             <div className="flex items-center">
-                              <Building className="h-4 w-4 mr-1" /> {match.job.company}
+                              <Building className="h-3 w-3 sm:h-4 sm:w-4 mr-1 shrink-0" /> {match.job.company}
                             </div>
                             <div className="flex items-center">
-                              <MapPin className="h-4 w-4 mr-1" /> {match.job.location}
+                              <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 shrink-0" /> {match.job.location}
                             </div>
-                            <div className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-1" /> {match.job.workType}
+                            <div className="flex items-center sm:hidden">
+                              <Briefcase className="h-3 w-3 mr-1 shrink-0" /> {match.job.workType}
                             </div>
                           </div>
 
                           {/* PRD: "Why You're a Match" explanation */}
-                          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                             <span className="font-medium text-blue-600 dark:text-blue-400">Why you match:</span>{' '}
                             {match.aiExplanation || (match.skillMatches && match.skillMatches.length > 0
                               ? `Strong match for ${match.skillMatches.slice(0, 2).join(' & ')}`
                               : 'Skills and experience align with this role')}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-4">
+                        {/* Mobile: Full width buttons, Desktop: Right side buttons */}
+                        <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-2 sm:gap-1.5 lg:gap-2 sm:shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700">
                           <Button
                             size="sm"
                             variant={isApplied ? "secondary" : "default"}
                             onClick={(e) => handleApply(e, match)}
                             disabled={isApplied}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm"
                             title={match.job.externalUrl ? "Opens company career page in new tab" : "Submit application for this job"}
                           >
-                            {isApplied ? <Check className="h-4 w-4 mr-2" /> : <ExternalLink className="h-4 w-4 mr-2" />}
-                            {isApplied ? "Applied" : (match.job.externalUrl ? "Apply Externally" : "Apply Now")}
+                            {isApplied ? <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" /> : <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
+                            <span className="hidden sm:inline">{isApplied ? "Applied" : (match.job.externalUrl ? "Apply Externally" : "Apply Now")}</span>
+                            <span className="sm:hidden">{isApplied ? "Applied" : "Apply"}</span>
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => handleSaveToggle(e, match)}
-                          >
-                            <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current text-yellow-500" : ""}`} />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => handleHide(e, match)}
-                          >
-                            <EyeOff className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => { e.stopPropagation(); setSelectedMatch(match); setIsModalOpen(true); }}
-                          >
-                            <Sparkles className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleSaveToggle(e, match)}
+                              className="px-2 sm:px-2.5"
+                            >
+                              <Bookmark className={`h-3 w-3 sm:h-4 sm:w-4 ${isSaved ? "fill-current text-yellow-500" : ""}`} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleHide(e, match)}
+                              className="px-2 sm:px-2.5"
+                            >
+                              <EyeOff className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => { e.stopPropagation(); setSelectedMatch(match); setIsModalOpen(true); }}
+                              className="px-2 sm:px-2.5"
+                            >
+                              <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       {match.job.externalSource && match.job.externalSource !== 'internal' && (
