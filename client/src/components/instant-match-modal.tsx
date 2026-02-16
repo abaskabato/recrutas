@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X, 
-  MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2, 
-  Send, Building, Shield, Globe, CheckCircle,
-  Target, Rocket, Award, ChevronRight, ArrowLeft
+import {
+  Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X,
+  MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2,
+  Send, Building,
+  Rocket, Award, ChevronRight, ArrowLeft
 } from "lucide-react";
+import SmartLogo from '@/components/smart-logo';
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -325,14 +326,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Target className="w-4 h-4 text-white" />
-              </div>
-              <span className={`font-bold text-lg ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                Recrutas
-              </span>
-            </div>
+            <SmartLogo size={28} showText={true} />
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
             <X className="w-4 h-4" />
@@ -396,14 +390,13 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}
                 >
-                  Skip the{' '}
+                  Careers,{' '}
                   <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                    Recruiters
+                    Humanized.
                   </span>
                   <br />
-                  Talk to{' '}
                   <span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
-                    Real People
+                    Directly.
                   </span>
                 </motion.h1>
 
@@ -453,25 +446,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   ))}
                 </motion.div>
 
-                {/* Social Proof */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="flex items-center justify-center gap-4 mb-8"
-                >
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className={`w-8 h-8 rounded-full border-2 ${
-                        theme === 'dark' ? 'border-slate-900 bg-slate-700' : 'border-white bg-gray-300'
-                      }`} />
-                    ))}
-                  </div>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
-                    <span className="font-semibold text-green-500">8,000+</span> professionals already hired
-                  </p>
-                </motion.div>
-
                 {/* CTA Button */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -489,26 +463,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   </Button>
                 </motion.div>
 
-                {/* Trust badges */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.7 }}
-                  className="flex flex-wrap items-center justify-center gap-4 mt-6 text-xs text-slate-500"
-                >
-                  <span className="flex items-center gap-1">
-                    <Shield className="w-3 h-3" />
-                    100% Free
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    No Credit Card
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Globe className="w-3 h-3" />
-                    Global Jobs
-                  </span>
-                </motion.div>
               </motion.div>
             )}
 
@@ -732,9 +686,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                         See Features
                       </Button>
                     </div>
-                    <p className={`text-center text-xs ${theme === 'dark' ? 'text-slate-500' : 'text-gray-500'}`}>
-                      Join 8,000+ professionals • Free forever
-                    </p>
                   </div>
                 )}
               </motion.div>
@@ -844,9 +795,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     Start Your Journey
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
-                  <p className={`text-sm mt-3 ${theme === 'dark' ? 'text-slate-500' : 'text-gray-500'}`}>
-                    Free forever • No credit card required
-                  </p>
                 </div>
               </motion.div>
             )}

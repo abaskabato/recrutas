@@ -685,10 +685,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/external-jobs', async (req, res) => {
     try {
       const skills = req.query.skills ? (req.query.skills as string).split(',') : [];
+      const jobTitle = req.query.jobTitle as string | undefined;
+      const location = req.query.location as string | undefined;
+      const workType = req.query.workType as string | undefined;
 
       // Return cached external jobs from database (instant, no scraping)
       // External jobs are kept up-to-date by background scheduler
-      const externalJobs = await storage.getExternalJobs(skills);
+      const externalJobs = await storage.getExternalJobs(skills, { jobTitle, location, workType });
 
       // If there's a triggerRefresh query param, trigger background scraping
       if (req.query.triggerRefresh === 'true') {
@@ -1764,24 +1767,35 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
-  // Create checkout session
+  // Create checkout session (accepts tierName or tierId for backward compat)
   app.post('/api/stripe/create-checkout', isAuthenticated, async (req: any, res) => {
     try {
       if (!stripeService.isConfigured()) {
         return res.status(503).json({ message: "Payment system is not configured" });
       }
 
-      const { tierId, billingCycle } = req.body;
+      const { tierName, tierId, billingCycle } = req.body;
 
-      if (!tierId || !billingCycle) {
-        return res.status(400).json({ message: "Missing tierId or billingCycle" });
+      if (!billingCycle) {
+        return res.status(400).json({ message: "Missing billingCycle" });
       }
 
-      const checkoutUrl = await stripeService.createCheckoutSession(
-        req.user.id,
-        tierId,
-        billingCycle
-      );
+      let checkoutUrl: string;
+      if (tierName) {
+        checkoutUrl = await stripeService.createCheckoutSessionByName(
+          req.user.id,
+          tierName,
+          billingCycle
+        );
+      } else if (tierId) {
+        checkoutUrl = await stripeService.createCheckoutSession(
+          req.user.id,
+          tierId,
+          billingCycle
+        );
+      } else {
+        return res.status(400).json({ message: "Missing tierName or tierId" });
+      }
 
       res.json({ url: checkoutUrl });
     } catch (error: any) {

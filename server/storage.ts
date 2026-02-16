@@ -514,51 +514,71 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getExternalJobs(skills: string[] = []): Promise<JobPosting[]> {
+  async getExternalJobs(skills: string[] = [], filters: { jobTitle?: string; location?: string; workType?: string } = {}): Promise<JobPosting[]> {
     try {
-      console.log('[storage] Fetching external jobs', skills.length > 0 ? `with skills: ${skills.join(', ')}` : '');
+      console.log('[storage] Fetching external jobs', skills.length > 0 ? `with skills: ${skills.join(', ')}` : '', filters.jobTitle ? `title: ${filters.jobTitle}` : '');
 
       // Only show jobs from last 90 days for fresh results (reduced from unlimited, will tighten to 30 once scraper is stable)
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       const cutoffDateStr = ninetyDaysAgo.toISOString();
 
+      const conditions = [
+        eq(jobPostings.status, 'active'),
+        or(
+          sql`${jobPostings.source} = 'external'`,
+          sql`${jobPostings.externalUrl} IS NOT NULL`
+        ),
+        // Exclude ArbeitNow jobs (European job board)
+        sql`${jobPostings.source} != 'ArbeitNow'`,
+        or(
+          sql`${jobPostings.expiresAt} IS NULL`,
+          sql`${jobPostings.expiresAt} > NOW()`
+        ),
+        // Only recent jobs - last 90 days
+        sql`${jobPostings.createdAt} > ${cutoffDateStr}`
+      ];
+
+      // Filter by job title (ILIKE on title column)
+      if (filters.jobTitle?.trim()) {
+        conditions.push(sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + filters.jobTitle.trim() + '%'})`);
+      }
+
+      // Filter by work type
+      if (filters.workType?.trim() && filters.workType !== 'any') {
+        conditions.push(eq(jobPostings.workType, filters.workType));
+      }
+
       // Query external jobs (source = 'external' or externalUrl is set)
-      // Exclude ArbeitNow - European-focused board, not relevant for US-only results
       const query = db
         .select()
         .from(jobPostings)
-        .where(and(
-          eq(jobPostings.status, 'active'),
-          or(
-            sql`${jobPostings.source} = 'external'`,
-            sql`${jobPostings.externalUrl} IS NOT NULL`
-          ),
-          // Exclude ArbeitNow jobs (European job board)
-          sql`${jobPostings.source} != 'ArbeitNow'`,
-          or(
-            sql`${jobPostings.expiresAt} IS NULL`,
-            sql`${jobPostings.expiresAt} > NOW()`
-          ),
-          // Only recent jobs - last 90 days
-          sql`${jobPostings.createdAt} > ${cutoffDateStr}`
-        ))
+        .where(and(...conditions))
         .orderBy(sql`${jobPostings.createdAt} DESC`)
         .limit(100);
 
       const jobs = await query;
 
-      // Filter by location (US only) and skills if provided
+      // Filter by location (US only) and optionally by user-specified location
       let filteredJobs = jobs.filter((job: any) => isUSLocation(job.location));
-      
-      if (skills.length > 0) {
+
+      // Additional location filter from user input
+      if (filters.location?.trim()) {
+        const loc = filters.location.trim().toLowerCase();
+        filteredJobs = filteredJobs.filter((job: any) => {
+          const jobLoc = (job.location || '').toLowerCase();
+          return jobLoc.includes(loc) || loc.includes('remote') && jobLoc.includes('remote');
+        });
+      }
+
+      if (skills.length > 0 && !filters.jobTitle?.trim()) {
         filteredJobs = filteredJobs.filter(job => {
           const jobSkills = Array.isArray(job.skills) ? job.skills : [];
           return skills.some(skill => jobSkills.includes(skill));
         });
       }
 
-      console.log(`[storage] Returning ${filteredJobs.length} recent US external jobs from last 30 days (filtered from ${jobs.length})`);
+      console.log(`[storage] Returning ${filteredJobs.length} recent US external jobs (filtered from ${jobs.length})`);
       return filteredJobs;
     } catch (error) {
       console.error('Error fetching external jobs:', error);
