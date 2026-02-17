@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight } from "lucide-react";
+import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,8 @@ interface ApplicationStatus {
   viewedByEmployerAt?: string;
   lastStatusUpdate: string;
   interviewDate?: string;
+  autoFilled?: boolean;
+  metadata?: { agentApply?: boolean; queuedAt?: string };
   job: {
     id: number;
     title: string;
@@ -33,6 +35,21 @@ interface ApplicationStatus {
     confidenceLevel: string;
   };
 }
+
+interface AgentTaskStatus {
+  id: number;
+  applicationId: number;
+  status: 'queued' | 'processing' | 'submitted' | 'failed' | 'cancelled';
+  lastError?: string;
+}
+
+const agentStatusConfig: Record<string, { label: string; color: string }> = {
+  queued: { label: "Queued", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300" },
+  processing: { label: "Processing", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300" },
+  submitted: { label: "Submitted", color: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+  failed: { label: "Failed", color: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+  cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300" },
+};
 
 const statusConfig: Record<string, { label: string; color: string; progress: number }> = {
   submitted: { label: "Submitted", color: "bg-blue-500", progress: 10 },
@@ -52,6 +69,16 @@ export default function ApplicationTracker() {
   const { data: applications, isLoading } = useQuery<ApplicationStatus[]>({
     queryKey: ["/api/candidate/applications"],
   });
+
+  const { data: agentTasks } = useQuery<AgentTaskStatus[]>({
+    queryKey: ["/api/candidate/agent-tasks"],
+  });
+
+  const agentTaskByAppId = useMemo(() => {
+    const map = new Map<number, AgentTaskStatus>();
+    (agentTasks || []).forEach(t => map.set(t.applicationId, t));
+    return map;
+  }, [agentTasks]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ applicationId, status }: { applicationId: number; status: string }) => {
@@ -122,7 +149,7 @@ export default function ApplicationTracker() {
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600">{applications.length}</div>
@@ -133,6 +160,14 @@ export default function ApplicationTracker() {
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-orange-600">{activeApplications.length}</div>
             <div className="text-sm text-gray-600">In Progress</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-emerald-600">
+              {applications.filter(app => app.autoFilled || app.metadata?.agentApply).length}
+            </div>
+            <div className="text-sm text-gray-600">Agent Applied</div>
           </CardContent>
         </Card>
         <Card>
@@ -183,7 +218,22 @@ export default function ApplicationTracker() {
                         )}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(application.autoFilled || application.metadata?.agentApply) && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-xs">
+                          <Bot className="h-3 w-3 mr-1" />
+                          Agent Applied
+                        </Badge>
+                      )}
+                      {(application.autoFilled || application.metadata?.agentApply) && agentTaskByAppId.get(application.id) && (() => {
+                        const task = agentTaskByAppId.get(application.id)!;
+                        const cfg = agentStatusConfig[task.status] || agentStatusConfig.queued;
+                        return (
+                          <Badge variant="secondary" className={`text-xs ${cfg.color}`}>
+                            {cfg.label}
+                          </Badge>
+                        );
+                      })()}
                       {application.match && (
                         <Badge variant="outline" className="text-xs">
                           {application.match.matchScore}% match

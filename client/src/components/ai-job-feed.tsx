@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -197,6 +197,22 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter] });
     },
   });
+
+  const agentApplyMutation = useMutation({
+    mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/agent-apply/${jobId}`, {}),
+    onSuccess: () => {
+      toast({ title: "Apply For Me — Queued!", description: "Track progress in Applications." });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+  });
+
+  const handleAgentApply = (e: React.MouseEvent, match: AIJobMatch) => {
+    e.stopPropagation();
+    if (appliedJobIds.has(match.job.id)) return;
+    agentApplyMutation.mutate(match.job.id);
+  };
 
   const handleApply = (e: React.MouseEvent, match: AIJobMatch) => {
     e.stopPropagation();
@@ -449,6 +465,20 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                             <span className="hidden sm:inline">{isApplied ? "Applied" : (match.job.externalUrl ? "Apply Externally" : "Apply Now")}</span>
                             <span className="sm:hidden">{isApplied ? "Applied" : "Apply"}</span>
                           </Button>
+                          {match.job.externalUrl && !isApplied && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleAgentApply(e, match)}
+                              disabled={agentApplyMutation.isPending}
+                              className="flex-1 sm:flex-none border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20 text-xs sm:text-sm"
+                              title="Our agent will automatically fill and submit the application for you"
+                            >
+                              <Bot className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              <span className="hidden sm:inline">Apply For Me</span>
+                              <span className="sm:hidden">Agent</span>
+                            </Button>
+                          )}
                           <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2">
                             <Button
                               size="sm"

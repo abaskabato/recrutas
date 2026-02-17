@@ -133,8 +133,8 @@ export const jobPostings = pgTable("job_postings", {
   companyVerified: boolean("company_verified").default(false), // Whether company email domain is verified
   recruiterEmailDomain: varchar("recruiter_email_domain"), // For company verification
   // Pre-computed vector embedding for semantic search (stored as JSON array)
-  vectorEmbedding: text("vector_embedding"), 
-  embeddingUpdatedAt: timestamp("embedding_updated_at"),
+  // vectorEmbedding: text("vector_embedding"), 
+  // embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -787,6 +787,51 @@ export type UserSubscription = typeof userSubscriptions.$inferSelect;
 export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
 export type UsageTracking = typeof usageTracking.$inferSelect;
 export type InsertUsageTracking = z.infer<typeof insertUsageTrackingSchema>;
+export type AgentTask = typeof agentTasks.$inferSelect;
+export type InsertAgentTask = typeof agentTasks.$inferInsert;
+
+// ==========================================
+// AGENT APPLY TABLES
+// ==========================================
+
+export const agentTasks = pgTable("agent_tasks", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => jobApplications.id),
+  candidateId: uuid("candidate_id").notNull().references(() => users.id),
+  jobId: integer("job_id").notNull().references(() => jobPostings.id),
+  externalUrl: text("external_url").notNull(),
+  status: varchar("status", {
+    enum: ["queued", "processing", "submitted", "failed", "cancelled"]
+  }).default("queued").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  maxAttempts: integer("max_attempts").default(3).notNull(),
+  lastError: text("last_error"),
+  agentLog: jsonb("agent_log").default([] as any),
+  candidateData: jsonb("candidate_data").notNull(),
+  resumeUrl: varchar("resume_url"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  idxAgentTaskStatus: index("idx_agent_task_status").on(table.status),
+  idxAgentTaskCandidate: index("idx_agent_task_candidate").on(table.candidateId),
+}));
+
+export const agentTasksRelations = relations(agentTasks, ({ one }) => ({
+  application: one(jobApplications, {
+    fields: [agentTasks.applicationId],
+    references: [jobApplications.id],
+  }),
+  candidate: one(users, {
+    fields: [agentTasks.candidateId],
+    references: [users.id],
+  }),
+  job: one(jobPostings, {
+    fields: [agentTasks.jobId],
+    references: [jobPostings.id],
+  }),
+}));
 
 export const discoveredCompanies = pgTable("discovered_companies", {
   id: serial("id").primaryKey(),

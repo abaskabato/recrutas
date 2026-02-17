@@ -2015,5 +2015,88 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // ==========================================
+  // AGENT APPLY ENDPOINTS
+  // ==========================================
+
+  app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+
+      // Duplicate check
+      const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
+      if (existingApplication) {
+        return res.status(400).json({ message: "Already applied to this job" });
+      }
+
+      // Validate job is external
+      const job = await storage.getJobPosting(jobId);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      if (!job.externalUrl) {
+        return res.status(400).json({ message: "Agent apply is only available for external jobs" });
+      }
+
+      // Validate candidate has resume
+      const candidateProfile = await storage.getCandidateUser(userId);
+      if (!candidateProfile?.resumeUrl) {
+        return res.status(400).json({ message: "Please upload your resume first" });
+      }
+
+      // Snapshot candidate data
+      const candidateData = {
+        firstName: candidateProfile.firstName || '',
+        lastName: candidateProfile.lastName || '',
+        email: candidateProfile.email || '',
+        phone: (candidateProfile as any).phone || '',
+        linkedinUrl: candidateProfile.linkedinUrl || '',
+        githubUrl: candidateProfile.githubUrl || '',
+        portfolioUrl: candidateProfile.portfolioUrl || '',
+        skills: candidateProfile.skills || [],
+        experience: candidateProfile.experience || '',
+        location: candidateProfile.location || '',
+      };
+
+      // Create application with autoFilled flag
+      const application = await storage.createJobApplication({
+        jobId,
+        candidateId: userId,
+        status: 'submitted',
+        autoFilled: true,
+        resumeUrl: candidateProfile.resumeUrl,
+        metadata: { agentApply: true, queuedAt: new Date().toISOString() },
+      });
+
+      // Create agent task
+      const agentTask = await storage.createAgentTask({
+        applicationId: application.id,
+        candidateId: userId,
+        jobId,
+        externalUrl: job.externalUrl,
+        status: 'queued',
+        candidateData,
+        resumeUrl: candidateProfile.resumeUrl,
+      });
+
+      await storage.createActivityLog(userId, "agent_apply_queued", `Queued agent apply for job ID: ${jobId}`);
+
+      res.json({ application, agentTask: { id: agentTask.id, status: agentTask.status } });
+    } catch (error: any) {
+      console.error("Error queuing agent apply:", error?.message);
+      res.status(500).json({ message: "Failed to queue agent apply" });
+    }
+  });
+
+  app.get('/api/candidate/agent-tasks', isAuthenticated, async (req: any, res) => {
+    try {
+      const tasks = await storage.getAgentTasksForCandidate(req.user.id);
+      res.json(tasks);
+    } catch (error: any) {
+      console.error("Error fetching agent tasks:", error?.message);
+      res.status(500).json({ message: "Failed to fetch agent tasks" });
+    }
+  });
+
   return app;
 }

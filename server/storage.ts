@@ -53,7 +53,10 @@ import {
   type InsertChatMessage,
   type ActivityLog,
   type NotificationPreferences,
-  type InsertNotificationPreferences
+  type InsertNotificationPreferences,
+  agentTasks,
+  type AgentTask,
+  type InsertAgentTask,
 } from "../shared/schema.js";
 import { db } from "./db";
 import { eq, desc, asc, and, or } from "drizzle-orm";
@@ -195,6 +198,13 @@ export interface IStorage {
   getScreeningQuestions(jobId: number): Promise<any[]>;
   saveScreeningQuestions(jobId: number, questions: any[]): Promise<any[]>;
   saveScreeningAnswers(applicationId: number, answers: any[]): Promise<any[]>;
+
+  // Agent task operations
+  createAgentTask(task: InsertAgentTask): Promise<AgentTask>;
+  getAgentTaskByApplicationId(applicationId: number): Promise<AgentTask | undefined>;
+  getAgentTasksForCandidate(candidateId: string): Promise<AgentTask[]>;
+  getPendingAgentTasks(limit: number): Promise<AgentTask[]>;
+  updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask>;
 }
 
 /**
@@ -571,10 +581,15 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      if (skills.length > 0 && !filters.jobTitle?.trim()) {
+      // Filter by skills (case-insensitive partial match)
+      if (skills.length > 0) {
         filteredJobs = filteredJobs.filter(job => {
-          const jobSkills = Array.isArray(job.skills) ? job.skills : [];
-          return skills.some(skill => jobSkills.includes(skill));
+          const jobSkills = Array.isArray(job.skills) ? job.skills.map((s: string) => s.toLowerCase()) : [];
+          const jobTitle = (job.title || '').toLowerCase();
+          return skills.some(skill => {
+            const skillLower = skill.toLowerCase();
+            return jobSkills.some((js: string) => js.includes(skillLower)) || jobTitle.includes(skillLower);
+          });
         });
       }
 
@@ -1294,6 +1309,8 @@ export class DatabaseStorage implements IStorage {
           jobId: jobApplications.jobId,
           status: jobApplications.status,
           appliedAt: jobApplications.appliedAt,
+          autoFilled: jobApplications.autoFilled,
+          metadata: jobApplications.metadata,
           createdAt: jobApplications.createdAt,
           job: {
             id: jobPostings.id,
@@ -2077,6 +2094,67 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // ==========================================
+  // AGENT TASK OPERATIONS
+  // ==========================================
+
+  async createAgentTask(task: InsertAgentTask): Promise<AgentTask> {
+    const [result] = await db.insert(agentTasks).values(task).returning();
+    return result;
+  }
+
+  async getAgentTaskByApplicationId(applicationId: number): Promise<AgentTask | undefined> {
+    const [result] = await db
+      .select()
+      .from(agentTasks)
+      .where(eq(agentTasks.applicationId, applicationId))
+      .limit(1);
+    return result;
+  }
+
+  async getAgentTasksForCandidate(candidateId: string): Promise<AgentTask[]> {
+    return await db
+      .select()
+      .from(agentTasks)
+      .where(eq(agentTasks.candidateId, candidateId))
+      .orderBy(desc(agentTasks.createdAt));
+  }
+
+  async getPendingAgentTasks(limit: number): Promise<AgentTask[]> {
+    return await db
+      .select()
+      .from(agentTasks)
+      .where(eq(agentTasks.status, "queued"))
+      .orderBy(asc(agentTasks.createdAt))
+      .limit(limit);
+  }
+
+  async updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask> {
+    const existing = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1);
+    if (!existing[0]) throw new Error(`Agent task ${taskId} not found`);
+
+    const currentLog = (existing[0].agentLog as any[]) || [];
+    const updatedLog = logEntry ? [...currentLog, logEntry] : currentLog;
+
+    const updates: any = {
+      status,
+      agentLog: updatedLog,
+      updatedAt: new Date(),
+    };
+    if (error) updates.lastError = error;
+    if (status === "processing") updates.startedAt = new Date();
+    if (status === "submitted" || status === "failed") updates.completedAt = new Date();
+    if (status === "queued" || status === "processing") {
+      updates.attempts = existing[0].attempts + 1;
+    }
+
+    const [result] = await db
+      .update(agentTasks)
+      .set(updates)
+      .where(eq(agentTasks.id, taskId))
+      .returning();
+    return result;
+  }
 }
 
 export const storage = new DatabaseStorage();
