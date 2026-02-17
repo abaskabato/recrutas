@@ -52,6 +52,7 @@ const agentStatusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const statusConfig: Record<string, { label: string; color: string; progress: number }> = {
+  applied: { label: "Submitted", color: "bg-blue-500", progress: 10 },
   submitted: { label: "Submitted", color: "bg-blue-500", progress: 10 },
   viewed: { label: "Viewed", color: "bg-yellow-500", progress: 25 },
   screening: { label: "In Review", color: "bg-orange-500", progress: 40 },
@@ -250,7 +251,7 @@ export default function ApplicationTracker() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Update Status:</span>
                         <Select
-                          value={application.status}
+                          value={application.status === 'applied' ? 'submitted' : application.status}
                           onValueChange={(newStatus) => updateStatusMutation.mutate({ applicationId: application.id, status: newStatus })}
                         >
                           <SelectTrigger className="w-[180px] h-8">
