@@ -1003,7 +1003,7 @@ export default function TalentDashboard() {
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-4">
-                                  <h3 className="font-semibold text-lg">{applicant.candidate.firstName} {applicant.candidate.lastName}</h3>
+                                  <h3 className="font-semibold text-lg">{applicant.candidate?.firstName || 'Unknown'} {applicant.candidate?.lastName || ''}</h3>
                                   {applicant.match?.matchScore && (
                                     <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
                                       <Star className="h-3 w-3 mr-1" />
@@ -1011,7 +1011,7 @@ export default function TalentDashboard() {
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-500">{applicant.candidate.email}</p>
+                                <p className="text-sm text-gray-500">{applicant.candidate?.email || ''}</p>
                                  <div className="flex flex-wrap gap-2 mt-3">
                                    {(applicant.profile?.skills || []).map((skill: string) => (
                                      <Badge key={skill} variant="secondary">{skill}</Badge>
@@ -1100,14 +1100,14 @@ export default function TalentDashboard() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => generateQuestionsMutation.mutate({ jobId: selectedJob!.id, candidateId: applicant.candidate.id })}
-                                    disabled={generateQuestionsMutation.isPending}
+                                    onClick={() => selectedJob && generateQuestionsMutation.mutate({ jobId: selectedJob.id, candidateId: applicant.candidate?.id })}
+                                    disabled={generateQuestionsMutation.isPending || !selectedJob}
                                   >
                                     Generate AI Screening Questions
                                   </Button>
                                   <Button
                                     size="sm"
-                                    onClick={() => startChatMutation.mutate({ jobId: selectedJob!.id, candidateId: applicant.candidate.id })}
+                                    onClick={() => selectedJob && startChatMutation.mutate({ jobId: selectedJob.id, candidateId: applicant.candidate?.id })}
                                     disabled={startChatMutation.isPending}
                                   >
                                     <MessageSquare className="h-4 w-4 mr-2" />

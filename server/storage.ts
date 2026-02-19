@@ -1136,25 +1136,39 @@ export class DatabaseStorage implements IStorage {
 
   async storeExamResult(result: any): Promise<void> {
     try {
-      // First get the exam ID for this job
-      const [exam] = await db.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
-      if (!exam) {
-        throw new Error('No exam found for this job');
-      }
+      await db.transaction(async (tx) => {
+        // Get exam and check for existing attempt atomically
+        const [exam] = await tx.select().from(jobExams).where(eq(jobExams.jobId, result.jobId));
+        if (!exam) {
+          throw new Error('No exam found for this job');
+        }
 
-      await db.insert(examAttempts).values({
-        examId: exam.id,
-        candidateId: result.candidateId,
-        jobId: result.jobId,
-        score: result.score,
-        totalQuestions: result.totalQuestions,
-        correctAnswers: result.correctAnswers,
-        timeSpent: result.timeSpent,
-        answers: result.answers,
-        status: 'completed',
-        passedExam: result.score >= (exam.passingScore || 70),
-        qualifiedForChat: false, // Will be set during ranking
-        completedAt: new Date(),
+        // Check for existing attempt to prevent duplicates
+        const [existing] = await tx.select({ id: examAttempts.id })
+          .from(examAttempts)
+          .where(and(
+            eq(examAttempts.examId, exam.id),
+            eq(examAttempts.candidateId, result.candidateId),
+            eq(examAttempts.jobId, result.jobId),
+          ));
+        if (existing) {
+          throw new Error('Exam already submitted for this job');
+        }
+
+        await tx.insert(examAttempts).values({
+          examId: exam.id,
+          candidateId: result.candidateId,
+          jobId: result.jobId,
+          score: result.score,
+          totalQuestions: result.totalQuestions,
+          correctAnswers: result.correctAnswers,
+          timeSpent: result.timeSpent,
+          answers: result.answers,
+          status: 'completed',
+          passedExam: result.score >= (exam.passingScore || 70),
+          qualifiedForChat: false, // Will be set during ranking
+          completedAt: new Date(),
+        });
       });
     } catch (error) {
       console.error('Error storing exam result:', error);
