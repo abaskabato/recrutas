@@ -1,8 +1,7 @@
 import { MailService } from '@sendgrid/mail';
 
-// Derive frontend URL: explicit env var > production domain > Vercel auto-URL > localhost dev fallback
+// Derive frontend URL: explicit env var > Vercel auto-URL > localhost dev fallback
 const FRONTEND_URL = process.env.FRONTEND_URL
-  || (process.env.NODE_ENV === 'production' ? 'https://recrutas.ai' : null)
   || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
   || 'http://localhost:5000';
 
