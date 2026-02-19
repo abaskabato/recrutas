@@ -16,7 +16,10 @@
 import fs from 'fs';
 import path from 'path';
 
-const WEIGHTS_FILE = path.join(process.cwd(), 'data', 'ltr-weights.json');
+// Use /tmp on serverless (Vercel) since cwd is read-only
+const WEIGHTS_FILE = process.env.VERCEL
+  ? path.join('/tmp', 'ltr-weights.json')
+  : path.join(process.cwd(), 'data', 'ltr-weights.json');
 
 function ensureDataDir() {
   const dataDir = path.dirname(WEIGHTS_FILE);

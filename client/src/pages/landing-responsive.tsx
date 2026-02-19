@@ -89,7 +89,7 @@ export default function LandingResponsive() {
     }
   };
 
-  if (session && !session.user.user_metadata.role) {
+  if (session && !session.user?.user_metadata?.role) {
     setLocation("/role-selection");
     return null;
   }

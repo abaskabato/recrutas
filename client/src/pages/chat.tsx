@@ -96,9 +96,11 @@ export default function Chat() {
               ) : (
                 <div className="space-y-2">
                   {chatRooms.map((room: any) => {
-                    const otherUser = session.user.user_metadata.role === 'candidate' ? room.match.recruiter : room.match.candidate;
-                    const jobTitle = room.match.job?.title || 'Job';
-                    
+                    const otherUser = session.user?.user_metadata?.role === 'candidate' ? room.match?.recruiter : room.match?.candidate;
+                    const jobTitle = room.match?.job?.title || 'Job';
+
+                    if (!otherUser) return null;
+
                     return (
                       <Button
                         key={room.id}

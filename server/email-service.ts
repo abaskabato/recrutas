@@ -1,5 +1,14 @@
 import { MailService } from '@sendgrid/mail';
 
+// Derive frontend URL: explicit env var > Vercel auto-URL > localhost dev fallback
+const FRONTEND_URL = process.env.FRONTEND_URL
+  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+  || 'http://localhost:5000';
+
+if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+  console.warn('[email] FRONTEND_URL not set — using VERCEL_URL or localhost fallback. Email links may be wrong.');
+}
+
 if (!process.env.SENDGRID_API_KEY) {
   console.warn("SENDGRID_API_KEY not configured - email sending will be disabled");
 }
@@ -41,7 +50,7 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
 }
 
 export async function sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
+  const resetUrl = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
   
   const htmlContent = `
     <!DOCTYPE html>
@@ -145,7 +154,7 @@ export async function sendWelcomeEmail(email: string, firstName?: string): Promi
                     <li>Real-time chat with employers</li>
                 </ul>
                 <p>Get started by completing your profile and discovering your perfect job matches:</p>
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:5000'}/candidate-dashboard" class="button">Complete Your Profile</a>
+                <a href="${FRONTEND_URL}/candidate-dashboard" class="button">Complete Your Profile</a>
             </div>
             <div class="footer">
                 <p>© 2024 Recrutas - Revolutionizing Job Matching</p>
@@ -228,7 +237,7 @@ export async function sendApplicationStatusEmail(
   const config = statusConfig[status];
   if (!config) return false;
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+  const frontendUrl = FRONTEND_URL;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -297,7 +306,7 @@ export async function sendInterviewScheduledEmail(
   location?: string,
   interviewerName?: string
 ): Promise<boolean> {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+  const frontendUrl = FRONTEND_URL;
 
   const typeDetails: Record<string, string> = {
     video: meetingLink ? `Join via: <a href="${meetingLink}">${meetingLink}</a>` : 'Video call details will be provided.',
@@ -375,7 +384,7 @@ export async function sendNewMatchEmail(
   skills: string[],
   jobId: number
 ): Promise<boolean> {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+  const frontendUrl = FRONTEND_URL;
 
   const matchQuality = matchScore >= 85 ? 'Excellent' : matchScore >= 70 ? 'Strong' : 'Good';
   const matchColor = matchScore >= 85 ? '#4caf50' : matchScore >= 70 ? '#2196f3' : '#ff9800';
@@ -441,7 +450,7 @@ export async function sendExamCompletedEmail(
   totalQuestions: number,
   correctAnswers: number
 ): Promise<boolean> {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+  const frontendUrl = FRONTEND_URL;
 
   const scoreQuality = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Below Average';
   const scoreColor = score >= 80 ? '#4caf50' : score >= 60 ? '#ff9800' : '#f44336';
@@ -508,7 +517,7 @@ export async function sendNewMessageEmail(
   messagePreview: string,
   jobTitle?: string
 ): Promise<boolean> {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+  const frontendUrl = FRONTEND_URL;
 
   const htmlContent = `
     <!DOCTYPE html>

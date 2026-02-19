@@ -526,7 +526,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const batchSize = 5;
       for (let i = 0; i < cafeJobs.length; i += batchSize) {
         const batch = cafeJobs.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
+        const batchResults = await Promise.allSettled(
           batch.map(async (job) => {
             const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
             return {
@@ -542,7 +542,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
             };
           })
         );
-        scoredCafeJobs.push(...batchResults);
+        scoredCafeJobs.push(...batchResults
+          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+          .map(r => r.value));
       }
 
       // If DB returned matches, filter cafe jobs to 40%+ match
@@ -568,7 +570,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       let scoredRemoteOkJobs: any[] = [];
       for (let i = 0; i < remoteOkJobs.length; i += batchSize) {
         const batch = remoteOkJobs.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
+        const batchResults = await Promise.allSettled(
           batch.map(async (job: any) => {
             const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
             return {
@@ -584,7 +586,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
             };
           })
         );
-        scoredRemoteOkJobs.push(...batchResults);
+        scoredRemoteOkJobs.push(...batchResults
+          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+          .map(r => r.value));
       }
 
       // Filter RemoteOK jobs by match score and deduplication

@@ -52,8 +52,16 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
     }
   };
 
-  const otherUser = user.role === 'candidate' ? room.match.recruiter : room.match.candidate;
-  const jobTitle = room.match.job?.title || 'Job Position';
+  const otherUser = user?.role === 'candidate' ? room?.match?.recruiter : room?.match?.candidate;
+  const jobTitle = room?.match?.job?.title || 'Job Position';
+
+  if (!otherUser) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <p className="text-muted-foreground">Chat partner not found</p>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
