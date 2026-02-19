@@ -56,10 +56,11 @@ function simpleSkillMatch(candidateSkills: string[], job: any): {
   const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
   const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
   const matchingSkills = normalizedSkills.filter((s: string) =>
-    jobSkills.some((js: string) => js.includes(s) || s.includes(js))
+    jobSkills.some((js: string) => js === s)
   );
+  const jobSkillsCount = jobSkills.length || 1;
   const matchScore = matchingSkills.length > 0
-    ? Math.round((matchingSkills.length / Math.max(normalizedSkills.length, 1)) * 100)
+    ? Math.round((matchingSkills.length / Math.max(jobSkillsCount, 1)) * 100)
     : 0;
   return {
     matchScore,
@@ -422,8 +423,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
         confidenceScore: job.matchScore,
         externalSource: job.source,
         externalUrl: job.externalUrl,
-        postedDate: job.postedDate || job.createdAt
+        postedDate: job.postedDate || job.createdAt,
+        trustScore: job.trustScore ?? 0,
+        livenessStatus: job.livenessStatus ?? 'unknown',
       },
+      isVerifiedActive: job.isVerifiedActive ?? (job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90),
+      isDirectFromCompany: job.isDirectFromCompany ?? ((job.trustScore ?? 0) >= 85),
       matchScore: `${job.matchScore}%`,
       confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 90 : (job.matchScore > 60 ? 70 : 50)),
       skillMatches: job.skillMatches || [],
@@ -532,6 +537,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
               aiExplanation: mlScore.aiExplanation,
               confidenceLevel: mlScore.confidenceLevel,
               source: 'hiring-cafe',
+              trustScore: job.trustScore ?? 50,
+              livenessStatus: job.livenessStatus ?? 'unknown',
             };
           })
         );
@@ -572,6 +579,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
               aiExplanation: mlScore.aiExplanation,
               confidenceLevel: mlScore.confidenceLevel,
               source: 'remote-ok',
+              trustScore: job.trustScore ?? 50,
+              livenessStatus: job.livenessStatus ?? 'unknown',
             };
           })
         );
