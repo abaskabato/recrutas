@@ -1,13 +1,10 @@
 import { MailService } from '@sendgrid/mail';
 
-// Derive frontend URL: explicit env var > Vercel auto-URL > localhost dev fallback
+// Derive frontend URL: explicit env var > production domain > Vercel auto-URL > localhost dev fallback
 const FRONTEND_URL = process.env.FRONTEND_URL
+  || (process.env.NODE_ENV === 'production' ? 'https://recrutas.ai' : null)
   || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
   || 'http://localhost:5000';
-
-if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
-  console.warn('[email] FRONTEND_URL not set — using VERCEL_URL or localhost fallback. Email links may be wrong.');
-}
 
 if (!process.env.SENDGRID_API_KEY) {
   console.warn("SENDGRID_API_KEY not configured - email sending will be disabled");
