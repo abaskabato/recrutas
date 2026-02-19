@@ -61,8 +61,10 @@ function GuidedSetupContent() {
   ];
 
   const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep /> }];
-  const currentStep = steps[step - 1];
-  const progress = (step / steps.length) * 100;
+  const clampedStep = Math.max(1, Math.min(step, steps.length));
+  if (clampedStep !== step) setStep(clampedStep);
+  const currentStep = steps[clampedStep - 1];
+  const progress = (clampedStep / steps.length) * 100;
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4">

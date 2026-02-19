@@ -67,7 +67,7 @@ export default function ApplicationTracker() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: applications, isLoading } = useQuery<ApplicationStatus[]>({
+  const { data: applications, isLoading, isError } = useQuery<ApplicationStatus[]>({
     queryKey: ["/api/candidate/applications"],
   });
 
@@ -123,6 +123,23 @@ export default function ApplicationTracker() {
           </Card>
         ))}
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <div className="text-gray-500">
+            <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
+            <h3 className="text-lg font-medium mb-2">Could not load applications</h3>
+            <p className="text-sm mb-4">Something went wrong. Please try again.</p>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 

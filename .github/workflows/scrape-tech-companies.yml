@@ -27,6 +27,7 @@ jobs:
         id: tier1
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           USE_OLLAMA: false
         run: npx tsx scripts/scrape-tier.ts --tier=1 --timeout=900000
@@ -35,6 +36,7 @@ jobs:
         id: tier2
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           USE_OLLAMA: false
         run: npx tsx scripts/scrape-tier.ts --tier=2 --timeout=600000
@@ -43,6 +45,7 @@ jobs:
         id: tier3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           USE_OLLAMA: false
         run: npx tsx scripts/scrape-tier.ts --tier=3 --timeout=300000
@@ -51,6 +54,7 @@ jobs:
         id: cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npx tsx scripts/scrape-tier.ts --cleanup --days=15
 
       - name: Report Status

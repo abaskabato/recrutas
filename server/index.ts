@@ -171,8 +171,8 @@ export async function configureApp() {
     }
   });
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
   // Request tracing middleware for performance monitoring (Sentry)
   app.use(requestTracingMiddleware());

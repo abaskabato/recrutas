@@ -13,7 +13,7 @@
     "dev:server:start": "./node_modules/.bin/tsx standalone-server.js",
     "dev:server:stop": "pkill -f 'tsx standalone-server.js' || true",
     "dev:server-no-watch": "NODE_ENV=test tsx standalone-server.js",
-    "build": "npm install && cd client && vite build && cd .. && npm run build:server && npm run build:api",
+    "build": "cd client && vite build && cd .. && npm run build:server && npm run build:api",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist/server/index.js --external:./node_modules/* --external:@supabase/* --external:drizzle-orm --external:drizzle-orm/* --external:pg --external:express --external:multer --external:cors --external:cookie-parser --external:bcryptjs --external:groq-sdk --external:openai --external:pdf-parse --external:mammoth",
     "build:api": "node scripts/generate-api-handler.js",
     "postbuild": "ls -R dist",
@@ -135,8 +135,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
-    "@replit/vite-plugin-cartographer": "^0.2.7",
-    "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
