@@ -440,6 +440,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // AI-powered job matching
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
+    const MATCHING_TIMEOUT_MS = 25000; // 25 second timeout for entire matching process
+    
+    // Create a timeout controller
+    let timeoutId: NodeJS.Timeout;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Matching timeout')), MATCHING_TIMEOUT_MS);
+    });
+    
+    const finish = () => clearTimeout(timeoutId);
+    
     try {
       const userId = req.user.id;
       console.log(`Fetching job recommendations for user: ${userId}`);
@@ -449,18 +459,25 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const candidateSkills = candidate?.skills || [];
 
       // Add timeout to prevent hanging on database issues
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Job recommendations timeout')), 10000)
+      const dbTimeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('DB recommendations timeout')), 8000)
       );
 
       // Run DB recommendations + hiring.cafe in parallel
       const dbPromise = Promise.race([
         storage.getJobRecommendations(userId),
-        timeoutPromise
+        dbTimeoutPromise
       ]);
 
+      // Limit hiring.cafe jobs to reduce processing time
       const hiringCafePromise = candidateSkills.length > 0
-        ? hiringCafeService.searchByKeywords(candidateSkills.slice(0, 5).join(' '))
+        ? Promise.race([
+            hiringCafeService.searchByKeywords(candidateSkills.slice(0, 5).join(' '))
+              .then(jobs => jobs.slice(0, 15)), // Limit to 15 jobs max
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Hiring.cafe timeout')), 5000)
+            )
+          ])
         : Promise.resolve([]);
 
       // Also try RemoteOK as fallback (free, no rate limits) — cached for 15 min
@@ -489,13 +506,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       })();
 
-      const [dbResult, cafeResult, remoteOkResult] = await Promise.allSettled([dbPromise, hiringCafePromise, remoteOkPromise]);
+      // Check if we've already timed out before processing external jobs
+      const startTime = Date.now();
+      
+      const [dbResult, cafeResult, remoteOkResult] = await Promise.race([
+        Promise.allSettled([dbPromise, hiringCafePromise, remoteOkPromise]),
+        timeoutPromise
+      ]) as any;
 
-      const recommendations = (dbResult.status === 'fulfilled' ? dbResult.value : []) as any[];
-      const cafeJobs = (cafeResult.status === 'fulfilled' ? cafeResult.value : []) as any[];
-      const remoteOkJobs = (remoteOkResult.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
+      const recommendations = (dbResult?.status === 'fulfilled' ? dbResult.value : []) as any[];
+      const cafeJobs = (cafeResult?.status === 'fulfilled' ? cafeResult.value : []) as any[];
+      const remoteOkJobs = (remoteOkResult?.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
 
-      if (cafeResult.status === 'rejected') {
+      if (cafeResult?.status === 'rejected') {
         console.warn('[HiringCafe] Search failed (non-fatal):', cafeResult.reason?.message);
       }
 
@@ -505,6 +528,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
         jobIngestionService.ingestExternalJobs(cafeJobs)
           .then(stats => console.log(`[HiringCafe] Ingestion: ${stats.inserted} new, ${stats.duplicates} dupes`))
           .catch(err => console.error('[HiringCafe] Ingestion failed:', err?.message));
+      }
+
+      // If we've exceeded 18 seconds, return DB results only without ML scoring
+      if (Date.now() - startTime > MATCHING_TIMEOUT_MS - 7000) {
+        console.log('[Matching] Timeout approaching - returning DB results without external jobs');
+        finish();
+        return res.json(recommendations);
       }
 
       // Score hiring.cafe jobs using ML matching (open-source transformers)
@@ -522,9 +552,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       let scoredCafeJobs: any[] = [];
 
-      // Process in batches to avoid overwhelming the ML model
-      const batchSize = 5;
+      // Process in batches to avoid overwhelming the ML model - reduce to 3 jobs per batch for speed
+      const batchSize = 3;
       for (let i = 0; i < cafeJobs.length; i += batchSize) {
+        // Check timeout before each batch
+        if (Date.now() - startTime > MATCHING_TIMEOUT_MS - 5000) {
+          console.log('[Matching] Timeout - stopping cafe job scoring');
+          break;
+        }
         const batch = cafeJobs.slice(i, i + batchSize);
         const batchResults = await Promise.allSettled(
           batch.map(async (job) => {
@@ -566,9 +601,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Add cafe job keys to seenKeys so RemoteOK deduplicates against them
       uniqueCafeJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
 
-      // Score and add RemoteOK jobs using ML matching
+      // Score and add RemoteOK jobs using ML matching (with timeout check)
       let scoredRemoteOkJobs: any[] = [];
-      for (let i = 0; i < remoteOkJobs.length; i += batchSize) {
+      const remoteOkStartTime = Date.now();
+      for (let i = 0; i < Math.min(remoteOkJobs.length, 10); i += batchSize) { // Limit to 10 jobs max
+        // Check timeout before each batch
+        if (Date.now() - startTime > MATCHING_TIMEOUT_MS - 5000) {
+          console.log('[Matching] Timeout - stopping RemoteOK job scoring');
+          break;
+        }
         const batch = remoteOkJobs.slice(i, i + batchSize);
         const batchResults = await Promise.allSettled(
           batch.map(async (job: any) => {
@@ -602,6 +643,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
       });
 
       const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...filteredRemoteOkJobs];
+      
+      finish();
 
       console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe + ${filteredRemoteOkJobs.length} RemoteOK recommendations`);
 
@@ -654,6 +697,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json({ applyAndKnowToday, matchedForYou });
     } catch (error: any) {
       console.error('Error fetching job matches:', error?.message);
+      finish();
 
       // Return empty sections on timeout/connection errors - better UX than 500 error
       if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
