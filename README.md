@@ -896,3 +896,58 @@ npm run check         # type-check + lint
 | GitHub scraping workflow | `.github/workflows/scrape-tech-companies.yml` |
 | Drizzle config | `drizzle.config.ts` |
 | Package scripts | `package.json:9-39` |
+
+---
+
+## Changelog
+
+### `5e3178b` — fix: resume matching crash, modal scroll, and scan UX improvements
+- **Bug fix**: `fetchScoredJobs` in `server/storage.ts` had infinite recursion — when a candidate's skills normalized to empty, it called itself again causing a stack overflow crash after certain resume types. Now returns `null` to fall through to the discovery feed.
+- **Performance**: `server/ai-resume-parser.ts` truncates resume text to 4,000 chars before sending to Groq, reducing AI inference time 50–70% for large resumes.
+- **UX**: Resume upload button changes label to "Still scanning, almost done…" after 8 seconds so users know the AI parse hasn't hung.
+- **UX**: All dialogs (`client/src/components/ui/dialog.tsx`) now have `overflow-y-auto max-h-[90dvh]` by default so users can always scroll to buttons at the bottom of modals.
+- **UI**: Talent dashboard applicant cards now show exam score badge with colour-coded tiers (green ≥80%, blue ≥60%, grey <60%).
+- **Landing**: Hero copy updated to "Apply Here. Know Today." with mission-aligned step descriptions.
+
+### `e304d0e` / `14b9353` — fix: FRONTEND_URL env var handling
+- Reverted hardcoded `recrutas.ai` domain; production now defaults `FRONTEND_URL` to `https://recrutas.ai` if the env var is not set, keeping local dev unaffected.
+
+### `6dac27a` / `843fd2f` / `c9fecd4` — public launch hardening
+- Security headers (CSP, HSTS, X-Frame-Options) added via Express middleware.
+- Talent dashboard null-safety fixes prevent white-screen crashes when applicant data is partially populated.
+- Exam race condition fixed — rapid double-submits no longer create duplicate attempt records.
+- Resilient matching: `/api/ai-matches` now returns a discovery feed instead of 500-erroring when the matching engine has no scored results.
+- Legacy `'applied'` application status handled gracefully in the tracker dropdown.
+
+### `c7a400f` — fix: consistent job matching
+- Skill match score now uses the number of **job-required skills** as the denominator (not total candidate skills), giving accurate per-job fit percentages.
+- Exact case-insensitive skill comparison replaces partial substring matching.
+- `matchScore`, `skillMatches`, and `aiExplanation` fields correctly propagated to all API response shapes.
+
+### `eb41b6d` — feat: "Apply For Me" agentic auto-apply
+- New `server/services/agent-apply.service.ts` — Playwright-based browser agent that navigates to an external job URL and fills out the application form on behalf of the candidate.
+- Triggered via `POST /api/candidate/agent-apply/:jobId`.
+- Gracefully degrades: if the external site cannot be automated, returns a manual-apply fallback URL.
+
+### `69c55d4` / `2697712` — feat: SOTA ML matching pipeline
+- Added `server/ml-matching.ts` — generates 384-dim sentence embeddings using `@xenova/transformers` (all-MiniLM-L6-v2) locally, no external API required.
+- Added `server/vector-search.ts` — in-memory cosine similarity search; optional Pinecone/Weaviate adapters for production scale.
+- Added `server/learn-to-rank.ts` — 10-feature LTR model (semantic similarity, skill match, experience, location, work type, salary, trust, recency, engagement, personalization) with online learning from candidate interactions.
+- Added `server/services/batch-embedding.service.ts` — pre-computes and stores job embeddings nightly via GitHub Actions (`.github/workflows/batch-embeddings.yml`).
+- Fixed salary math overflow, LTR gradient bias, and confidence score range (now always 0–100).
+
+### `59891fd` — feat: pricing model restructure
+- Candidates are now **free forever**.
+- Talent Owner tiers: Starter $49/mo, Growth $149/mo, Enterprise $299/mo.
+- Updated `server/services/stripe.service.ts` and subscription tier seed data.
+
+### `0c545bd` — fix: brand identity
+- Emerald green (`#10b981`) replaces the previous blue as the primary accent colour throughout Tailwind config and CSS variables.
+- Custom favicon added (`client/public/favicon.ico`).
+- Inter font set as the global sans-serif via `index.html`.
+- Vercel build alias `recrutas.ai` configured in `vercel.json`.
+
+### `de7dc88` — fix: MVP launch blockers
+- Exam page route parameter renamed from `:id` to `:jobId` for consistency with other job routes.
+- Plugged IDOR hole: candidates can no longer fetch exam results for jobs they didn't apply to.
+- Fixed data mapping bug where `externalUrl` was not forwarded to the frontend job card.
