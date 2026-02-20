@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -379,6 +379,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
               // Determine trust badges
               const isVerifiedActive = match.isVerifiedActive || (match.job.trustScore && match.job.trustScore >= 85 && match.job.livenessStatus === 'active');
               const isDirectFromCompany = match.isDirectFromCompany || match.job.externalSource === 'internal' || match.job.externalSource === 'platform';
+              const isInternalJob = (match.job as any).source === 'platform' || match.job.externalSource === 'platform' || !match.job.externalUrl;
 
               return (
                 <div key={match.id}>
@@ -418,6 +419,12 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                               <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 text-xs">
                                 <Shield className="h-3 w-3 mr-1" />
                                 Direct
+                              </Badge>
+                            )}
+                            {isInternalJob && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 text-xs">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Same-day Response
                               </Badge>
                             )}
                             <span className="text-xs text-gray-500 hidden sm:inline">Match: {match.matchScore}</span>

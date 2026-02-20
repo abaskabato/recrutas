@@ -314,20 +314,20 @@ export default function Landing() {
             transition={{ duration: 0.8 }}
           >
             <Badge className="mb-6 bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 border-blue-400/30 text-lg px-6 py-3">
-              ✨ Built on AI. Backed by transparency. Focused on you.
+              ✨ Job Search, Reinvented.
             </Badge>
             
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-8 leading-tight">
-              Skip the
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Recruiters</span>
+              Stop Applying to
+              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Black Holes</span>
               <br />
-              Talk to
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Real People</span>
+              Get
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Real Responses</span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-4xl mx-auto leading-relaxed">
-              Connect directly with hiring managers. No middlemen, no fees, no black holes. 
-              Just real conversations with the people who make hiring decisions.
+            <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+              Upload your resume. Get matched to jobs where you'll actually hear back. 
+              Every application gets a response within 24 hours.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
@@ -337,17 +337,17 @@ export default function Landing() {
                 onClick={() => setShowInstantMatch(true)}
               >
                 <Sparkles className="w-5 h-5 mr-2" />
-                Try Agentic Search
+                Find Jobs
               </Button>
               
               <Button 
                 variant="outline" 
                 size="lg"
-                className="border-slate-400 text-slate-300 hover:bg-slate-800/50 hover:text-white text-lg px-8 py-4 w-full sm:w-auto"
-                onClick={handleLogin}
+                className="border-green-400/50 text-green-300 hover:bg-green-500/20 hover:text-green-200 text-lg px-8 py-4 w-full sm:w-auto"
+                onClick={() => setLocation('/signup/talent-owner')}
               >
-                <PlayCircle className="w-5 h-5 mr-2" />
-                Watch Demo
+                <Building2 className="w-5 h-5 mr-2" />
+                Post Jobs
               </Button>
             </div>
 
@@ -423,6 +423,103 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* For Companies Section */}
+      <section className="px-6 py-20 bg-gradient-to-b from-slate-900/50 to-slate-800/30">
+        <div className="container mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <Badge className="mb-4 bg-green-500/20 text-green-300 border-green-400/30">
+              For Employers
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Hire Faster. Spend Less.
+            </h2>
+            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
+              Get quality candidates delivered to your inbox. AI screens so you only review the best.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="bg-slate-800/50 border-green-500/30 h-full">
+                <CardContent className="p-6 text-center">
+                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                    <Zap className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">Same-Day Responses</h3>
+                  <p className="text-slate-300">
+                    Every candidate gets a response within 24 hours. No more waiting weeks.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card className="bg-slate-800/50 border-green-500/30 h-full">
+                <CardContent className="p-6 text-center">
+                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                    <Brain className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">AI Pre-Screening</h3>
+                  <p className="text-slate-300">
+                    Our AI evaluates candidates. Focus only on qualified applicants.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="bg-slate-800/50 border-green-500/30 h-full">
+                <CardContent className="p-6 text-center">
+                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                    <Shield className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">Zero Recruiter Fees</h3>
+                  <p className="text-slate-300">
+                    Direct connections. No middlemen, no agency markups.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mt-10"
+          >
+            <Button 
+              size="lg"
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg px-8 py-4"
+              onClick={() => setLocation('/signup/talent-owner')}
+            >
+              <Building2 className="w-5 h-5 mr-2" />
+              Start Hiring
+            </Button>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Rejection Section */}
       <section className="px-6 py-20">
         <div className="container mx-auto text-center">
@@ -432,13 +529,13 @@ export default function Landing() {
             viewport={{ once: true }}
           >
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Tired of the same old story?
+              Stop the Silence
             </h2>
             <blockquote className="text-xl md:text-2xl text-slate-400 italic max-w-3xl mx-auto mb-8">
-              "After careful consideration, we’ve decided to move forward with another candidate for this opportunity."
+              "After careful consideration, we've decided to move forward with another candidate."
             </blockquote>
             <p className="text-xl text-slate-300">
-              Recrutas is here to change that.
+              Every application on Recrutas gets a real response.
             </p>
           </motion.div>
         </div>
@@ -570,43 +667,73 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="px-6 py-20">
-        <div className="container mx-auto text-center">
+      <section className="px-6 py-20 bg-gradient-to-b from-slate-900/50 to-slate-950">
+        <div className="container mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+            className="text-center mb-12"
           >
-            <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
-              Ready to Find Your
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Perfect Opportunity?</span>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Ready to Get Started?
             </h2>
-            
-            <p className="text-xl text-slate-300 mb-12 max-w-3xl mx-auto">
-              Join thousands of professionals who've already discovered a better way to find jobs and hire talent.
+            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
+              Join the future of hiring. No fees, no spam, just real connections.
             </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button 
-                size="lg"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-12 py-4 w-full sm:w-auto"
-                onClick={() => setShowInstantMatch(true)}
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Start Agentic Search Now
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="border-slate-400 text-slate-300 hover:bg-slate-800/50 hover:text-white text-lg px-12 py-4 w-full sm:w-auto"
-                onClick={handleLogin}
-              >
-                <UserCheck className="w-5 h-5 mr-2" />
-                Sign Up Free
-              </Button>
-            </div>
           </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <Card className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/30 h-full">
+                <CardContent className="p-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <Sparkles className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">For Candidates</h3>
+                  <p className="text-slate-300 mb-6">
+                    Upload your resume. Get matched to jobs where you'll actually hear back.
+                  </p>
+                  <Button 
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 w-full"
+                    onClick={() => setShowInstantMatch(true)}
+                  >
+                    Find Jobs
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <Card className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border-green-500/30 h-full">
+                <CardContent className="p-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                    <Building2 className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">For Employers</h3>
+                  <p className="text-slate-300 mb-6">
+                    Post jobs and get quality candidates delivered. AI pre-screens for you.
+                  </p>
+                  <Button 
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 w-full"
+                    onClick={() => setLocation('/signup/talent-owner')}
+                  >
+                    Start Hiring
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
         </div>
       </section>
 
