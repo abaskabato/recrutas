@@ -304,68 +304,70 @@ export default function CandidateStreamlinedDashboard() {
           </p>
         </div>
 
-        {/* Actionable Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">New Matches</CardTitle>
-              <Target className="h-5 w-5 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newMatches || 0}</div>
-              <p className="text-xs text-muted-foreground pt-2">High-quality jobs matched to your profile.</p>
-              <Button className="mt-4 w-full" size="sm" onClick={() => setActiveTab('jobs')}>
-                <Search className="h-4 w-4 mr-2" />
-                Review Matches
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Stats Grid — only show once user has activity */}
+        {hasResume && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">New Matches</CardTitle>
+                <Target className="h-5 w-5 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newMatches || 0}</div>
+                <p className="text-xs text-muted-foreground pt-2">Jobs matched to your profile today.</p>
+                <Button className="mt-4 w-full" size="sm" onClick={() => setActiveTab('jobs')}>
+                  <Search className="h-4 w-4 mr-2" />
+                  View Jobs
+                </Button>
+              </CardContent>
+            </Card>
 
-          <Card className="border-l-4 border-l-green-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Profile Views</CardTitle>
-              <Eye className="h-5 w-5 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.profileViews || 0}</div>
-              <p className="text-xs text-muted-foreground pt-2">Times your profile appeared in recruiter searches.</p>
-              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('profile')}>
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Enhance Profile
-              </Button>
-            </CardContent>
-          </Card>
+            <Card className="border-l-4 border-l-green-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Recruiter Interest</CardTitle>
+                <Eye className="h-5 w-5 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.profileViews || 0}</div>
+                <p className="text-xs text-muted-foreground pt-2">Recruiters who viewed your profile.</p>
+                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('profile')}>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Improve Profile
+                </Button>
+              </CardContent>
+            </Card>
 
-          <Card className="border-l-4 border-l-purple-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</CardTitle>
-              <MessageCircle className="h-5 w-5 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</div>
-              <p className="text-xs text-muted-foreground pt-2">Direct conversations with hiring managers.</p>
-              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setLocation('/chat')}>
-                <MessageCircle className="h-4 w-4 mr-2" />
-                View Chats
-              </Button>
-            </CardContent>
-          </Card>
+            <Card className="border-l-4 border-l-purple-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</CardTitle>
+                <MessageCircle className="h-5 w-5 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</div>
+                <p className="text-xs text-muted-foreground pt-2">Direct conversations with hiring managers.</p>
+                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setLocation('/chat')}>
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  View Chats
+                </Button>
+              </CardContent>
+            </Card>
 
-          <Card className="border-l-4 border-l-orange-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Applications</CardTitle>
-              <Briefcase className="h-5 w-5 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{applications?.length || 0}</div>
-              <p className="text-xs text-muted-foreground pt-2">Track your application statuses.</p>
-              <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('applications')}>
-                <FileText className="h-4 w-4 mr-2" />
-                Track Applications
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="border-l-4 border-l-orange-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Applications</CardTitle>
+                <Briefcase className="h-5 w-5 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{applications?.length || 0}</div>
+                <p className="text-xs text-muted-foreground pt-2">Track your application statuses.</p>
+                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('applications')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Track
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Resume Processing Status Banner */}
         {isResumeProcessing && (
@@ -472,7 +474,7 @@ export default function CandidateStreamlinedDashboard() {
                 }`}
             >
               <Search className="h-4 w-4 mr-2 inline" />
-              Job Feed
+              Jobs
             </button>
             <button
               onClick={() => setActiveTab('saved')}
@@ -512,7 +514,16 @@ export default function CandidateStreamlinedDashboard() {
 
         {/* Tab Content */}
         {activeTab === 'jobs' && (
-          <div>
+          <div className="relative">
+            {isResumeProcessing && (
+              <div className="absolute inset-0 z-10 flex items-start justify-center pt-24 bg-white/70 dark:bg-gray-900/70 rounded-lg backdrop-blur-sm">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-lg font-semibold text-gray-800 dark:text-white">Finding your matches...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hang on while we scan your resume</p>
+                </div>
+              </div>
+            )}
             <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
           </div>
         )}
@@ -530,7 +541,19 @@ export default function CandidateStreamlinedDashboard() {
 
         {activeTab === 'applications' && (
           <div>
-            <ApplicationTracker />
+            {applications && applications.length === 0 ? (
+              <div className="text-center py-20">
+                <Briefcase className="h-14 w-14 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No applications yet</h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">Start applying to jobs and track every status here in real time.</p>
+                <Button onClick={() => setActiveTab('jobs')}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Browse Jobs
+                </Button>
+              </div>
+            ) : (
+              <ApplicationTracker />
+            )}
           </div>
         )}
 
