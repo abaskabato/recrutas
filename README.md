@@ -455,7 +455,7 @@ Routes defined in `client/src/App.tsx:26-65`:
   <Route path="/talent-dashboard">
     <RoleGuard allowedRoles={['talent_owner']}><TalentDashboard /></RoleGuard>
   </Route>
-  <Route path="/exam/:id">
+  <Route path="/exam/:jobId">
     <RoleGuard><ExamPage /></RoleGuard>
   </Route>
   <Route path="/chat/:id">

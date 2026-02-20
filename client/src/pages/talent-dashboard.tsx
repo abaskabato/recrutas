@@ -1004,6 +1004,12 @@ export default function TalentDashboard() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-4">
                                   <h3 className="font-semibold text-lg">{applicant.candidate?.firstName || 'Unknown'} {applicant.candidate?.lastName || ''}</h3>
+                                  {applicant.examScore != null && (
+                                    <Badge variant="default" className={applicant.examScore >= 80 ? "bg-emerald-600 hover:bg-emerald-700" : applicant.examScore >= 60 ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-500 hover:bg-gray-600"}>
+                                      <Target className="h-3 w-3 mr-1" />
+                                      Exam: {applicant.examScore}%
+                                    </Badge>
+                                  )}
                                   {applicant.match?.matchScore && (
                                     <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
                                       <Star className="h-3 w-3 mr-1" />

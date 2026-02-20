@@ -92,6 +92,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     maxTravelDays: 0
   });
   const [parsedResumeData, setParsedResumeData] = useState<ExtractedInfo | null>(null);
+  const [uploadElapsed, setUploadElapsed] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -171,6 +172,19 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       });
     },
   });
+
+  // Track elapsed time while uploading so we can show a "still working" hint
+  useEffect(() => {
+    if (!uploadMutation.isPending) {
+      setUploadElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setUploadElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [uploadMutation.isPending]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -274,7 +288,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
           <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".pdf,.doc,.docx" className="hidden" />
           <Button variant="outline" className="flex items-center space-x-3 p-4 h-auto justify-start w-full" onClick={() => fileInputRef.current?.click()} disabled={uploadMutation.isPending}>
             {uploadMutation.isPending ? (
-              <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div><span>Scanning Resume...</span></>
+              <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div><span>{uploadElapsed >= 8 ? 'Still scanning, almost done...' : 'Scanning Resume...'}</span></>
             ) : (
               <><Upload className="h-5 w-5 text-primary" /><span>Upload & AI Scan Resume</span></>
             )}

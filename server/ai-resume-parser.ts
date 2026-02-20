@@ -511,6 +511,12 @@ Return JSON with this exact structure:
       throw new Error('Groq client not initialized');
     }
 
+    // Truncate large resumes to keep prompt size manageable (~4000 chars covers all relevant info)
+    const truncatedText = text.length > 4000 ? text.substring(0, 4000) : text;
+    if (text.length > 4000) {
+      console.log(`[AIResumeParser] Truncated resume text from ${text.length} to 4000 chars for Groq`);
+    }
+
     console.log('[AIResumeParser] Calling Groq API with llama-3.3-70b-versatile...');
 
     // Add timeout to prevent hanging
@@ -578,7 +584,7 @@ Return JSON with this exact structure:
 }
 
 Resume text:
-${text}`
+${truncatedText}`
           }
         ],
         response_format: { type: 'json_object' },

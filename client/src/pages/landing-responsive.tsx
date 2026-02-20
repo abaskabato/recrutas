@@ -174,17 +174,17 @@ export default function LandingResponsive() {
             </Badge>
             
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-black dark:text-white mb-6 md:mb-8 leading-tight tracking-tight">
-              Job Search.
+              Apply Here.
               <br />
               <span className="text-black dark:text-white">
-                Reinvented.
+                Know Today.
               </span>
             </h1>
-            
-            
-            <blockquote className="text-lg sm:text-xl md:text-2xl text-slate-500 dark:text-slate-400 mb-8 md:mb-12 font-light max-w-3xl mx-auto italic">
-                            In a world where algorithms decide who exists, Recrutas insists everyone deserves visibility, everyone deserves dignity.
-            </blockquote>
+
+
+            <p className="text-lg sm:text-xl md:text-2xl text-slate-500 dark:text-slate-400 mb-8 md:mb-12 font-light max-w-3xl mx-auto">
+              Every application gets a response. Internal jobs give you a score the same day. External jobs are verified real and fresh. No more ghosting.
+            </p>
 
             </div>
         </div>
@@ -224,9 +224,9 @@ export default function LandingResponsive() {
               <div className="flex items-center justify-center w-16 h-16 mx-auto bg-blue-500/10 text-blue-500 rounded-full">
                 <span className="text-2xl font-bold">1</span>
               </div>
-              <h3 className="text-2xl font-bold text-black dark:text-white">Enter Your Skills</h3>
+              <h3 className="text-2xl font-bold text-black dark:text-white">Apply in Seconds</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Tell us what you do. Our AI will understand your skills and experience.
+                Upload your resume once. Our AI matches you to jobs and can even apply for you automatically.
               </p>
             </div>
 
@@ -234,9 +234,9 @@ export default function LandingResponsive() {
               <div className="flex items-center justify-center w-16 h-16 mx-auto bg-purple-500/10 text-purple-500 rounded-full">
                 <span className="text-2xl font-bold">2</span>
               </div>
-              <h3 className="text-2xl font-bold text-black dark:text-white">See Your Opportunities</h3>
+              <h3 className="text-2xl font-bold text-black dark:text-white">Know Where You Stand</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Our AI finds the best jobs for you. No more endless scrolling through irrelevant job postings.
+                Internal jobs score you the same day via quick exams. External jobs are verified active — no ghost listings.
               </p>
             </div>
 
@@ -244,9 +244,9 @@ export default function LandingResponsive() {
               <div className="flex items-center justify-center w-16 h-16 mx-auto bg-green-500/10 text-green-500 rounded-full">
                 <span className="text-2xl font-bold">3</span>
               </div>
-              <h3 className="text-2xl font-bold text-black dark:text-white">Connect Directly</h3>
+              <h3 className="text-2xl font-bold text-black dark:text-white">Get Real Responses</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                Talk to the hiring managers, no recruiters. Get feedback and build relationships.
+                Every application gets a response. Top scorers connect directly with hiring managers — no recruiter middlemen.
               </p>
             </div>
           </div>

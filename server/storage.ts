@@ -756,10 +756,10 @@ export class DatabaseStorage implements IStorage {
     const candidateSkills = normalizeSkills(candidate.skills);
     console.log(`Candidate skills (normalized): ${candidateSkills.join(', ')}`);
 
-    // Safety guard: if skills array is empty after normalization, fall back to discovery feed
+    // Safety guard: if skills array is empty after normalization, return null to trigger discovery feed
     if (candidateSkills.length === 0) {
-      console.log(`Candidate ${candidateId} has no skills after normalization - returning discovery feed`);
-      return this.fetchScoredJobs(candidateId);
+      console.log(`Candidate ${candidateId} has no usable skills after normalization - returning null for discovery feed`);
+      return null;
     }
 
     // Only show jobs from last 90 days for fresh results
@@ -1358,7 +1358,7 @@ export class DatabaseStorage implements IStorage {
         return []; // Return empty array if user does not own the job
       }
 
-      // If ownership is confirmed, fetch applicants
+      // If ownership is confirmed, fetch applicants with exam scores
       return await db
         .select({
           applicationId: jobApplications.id,
@@ -1381,7 +1381,10 @@ export class DatabaseStorage implements IStorage {
           match: {
             matchScore: jobMatches.matchScore,
             aiExplanation: jobMatches.aiExplanation,
-          }
+          },
+          examScore: examAttempts.score,
+          examPassed: examAttempts.passedExam,
+          examRanking: examAttempts.ranking,
         })
         .from(jobApplications)
         .innerJoin(users, eq(jobApplications.candidateId, users.id))
@@ -1390,8 +1393,12 @@ export class DatabaseStorage implements IStorage {
           eq(jobMatches.candidateId, jobApplications.candidateId),
           eq(jobMatches.jobId, jobApplications.jobId)
         ))
+        .leftJoin(examAttempts, and(
+          eq(examAttempts.candidateId, jobApplications.candidateId),
+          eq(examAttempts.jobId, jobApplications.jobId)
+        ))
         .where(eq(jobApplications.jobId, jobId))
-        .orderBy(desc(jobApplications.appliedAt));
+        .orderBy(desc(examAttempts.score), desc(jobApplications.appliedAt));
     } catch (error) {
       console.error(`Error fetching applicants for job ${jobId}:`, error);
       throw error;
