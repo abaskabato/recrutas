@@ -441,7 +441,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // AI-powered job matching
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
     const MATCHING_TIMEOUT_MS = 25000; // 25 second timeout for entire matching process
-    
+    const EARLY_RETURN_THRESHOLD_MS = 18000; // return DB-only results if exceeded after fetches
+    const BATCH_ABORT_THRESHOLD_MS = 20000;  // stop scoring batches if exceeded
+
     // Create a timeout controller
     let timeoutId: NodeJS.Timeout;
     const timeoutPromise = new Promise((_, reject) => {
@@ -457,6 +459,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Fetch candidate skills for hiring.cafe query
       const candidate = await storage.getCandidateUser(userId);
       const candidateSkills = candidate?.skills || [];
+
+      const startTime = Date.now();
 
       // Add timeout to prevent hanging on database issues
       const dbTimeoutPromise = new Promise((_, reject) =>
@@ -506,9 +510,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       })();
 
-      // Check if we've already timed out before processing external jobs
-      const startTime = Date.now();
-      
       const [dbResult, cafeResult, remoteOkResult] = await Promise.race([
         Promise.allSettled([dbPromise, hiringCafePromise, remoteOkPromise]),
         timeoutPromise
@@ -530,8 +531,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
           .catch(err => console.error('[HiringCafe] Ingestion failed:', err?.message));
       }
 
-      // If we've exceeded 18 seconds, return DB results only without ML scoring
-      if (Date.now() - startTime > MATCHING_TIMEOUT_MS - 7000) {
+      // If we've exceeded the early-return threshold, return DB results only without ML scoring
+      if (Date.now() - startTime > EARLY_RETURN_THRESHOLD_MS) {
         console.log('[Matching] Timeout approaching - returning DB results without external jobs');
         finish();
         return res.json(recommendations);
@@ -556,7 +557,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const batchSize = 3;
       for (let i = 0; i < cafeJobs.length; i += batchSize) {
         // Check timeout before each batch
-        if (Date.now() - startTime > MATCHING_TIMEOUT_MS - 5000) {
+        if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
           console.log('[Matching] Timeout - stopping cafe job scoring');
           break;
         }
@@ -603,10 +604,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Score and add RemoteOK jobs using ML matching (with timeout check)
       let scoredRemoteOkJobs: any[] = [];
-      const remoteOkStartTime = Date.now();
       for (let i = 0; i < Math.min(remoteOkJobs.length, 10); i += batchSize) { // Limit to 10 jobs max
         // Check timeout before each batch
-        if (Date.now() - startTime > MATCHING_TIMEOUT_MS - 5000) {
+        if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
           console.log('[Matching] Timeout - stopping RemoteOK job scoring');
           break;
         }
