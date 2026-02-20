@@ -104,25 +104,6 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  // Show error state with retry button
-  if (isError && !profile) {
-    return (
-      <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/50">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              <span className="text-amber-800 dark:text-amber-200">Could not load profile. Your data is safe.</span>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => queryClient.refetchQueries({ queryKey: ['/api/candidate/profile'] })}>
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  
   useEffect(() => {
     if (profile && typeof profile === 'object') {
       setProfileLinks({
@@ -173,19 +154,6 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     },
   });
 
-  // Track elapsed time while uploading so we can show a "still working" hint
-  useEffect(() => {
-    if (!uploadMutation.isPending) {
-      setUploadElapsed(0);
-      return;
-    }
-    const start = Date.now();
-    const interval = setInterval(() => {
-      setUploadElapsed(Math.floor((Date.now() - start) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [uploadMutation.isPending]);
-
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -216,6 +184,19 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       });
     },
   });
+
+  // Track elapsed time while uploading so we can show a "still working" hint
+  useEffect(() => {
+    if (!uploadMutation.isPending) {
+      setUploadElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setUploadElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [uploadMutation.isPending]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -277,6 +258,24 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     { key: 'githubUrl' as const, label: 'GitHub Profile', icon: Github, placeholder: 'https://github.com/yourusername' },
     { key: 'portfolioUrl' as const, label: 'Portfolio', icon: User, placeholder: 'https://yourportfolio.com' },
   ];
+
+  if (isError && !profile) {
+    return (
+      <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <span className="text-amber-800 dark:text-amber-200">Could not load profile. Your data is safe.</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => queryClient.refetchQueries({ queryKey: ['/api/candidate/profile'] })}>
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
