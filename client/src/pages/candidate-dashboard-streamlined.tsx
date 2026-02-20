@@ -432,33 +432,29 @@ export default function CandidateStreamlinedDashboard() {
           </Card>
         )}
 
-        {/* Simplified Profile Setup Section */}
-        {profileCompletion < 100 && (
+        {/* Resume Upload CTA */}
+        {!hasResume && (
           <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 border-blue-200 dark:border-blue-800">
             <CardContent className="p-6">
               <div className="flex items-center space-x-4">
-                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                    Complete Your Profile to Unlock Better Matches
+                    Let's start with your resume
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    You're {profileCompletion}% done! A complete profile gets noticed more.
+                    Upload once and we'll extract your skills, experience, and match you to the right jobs automatically.
                   </p>
-                  <div className="flex items-center gap-4">
-                    <Progress value={profileCompletion} className="h-2 flex-1" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setActiveTab('profile')}
-                      className="bg-white dark:bg-gray-800"
-                    >
-                      <TrendingUp className="h-4 w-4 mr-2" />
-                      Complete Profile
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab('profile')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Resume
+                  </Button>
                 </div>
               </div>
             </CardContent>
