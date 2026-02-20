@@ -511,7 +511,7 @@ export default function Landing() {
             <Button 
               size="lg"
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg px-8 py-4"
-              onClick={() => setLocation('/auth?role=talent_owner')}
+              onClick={() => setLocation('/signup/talent-owner')}
             >
               <Building2 className="w-5 h-5 mr-2" />
               Start Hiring
