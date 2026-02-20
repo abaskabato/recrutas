@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles, X,
+  Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles,
   MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2,
   Send, Building,
   Rocket, Award, ChevronRight, ArrowLeft
@@ -71,11 +71,13 @@ const JobCard = ({ job, index, onApply, onLike, onChat, isLiked, theme }) => (
             }`} />
           </Button>
         </div>
-        <p className={`text-sm font-semibold mt-1 sm:mt-2 ${theme === 'dark' ? 'text-slate-200' : 'text-gray-800'}`}>
-          {job.job?.salaryMin && job.job?.salaryMax
-            ? `$${(job.job.salaryMin / 1000).toFixed(0)}k-${(job.job.salaryMax / 1000).toFixed(0)}k`
-            : job.salary || '$80k-120k'}
-        </p>
+        {(job.job?.salaryMin && job.job?.salaryMax) || job.salary ? (
+          <p className={`text-sm font-semibold mt-1 sm:mt-2 ${theme === 'dark' ? 'text-slate-200' : 'text-gray-800'}`}>
+            {job.job?.salaryMin && job.job?.salaryMax
+              ? `$${(job.job.salaryMin / 1000).toFixed(0)}k–${(job.job.salaryMax / 1000).toFixed(0)}k`
+              : job.salary}
+          </p>
+        ) : null}
       </div>
     </div>
     <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -298,9 +300,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`p-0 border-0 overflow-hidden ${
+      <DialogContent className={`p-0 border-0 flex flex-col ${
         theme === 'dark' ? 'bg-slate-900' : 'bg-white'
-      } backdrop-blur-2xl shadow-2xl max-w-4xl w-[95vw] max-h-[90vh]`}>
+      } backdrop-blur-2xl shadow-2xl max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden`}>
         <DialogTitle className="sr-only">Instant Job Matching</DialogTitle>
         <DialogDescription className="sr-only">
           Find your perfect job match in 30 seconds with AI-powered recommendations
@@ -317,9 +319,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
         <div className="relative z-10 flex items-center justify-between p-4 sm:p-6 border-b border-slate-200/20 dark:border-slate-700/30">
           <div className="flex items-center gap-3">
             {step !== 'intro' && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={handleBack}
                 className="h-8 w-8"
               >
@@ -328,9 +330,6 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
             )}
             <SmartLogo size={28} showText={true} />
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-            <X className="w-4 h-4" />
-          </Button>
         </div>
 
         {/* Progress indicator */}
@@ -407,7 +406,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                   transition={{ delay: 0.3 }}
                   className={`text-base sm:text-lg mb-8 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-600'}`}
                 >
-                  Connect directly with hiring managers. No middlemen, no fees, no black holes.
+                  Apply to jobs and hear back the same day. No ghosting, no guessing.
                 </motion.p>
 
                 {/* Benefits Grid */}
@@ -673,7 +672,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                       className="w-full py-4 text-lg font-semibold text-white rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg"
                       onClick={handleGetStarted}
                     >
-                      Get Full Access
+                      Create Free Account
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Button>
                     <div className="flex gap-3">
@@ -792,7 +791,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
                     className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-white rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg"
                     onClick={handleGetStarted}
                   >
-                    Start Your Journey
+                    Create Free Account
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </div>
