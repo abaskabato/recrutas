@@ -6,7 +6,7 @@
  * and submits applications on behalf of candidates.
  */
 
-import { chromium, type Page, type Browser, type BrowserContext } from 'playwright';
+import { chromium, type Page, type Browser, type BrowserContext, type BrowserContextOptions } from 'playwright';
 import type { AgentTask } from '../../shared/schema';
 
 // ==========================================
@@ -111,25 +111,63 @@ export class AgentApplyService {
     };
 
     try {
-      addLog('launch_browser', 'Starting Playwright chromium');
+      addLog('launch_browser', 'Starting Playwright chromium (stealth mode)');
       browser = await chromium.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-blink-features=AutomationControlled', // hide automation flag
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--window-size=1920,1080',
+        ],
       });
 
       const context = await browser.newContext({
         userAgent: USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
         viewport: { width: 1920, height: 1080 },
         locale: 'en-US',
+        timezoneId: 'America/New_York',
+        permissions: ['geolocation'],
+        extraHTTPHeaders: {
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+
+      // Fix 1: Stealth — patch navigator.webdriver and remove CDP fingerprints
+      await context.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+        // Remove Chrome DevTools Protocol automation artifacts
+        const win = window as any;
+        delete win.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+        delete win.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+        delete win.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+        // Make chrome object look real
+        if (!win.chrome) {
+          win.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
+        }
       });
 
       const page = await context.newPage();
       const candidateData = task.candidateData as CandidateData;
 
+      // Fix 3: Resolve a fresh resume URL at execution time (stored URL may be expired)
+      const resumeUrl = await this.getFreshResumeUrl(task.resumeUrl);
+
       // Navigate to career page
       addLog('navigate', `Navigating to ${task.externalUrl}`);
       await page.goto(task.externalUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await this.randomDelay(1000, 2000);
+
+      // Fix 2: Wait for network to settle (SPAs render forms after domcontentloaded)
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      await page.waitForSelector('input, textarea, select, button', { timeout: 8000 }).catch(() => {});
+      await this.randomDelay(800, 1500);
+
+      // Fix 5: Dismiss cookie banners/consent overlays before interacting
+      await this.dismissCookieBanners(page);
 
       // Detect application form or find apply button
       let formFound = await this.detectForm(page);
@@ -137,7 +175,11 @@ export class AgentApplyService {
         addLog('find_apply_button', 'No form found, looking for Apply button');
         const clicked = await this.clickApplyButton(page);
         if (clicked) {
-          await this.randomDelay(1500, 3000);
+          // Wait for SPA navigation to complete after clicking Apply
+          await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+          await page.waitForSelector('input, textarea', { timeout: 8000 }).catch(() => {});
+          await this.randomDelay(1000, 2000);
+          await this.dismissCookieBanners(page);
           formFound = await this.detectForm(page);
         }
       }
@@ -154,60 +196,97 @@ export class AgentApplyService {
       const atsType = await this.detectATS(page);
       addLog('ats_detection', `Detected ATS: ${atsType || 'unknown'}`);
 
-      // Handle Workday iframe
+      // Handle Workday iframe — wait for it to fully load
       let activePage: Page | any = page;
       if (atsType === 'workday') {
+        await page.waitForSelector(ATS_SELECTORS.workday.iframeSelector, { timeout: 10000 }).catch(() => {});
         const iframe = await page.$(ATS_SELECTORS.workday.iframeSelector);
         if (iframe) {
           const frame = await iframe.contentFrame();
           if (frame) {
+            await frame.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
             activePage = frame;
             addLog('workday_iframe', 'Switched to Workday iframe context');
           }
         }
       }
 
-      // Rule-based form analysis
-      const fieldMap = await this.analyzeFormRuleBased(activePage, candidateData, atsType);
-      addLog('rule_based_analysis', `Matched ${Object.keys(fieldMap.matched).length} fields, ${fieldMap.unmatched.length} unmatched`);
+      // Fix 4: Multi-step form loop — keep filling and advancing until submitted or confirmed
+      let stepCount = 0;
+      const MAX_STEPS = 6;
+      let finalSubmitted = false;
 
-      // Ollama fallback for unmatched required fields
-      if (fieldMap.unmatched.length > 0) {
-        addLog('ollama_fallback', `Attempting Ollama for ${fieldMap.unmatched.length} unmatched fields`);
-        const ollamaMap = await this.analyzeFormOllama(activePage, fieldMap.unmatched, candidateData);
-        Object.assign(fieldMap.matched, ollamaMap);
-        addLog('ollama_result', `Ollama resolved ${Object.keys(ollamaMap).length} additional fields`);
+      while (stepCount < MAX_STEPS) {
+        stepCount++;
+
+        // Analyse and fill the current page/step
+        const fieldMap = await this.analyzeFormRuleBased(activePage, candidateData, atsType);
+        addLog(`step_${stepCount}_analysis`, `Matched ${Object.keys(fieldMap.matched).length} fields, ${fieldMap.unmatched.length} unmatched`);
+
+        if (fieldMap.unmatched.length > 0) {
+          const ollamaMap = await this.analyzeFormOllama(activePage, fieldMap.unmatched, candidateData);
+          Object.assign(fieldMap.matched, ollamaMap);
+          if (Object.keys(ollamaMap).length > 0) {
+            addLog(`step_${stepCount}_ollama`, `Ollama resolved ${Object.keys(ollamaMap).length} additional fields`);
+          }
+        }
+
+        if (Object.keys(fieldMap.matched).length > 0) {
+          addLog(`step_${stepCount}_fill`, 'Filling form fields');
+          await this.fillForm(activePage, fieldMap.matched);
+        }
+
+        if (fieldMap.fileUploadSelector && resumeUrl) {
+          addLog(`step_${stepCount}_resume`, 'Uploading resume');
+          await this.handleResumeUpload(activePage, fieldMap.fileUploadSelector, resumeUrl);
+        }
+
+        // Click Next or Submit
+        addLog(`step_${stepCount}_advance`, 'Advancing form (Next/Submit)');
+        const advanced = await this.advanceForm(activePage, atsType);
+        if (!advanced) {
+          addLog(`step_${stepCount}_no_button`, 'No Next/Submit button found');
+          break;
+        }
+
+        // Wait for the result of the click
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await this.randomDelay(1500, 2500);
+
+        // Check if we've reached a confirmation page (submitted)
+        if (await this.verifySubmission(page)) {
+          finalSubmitted = true;
+          addLog(`step_${stepCount}_confirmed`, 'Submission confirmed on this step');
+          break;
+        }
+
+        // Check if the form is gone (likely navigated away post-submit)
+        const stillOnForm = await this.detectForm(activePage);
+        if (!stillOnForm) {
+          finalSubmitted = true;
+          addLog(`step_${stepCount}_form_gone`, 'Form no longer present — likely submitted');
+          break;
+        }
+
+        addLog(`step_${stepCount}_next_page`, 'Form still present, advancing to next step');
       }
 
-      // Fill form fields
-      addLog('fill_form', 'Filling form fields');
-      await this.fillForm(activePage, fieldMap.matched);
-
-      // Handle file upload (resume)
-      if (fieldMap.fileUploadSelector && task.resumeUrl) {
-        addLog('upload_resume', 'Uploading resume');
-        await this.handleResumeUpload(activePage, fieldMap.fileUploadSelector, task.resumeUrl);
-      }
-
-      // Submit form
-      addLog('submit', 'Submitting application');
-      const submitted = await this.submitForm(activePage, atsType);
-
-      if (!submitted) {
+      if (!finalSubmitted && stepCount >= MAX_STEPS) {
         const screenshot = await this.takeScreenshot(page);
-        addLog('submit_failed', 'Form submission may have failed', screenshot);
+        addLog('max_steps_reached', `Reached ${MAX_STEPS} steps without confirmation`, screenshot);
+        return { success: false, log, error: 'max_steps_reached' };
+      }
+
+      if (!finalSubmitted) {
+        const screenshot = await this.takeScreenshot(page);
+        addLog('submit_failed', 'Could not complete submission', screenshot);
         return { success: false, log, error: 'submission_failed' };
       }
 
-      // Verify submission
-      await this.randomDelay(2000, 4000);
-      const verified = await this.verifySubmission(page);
-      addLog('verify', verified ? 'Submission verified' : 'Could not verify submission');
-
       const screenshot = await this.takeScreenshot(page);
-      addLog('complete', 'Process complete', screenshot);
-
+      addLog('complete', 'Application submitted successfully', screenshot);
       return { success: true, log };
+
     } catch (error: any) {
       addLog('error', error.message);
       return { success: false, log, error: error.message };
@@ -215,6 +294,38 @@ export class AgentApplyService {
       if (browser) {
         await browser.close().catch(() => {});
       }
+    }
+  }
+
+  /**
+   * Fix 3: Generate a fresh Supabase signed URL for the resume.
+   * The stored URL may have an expired token (signed URLs have short TTLs).
+   */
+  private async getFreshResumeUrl(storedUrl: string | null | undefined): Promise<string | null> {
+    if (!storedUrl) return null;
+
+    try {
+      // Extract storage path from the URL
+      // Format: .../storage/v1/object/(sign|public)/resumes/<path>
+      const match = storedUrl.match(/\/object\/(?:sign|public)\/([^?]+)/);
+      if (!match) return storedUrl; // Can't parse — use as-is
+
+      const fullPath = match[1]; // e.g. "resumes/user-id/resume.pdf"
+      const [bucket, ...pathParts] = fullPath.split('/');
+      const filePath = pathParts.join('/');
+
+      const { getSupabaseAdmin } = await import('../lib/supabase-admin.js');
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(filePath, 300); // 5 min TTL — enough for the automation
+
+      if (error || !data?.signedUrl) {
+        return storedUrl; // Fall back to original URL
+      }
+      return data.signedUrl;
+    } catch {
+      return storedUrl;
     }
   }
 
@@ -546,20 +657,44 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
   }
 
   // ==========================================
-  // FORM SUBMISSION
+  // FORM ADVANCEMENT (Next / Submit)
+  // Fix 4: Handles multi-step forms by preferring "Next" over "Submit"
+  // when both are present, so we don't skip form pages.
   // ==========================================
 
-  private async submitForm(page: Page | any, atsType: string | null): Promise<boolean> {
+  private async advanceForm(page: Page | any, atsType: string | null): Promise<boolean> {
+    // "Next" buttons come first — prefer advancing over submitting prematurely
+    const nextSelectors = [
+      'button:has-text("Next")',
+      'button:has-text("Continue")',
+      'button:has-text("Next Step")',
+      'button:has-text("Next Page")',
+      'a:has-text("Next")',
+      '[data-qa="next-button"]',
+      '.next-button',
+    ];
+
+    for (const selector of nextSelectors) {
+      try {
+        const btn = await page.$(selector);
+        if (btn && await btn.isVisible()) {
+          await this.randomDelay(400, 800);
+          await btn.click();
+          return true;
+        }
+      } catch { /* try next */ }
+    }
+
+    // No "Next" found — try submit
     const submitSelectors = [
-      // ATS-specific
       ...(atsType === 'greenhouse' ? [ATS_SELECTORS.greenhouse.submitBtn] : []),
       ...(atsType === 'lever' ? [ATS_SELECTORS.lever.submitBtn] : []),
-      // Generic
       'button[type="submit"]',
       'input[type="submit"]',
       'button:has-text("Submit")',
       'button:has-text("Submit Application")',
       'button:has-text("Apply")',
+      'button:has-text("Send Application")',
       '#submit',
     ];
 
@@ -574,6 +709,43 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
       } catch { /* try next */ }
     }
     return false;
+  }
+
+  // ==========================================
+  // COOKIE BANNER DISMISSAL
+  // Fix 5: Dismiss consent overlays that block form interaction
+  // ==========================================
+
+  private async dismissCookieBanners(page: Page): Promise<void> {
+    const acceptSelectors = [
+      'button:has-text("Accept All")',
+      'button:has-text("Accept all")',
+      'button:has-text("Accept Cookies")',
+      'button:has-text("Accept")',
+      'button:has-text("I Accept")',
+      'button:has-text("OK")',
+      'button:has-text("Got it")',
+      'button:has-text("Agree")',
+      'button:has-text("I Agree")',
+      '[aria-label="Accept cookies"]',
+      '[aria-label="accept cookies"]',
+      '#onetrust-accept-btn-handler',
+      '.cookie-accept',
+      '.accept-cookies',
+      '[data-testid="cookie-accept"]',
+      '[data-testid="accept-button"]',
+    ];
+
+    for (const selector of acceptSelectors) {
+      try {
+        const el = await page.$(selector);
+        if (el && await el.isVisible()) {
+          await el.click();
+          await this.randomDelay(400, 800);
+          return; // One banner at a time
+        }
+      } catch { /* continue */ }
+    }
   }
 
   // ==========================================
