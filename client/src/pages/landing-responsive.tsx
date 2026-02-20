@@ -174,10 +174,10 @@ export default function LandingResponsive() {
             </Badge>
             
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-black dark:text-white mb-6 md:mb-8 leading-tight tracking-tight">
-              Apply Here.
+              Job Search,
               <br />
               <span className="text-black dark:text-white">
-                Know Today.
+                Reinvented.
               </span>
             </h1>
 
