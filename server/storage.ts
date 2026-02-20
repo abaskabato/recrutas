@@ -484,7 +484,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [result] = await db.insert(jobPostings).values({
         ...job,
-        skills: job.skills || [],
+        skills: normalizeSkills(job.skills || []),
         requirements: job.requirements || [],
         hiringManagerId: job.hiringManagerId || job.talentOwnerId, // Default to talent owner if no hiring manager specified
       }).returning();
@@ -810,8 +810,10 @@ export class DatabaseStorage implements IStorage {
 
     const recommendations = jobsWithSource
       .map(job => {
+        // Normalize job skills at comparison time to handle legacy un-normalized entries
+        const normalizedJobSkills = normalizeSkills(job.skills || []).map(s => s.toLowerCase());
         const matchingSkills = candidateSkills.filter(skill =>
-          job.skills?.some((js: string) => js.toLowerCase() === skill.toLowerCase())
+          normalizedJobSkills.includes(skill.toLowerCase())
         );
         // Calculate match score based on job's required skills, not candidate's total skills
         // This gives a better measure of how well the candidate matches the specific job
@@ -965,7 +967,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting> {
     try {
-      const updateData = { ...updates, updatedAt: new Date() };
+      const updateData = {
+        ...updates,
+        ...(updates.skills ? { skills: normalizeSkills(updates.skills) } : {}),
+        updatedAt: new Date(),
+      };
       const [job] = await db
         .update(jobPostings)
         .set(updateData as any)

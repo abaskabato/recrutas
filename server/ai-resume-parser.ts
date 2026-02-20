@@ -327,7 +327,12 @@ ${text.slice(0, 4000)}` }
 
     const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content || '{}';
-    const extractedData = JSON.parse(content);
+    let extractedData: any;
+    try {
+      extractedData = JSON.parse(content);
+    } catch {
+      throw new Error(`HF returned non-JSON response: ${content.slice(0, 200)}`);
+    }
 
     return {
       personalInfo: extractedData.personalInfo || {},

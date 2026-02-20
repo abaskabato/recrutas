@@ -238,7 +238,7 @@ export class ResumeService {
         },
         experience: {
           level: aiExtracted.experience?.level || 'unknown',
-          years: aiExtracted.experience?.years || 0,
+          years: aiExtracted.experience?.totalYears || 0,
           positions: aiExtracted.experience?.positions || []
         },
         education: aiExtracted.education || [],

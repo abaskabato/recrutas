@@ -36,6 +36,7 @@ import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { hiringCafeService } from './services/hiring-cafe.service';
 import { jobIngestionService } from './services/job-ingestion.service';
 import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo } from './ml-matching';
+import { normalizeSkills } from './skill-normalizer';
 
 // In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
 let remoteOkCache: { data: any[]; timestamp: number } | null = null;
@@ -54,7 +55,8 @@ function simpleSkillMatch(candidateSkills: string[], job: any): {
   confidenceLevel: number;
 } {
   const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
-  const jobSkills = (job.skills || []).map((s: string) => s.toLowerCase());
+  // Normalize job skills so "ReactJS" matches candidate's "React"
+  const jobSkills = normalizeSkills(job.skills || []).map((s: string) => s.toLowerCase());
   const matchingSkills = normalizedSkills.filter((s: string) =>
     jobSkills.some((js: string) => js === s)
   );
