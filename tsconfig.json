@@ -22,7 +22,7 @@
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
     },
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "vite/client"],
     "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": false
   },

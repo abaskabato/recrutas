@@ -47,9 +47,8 @@ export default function RoleSelectionStep() {
       <h2 className="text-2xl font-bold text-center mb-6">Choose Your Role</h2>
       <div className="grid md:grid-cols-2 gap-8">
         <Card
-          className="cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border hover:ring-2 hover:ring-primary"
+          className={`cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border hover:ring-2 hover:ring-primary ${setRoleMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
           onClick={() => handleSelectRole('candidate')}
-          disabled={setRoleMutation.isPending}
         >
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-4 w-16 h-16 bg-primary rounded-full flex items-center justify-center">
@@ -61,9 +60,8 @@ export default function RoleSelectionStep() {
         </Card>
 
         <Card
-          className="cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border hover:ring-2 hover:ring-primary"
+          className={`cursor-pointer transition-all duration-200 hover:shadow-xl bg-card border border-border hover:ring-2 hover:ring-primary ${setRoleMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
           onClick={() => handleSelectRole('talent_owner')}
-          disabled={setRoleMutation.isPending}
         >
           <CardHeader className="text-center pb-4">
             <div className="mx-auto mb-4 w-16 h-16 bg-primary rounded-full flex items-center justify-center">

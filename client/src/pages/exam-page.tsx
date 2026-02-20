@@ -17,7 +17,7 @@ interface ExamPageProps {
 export default function ExamPage() {
   const [, setLocation] = useLocation();
   const session = useSession();
-  const params = useParams();
+  const params = useParams<{ jobId?: string; jobTitle?: string }>();
   
   // Parse URL parameters
   const jobId = params.jobId ? parseInt(params.jobId) : undefined;

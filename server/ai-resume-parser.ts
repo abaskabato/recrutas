@@ -239,166 +239,114 @@ English (Native), Spanish (Conversational)`;
   }
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
-    try {
-      // Priority 1: Groq (configured and working - same key as job summarization)
-      if (getGroqClient()) {
-        try {
-          console.log('[AIResumeParser] Trying Groq API (primary)...');
-          return await this.extractWithGroq(text);
-        } catch (groqError: any) {
-          console.error('[AIResumeParser] Groq failed:', {
-            message: groqError.message,
-            status: groqError.status,
-            code: groqError.code,
-            type: groqError.type
-          });
-          // Fall through to fallback - don't try other providers on connection errors
-          console.log('[AIResumeParser] Using rule-based fallback extraction...');
-          return this.extractWithFallback(text);
-        }
-      } else {
-        console.warn('[AIResumeParser] Groq client not initialized - check GROQ_API_KEY');
+    const errors: string[] = [];
+
+    // Priority 1: Groq
+    if (getGroqClient()) {
+      try {
+        console.log('[AIResumeParser] Trying Groq API (primary)...');
+        return await this.extractWithGroq(text);
+      } catch (groqError: any) {
+        console.error('[AIResumeParser] Groq failed:', groqError.message);
+        errors.push(`Groq: ${groqError.message}`);
       }
-
-      // Priority 2: Ollama (free, local option) - only if enabled and Groq not configured
-      if (process.env.USE_OLLAMA === 'true') {
-        try {
-          const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-          const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
-          console.log(`[AIResumeParser] Trying Ollama at ${ollamaUrl} with model ${ollamaModel}...`);
-          return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
-        } catch (ollamaError: any) {
-          console.warn('[AIResumeParser] Ollama failed:', ollamaError.message);
-          // Fall through to fallback
-        }
-      }
-
-      // Priority 3: Hugging Face Inference API - only if others not available
-      const apiKey = process.env.HF_API_KEY;
-
-      if (!apiKey || apiKey === '%HF_API_KEY%') {
-        console.log('[AIResumeParser] No AI providers available, using rule-based fallback extraction');
-        return this.extractWithFallback(text);
-      }
-
-      console.log('[AIResumeParser] Sending resume text to Hugging Face API for extraction...');
-
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('HF API request timeout (30s)')), 30000)
-      );
-
-      const response = await Promise.race([
-        fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'mistralai/Mistral-7B-Instruct-v0.1',
-            messages: [
-              {
-                role: "system",
-                content: "You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text."
-              },
-              {
-                role: "user",
-                content: `Extract the following information from this resume text and return as JSON (no markdown, no code blocks, just raw JSON):
-
-            {
-              "personalInfo": {
-                "name": "extracted name",
-                "email": "extracted email",
-                "phone": "extracted phone",
-                "location": "extracted location",
-                "linkedin": "linkedin url",
-                "github": "github url",
-                "portfolio": "portfolio url"
-              },
-              "summary": "professional summary text",
-              "skills": {
-                "technical": ["list of technical skills"],
-                "soft": ["list of soft skills"],
-                "tools": ["list of tools and technologies"]
-              },
-              "experience": {
-                "totalYears": 0,
-                "level": "entry|mid|senior|executive",
-                "positions": [
-                  {
-                    "title": "job title",
-                    "company": "company name",
-                    "duration": "time period",
-                    "responsibilities": ["list of responsibilities"]
-                  }
-                ]
-              },
-              "education": [
-                {
-                  "degree": "degree name",
-                  "institution": "school name",
-                  "year": "graduation year",
-                  "gpa": "gpa if mentioned"
-                }
-              ],
-              "certifications": ["list of certifications"],
-              "projects": [
-                {
-                  "name": "project name",
-                  "description": "project description",
-                  "technologies": ["technologies used"]
-                }
-              ],
-              "languages": ["spoken languages"]
-            }
-
-            Resume text:
-            ${text}`
-              }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7,
-          })
-        }),
-        timeoutPromise
-      ]) as any;
-
-      if (!response.ok) {
-        throw new Error(`HF API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('[AIResumeParser] Successfully received response from Hugging Face API');
-
-      const content = data.choices?.[0]?.message?.content || '{}';
-      const extractedData = JSON.parse(content);
-
-      // Ensure all required fields are present with defaults
-      return {
-        personalInfo: extractedData.personalInfo || {},
-        summary: extractedData.summary || '',
-        skills: {
-          technical: extractedData.skills?.technical || [],
-          soft: extractedData.skills?.soft || [],
-          tools: extractedData.skills?.tools || []
-        },
-        experience: {
-          totalYears: extractedData.experience?.totalYears || 0,
-          level: extractedData.experience?.level || 'entry',
-          positions: extractedData.experience?.positions || []
-        },
-        education: extractedData.education || [],
-        certifications: extractedData.certifications || [],
-        projects: extractedData.projects || [],
-        languages: extractedData.languages || []
-      };
-    } catch (error) {
-      console.warn('[AIResumeParser] AI Resume parsing failed, falling back to rule-based extraction:', error.message);
-
-      // Fallback to rule-based extraction
-      return this.extractWithFallback(text);
     }
+
+    // Priority 2: Ollama (local)
+    if (process.env.USE_OLLAMA === 'true') {
+      try {
+        const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+        const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
+        console.log(`[AIResumeParser] Trying Ollama at ${ollamaUrl}...`);
+        return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
+      } catch (ollamaError: any) {
+        console.warn('[AIResumeParser] Ollama failed:', ollamaError.message);
+        errors.push(`Ollama: ${ollamaError.message}`);
+      }
+    }
+
+    // Priority 3: Hugging Face
+    const hfApiKey = process.env.HF_API_KEY;
+    if (hfApiKey && hfApiKey !== '%HF_API_KEY%') {
+      try {
+        console.log('[AIResumeParser] Trying Hugging Face API...');
+        return await this.extractWithHF(text, hfApiKey);
+      } catch (hfError: any) {
+        console.warn('[AIResumeParser] Hugging Face failed:', hfError.message);
+        errors.push(`HF: ${hfError.message}`);
+      }
+    }
+
+    // All AI providers failed, use rule-based fallback
+    console.log('[AIResumeParser] All AI providers failed, using rule-based fallback:', errors);
+    return this.extractWithFallback(text);
+  }
+
+  private async extractWithHF(text: string, apiKey: string): Promise<AIExtractedData> {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('HF API timeout (30s)')), 30000)
+    );
+
+    const response = await Promise.race([
+      fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'mistralai/Mistral-7B-Instruct-v0.1',
+          messages: [
+            { role: 'system', content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text.' },
+            { role: 'user', content: `Extract the following information from this resume text and return as JSON:
+
+{
+  "personalInfo": { "name": "extracted name", "email": "extracted email", "phone": "extracted phone", "location": "extracted location", "linkedin": "linkedin url", "github": "github url", "portfolio": "portfolio url" },
+  "summary": "professional summary text",
+  "skills": { "technical": ["list of technical skills"], "soft": ["list of soft skills"], "tools": ["list of tools"] },
+  "experience": { "totalYears": 0, "level": "entry|mid|senior|executive", "positions": [{ "title": "job title", "company": "company name", "duration": "time period", "responsibilities": ["responsibility1"] }] },
+  "education": [{ "degree": "degree name", "institution": "school name", "year": "year" }],
+  "certifications": ["cert1"],
+  "projects": [{ "name": "project name", "description": "description", "technologies": ["tech1"] }],
+  "languages": ["English"]
+}
+
+Resume text:
+${text.slice(0, 4000)}` }
+          ],
+          max_tokens: 2000,
+          temperature: 0.7,
+        })
+      }),
+      timeoutPromise
+    ]) as Response;
+
+    if (!response.ok) {
+      throw new Error(`HF API returned ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data.choices?.[0]?.message?.content || '{}';
+    const extractedData = JSON.parse(content);
+
+    return {
+      personalInfo: extractedData.personalInfo || {},
+      summary: extractedData.summary || '',
+      skills: {
+        technical: extractedData.skills?.technical || [],
+        soft: extractedData.skills?.soft || [],
+        tools: extractedData.skills?.tools || []
+      },
+      experience: {
+        totalYears: extractedData.experience?.totalYears || 0,
+        level: extractedData.experience?.level || 'entry',
+        positions: extractedData.experience?.positions || []
+      },
+      education: extractedData.education || [],
+      certifications: extractedData.certifications || [],
+      projects: extractedData.projects || [],
+      languages: extractedData.languages || []
+    };
   }
 
   private async extractWithOllama(
@@ -477,13 +425,13 @@ Return JSON with this exact structure:
         throw new Error(`Ollama returned ${response.status}`);
       }
 
-      const result = await response.json();
+      const result = await response.json() as { response?: string };
       console.log('AIResumeParser: Ollama extraction complete');
 
       // Parse the response
       let extractedData;
       try {
-        extractedData = JSON.parse(result.response);
+        extractedData = JSON.parse(result.response || '{}');
       } catch (parseError) {
         console.warn('Failed to parse Ollama response, using fallback:', parseError.message);
         return this.extractWithFallback(text);

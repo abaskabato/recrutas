@@ -44,7 +44,7 @@ const server = setupServer(
     return HttpResponse.json([{ applicationId: 1, candidate: { firstName: 'John', lastName: 'Doe' }, profile: { skills: ['React'] } }]);
   }),
   http.post('/api/jobs', async ({ request }) => {
-    const body = await request.json();
+    const body = await request.json() as Record<string, unknown>;
     return HttpResponse.json({ id: 2, ...body });
   })
 );
@@ -89,7 +89,7 @@ vi.mock('@supabase/auth-helpers-react', async (importOriginal) => {
     },
   };
   return {
-    ...actual,
+    ...(actual as object),
     useSession: () => session,
     useSessionContext: () => ({
       session,

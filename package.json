@@ -18,7 +18,7 @@
     "build:api": "node scripts/generate-api-handler.js",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",
-    "lint": "echo \"Linter is currently disabled\"",
+    "lint": "eslint . --ext .ts,.tsx --ignore-path .gitignore",
     "test": "RAPIDAPI_KEY=5706440c2cmsh6fbbaa0ddac2a64p116bd6jsn30a4d4fc5261 NODE_ENV=test node run-tests.js",
     "test:unit:backend": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest --testMatch='**/test/*-unit.test.js'",
     "test:integration:backend": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest --testMatch='**/test/*-integration.test.js'",

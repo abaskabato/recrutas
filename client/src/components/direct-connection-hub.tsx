@@ -102,17 +102,27 @@ export default function DirectConnectionHub({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // WebSocket for real-time messaging
-  const { sendMessage } = useWebSocket({
-    onMessage: (data) => {
-      if (data.type === 'new_message' && selectedConnection) {
-        // Update messages in real-time
-        setSelectedConnection(prev => prev ? {
-          ...prev,
-          messages: [...prev.messages, data.message]
-        } : null);
+  const { socket, sendMessage } = useWebSocket();
+
+  // Handle incoming real-time messages
+  useEffect(() => {
+    if (!socket) return;
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_message' && selectedConnection) {
+          setSelectedConnection(prev => prev ? {
+            ...prev,
+            messages: [...prev.messages, data.message]
+          } : null);
+        }
+      } catch {
+        // ignore malformed messages
       }
-    }
-  });
+    };
+    socket.addEventListener('message', handleMessage);
+    return () => socket.removeEventListener('message', handleMessage);
+  }, [socket, selectedConnection]);
 
   // Fetch all direct connections for this hiring manager
   const { data: connections = [], refetch } = useQuery<DirectConnection[]>({

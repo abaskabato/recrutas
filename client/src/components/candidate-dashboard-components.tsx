@@ -1,6 +1,34 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building, MapPin, DollarSign, ExternalLink, MessageSquare, BookOpen, Star, Briefcase, Clock } from "lucide-react";
+import { Building, MapPin, DollarSign, ExternalLink, MessageSquare, BookOpen, Star, Briefcase, Clock, CheckCircle, XCircle, Clock3, AlertCircle } from "lucide-react";
+
+const getStatusColor = (status: string): string => {
+  const colors: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-800",
+    applied: "bg-blue-100 text-blue-800",
+    viewing: "bg-purple-100 text-purple-800",
+    shortlisted: "bg-green-100 text-green-800",
+    interview: "bg-indigo-100 text-indigo-800",
+    offer: "bg-teal-100 text-teal-800",
+    rejected: "bg-red-100 text-red-800",
+    withdrawn: "bg-gray-100 text-gray-800",
+  };
+  return colors[status.toLowerCase()] || "bg-gray-100 text-gray-800";
+};
+
+const getStatusIcon = (status: string) => {
+  const icons: Record<string, JSX.Element> = {
+    pending: <Clock3 className="w-3 h-3" />,
+    applied: <CheckCircle className="w-3 h-3" />,
+    viewing: <BookOpen className="w-3 h-3" />,
+    shortlisted: <Star className="w-3 h-3" />,
+    interview: <Briefcase className="w-3 h-3" />,
+    offer: <CheckCircle className="w-3 h-3" />,
+    rejected: <XCircle className="w-3 h-3" />,
+    withdrawn: <AlertCircle className="w-3 h-3" />,
+  };
+  return icons[status.toLowerCase()] || <Clock3 className="w-3 h-3" />;
+};
 
 interface JobMatch {
   id: number;

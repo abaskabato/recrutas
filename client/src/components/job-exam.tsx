@@ -30,7 +30,7 @@ interface JobExam {
 
 interface JobExamProps {
   jobId: number;
-  onComplete: () => void;
+  onComplete: (score: number, passed: boolean) => void;
   onCancel: () => void;
 }
 
@@ -94,7 +94,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
           : `You scored ${result.score}%. The passing score was ${exam?.passingScore}%.`,
         variant: result.passed ? "default" : "destructive",
       });
-      onComplete();
+      onComplete(result.score, result.passed);
     },
     onError: (error: any) => {
       toast({

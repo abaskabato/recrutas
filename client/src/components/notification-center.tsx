@@ -56,7 +56,7 @@ export function NotificationCenter() {
   const queryClient = useQueryClient();
 
   // Fetch unread notification count
-  const { data: countData } = useQuery({
+  const { data: countData } = useQuery<{ count?: number }>({
     queryKey: ['/api/notifications/count'],
     refetchInterval: 30000, // Refetch every 30 seconds
   });
@@ -70,9 +70,7 @@ export function NotificationCenter() {
   // Mark notification as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: number) =>
-      apiRequest(`/api/notifications/${notificationId}/read`, {
-        method: "POST",
-      }),
+      apiRequest('POST', `/api/notifications/${notificationId}/read`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
@@ -82,9 +80,7 @@ export function NotificationCenter() {
   // Mark all notifications as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: () =>
-      apiRequest('/api/notifications/mark-all-read', {
-        method: "POST",
-      }),
+      apiRequest('POST', '/api/notifications/mark-all-read'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });

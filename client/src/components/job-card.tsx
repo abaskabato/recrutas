@@ -13,11 +13,15 @@ interface JobCardProps {
   onViewMatches?: (job: any) => void;
 }
 
+interface Match {
+  status: string;
+}
+
 export default function JobCard({ job, onEdit, onViewMatches }: JobCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: matches = [], isLoading: matchesLoading } = useQuery({
+  const { data: matches = [], isLoading: matchesLoading } = useQuery<Match[]>({
     queryKey: ["/api/jobs", job.id, "matches"],
   });
 

@@ -99,7 +99,7 @@ export default function CandidateRankingEngine({
   });
 
   // Fetch job details for context
-  const { data: jobDetails } = useQuery({
+  const { data: jobDetails } = useQuery<{ skills?: string[] }>({
     queryKey: ['/api/jobs', jobId],
   });
 

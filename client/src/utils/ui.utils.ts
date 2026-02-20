@@ -166,9 +166,9 @@ export function getSkeletonClasses(variant: 'text' | 'avatar' | 'card' = 'text')
 }
 
 /**
- * Format file size for display
+ * Format file size for display (internal)
  */
-export function formatFileSize(bytes: number): string {
+function formatFileSizeInternal(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   if (bytes === 0) return '0 B';
   
@@ -228,7 +228,7 @@ export function validateFile(file: File, allowedTypes: string[], maxSize: number
   }
   
   if (file.size > maxSize) {
-    return { valid: false, error: `File size exceeds ${formatFileSize(maxSize)} limit` };
+    return { valid: false, error: `File size exceeds ${formatFileSizeInternal(maxSize)} limit` };
   }
   
   return { valid: true };

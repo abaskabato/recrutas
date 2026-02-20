@@ -33,13 +33,13 @@ export default function RecruiterDashboard() {
     }
   }, [session, toast]);
 
-  const { data: jobs = [], isLoading: jobsLoading } = useQuery({
+  const { data: jobs = [], isLoading: jobsLoading } = useQuery<any[]>({
     queryKey: ["/api/jobs"],
     enabled: !!session?.user,
     retry: false,
   });
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery<{ activeJobs?: number; totalMatches?: number; activeChats?: number; hires?: number }>({
     queryKey: ["/api/recruiter/stats"],
     enabled: !!session?.user,
     retry: false,

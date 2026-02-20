@@ -571,11 +571,11 @@ export default function TalentDashboard() {
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                   <span className="text-primary-foreground text-sm font-medium">
-                    {user.firstName?.[0] || user.email?.[0] || 'U'}
+                    {(user as any)?.firstName?.[0] || user.email?.[0] || 'U'}
                   </span>
                 </div>
                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  {user.firstName || user.email?.split('@')[0] || 'User'}
+                  {(user as any)?.firstName || user.email?.split('@')[0] || 'User'}
                 </span>
               </div>
               <TooltipProvider>
@@ -618,7 +618,7 @@ export default function TalentDashboard() {
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div>
                     <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
-                      Welcome back, {user.firstName || 'Talent Owner'}!
+                      Welcome back, {(user as any)?.firstName || 'Talent Owner'}!
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">
                       Manage your job postings and connect with top candidates
@@ -925,7 +925,8 @@ export default function TalentDashboard() {
                             className="flex-1 lg:flex-none"
                             onClick={() => {
                               setSelectedJob(job);
-                              setJobForm({
+                              setJobForm(prev => ({
+                                ...prev,
                                 title: job.title,
                                 company: job.company,
                                 description: job.description,
@@ -934,8 +935,8 @@ export default function TalentDashboard() {
                                 location: job.location,
                                 salaryMin: job.salaryMin?.toString() || "",
                                 salaryMax: job.salaryMax?.toString() || "",
-                                workType: job.workType
-                              });
+                                workType: job.workType,
+                              }));
                               setShowJobDialog(true);
                             }}
                           >

@@ -142,9 +142,7 @@ export default function ResumeUploadStep() {
       }, 300);
 
       try {
-        const response = await apiRequest('POST', '/api/candidate/resume', formData, {
-          'Content-Type': 'multipart/form-data'
-        });
+        const response = await apiRequest('POST', '/api/candidate/resume', formData);
 
         clearInterval(progressInterval);
         setUploadPhase('parsing');

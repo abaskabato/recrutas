@@ -68,7 +68,7 @@ interface RealTimeChatProps {
 }
 
 export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
-  const { user } = useAuth();
+  const { user } = useRoleBasedAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState("");

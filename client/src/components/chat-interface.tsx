@@ -71,14 +71,14 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarImage src={otherUser.profileImageUrl} />
+                <AvatarImage src={(otherUser as any)?.profile_image_url || (otherUser as any)?.profileImageUrl} />
                 <AvatarFallback>
-                  {(otherUser.firstName?.[0] || otherUser.email?.[0] || 'U').toUpperCase()}
+                  {((otherUser as any)?.first_name || (otherUser as any)?.firstName || (otherUser as any)?.email?.[0] || 'U').toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <h3 className="font-semibold text-neutral-800">
-                  {otherUser.firstName || otherUser.email?.split('@')[0] || 'User'}
+                  {(otherUser as any)?.first_name || (otherUser as any)?.firstName || (otherUser as any)?.email?.split('@')[0] || 'User'}
                 </h3>
                 <p className="text-sm text-neutral-600">{jobTitle}</p>
               </div>
@@ -136,9 +136,9 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
                   </div>
                   {isCurrentUser && (
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.profileImageUrl} />
+                      <AvatarImage src={(user as any)?.profile_image_url || (user as any)?.image} />
                       <AvatarFallback>
-                        {(user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                        {((user as any)?.first_name || (user as any)?.name || (user as any)?.email?.[0] || 'U').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   )}

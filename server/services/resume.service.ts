@@ -1,9 +1,12 @@
 import { IStorage } from '../storage';
 import { AIResumeParser } from '../ai-resume-parser';
-import { User } from '@shared/schema'; // Assuming User type is available from shared schema
+import { User } from '@shared/schema';
 import { normalizeSkills } from '../skill-normalizer';
 
-// Define a custom error for resume processing failures
+/**
+ * Custom error for resume processing failures
+ * @extends Error
+ */
 export class ResumeProcessingError extends Error {
   constructor(message: string, public originalError?: any) {
     super(message);
@@ -13,6 +16,10 @@ export class ResumeProcessingError extends Error {
 }
 
 // Define the result structure for resume processing
+/**
+ * Result structure for resume processing operations
+ * @interface ResumeProcessingResult
+ */
 export interface ResumeProcessingResult {
   resumeUrl: string;
   parsed: boolean;

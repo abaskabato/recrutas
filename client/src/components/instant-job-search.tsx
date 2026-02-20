@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,10 +24,10 @@ import {
 
 interface InstantJob {
   id: string;
-  matchScore: string;
-  status: string;
-  createdAt: string;
-  job: {
+  matchScore?: string;
+  status?: string;
+  createdAt?: string;
+  job?: {
     id: string;
     title: string;
     company: string;
@@ -37,9 +38,18 @@ interface InstantJob {
     salaryMin?: number;
     salaryMax?: number;
   };
-  source: string;
-  externalUrl: string;
-  urgency: 'low' | 'medium' | 'high';
+  // Allow direct access for jobs that don't have nested structure
+  title?: string;
+  company?: string;
+  location?: string;
+  description?: string;
+  skills?: string[];
+  workType?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  source?: string;
+  externalUrl?: string;
+  urgency?: 'low' | 'medium' | 'high';
 }
 
 export default function InstantJobSearch() {
