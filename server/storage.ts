@@ -374,7 +374,7 @@ export class DatabaseStorage implements IStorage {
           target: candidateProfiles.userId,
           set: {
             ...profile,
-            skills: profile.skills || [],
+            ...(profile.skills !== undefined && { skills: profile.skills }),
             updatedAt: new Date(),
           },
         })

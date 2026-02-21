@@ -173,6 +173,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/candidate/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-matches"] });
       if (data.parsed && data.extractedInfo) {
         setParsedResumeData(data.extractedInfo);
         toast({
