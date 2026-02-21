@@ -104,7 +104,7 @@ async function scoreJobWithML(
     );
 
     return {
-      matchScore: mlResult.score,
+      matchScore: Math.max(0, mlResult.score),
       skillMatches: mlResult.skillMatches,
       aiExplanation: mlResult.explanation,
       confidenceLevel: mlResult.confidence, // 0-100, no division
@@ -432,6 +432,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       isVerifiedActive: job.isVerifiedActive ?? (job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90),
       isDirectFromCompany: job.isDirectFromCompany ?? ((job.trustScore ?? 0) >= 85),
       matchScore: `${job.matchScore}%`,
+      matchTier: job.matchTier ?? (job.matchScore >= 75 ? 'great' : job.matchScore >= 50 ? 'good' : 'worth-a-look'),
       confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 90 : (job.matchScore > 60 ? 70 : 50)),
       skillMatches: job.skillMatches || [],
       aiExplanation: aiExplanation || job.aiExplanation,
