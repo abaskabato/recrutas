@@ -69,7 +69,8 @@ const LEGACY_COMPANIES = [
   { name: 'Salesforce', careerUrl: 'https://careers.salesforce.com/jobs', workdayId: 'salesforce', workdayBoardUrl: 'https://salesforce.wd12.myworkdayjobs.com/External_Career_Site' },
   { name: 'Adobe', careerUrl: 'https://careers.adobe.com/us/en/search-results', workdayId: 'adobe', workdayBoardUrl: 'https://adobe.wd5.myworkdayjobs.com/external_experienced' },
   { name: 'Workday', careerUrl: 'https://workday.wd5.myworkdayjobs.com/Workday', workdayId: 'workday', workdayBoardUrl: 'https://workday.wd5.myworkdayjobs.com/Workday' },
-  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow', workdayBoardUrl: 'https://servicenow.wd5.myworkdayjobs.com/External' },
+  // ServiceNow Workday API blocks all external requests (422 on every board/body variant) — use page-based fallback
+  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow' },
   { name: 'Nvidia', careerUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite', workdayId: 'nvidia', workdayBoardUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite' },
   // VMware was acquired by Broadcom in 2023 — careers.vmware.com now redirects to Broadcom; skip Workday API
   
