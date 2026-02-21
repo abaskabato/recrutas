@@ -162,7 +162,6 @@ export class ResumeService {
       const profileUpdate: any = {
         userId,
         resumeUrl,
-        resumeText: parseResult?.text || '',
         resumeProcessingStatus: parsingSuccess ? 'completed' : 'failed',
         parsedAt: new Date(),
         resumeParsingData: {
@@ -175,19 +174,20 @@ export class ResumeService {
         },
       };
 
-      // Merge all skill types (technical, soft, tools)
+      // Only overwrite resumeText if we actually got content — don't nuke existing text on parse failure
+      if (parseResult?.text) {
+        profileUpdate.resumeText = parseResult.text;
+      }
+
+      // Skills: replace entirely from the new resume (don't merge — re-upload signals "this is my current profile")
+      // If parsing failed and no skills were extracted, leave existing skills untouched
       const extractedSkills = [
         ...(aiExtracted.skills?.technical || []),
         ...(aiExtracted.skills?.soft || []),
         ...(aiExtracted.skills?.tools || []),
       ];
       if (extractedSkills.length > 0) {
-        const existingProfile = await this.storage.getCandidateUser(userId);
-        const allSkills = [
-          ...(existingProfile?.skills || []),
-          ...extractedSkills,
-        ];
-        profileUpdate.skills = normalizeSkills(Array.from(new Set(allSkills))).slice(0, 30);
+        profileUpdate.skills = normalizeSkills(extractedSkills).slice(0, 30);
       }
 
       if (aiExtracted.experience?.level) {
