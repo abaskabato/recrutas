@@ -603,14 +603,13 @@ ${truncatedText}`
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {
-    const lines = text.split('\n').slice(0, 10); // Check first 10 lines
     const info: AIExtractedData['personalInfo'] = {};
 
-    // Extract email using regex
+    // Extract email (search whole doc)
     const emailMatch = text.match(/[\w\.-]+@[\w\.-]+\.\w+/);
     if (emailMatch) info.email = emailMatch[0];
 
-    // Extract phone using regex
+    // Extract phone (search whole doc)
     const phoneMatch = text.match(/(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/);
     if (phoneMatch) info.phone = phoneMatch[0];
 
@@ -622,31 +621,31 @@ ${truncatedText}`
     const githubMatch = text.match(/github\.com\/[\w-]+/i);
     if (githubMatch) info.github = `https://${githubMatch[0]}`;
 
-    // Extract name (usually first line or after certain keywords)
-    const namePatterns = [
-      /^([A-Z][a-z]+ [A-Z][a-z]+)/m,
-      /Name:\s*([A-Z][a-z]+ [A-Z][a-z]+)/i
-    ];
-
-    for (const pattern of namePatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        info.name = match[1];
+    // Extract name: scan first 8 non-empty lines; skip lines that look like
+    // job titles, contact info, URLs, or section headers.
+    const JOB_TITLE_WORDS = /\b(engineer|developer|manager|analyst|designer|consultant|director|officer|specialist|coordinator|architect|intern|associate|lead|senior|junior|staff|president|chief|head|vp|cto|ceo|coo|resume|curriculum|vitae)\b/i;
+    const headerLines = text.split('\n').slice(0, 12).map(l => l.trim()).filter(Boolean);
+    for (const line of headerLines) {
+      if (/[@\d|()•\\/]|linkedin|github|http|\.com|\.edu|\.org/i.test(line)) continue;
+      if (JOB_TITLE_WORDS.test(line)) continue;
+      // 2–4 words, each starting with a capital letter, no punctuation
+      if (/^([A-Z][a-zA-Z'-]{1,20}\s){1,3}[A-Z][a-zA-Z'-]{1,20}$/.test(line)) {
+        info.name = line;
         break;
       }
     }
 
-    // Extract location
+    // Extract location: only search the first 20 lines to avoid matching
+    // skill/company names deeper in the document.
+    const headerText = text.split('\n').slice(0, 20).join('\n');
     const locationPatterns = [
-      /([A-Z][a-z]+,\s*[A-Z]{2})/,
-      /([A-Z][a-z]+,\s*[A-Z][a-z]+)/,
-      /Location:\s*([^,\n]+)/i
+      /([A-Z][a-z]{2,},\s*[A-Z]{2}(?:\s+\d{5})?)/,  // City, ST  or  City, ST 12345
+      /Location:\s*([^\n,]{3,40})/i,
     ];
-
     for (const pattern of locationPatterns) {
-      const match = text.match(pattern);
+      const match = headerText.match(pattern);
       if (match) {
-        info.location = match[1];
+        info.location = match[1].trim();
         break;
       }
     }
@@ -758,7 +757,14 @@ ${truncatedText}`
         const responsibilities = this.extractResponsibilities(lines, i + 2);
 
         positions.push({
-          title: title.replace(datePattern, '').trim(),
+          title: title
+            .replace(datePattern, '')     // remove date range
+            .replace(/\s*[–—]\s*.+$/, '')     // truncate at em-dash/en-dash before description
+            .replace(/@.*$/, '')          // truncate at @ artifact (PDF layout separator)
+            .replace(/\s*\(\s*\)/g, '')   // remove empty parens left after date removal
+            .replace(/^[-–—•*]\s*/, '')   // strip leading bullet/dash
+            .replace(/\s{2,}/g, ' ')      // collapse multiple spaces
+            .trim(),
           company,
           duration,
           responsibilities
@@ -774,21 +780,30 @@ ${truncatedText}`
     const educationSection = this.extractSection(text, ['education', 'academic', 'university', 'college']);
 
     if (educationSection) {
-      const lines = educationSection.split('\n');
-      const degreePattern = /(Bachelor|Master|PhD|B\.S\.|B\.A\.|M\.S\.|M\.A\.|MBA|Associate)/i;
+      const lines = educationSection.split('\n').map(l => l.trim()).filter(Boolean);
+      // Require degree words to appear at line start or in a clear degree context.
+      // "Master's" / "Master of" are degrees; "Master System" is not.
+      const degreePattern = /\b(B\.S\.|B\.A\.|M\.S\.|M\.A\.|Ph\.D\.|MBA|Associate\s+of|Bachelor(?:\s+of)?|Master(?:'s|\s+of\s)|PhD)\b/i;
 
-      for (const line of lines) {
-        if (degreePattern.test(line)) {
-          const yearMatch = line.match(/\b(19|20)\d{2}\b/);
-          const gpaMatch = line.match(/GPA:?\s*(\d\.\d+)/i);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!degreePattern.test(line)) continue;
+        // Skip lines that are clearly sentence fragments from experience bullets
+        if (line.split(' ').length > 12) continue;
 
-          education.push({
-            degree: line.trim(),
-            institution: this.extractInstitutionFromLine(line),
-            year: yearMatch ? yearMatch[0] : undefined,
-            gpa: gpaMatch ? gpaMatch[1] : undefined
-          });
-        }
+        const yearMatch = line.match(/\b(19|20)\d{2}\b/);
+        const gpaMatch = line.match(/GPA:?\s*(\d\.\d+)/i);
+        // Institution is often the next line
+        const institutionLine = lines[i + 1] || '';
+        const institution = this.extractInstitutionFromLine(line) ||
+          (institutionLine && !degreePattern.test(institutionLine) ? institutionLine : '');
+
+        education.push({
+          degree: line,
+          institution,
+          year: yearMatch ? yearMatch[0] : undefined,
+          gpa: gpaMatch ? gpaMatch[1] : undefined,
+        });
       }
     }
 
@@ -898,15 +913,40 @@ ${truncatedText}`
   }
 
   private parseSkillsSection(section: string): string[] {
-    const skills = [];
+    // Tokens that look like skills but are noise (OS versions, pronouns, etc.)
+    const NOISE = new Set([
+      'xp', 'nt', 'me', '9x', '98', '95', 'sp', 'ms', 'pc', 'os', 'ie',
+      'the', 'and', 'or', 'etc', 'other', 'various', 'including', 'such',
+      'packages', 'methodologies', 'tools', 'systems', 'languages', 'skills',
+      'technologies', 'frameworks', 'libraries', 'platforms', 'software',
+    ]);
+
+    const skills: string[] = [];
     const lines = section.split('\n');
 
     for (const line of lines) {
-      const skillsInLine = line.split(/[,•·‣▪▫-]/)
-        .map(s => s.trim())
-        .filter(s => s.length > 1 && s.length < 30);
+      // Strip a category label before a colon, e.g. "Languages: Java, C++" → "Java, C++"
+      const valuesPart = /^[^:]{1,40}:(.+)$/.test(line.trim())
+        ? line.trim().replace(/^[^:]+:/, '')
+        : line;
 
-      skills.push(...skillsInLine);
+      // Do NOT split on "/" — preserves compound skills like HP/UX, React/Redux
+      const tokens = valuesPart
+        .split(/[,•·‣▪▫|]/)
+        .map(s => s.trim()
+          .replace(/^[-–—]\s*/, '')   // strip leading bullet/dash
+          .replace(/:$/, '')          // strip trailing colon (e.g. "Tools:")
+        )
+        .filter(s => {
+          if (s.length < 2 || s.length > 40) return false;
+          if (/^\d+$/.test(s)) return false;           // pure numbers
+          if (NOISE.has(s.toLowerCase())) return false;
+          // Drop tokens where every slash-part is a noise word
+          if (s.includes('/') && s.split('/').every(p => NOISE.has(p.toLowerCase()) || p.length < 2)) return false;
+          return true;
+        });
+
+      skills.push(...tokens);
     }
 
     return skills;
