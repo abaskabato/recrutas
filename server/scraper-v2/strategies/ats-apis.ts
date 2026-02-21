@@ -19,14 +19,36 @@ const ATS_ENDPOINTS: Record<string, (boardId: string) => string> = {
 };
 
 /**
+ * Derive the Workday JSON API endpoint from a *.myworkdayjobs.com board URL.
+ * Pattern: https://{tenant}.wdN.myworkdayjobs.com/{board}
+ *       → POST https://{tenant}.wdN.myworkdayjobs.com/wday/cxs/{tenant}/{board}/jobs
+ */
+export function deriveWorkdayApiUrl(boardUrl: string): string {
+  const url = new URL(boardUrl);
+  const tenant = url.hostname.split('.')[0];
+  const board = url.pathname.replace(/^\//, '').replace(/\/$/, '');
+  return `${url.origin}/wday/cxs/${tenant}/${board}/jobs`;
+}
+
+/**
  * Fetch jobs from ATS API
  */
 export async function fetchFromATS(company: CompanyConfig, fetchOptions?: RequestInit): Promise<ScrapedJob[]> {
-  if (!company.ats?.type || !company.ats.boardId) {
+  if (!company.ats?.type) {
     throw new Error('ATS configuration missing');
   }
 
   const atsType = company.ats.type;
+
+  // Workday uses a POST API — handle separately
+  if (atsType === 'workday') {
+    return fetchFromWorkday(company, fetchOptions);
+  }
+
+  if (!company.ats.boardId) {
+    throw new Error('ATS boardId missing');
+  }
+
   const boardId = company.ats.boardId;
   const endpointFn = ATS_ENDPOINTS[atsType];
 
@@ -83,6 +105,118 @@ export async function fetchFromATS(company: CompanyConfig, fetchOptions?: Reques
 }
 
 /**
+ * Fetch jobs from Workday's public JSON API.
+ * Workday exposes a POST endpoint on all *.myworkdayjobs.com boards that returns
+ * structured JSON — no JavaScript rendering needed.
+ */
+async function fetchFromWorkday(company: CompanyConfig, fetchOptions?: RequestInit): Promise<ScrapedJob[]> {
+  const apiUrl = company.ats?.customApiUrl;
+  if (!apiUrl) {
+    throw new Error(`Workday API URL not configured for ${company.name}`);
+  }
+
+  logger.info(`Fetching jobs from Workday API for ${company.name}`, { apiUrl });
+
+  // Fetch up to 100 jobs in one request
+  const body = JSON.stringify({ limit: 100, offset: 0, searchText: '', locations: [] });
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (compatible; JobBot/1.0)',
+    },
+    body,
+    signal: (fetchOptions as any)?.signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Workday API returned ${response.status} for ${company.name}`);
+  }
+
+  const text = await response.text();
+  if (text.length > MAX_RESPONSE_SIZE) {
+    throw new Error(`Workday response too large: ${text.length} chars`);
+  }
+
+  const data = JSON.parse(text);
+  const jobs = parseWorkdayResponse(data, company, apiUrl);
+  logger.info(`Successfully fetched ${jobs.length} jobs from Workday for ${company.name}`);
+  return jobs;
+}
+
+/**
+ * Parse Workday API response.
+ * Response shape: { total: N, jobPostings: [{ title, externalPath, locationsText, postedOn, bulletFields }] }
+ */
+function parseWorkdayResponse(data: any, company: CompanyConfig, apiUrl: string): ScrapedJob[] {
+  const jobs: ScrapedJob[] = [];
+  const postings: any[] = data.jobPostings || [];
+
+  // Derive the board base URL from the API URL to construct job URLs
+  // API: https://{tenant}.wdN.myworkdayjobs.com/wday/cxs/{tenant}/{board}/jobs
+  // Board: https://{tenant}.wdN.myworkdayjobs.com/{board}
+  const url = new URL(apiUrl);
+  const pathParts = url.pathname.split('/').filter(Boolean); // ['wday','cxs',tenant,board,'jobs']
+  const board = pathParts[3] || '';
+  const boardBaseUrl = `${url.origin}/${board}`;
+
+  for (const posting of postings) {
+    try {
+      const locationRaw = posting.locationsText || 'Remote';
+      const externalPath = posting.externalPath || '';
+      const jobUrl = externalPath ? `${boardBaseUrl}${externalPath}` : boardBaseUrl;
+
+      jobs.push({
+        id: `workday_${company.id}_${encodeURIComponent(externalPath)}`,
+        title: posting.title || '',
+        normalizedTitle: '',
+        company: company.name,
+        companyId: company.id,
+        location: {
+          raw: locationRaw,
+          isRemote: locationRaw.toLowerCase().includes('remote'),
+          country: '',
+          countryCode: '',
+          normalized: locationRaw.toLowerCase(),
+        },
+        description: (posting.bulletFields || []).join('\n'),
+        requirements: [],
+        responsibilities: [],
+        skills: [],
+        skillCategories: [],
+        workType: determineWorkType(locationRaw),
+        employmentType: 'full-time',
+        experienceLevel: 'mid',
+        salary: { currency: 'USD', period: 'yearly', isDisclosed: false },
+        benefits: [],
+        externalUrl: jobUrl,
+        source: {
+          type: 'ats_api',
+          company: company.name,
+          url: company.careerPageUrl,
+          ats: 'workday',
+          scrapeMethod: 'api',
+        },
+        postedDate: posting.postedOn ? new Date(posting.postedOn) : new Date(),
+        scrapedAt: new Date(),
+        updatedAt: new Date(),
+        status: 'active',
+        isRemote: locationRaw.toLowerCase().includes('remote'),
+      });
+    } catch (error) {
+      logger.warn(`Failed to parse Workday job for ${company.name}`, {
+        error: error instanceof Error ? error.message : String(error),
+        title: posting.title,
+      });
+    }
+  }
+
+  return jobs;
+}
+
+/**
  * Parse ATS-specific response formats
  */
 function parseATSResponse(atsType: string, data: any, company: CompanyConfig): ScrapedJob[] {
@@ -95,6 +229,9 @@ function parseATSResponse(atsType: string, data: any, company: CompanyConfig): S
       return parseAshbyResponse(data, company);
     case 'smartrecruiters':
       return parseSmartRecruitersResponse(data, company);
+    case 'workday':
+      // Workday is handled via fetchFromWorkday before this is called
+      return [];
     default:
       logger.warn(`Unknown ATS type: ${atsType}`);
       return [];

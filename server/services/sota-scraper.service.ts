@@ -12,6 +12,7 @@ import { jobIngestionService, ExternalJobInput } from './job-ingestion.service.j
 import { logger } from '../scraper-v2/utils/logger.js';
 import { companyDiscoveryService, DiscoveredCompany } from './company-discovery.service.js';
 import { atsDetectionService } from './ats-detection.service.js';
+import { deriveWorkdayApiUrl } from '../scraper-v2/strategies/ats-apis.js';
 
 // Import the company list from career-page-scraper and convert to SOTA format
 const LEGACY_COMPANIES = [
@@ -64,13 +65,13 @@ const LEGACY_COMPANIES = [
   { name: 'Zapier', careerUrl: 'https://zapier.com/jobs', leverId: 'zapier' },
   { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', leverId: 'gusto' },
   
-  // Workday
-  { name: 'Salesforce', careerUrl: 'https://careers.salesforce.com/jobs', workdayId: 'salesforce' },
-  { name: 'VMware', careerUrl: 'https://careers.vmware.com/main/jobs', workdayId: 'vmware' },
-  { name: 'Adobe', careerUrl: 'https://careers.adobe.com/us/en/search-results', workdayId: 'adobe' },
-  { name: 'Workday', careerUrl: 'https://workday.wd5.myworkdayjobs.com/Workday', workdayId: 'workday' },
-  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow' },
-  { name: 'Nvidia', careerUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite', workdayId: 'nvidia' },
+  // Workday — workdayBoardUrl is the *.myworkdayjobs.com board URL; API endpoint is derived from it
+  { name: 'Salesforce', careerUrl: 'https://careers.salesforce.com/jobs', workdayId: 'salesforce', workdayBoardUrl: 'https://salesforce.wd12.myworkdayjobs.com/External_Career_Site' },
+  { name: 'Adobe', careerUrl: 'https://careers.adobe.com/us/en/search-results', workdayId: 'adobe', workdayBoardUrl: 'https://adobe.wd5.myworkdayjobs.com/external_experienced' },
+  { name: 'Workday', careerUrl: 'https://workday.wd5.myworkdayjobs.com/Workday', workdayId: 'workday', workdayBoardUrl: 'https://workday.wd5.myworkdayjobs.com/Workday' },
+  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow', workdayBoardUrl: 'https://servicenow.wd5.myworkdayjobs.com/External' },
+  { name: 'Nvidia', careerUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite', workdayId: 'nvidia', workdayBoardUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite' },
+  // VMware was acquired by Broadcom in 2023 — careers.vmware.com now redirects to Broadcom; skip Workday API
   
   // Custom career pages (use AI extraction)
   { name: 'Google', careerUrl: 'https://careers.google.com/jobs/results/' },
@@ -110,8 +111,13 @@ function convertToSOTAConfig(legacy: any): CompanyConfig {
   } else if (legacy.leverId) {
     ats = { type: 'lever' as const, boardId: legacy.leverId };
     strategies = ['api', 'json_ld', 'ai_extraction'];
+  } else if (legacy.workdayBoardUrl) {
+    // Workday public JSON API — derive endpoint from *.myworkdayjobs.com board URL
+    const apiUrl = deriveWorkdayApiUrl(legacy.workdayBoardUrl);
+    ats = { type: 'workday' as const, customApiUrl: apiUrl };
+    strategies = ['api', 'json_ld', 'ai_extraction'];
   } else if (legacy.workdayId) {
-    // Workday API parser was removed — fallback to page-based strategies
+    // workdayId without a board URL — fall back to page-based strategies
     strategies = ['json_ld', 'ai_extraction', 'html_parsing'];
   } else {
     strategies = ['json_ld', 'ai_extraction', 'html_parsing'];

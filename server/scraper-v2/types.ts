@@ -144,7 +144,8 @@ export type ATSType =
   | 'greenhouse'
   | 'lever'
   | 'ashby'
-  | 'smartrecruiters';
+  | 'smartrecruiters'
+  | 'workday';
 
 export type ScrapeMethod =
   | 'api'
