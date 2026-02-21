@@ -9,6 +9,15 @@ declare global {
       [key: string]: string | undefined;
     }
   }
+
+  namespace Express {
+    interface User {
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+      app_metadata?: Record<string, unknown>;
+    }
+  }
 }
 
 // Suppress all Drizzle type checking

@@ -1067,9 +1067,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       if (!application) {
         return res.status(404).json({ message: "Application not found" });
       }
-      // Convert both to strings to ensure proper comparison (UUID vs string)
-      if (String(application.candidateId) !== String(req.user.id)) {
-        console.error(`Authorization failed: application.candidateId=${application.candidateId} (type: ${typeof application.candidateId}) !== req.user.id=${req.user.id} (type: ${typeof req.user.id})`);
+      if (application.candidateId !== req.user.id) {
         return res.status(403).json({ message: "Unauthorized" });
       }
       
@@ -1486,7 +1484,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const [application] = await db.select({ candidateId: jobApplications.candidateId })
         .from(jobApplications).where(eq(jobApplications.id, applicationId));
-      if (!application || String(application.candidateId) !== String(req.user.id)) {
+      if (!application || application.candidateId !== req.user.id) {
         return res.status(403).json({ message: "Not authorized" });
       }
 
@@ -1749,7 +1747,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Verify the user is requesting their own matches or is a talent owner
       const user = await storage.getUser(req.user.id);
-      if (String(candidateId) !== String(req.user.id) && user?.role !== 'talent_owner') {
+      if (candidateId !== req.user.id && user?.role !== 'talent_owner') {
         return res.status(403).json({ message: "Unauthorized to view these matches" });
       }
 

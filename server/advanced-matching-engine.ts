@@ -289,7 +289,8 @@ export class AdvancedMatchingEngine {
 
     // Skill alignment calculation
     const jobSkills = job.skills || [];
-    const matchingSkills = criteria.skills.filter(skill =>
+    const candidateSkills = criteria.skills || [];
+    const matchingSkills = candidateSkills.filter(skill =>
       jobSkills.some((jobSkill: string) =>
         jobSkill.toLowerCase() === skill.toLowerCase()
       )

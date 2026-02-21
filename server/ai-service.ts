@@ -184,7 +184,7 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
 
   return {
     score: Math.min(Math.max(finalScore, 0), 1), // Keep score between 0-1
-    confidenceLevel: calculateConfidenceLevel(maxSimilarities.length, candidate.skills.length, experienceScore),
+    confidenceLevel: calculateConfidenceLevel(maxSimilarities.length, candidateSkills.length, experienceScore),
     skillMatches: maxSimilarities.map(m => m.skill),
     aiExplanation: explanation
   };

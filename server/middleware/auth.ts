@@ -31,15 +31,20 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     // Verify JWT signature and decode payload
     const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
 
-    // Validate token has required fields
-    if (!payload.sub && !payload.user_id) {
+    // Validate token has required fields and that the user ID is a string
+    const userId: string | undefined = payload.sub || payload.user_id;
+    if (!userId) {
       console.warn('isAuthenticated: Token missing user ID');
+      return res.status(401).json({ message: 'Unauthorized: Invalid token payload' });
+    }
+    if (typeof userId !== 'string') {
+      console.warn('isAuthenticated: User ID is not a string', typeof userId);
       return res.status(401).json({ message: 'Unauthorized: Invalid token payload' });
     }
 
     // Create user object from JWT payload
     const user = {
-      id: payload.sub || payload.user_id,
+      id: userId,
       email: payload.email,
       user_metadata: payload.user_metadata || {},
       app_metadata: payload.app_metadata || {},
