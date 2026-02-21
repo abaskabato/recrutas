@@ -691,6 +691,26 @@ export class DatabaseStorage implements IStorage {
     return 0.2;
   }
 
+  /** Infer job seniority level (0=entry … 4=executive) from the job title. */
+  private inferJobLevel(title: string): number {
+    const t = title.toLowerCase();
+    if (/\b(junior|jr\.?|entry[\s-]level|associate|trainee|intern|graduate)\b/.test(t)) return 0;
+    if (/\b(senior|sr\.?)\b/.test(t)) return 2;
+    if (/\b(staff|lead|principal|manager)\b/.test(t)) return 3;
+    if (/\b(director|vp|vice[\s-]president|head of|chief|cto|ceo)\b/.test(t)) return 4;
+    return 1; // mid is the default for unlabelled roles
+  }
+
+  /** Score multiplier based on gap between candidate level and inferred job level. */
+  private experienceLevelMultiplier(candidateLevel: string, jobTitle: string): number {
+    const idx: Record<string, number> = { entry: 0, mid: 1, senior: 2, lead: 3, executive: 4 };
+    const diff = Math.abs((idx[candidateLevel] ?? 1) - this.inferJobLevel(jobTitle));
+    if (diff === 0) return 1.00;
+    if (diff === 1) return 0.85;
+    if (diff === 2) return 0.65;
+    return 0.45; // 3+ levels off
+  }
+
   /**
    * Fetch and score jobs for a candidate. Shared logic for both flat and sectioned responses.
    */
@@ -858,12 +878,17 @@ export class DatabaseStorage implements IStorage {
           ? Math.round((effectiveMatches / Math.max(jobSkillsCount, 1)) * 100)
           : 0;
 
+        const expMultiplier = candidate.experienceLevel
+          ? this.experienceLevelMultiplier(candidate.experienceLevel, job.title)
+          : 1.0;
+        const adjustedMatchScore = Math.round(skillMatchPercentage * expMultiplier);
+
         const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
 
         return {
           ...job,
-          matchScore: skillMatchPercentage,
-          matchTier: this.getMatchTier(skillMatchPercentage),
+          matchScore: adjustedMatchScore,
+          matchTier: this.getMatchTier(adjustedMatchScore),
           skillMatches: matchingSkills,
           partialSkillMatches: partialMatchSkills,
           aiExplanation: matchingSkills.length > 0 || partialMatchSkills.length > 0
@@ -896,6 +921,11 @@ export class DatabaseStorage implements IStorage {
           const jobIndustry = job.industry?.toLowerCase();
           const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
           if (jobIndustry && !preferredIndustries.some(ind => jobIndustry.includes(ind))) return false;
+        }
+        if (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0) {
+          const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
+          const inferred = LEVELS[this.inferJobLevel(job.title)];
+          if (!jobPreferences.experienceLevels.includes(inferred)) return false;
         }
         return true;
       })

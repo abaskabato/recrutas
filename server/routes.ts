@@ -862,6 +862,20 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  app.put('/api/candidate/preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const { jobPreferences } = req.body;
+      if (!jobPreferences || typeof jobPreferences !== 'object') {
+        return res.status(400).json({ message: 'jobPreferences object required' });
+      }
+      await storage.upsertCandidateUser({ userId: req.user.id, jobPreferences });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      res.status(500).json({ message: 'Failed to save preferences' });
+    }
+  });
+
   // Get job statistics (for monitoring)
   app.get('/api/job-stats', async (req: any, res) => {
     try {

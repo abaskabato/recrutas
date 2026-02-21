@@ -154,6 +154,16 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     },
   });
 
+  const preferencesMutation = useMutation({
+    mutationFn: async (prefs: JobPreferences) =>
+      apiRequest('PUT', '/api/candidate/preferences', { jobPreferences: prefs }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+      toast({ title: 'Preferences saved' });
+    },
+  });
+
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -250,7 +260,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   };
 
   const handleSavePreferences = () => {
-    updateProfileMutation.mutate({ jobPreferences });
+    preferencesMutation.mutate(jobPreferences);
   };
 
   const professionalLinks = [
@@ -659,8 +669,8 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
           <Separator />
 
           <div className="flex justify-end">
-            <Button onClick={handleSavePreferences} disabled={updateProfileMutation.isPending}>
-              {updateProfileMutation.isPending ? 'Saving...' : 'Save Preferences'}
+            <Button onClick={handleSavePreferences} disabled={preferencesMutation.isPending}>
+              {preferencesMutation.isPending ? 'Saving...' : 'Save Preferences'}
             </Button>
           </div>
         </CardContent>
