@@ -6,6 +6,7 @@
 import { db } from '../db';
 import { jobPostings, users } from '@shared/schema';
 import { eq, and, or } from 'drizzle-orm';
+import { gt } from 'drizzle-orm/sql/expressions';
 import { sql } from 'drizzle-orm/sql';
 import { normalizeSkills } from '../skill-normalizer';
 import { isUSLocation } from '../location-filter';
@@ -110,6 +111,45 @@ export class JobIngestionService {
                 updatedAt: new Date()
               })
               .where(eq(jobPostings.id, existing[0].id));
+            return 'duplicate';
+          }
+
+          // Content-fingerprint dedup: same title + company from a different source within 30 days
+          const normalizedTitle = job.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+          const normalizedCompany = job.company.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+          const contentDuplicate = await tx
+            .select()
+            .from(jobPostings)
+            .where(
+              and(
+                sql`LOWER(REGEXP_REPLACE(${jobPostings.title}, '[^a-z0-9\\s]', '', 'gi')) = ${normalizedTitle}`,
+                sql`LOWER(REGEXP_REPLACE(${jobPostings.company}, '[^a-z0-9\\s]', '', 'gi')) = ${normalizedCompany}`,
+                sql`${jobPostings.source} != ${job.source}`,
+                gt(jobPostings.createdAt, thirtyDaysAgo)
+              )
+            )
+            .limit(1);
+
+          if (contentDuplicate.length > 0) {
+            const dupJob = contentDuplicate[0];
+            const incomingTrust = getSourceTrustScore(job.source);
+            const existingTrust = dupJob.trustScore ?? 0;
+            if (incomingTrust > existingTrust) {
+              // Upgrade trust score to the higher-trust source
+              await tx
+                .update(jobPostings)
+                .set({ trustScore: incomingTrust, lastLivenessCheck: new Date(), updatedAt: new Date() })
+                .where(eq(jobPostings.id, dupJob.id));
+            } else {
+              // Just refresh liveness timestamp
+              await tx
+                .update(jobPostings)
+                .set({ lastLivenessCheck: new Date(), updatedAt: new Date() })
+                .where(eq(jobPostings.id, dupJob.id));
+            }
             return 'duplicate';
           }
 

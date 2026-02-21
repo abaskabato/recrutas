@@ -493,3 +493,31 @@ export function normalizeSkills(skills: string[]): string[] {
 
   return result;
 }
+
+/**
+ * Skill parent → child skills.
+ * Knowing a parent skill grants partial credit (0.5x) toward child skills.
+ * E.g., a React developer can partially match Next.js, Remix, Gatsby jobs.
+ */
+const SKILL_PARENTS: Record<string, string[]> = {
+  'React': ['Next.js', 'Remix', 'Gatsby', 'React Native'],
+  'JavaScript': ['TypeScript', 'Node.js', 'React', 'Vue.js', 'Angular', 'Next.js'],
+  'TypeScript': ['JavaScript'],
+  'Python': ['Django', 'Flask', 'FastAPI', 'NumPy', 'Pandas', 'PyTorch', 'TensorFlow', 'Scikit-learn'],
+  'Node.js': ['Express.js', 'NestJS'],
+  'SQL': ['PostgreSQL', 'MySQL', 'SQLite', 'SQL Server', 'MariaDB'],
+  'AWS': ['CloudFormation', 'AWS Lambda'],
+  'Docker': ['Kubernetes'],
+  'Java': ['Spring', 'Spring Boot'],
+  'Ruby': ['Ruby on Rails'],
+  'PHP': ['Laravel', 'Symfony'],
+};
+
+/**
+ * Returns the child skills that a candidate's skill grants partial (0.5x) credit toward.
+ * Input is any skill string; it is normalized before lookup.
+ */
+export function getRelatedSkills(skill: string): string[] {
+  const canonical = normalizeSkill(skill);
+  return SKILL_PARENTS[canonical] || [];
+}

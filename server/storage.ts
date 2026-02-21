@@ -63,7 +63,7 @@ import { eq, desc, asc, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
-import { normalizeSkills } from "./skill-normalizer";
+import { normalizeSkills, getRelatedSkills } from "./skill-normalizer";
 import { isUSLocation } from "./location-filter";
 
 /**
@@ -207,9 +207,12 @@ export interface IStorage {
   updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask>;
 }
 
+// Sources that publish directly from company ATSs (not aggregators)
+const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
+
 /**
  * Database Storage Implementation
- * 
+ *
  * Implements the IStorage interface using Drizzle ORM for PostgreSQL.
  * Provides production-ready data access with proper error handling,
  * transaction support, and optimized queries.
@@ -675,6 +678,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Recency score for composite sort: < 1 day = 1.0, tapering to 0.2 for > 30 days.
+   */
+  private computeRecencyScore(createdAt: Date | null | undefined): number {
+    if (!createdAt) return 0.5;
+    const daysOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysOld < 1) return 1.0;
+    if (daysOld < 3) return 0.9;
+    if (daysOld < 7) return 0.8;
+    if (daysOld < 14) return 0.6;
+    if (daysOld < 30) return 0.4;
+    return 0.2;
+  }
+
+  /**
    * Fetch and score jobs for a candidate. Shared logic for both flat and sectioned responses.
    */
   private async fetchScoredJobs(candidateId: string): Promise<any[] | null> {
@@ -741,7 +758,7 @@ export class DatabaseStorage implements IStorage {
           skillMatches: [],
           aiExplanation: 'Upload your resume to get personalized matches',
           isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore || 0) >= 90,
-          isDirectFromCompany: (job.trustScore || 0) >= 85,
+          isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
           freshness,
           daysOld,
           ghostJobScore: job.ghostJobScore || 0,
@@ -783,6 +800,11 @@ export class DatabaseStorage implements IStorage {
           eq(jobPostings.livenessStatus, 'active'),
           eq(jobPostings.livenessStatus, 'unknown')
         ),
+        // Filter out likely ghost jobs at DB level
+        or(
+          sql`${jobPostings.ghostJobScore} IS NULL`,
+          sql`${jobPostings.ghostJobScore} < 60`
+        ),
         // Only recent jobs - last 90 days
         sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
         // Exclude ArbeitNow jobs (European job board)
@@ -796,10 +818,9 @@ export class DatabaseStorage implements IStorage {
         sql`${jobPostings.trustScore} DESC NULLS LAST`,
         sql`${jobPostings.createdAt} DESC`
       )
-      .limit(100);
+      .limit(200);
 
     const jobsWithSource = allJobs
-      .filter((job: any) => isUSLocation(job.location))
       .map((job: any) => ({
         ...job,
         requirements: Array.isArray(job.requirements) ? job.requirements : [],
@@ -812,14 +833,29 @@ export class DatabaseStorage implements IStorage {
       .map(job => {
         // Normalize job skills at comparison time to handle legacy un-normalized entries
         const normalizedJobSkills = normalizeSkills(job.skills || []).map(s => s.toLowerCase());
+
+        // Exact skill matches (full credit)
         const matchingSkills = candidateSkills.filter(skill =>
           normalizedJobSkills.includes(skill.toLowerCase())
         );
-        // Calculate match score based on job's required skills, not candidate's total skills
-        // This gives a better measure of how well the candidate matches the specific job
+
+        // Partial-credit related skill matches (0.5x weight)
+        const exactMatchSet = new Set(matchingSkills.map(s => s.toLowerCase()));
+        const partialMatchSkills: string[] = [];
+        for (const candidateSkill of candidateSkills) {
+          for (const related of getRelatedSkills(candidateSkill)) {
+            const relatedLower = related.toLowerCase();
+            if (normalizedJobSkills.includes(relatedLower) && !exactMatchSet.has(relatedLower)) {
+              partialMatchSkills.push(related);
+            }
+          }
+        }
+
+        // Score: exact matches count 1.0, related matches count 0.5, divided by job skill count
         const jobSkillsCount = job.skills?.length || 1;
-        const skillMatchPercentage = matchingSkills.length > 0
-          ? Math.round((matchingSkills.length / Math.max(jobSkillsCount, 1)) * 100)
+        const effectiveMatches = matchingSkills.length + 0.5 * partialMatchSkills.length;
+        const skillMatchPercentage = effectiveMatches > 0
+          ? Math.round((effectiveMatches / Math.max(jobSkillsCount, 1)) * 100)
           : 0;
 
         const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
@@ -829,9 +865,12 @@ export class DatabaseStorage implements IStorage {
           matchScore: skillMatchPercentage,
           matchTier: this.getMatchTier(skillMatchPercentage),
           skillMatches: matchingSkills,
-          aiExplanation: `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`,
+          partialSkillMatches: partialMatchSkills,
+          aiExplanation: matchingSkills.length > 0 || partialMatchSkills.length > 0
+            ? `${matchingSkills.length} direct + ${partialMatchSkills.length} related skill matches`
+            : 'No skill overlap found',
           isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90,
-          isDirectFromCompany: (job.trustScore ?? 0) >= 85,
+          isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
           freshness,
           daysOld,
           ghostJobScore: job.ghostJobScore || 0,
@@ -841,7 +880,6 @@ export class DatabaseStorage implements IStorage {
         };
       })
       .filter(job => job.matchScore >= 10) // 10% minimum threshold for broader job matching including non-tech roles
-      .filter(job => (job.ghostJobScore || 0) < 60) // Filter out likely ghost jobs (60%+ confidence)
       .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           const jobSalaryMin = job.salaryMin || 0;
@@ -862,8 +900,12 @@ export class DatabaseStorage implements IStorage {
         return true;
       })
       .sort((a, b) => {
-        if (a.matchScore !== b.matchScore) return b.matchScore - a.matchScore;
-        return (b.trustScore || 0) - (a.trustScore || 0);
+        // Composite score: 60% skill match + 20% trust + 20% recency
+        const recencyA = this.computeRecencyScore(a.createdAt);
+        const recencyB = this.computeRecencyScore(b.createdAt);
+        const scoreA = 0.60 * (a.matchScore / 100) + 0.20 * ((a.trustScore || 0) / 100) + 0.20 * recencyA;
+        const scoreB = 0.60 * (b.matchScore / 100) + 0.20 * ((b.trustScore || 0) / 100) + 0.20 * recencyB;
+        return scoreB - scoreA;
       });
 
     console.log(`After filtering (40%+ match): ${recommendations.length} recommendations`);

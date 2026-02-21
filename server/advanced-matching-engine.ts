@@ -57,6 +57,9 @@ const RANKING_WEIGHTS = {
   PERSONALIZATION: 0.10     // w4 - user behavior signals
 };
 
+// Sources that publish directly from company ATSs (direct-from-company badge)
+const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
+
 export class AdvancedMatchingEngine {
   private matchCache: Map<string, EnhancedJobMatch[]> = new Map();
   private readonly CACHE_DURATION = 60 * 1000; // 1 minute for fresh matches
@@ -164,7 +167,7 @@ export class AdvancedMatchingEngine {
 
     // Determine trust badges
     const isVerifiedActive = trustScore >= 85 && livenessStatus === 'active';
-    const isDirectFromCompany = job.source === 'platform' || job.source === 'internal';
+    const isDirectFromCompany = ATS_SOURCES.has((job.source || '').toLowerCase());
 
     return {
       jobId: job.id,
@@ -236,6 +239,18 @@ export class AdvancedMatchingEngine {
     if (livenessStatus === 'active' && job.lastLivenessCheck) {
       const hoursSinceCheck = (Date.now() - new Date(job.lastLivenessCheck).getTime()) / (1000 * 60 * 60);
       if (hoursSinceCheck < 24) livenessScore = Math.min(1.0, livenessScore + 0.1);
+    }
+
+    // Time-decay: downgrade jobs that haven't been re-verified recently
+    if (job.lastLivenessCheck) {
+      const hoursSinceCheck = (Date.now() - new Date(job.lastLivenessCheck).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceCheck > 336) {       // > 14 days
+        livenessScore *= 0.55;
+      } else if (hoursSinceCheck > 168) { // > 7 days
+        livenessScore *= 0.70;
+      } else if (hoursSinceCheck > 72) {  // > 3 days
+        livenessScore *= 0.85;
+      }
     }
 
     // Penalty for stale jobs
@@ -398,12 +413,12 @@ export class AdvancedMatchingEngine {
       const { db } = await import('./db.js');
       const { jobPostings } = await import('../shared/schema.js');
       
-      // Only fetch external jobs (have an externalUrl)
+      // Only fetch external jobs (have an externalUrl), excluding likely ghost jobs
       const externalJobs = await db
         .select()
         .from(jobPostings)
-        .where(sql`${jobPostings.status} = 'active' AND ${jobPostings.externalUrl} IS NOT NULL`)
-        .limit(50);
+        .where(sql`${jobPostings.status} = 'active' AND ${jobPostings.externalUrl} IS NOT NULL AND (${jobPostings.ghostJobScore} IS NULL OR ${jobPostings.ghostJobScore} < 60)`)
+        .limit(200);
 
       return externalJobs.map((job: any) => ({
         id: job.id,
@@ -548,7 +563,7 @@ export class AdvancedMatchingEngine {
           trustScore: ranked.features.companyTrustScore * 100,
           livenessStatus: ranked.features.companyTrustScore > 0.8 ? 'active' : 'unknown',
           isVerifiedActive: ranked.features.companyTrustScore > 0.85,
-          isDirectFromCompany: job.source === 'platform' || job.source === 'internal',
+          isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
           compatibilityFactors: {
             skillAlignment: ranked.features.skillMatchScore,
             experienceMatch: ranked.features.experienceAlignment,
@@ -646,7 +661,7 @@ export class AdvancedMatchingEngine {
               trustScore: job.trustScore || 50,
               livenessStatus: (job.trustScore || 50) > 70 ? 'active' : 'unknown',
               isVerifiedActive: (job.trustScore || 50) > 85,
-              isDirectFromCompany: job.source === 'platform' || job.source === 'internal',
+              isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
               compatibilityFactors: {
                 skillAlignment: skillMatch,
                 experienceMatch: 0.5,
