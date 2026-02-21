@@ -14,24 +14,13 @@ export class MatchingEngineError extends Error {
   }
 }
 
-interface AdvancedMatchCriteria {
-  candidateId: string;
-  skills: string[];
-  experience: string;
-  location?: string;
-  salaryExpectation?: number;
-  workType?: 'remote' | 'hybrid' | 'onsite';
-  industry?: string;
-}
-
-interface EnhancedJobMatch {
+export interface EnhancedJobMatch {
   jobId: number;
   matchScore: number;
   confidenceLevel: number;
   skillMatches: string[];
   aiExplanation: string;
   urgencyScore: number;
-  // PRD fields for hybrid ranking
   semanticRelevance: number;
   recencyScore: number;
   livenessScore: number;
@@ -48,6 +37,16 @@ interface EnhancedJobMatch {
     salaryMatch: number;
     industryRelevance: number;
   };
+}
+
+interface AdvancedMatchCriteria {
+  candidateId: string;
+  skills: string[];
+  experience: string;
+  location?: string;
+  salaryExpectation?: number;
+  workType?: 'remote' | 'hybrid' | 'onsite';
+  industry?: string;
 }
 
 // PRD Ranking Weights

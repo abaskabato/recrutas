@@ -24,7 +24,7 @@ import {
 import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
 import { db, testDbConnection } from "./db";
 import { seedDatabase } from "./seed.js";
-import { advancedMatchingEngine } from "./advanced-matching-engine";
+import { advancedMatchingEngine, EnhancedJobMatch } from "./advanced-matching-engine";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
 import { ExamService } from './services/exam.service';
 import { aiResumeParser } from './ai-resume-parser';
@@ -1067,7 +1067,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       if (!application) {
         return res.status(404).json({ message: "Application not found" });
       }
-      if (application.candidateId !== req.user.id) {
+      // Convert both to strings to ensure proper comparison (UUID vs string)
+      if (String(application.candidateId) !== String(req.user.id)) {
+        console.error(`Authorization failed: application.candidateId=${application.candidateId} (type: ${typeof application.candidateId}) !== req.user.id=${req.user.id} (type: ${typeof req.user.id})`);
         return res.status(403).json({ message: "Unauthorized" });
       }
       
@@ -1484,7 +1486,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const [application] = await db.select({ candidateId: jobApplications.candidateId })
         .from(jobApplications).where(eq(jobApplications.id, applicationId));
-      if (!application || application.candidateId !== req.user.id) {
+      if (!application || String(application.candidateId) !== String(req.user.id)) {
         return res.status(403).json({ message: "Not authorized" });
       }
 
@@ -1736,20 +1738,34 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // Advanced matching endpoints
   app.get('/api/advanced-matches/:candidateId', isAuthenticated, async (req: any, res) => {
+    // Add timeout to prevent hanging
+    const timeoutMs = 15000; // 15 second timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Advanced matching timeout')), timeoutMs)
+    );
+
     try {
       const { candidateId } = req.params;
 
       // Verify the user is requesting their own matches or is a talent owner
       const user = await storage.getUser(req.user.id);
-      if (candidateId !== req.user.id && user?.role !== 'talent_owner') {
+      if (String(candidateId) !== String(req.user.id) && user?.role !== 'talent_owner') {
         return res.status(403).json({ message: "Unauthorized to view these matches" });
       }
 
-      const matches = await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
-      res.json(matches);
-    } catch (error) {
-      console.error("Error fetching advanced matches:", error);
-      res.status(500).json({ message: "Failed to fetch advanced matches" });
+      // Race between matching and timeout
+      const matches = await Promise.race([
+        advancedMatchingEngine.getPersonalizedJobFeed(candidateId),
+        timeoutPromise
+      ]) as EnhancedJobMatch[];
+      
+      res.json({ matches: matches || [], total: matches?.length || 0, algorithm: 'SOTA-10-factor' });
+    } catch (error: any) {
+      console.error("Error fetching advanced matches:", error?.message);
+      if (error?.message?.includes('timeout')) {
+        return res.status(504).json({ message: "Match generation timed out", matches: [], total: 0 });
+      }
+      res.status(500).json({ message: "Failed to fetch advanced matches", matches: [], total: 0 });
     }
   });
 
