@@ -599,7 +599,7 @@ export class JobAggregator {
       location: job.location || 'Remote',
       description: job.description || '',
       requirements: this.extractRequirements(job.description || ''),
-      skills: this.extractSkills(job.tags ? job.tags.join(' ') : ''),
+      skills: this.extractSkills(job.description || ''),
       workType: 'remote',
       salaryMin: job.salary_min,
       salaryMax: job.salary_max,
