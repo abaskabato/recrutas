@@ -240,12 +240,22 @@ English (Native), Spanish (Conversational)`;
   }
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
+    // Priority 1: Skill Intelligence Engine (instant, deterministic, zero-cost)
+    // Run first — if confidence is high enough, skip all AI calls entirely.
+    const ruleResult = await this.extractWithFallback(text);
+    const confidence = (ruleResult.skills.technical.length + ruleResult.skills.tools.length) >= 3 ? 'high' : 'low';
+    if (confidence === 'high') {
+      console.log('[AIResumeParser] Skill Intelligence Engine confident — skipping AI providers');
+      return ruleResult;
+    }
+    console.log('[AIResumeParser] Skill Intelligence Engine low confidence — trying AI providers to enrich');
+
     const errors: string[] = [];
 
-    // Priority 1: Groq
+    // Priority 2: Groq (only when rule-based confidence is low)
     if (getGroqClient()) {
       try {
-        console.log('[AIResumeParser] Trying Groq API (primary)...');
+        console.log('[AIResumeParser] Trying Groq API...');
         return await this.extractWithGroq(text);
       } catch (groqError: any) {
         console.error('[AIResumeParser] Groq failed:', groqError.message);
@@ -253,7 +263,7 @@ English (Native), Spanish (Conversational)`;
       }
     }
 
-    // Priority 2: Ollama (local)
+    // Priority 3: Ollama (local)
     if (process.env.USE_OLLAMA === 'true') {
       try {
         const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
@@ -266,7 +276,7 @@ English (Native), Spanish (Conversational)`;
       }
     }
 
-    // Priority 3: Hugging Face
+    // Priority 4: Hugging Face
     const hfApiKey = process.env.HF_API_KEY;
     if (hfApiKey && hfApiKey !== '%HF_API_KEY%') {
       try {
@@ -278,9 +288,9 @@ English (Native), Spanish (Conversational)`;
       }
     }
 
-    // All AI providers failed, use rule-based fallback
-    console.log('[AIResumeParser] All AI providers failed, using rule-based fallback:', errors);
-    return this.extractWithFallback(text);
+    // All AI providers failed — return the rule-based result we already have
+    console.log('[AIResumeParser] AI providers unavailable, returning rule-based result:', errors);
+    return ruleResult;
   }
 
   private async extractWithHF(text: string, apiKey: string): Promise<AIExtractedData> {
