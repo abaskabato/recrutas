@@ -8,7 +8,22 @@ import { jobPostings, users } from '@shared/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { gt } from 'drizzle-orm/sql/expressions';
 import { sql } from 'drizzle-orm/sql';
-import { normalizeSkills } from '../skill-normalizer';
+import { normalizeSkills, SKILL_ALIASES } from '../skill-normalizer';
+
+/** Extract canonical skills from free-form text using the full alias taxonomy. */
+function extractSkillsFromText(text: string): string[] {
+  if (!text) return [];
+  const words = text.split(/[\s,;|•·()\[\]{}<>]+/).filter(w => w.length > 0);
+  const found = new Set<string>();
+  for (let i = 0; i < words.length; i++) {
+    for (let n = 1; n <= 4 && i + n <= words.length; n++) {
+      const phrase = words.slice(i, i + n).join(' ').toLowerCase();
+      const canonical = SKILL_ALIASES[phrase];
+      if (canonical) found.add(canonical);
+    }
+  }
+  return Array.from(found).slice(0, 20);
+}
 import { isUSLocation } from '../location-filter';
 
 // System user UUID for external jobs (well-known constant)
@@ -159,20 +174,23 @@ export class JobIngestionService {
           expiresAt.setDate(expiresAt.getDate() + 60);
 
           // Insert new external job with valid system user UUID
+          // postgres.js throws UNDEFINED_VALUE for undefined fields — coerce to null
           await tx.insert(jobPostings).values({
             talentOwnerId: systemUserId,
             title: job.title,
             company: job.company,
-            location: job.location,
-            description: job.description,
-            requirements: job.requirements,
-            skills: normalizeSkills(job.skills),
-            workType: job.workType,
-            salaryMin: job.salaryMin,
-            salaryMax: job.salaryMax,
+            location: job.location ?? null,
+            description: job.description ?? null,
+            requirements: job.requirements ?? null,
+            skills: normalizeSkills(
+              job.skills?.length > 0 ? job.skills : extractSkillsFromText(job.description)
+            ),
+            workType: job.workType ?? null,
+            salaryMin: job.salaryMin ?? null,
+            salaryMax: job.salaryMax ?? null,
             source: job.source,
             externalId: job.externalId,
-            externalUrl: job.externalUrl,
+            externalUrl: job.externalUrl ?? null,
             trustScore: trustScore,
             livenessStatus: 'unknown',
             lastLivenessCheck: new Date(),

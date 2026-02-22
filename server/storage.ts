@@ -1436,47 +1436,64 @@ export class DatabaseStorage implements IStorage {
         return []; // Return empty array if user does not own the job
       }
 
-      // If ownership is confirmed, fetch applicants with exam scores
-      return await db
-        .select({
-          applicationId: jobApplications.id,
-          status: jobApplications.status,
-          appliedAt: jobApplications.appliedAt,
-          candidate: {
-            id: users.id,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            email: users.email,
-          },
-          profile: {
-            skills: candidateProfiles.skills,
-            experience: candidateProfiles.experience,
-            resumeUrl: candidateProfiles.resumeUrl,
-            linkedinUrl: candidateProfiles.linkedinUrl,
-            githubUrl: candidateProfiles.githubUrl,
-            portfolioUrl: candidateProfiles.portfolioUrl,
-          },
-          match: {
-            matchScore: jobMatches.matchScore,
-            aiExplanation: jobMatches.aiExplanation,
-          },
-          examScore: examAttempts.score,
-          examPassed: examAttempts.passedExam,
-          examRanking: examAttempts.ranking,
-        })
-        .from(jobApplications)
-        .innerJoin(users, eq(jobApplications.candidateId, users.id))
-        .leftJoin(candidateProfiles, eq(jobApplications.candidateId, candidateProfiles.userId))
-        .leftJoin(jobMatches, and(
-          eq(jobMatches.candidateId, jobApplications.candidateId),
-          eq(jobMatches.jobId, jobApplications.jobId)
-        ))
-        .leftJoin(examAttempts, and(
-          eq(examAttempts.candidateId, jobApplications.candidateId),
-          eq(examAttempts.jobId, jobApplications.jobId)
-        ))
-        .where(eq(jobApplications.jobId, jobId))
-        .orderBy(desc(examAttempts.score), desc(jobApplications.appliedAt));
+      // Use raw SQL to bypass Drizzle ORM 0.39 bug with leftJoin + orderBy
+      // (TypeError: Cannot convert undefined or null to object in orderSelectedFields)
+      const rows = await db.execute(sql`
+        SELECT
+          ja.id AS "applicationId",
+          ja.status,
+          ja.applied_at AS "appliedAt",
+          u.id AS "candidateId",
+          u.first_name AS "candidateFirstName",
+          u.last_name AS "candidateLastName",
+          u.email AS "candidateEmail",
+          cp.skills,
+          cp.experience,
+          cp.resume_url AS "resumeUrl",
+          cp.linkedin_url AS "linkedinUrl",
+          cp.github_url AS "githubUrl",
+          cp.portfolio_url AS "portfolioUrl",
+          jm.match_score AS "matchScore",
+          jm.ai_explanation AS "aiExplanation",
+          ea.score AS "examScore",
+          ea.passed_exam AS "examPassed",
+          ea.ranking AS "examRanking"
+        FROM job_applications ja
+        INNER JOIN users u ON ja.candidate_id = u.id
+        LEFT JOIN candidate_users cp ON ja.candidate_id = cp.user_id
+        LEFT JOIN job_matches jm ON jm.candidate_id = ja.candidate_id AND jm.job_id = ja.job_id
+        LEFT JOIN exam_attempts ea ON ea.candidate_id = ja.candidate_id AND ea.job_id = ja.job_id
+        WHERE ja.job_id = ${jobId}
+        ORDER BY ea.score DESC NULLS LAST, ja.applied_at DESC
+      `);
+
+      // Re-shape flat rows into the nested structure callers expect
+      return (rows as any[]).map((row: any) => ({
+        applicationId: row.applicationId,
+        status: row.status,
+        appliedAt: row.appliedAt,
+        candidate: {
+          id: row.candidateId,
+          firstName: row.candidateFirstName,
+          lastName: row.candidateLastName,
+          email: row.candidateEmail,
+        },
+        profile: {
+          skills: row.skills,
+          experience: row.experience,
+          resumeUrl: row.resumeUrl,
+          linkedinUrl: row.linkedinUrl,
+          githubUrl: row.githubUrl,
+          portfolioUrl: row.portfolioUrl,
+        },
+        match: {
+          matchScore: row.matchScore,
+          aiExplanation: row.aiExplanation,
+        },
+        examScore: row.examScore,
+        examPassed: row.examPassed,
+        examRanking: row.examRanking,
+      }));
     } catch (error) {
       console.error(`Error fetching applicants for job ${jobId}:`, error);
       throw error;

@@ -127,12 +127,21 @@ export async function configureApp() {
     next();
   });
 
-  // Rate limiting: 100 requests per 15 minutes per IP
+  const isDevOrTest = process.env.NODE_ENV !== 'production';
+
+  // Rate limiting: 100 requests per 15 minutes per IP (disabled for localhost in dev/test)
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // Limit each IP to 100 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+      // Health endpoint is always accessible for monitoring
+      if (req.path === '/api/health') return true;
+      // In dev/test, skip rate limiting for localhost to allow full test suites to run
+      if (isDevOrTest && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) return true;
+      return false;
+    },
     handler: (req, res) => {
       res.status(429).json({ message: 'Too many requests, please try again later.' });
     }
@@ -145,6 +154,11 @@ export async function configureApp() {
     max: 10, // Limit each IP to 10 auth requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+      // In dev/test, skip rate limiting for localhost
+      if (isDevOrTest && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) return true;
+      return false;
+    },
     handler: (req, res) => {
       res.status(429).json({ message: 'Too many authentication attempts, please try again later.' });
     }

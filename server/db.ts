@@ -29,8 +29,8 @@ try {
 
   // Create connection to PostgreSQL with optimized settings for serverless environments
   client = postgres(connectionString, {
-    max: isServerless ? 1 : 3, // Single connection per serverless function to prevent pool exhaustion
-    idle_timeout: 10, // Close idle connections very fast in serverless
+    max: isServerless ? 1 : 10, // Allow more connections for background services + request handlers
+    idle_timeout: isServerless ? 10 : 30, // Longer idle timeout for persistent server
     connect_timeout: 10, // Connection timeout
     connection: {
       application_name: 'recrutas-app',
