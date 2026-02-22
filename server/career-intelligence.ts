@@ -68,7 +68,7 @@ export class CareerIntelligenceEngine {
       response_format: { type: "json_object" }
     });
 
-    return JSON.parse(response.choices[0].message.content);
+    return JSON.parse(response.choices[0].message.content ?? '{}');
   }
 
   // Additional methods...

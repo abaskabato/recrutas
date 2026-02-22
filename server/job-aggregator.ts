@@ -240,7 +240,7 @@ export class JobAggregator {
       // Using RapidAPI free tier for JSearch
       const response = await this.fetchWithRetry(`https://jsearch.p.rapidapi.com/search?${params}`, {
         headers: {
-          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
+          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
           'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
           'User-Agent': 'JobPlatform/1.0'
         }
@@ -256,7 +256,7 @@ export class JobAggregator {
         return [];
       }
     } catch (error) {
-      console.log('Error fetching from JSearch:', error.message);
+      console.log('Error fetching from JSearch:', (error as Error).message);
       return [];
     }
   }
@@ -282,7 +282,7 @@ export class JobAggregator {
         return [];
       }
     } catch (error) {
-      console.log('Error fetching from ArbeitNow:', error.message);
+      console.log('Error fetching from ArbeitNow:', (error as Error).message);
       return [];
     }
   }
@@ -320,7 +320,7 @@ export class JobAggregator {
         return [];
       }
     } catch (error) {
-      console.log('Error fetching from Jooble:', error.message);
+      console.log('Error fetching from Jooble:', (error as Error).message);
       return [];
     }
   }
@@ -350,7 +350,7 @@ export class JobAggregator {
         return [];
       }
     } catch (error) {
-      console.log('Error fetching from Indeed RSS:', error.message);
+      console.log('Error fetching from Indeed RSS:', (error as Error).message);
       return [];
     }
   }
@@ -1234,8 +1234,8 @@ export class JobAggregator {
       requirements: this.extractRequirements(job.contents || ''),
       skills: this.extractSkills(job.name + ' ' + (job.contents || '')),
       workType: job.locations?.[0]?.name?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
-      salaryMin: null,
-      salaryMax: null,
+      salaryMin: undefined,
+      salaryMax: undefined,
       source: 'The Muse',
       externalUrl: job.refs?.landing_page || 'https://themuse.com',
       postedDate: job.publication_date || new Date().toISOString(),

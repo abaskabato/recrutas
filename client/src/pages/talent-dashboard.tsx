@@ -997,7 +997,7 @@ export default function TalentDashboard() {
                   <div className="space-y-4">
                     {filteredCandidates.map((applicant) => {
                       const isExpanded = expandedApplicantId === applicant.applicationId;
-                      const questions = screeningQuestions[applicant.candidate.id];
+                      const questions = screeningQuestions?.[applicant.candidate.id];
                       return (
                         <Card key={applicant.applicationId}>
                           <CardContent className="p-6">

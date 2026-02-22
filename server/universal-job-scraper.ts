@@ -65,7 +65,7 @@ export class UniversalJobScraper {
 
       return enhancedJobs;
     } catch (error) {
-      console.error(`[scraper] Failed to scrape ${companyUrl}:`, error.message);
+      console.error(`[scraper] Failed to scrape ${companyUrl}:`, (error as Error).message);
       return []; // Only return authentic scraped data
     }
   }

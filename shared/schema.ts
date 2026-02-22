@@ -137,7 +137,7 @@ export const jobPostings = pgTable("job_postings", {
   // embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
+}, (table: any) => ({
   // Unique constraint for external job deduplication
   jobExternalUnique: unique("job_external_unique").on(table.externalId, table.source),
   // Indices for common queries
@@ -208,7 +208,7 @@ export const chatRooms = pgTable("chat_rooms", {
   accessGrantedAt: timestamp("access_granted_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
+}, (table: any) => ({
   // Unique constraint to prevent duplicate chat rooms
   chatRoomUnique: unique('chat_room_unique').on(table.jobId, table.candidateId),
   idxChatRoomCandidate: index("idx_chat_room_candidate").on(table.candidateId),
@@ -241,7 +241,7 @@ export const jobApplications = pgTable("job_applications", {
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
+}, (table: any) => ({
   // Unique constraint to prevent duplicate applications
   jobCandidateUnique: unique('job_candidate_unique').on(table.jobId, table.candidateId),
   idxApplicationCandidate: index("idx_application_candidate").on(table.candidateId),
@@ -402,7 +402,7 @@ export const savedJobs = pgTable("saved_jobs", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
-}, (table) => {
+}, (table: any) => {
   return {
     pk: primaryKey({ columns: [table.userId, table.jobId] }),
   }
@@ -412,13 +412,13 @@ export const hiddenJobs = pgTable("hidden_jobs", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
-}, (table) => {
+}, (table: any) => {
   return {
     pk: primaryKey({ columns: [table.userId, table.jobId] }),
   }
 });
 
-export const usersRelations = relations(users, ({ one, many }) => ({
+export const usersRelations = relations(users, ({ one, many }: { one: any; many: any }) => ({
   candidateProfile: one(candidateProfiles, {
     fields: [users.id],
     references: [candidateProfiles.userId],
@@ -435,7 +435,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
 }));
 
-export const talentOwnerProfilesRelations = relations(talentOwnerProfiles, ({ one }) => ({
+export const talentOwnerProfilesRelations = relations(talentOwnerProfiles, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [talentOwnerProfiles.userId],
     references: [users.id],
@@ -445,14 +445,14 @@ export const talentOwnerProfilesRelations = relations(talentOwnerProfiles, ({ on
 
 // The 'companiesRelations' has been temporarily removed.
 
-export const candidateProfilesRelations = relations(candidateProfiles, ({ one }) => ({
+export const candidateProfilesRelations = relations(candidateProfiles, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [candidateProfiles.userId],
     references: [users.id],
   }),
 }));
 
-export const jobPostingsRelations = relations(jobPostings, ({ one, many }) => ({
+export const jobPostingsRelations = relations(jobPostings, ({ one, many }: { one: any; many: any }) => ({
   talentOwner: one(users, {
     fields: [jobPostings.talentOwnerId],
     references: [users.id],
@@ -463,7 +463,7 @@ export const jobPostingsRelations = relations(jobPostings, ({ one, many }) => ({
   hiddenBy: many(hiddenJobs),
 }));
 
-export const jobMatchesRelations = relations(jobMatches, ({ one, many }) => ({
+export const jobMatchesRelations = relations(jobMatches, ({ one, many }: { one: any; many: any }) => ({
   job: one(jobPostings, {
     fields: [jobMatches.jobId],
     references: [jobPostings.id],
@@ -475,7 +475,7 @@ export const jobMatchesRelations = relations(jobMatches, ({ one, many }) => ({
   chatRoom: one(chatRooms),
 }));
 
-export const chatRoomsRelations = relations(chatRooms, ({ one, many }) => ({
+export const chatRoomsRelations = relations(chatRooms, ({ one, many }: { one: any; many: any }) => ({
   job: one(jobPostings, {
     fields: [chatRooms.jobId],
     references: [jobPostings.id],
@@ -491,7 +491,7 @@ export const chatRoomsRelations = relations(chatRooms, ({ one, many }) => ({
   messages: many(chatMessages),
 }));
 
-export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+export const chatMessagesRelations = relations(chatMessages, ({ one }: { one: any }) => ({
   chatRoom: one(chatRooms, {
     fields: [chatMessages.chatRoomId],
     references: [chatRooms.id],
@@ -502,7 +502,7 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   }),
 }));
 
-export const notificationsRelations = relations(notifications, ({ one }) => ({
+export const notificationsRelations = relations(notifications, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [notifications.userId],
     references: [users.id],
@@ -521,21 +521,21 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
-export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [notificationPreferences.userId],
     references: [users.id],
   }),
 }));
 
-export const connectionStatusRelations = relations(connectionStatus, ({ one }) => ({
+export const connectionStatusRelations = relations(connectionStatus, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [connectionStatus.userId],
     references: [users.id],
   }),
 }));
 
-export const interviewsRelations = relations(interviews, ({ one }) => ({
+export const interviewsRelations = relations(interviews, ({ one }: { one: any }) => ({
   candidate: one(users, {
     fields: [interviews.candidateId],
     references: [users.id],
@@ -573,12 +573,12 @@ export const screeningAnswers = pgTable("screening_answers", {
   questionId: integer("question_id").notNull().references(() => screeningQuestions.id, { onDelete: 'cascade' }),
   answer: text("answer"),
   createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
+}, (table: any) => ({
   // Unique constraint to prevent duplicate answers
   answerUnique: unique('answer_unique').on(table.applicationId, table.questionId),
 }));
 
-export const screeningQuestionsRelations = relations(screeningQuestions, ({ one, many }) => ({
+export const screeningQuestionsRelations = relations(screeningQuestions, ({ one, many }: { one: any; many: any }) => ({
   job: one(jobPostings, {
     fields: [screeningQuestions.jobId],
     references: [jobPostings.id],
@@ -586,7 +586,7 @@ export const screeningQuestionsRelations = relations(screeningQuestions, ({ one,
   answers: many(screeningAnswers),
 }));
 
-export const screeningAnswersRelations = relations(screeningAnswers, ({ one }) => ({
+export const screeningAnswersRelations = relations(screeningAnswers, ({ one }: { one: any }) => ({
   application: one(jobApplications, {
     fields: [screeningAnswers.applicationId],
     references: [jobApplications.id],
@@ -597,7 +597,7 @@ export const screeningAnswersRelations = relations(screeningAnswers, ({ one }) =
   }),
 }));
 
-export const savedJobsRelations = relations(savedJobs, ({ one }) => ({
+export const savedJobsRelations = relations(savedJobs, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [savedJobs.userId],
     references: [users.id],
@@ -608,7 +608,7 @@ export const savedJobsRelations = relations(savedJobs, ({ one }) => ({
   }),
 }));
 
-export const hiddenJobsRelations = relations(hiddenJobs, ({ one }) => ({
+export const hiddenJobsRelations = relations(hiddenJobs, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [hiddenJobs.userId],
     references: [users.id],
@@ -665,11 +665,11 @@ export const usageTracking = pgTable("usage_tracking", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const subscriptionTiersRelations = relations(subscriptionTiers, ({ many }) => ({
+export const subscriptionTiersRelations = relations(subscriptionTiers, ({ many }: { many: any }) => ({
   subscriptions: many(userSubscriptions),
 }));
 
-export const userSubscriptionsRelations = relations(userSubscriptions, ({ one }) => ({
+export const userSubscriptionsRelations = relations(userSubscriptions, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [userSubscriptions.userId],
     references: [users.id],
@@ -680,7 +680,7 @@ export const userSubscriptionsRelations = relations(userSubscriptions, ({ one })
   }),
 }));
 
-export const usageTrackingRelations = relations(usageTracking, ({ one }) => ({
+export const usageTrackingRelations = relations(usageTracking, ({ one }: { one: any }) => ({
   user: one(users, {
     fields: [usageTracking.userId],
     references: [users.id],
@@ -813,12 +813,12 @@ export const agentTasks = pgTable("agent_tasks", {
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
+}, (table: any) => ({
   idxAgentTaskStatus: index("idx_agent_task_status").on(table.status),
   idxAgentTaskCandidate: index("idx_agent_task_candidate").on(table.candidateId),
 }));
 
-export const agentTasksRelations = relations(agentTasks, ({ one }) => ({
+export const agentTasksRelations = relations(agentTasks, ({ one }: { one: any }) => ({
   application: one(jobApplications, {
     fields: [agentTasks.applicationId],
     references: [jobApplications.id],
@@ -845,7 +845,7 @@ export const discoveredCompanies = pgTable("discovered_companies", {
   status: varchar("status", { length: 50 }).default("pending"),
   createdAt: timestamp("createdAt").defaultNow(),
   updatedAt: timestamp("updatedAt").defaultNow(),
-}, (table) => {
+}, (table: any) => {
   return {
     idx_discovered_status: index("idx_discovered_status").on(table.status),
     idx_discovered_ats: index("idx_discovered_ats").on(table.detectedAts),

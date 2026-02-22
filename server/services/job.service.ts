@@ -253,7 +253,7 @@ export class JobService {
     const skillCounts = new Map<string, number>();
     skillsData.forEach(job => {
       if (job.skills) {
-        job.skills.forEach(skill => {
+        job.skills.forEach((skill: string) => {
           skillCounts.set(skill, (skillCounts.get(skill) || 0) + 1);
         });
       }

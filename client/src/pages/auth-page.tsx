@@ -29,7 +29,7 @@ export default function AuthPage() {
     }
   }, [session, setLocation]);
 
-  const handleSignIn = async (e) => {
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSignInLoading(true);
     try {
@@ -38,11 +38,11 @@ export default function AuthPage() {
         password,
       });
       if (error) throw error;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Sign-in error:", error);
       toast({
         title: "Error signing in",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {

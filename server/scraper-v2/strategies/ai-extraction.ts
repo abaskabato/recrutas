@@ -270,7 +270,7 @@ async function callAIForExtraction(html: string, company: CompanyConfig): Promis
         logger.warn('Ollama not available, falling back to Groq');
       }
     } catch (error) {
-      logger.warn(`Ollama failed for ${company.name}, trying Groq:`, error);
+      logger.warn(`Ollama failed for ${company.name}, trying Groq:`, error as Record<string, unknown>);
     }
   }
 

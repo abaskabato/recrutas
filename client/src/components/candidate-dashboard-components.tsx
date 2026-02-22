@@ -108,7 +108,7 @@ export function JobMatchCard({ match, onTakeExam, onApply, onStartChat, onMarkAp
 }
 
 // Job match badges component
-function JobMatchBadges({ match }) {
+function JobMatchBadges({ match }: { match: any }) {
   return (
     <div className="flex items-center space-x-2 mb-2 flex-wrap gap-2">
       {match.job?.source === 'internal' ? (
@@ -140,7 +140,7 @@ function JobMatchBadges({ match }) {
 }
 
 // Job match details component
-function JobMatchDetails({ match, formatSalary }) {
+function JobMatchDetails({ match, formatSalary }: { match: any; formatSalary: (min?: number, max?: number) => string }) {
   return (
     <div className="flex items-center space-x-4 text-sm text-slate-500 mb-4 flex-wrap gap-2">
       <div className="flex items-center space-x-1">
@@ -159,7 +159,7 @@ function JobMatchDetails({ match, formatSalary }) {
 }
 
 // Job match actions component
-function JobMatchActions({ match, onTakeExam, onApply, onStartChat, onMarkApplied, timeAgo }) {
+function JobMatchActions({ match, onTakeExam, onApply, onStartChat, onMarkApplied, timeAgo }: { match: any; onTakeExam: (jobId: number, title: string) => void; onApply: (jobId: number) => void; onStartChat: (jobId: number) => void; onMarkApplied: (matchId: number) => void; timeAgo: (date: string) => string }) {
   return (
     <div className="flex-shrink-0 text-right">
       <div className="flex flex-col space-y-2 mb-3">
@@ -185,7 +185,7 @@ function JobMatchActions({ match, onTakeExam, onApply, onStartChat, onMarkApplie
 }
 
 // Internal job actions
-function InternalJobActions({ match, onTakeExam, onApply, onStartChat }) {
+function InternalJobActions({ match, onTakeExam, onApply, onStartChat }: { match: any; onTakeExam: (jobId: number, title: string) => void; onApply: (jobId: number) => void; onStartChat: (jobId: number) => void }) {
   return (
     <>
       {match.job?.hasExam && match.status === 'pending' && (
@@ -229,7 +229,7 @@ function InternalJobActions({ match, onTakeExam, onApply, onStartChat }) {
 }
 
 // External job actions
-function ExternalJobActions({ match, onMarkApplied }) {
+function ExternalJobActions({ match, onMarkApplied }: { match: any; onMarkApplied: (matchId: number) => void }) {
   // Check localStorage for applied status
   const getAppliedJobs = () => {
     if (typeof window === 'undefined') return new Set();
@@ -237,7 +237,7 @@ function ExternalJobActions({ match, onMarkApplied }) {
     return new Set(stored ? JSON.parse(stored) : []);
   };
 
-  const isJobApplied = (jobId) => {
+  const isJobApplied = (jobId: number | string) => {
     return getAppliedJobs().has(jobId.toString());
   };
 
@@ -263,7 +263,7 @@ function ExternalJobActions({ match, onMarkApplied }) {
 }
 
 // Application card component
-export function ApplicationCard({ application, getStatusColor, getStatusIcon, timeAgo }) {
+export function ApplicationCard({ application, getStatusColor, getStatusIcon, timeAgo }: { application: any; getStatusColor: (status: string) => string; getStatusIcon: (status: string) => JSX.Element; timeAgo: (date: string) => string }) {
   return (
     <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:shadow-sm transition-shadow">
       <div className="flex-1">
@@ -284,7 +284,7 @@ export function ApplicationCard({ application, getStatusColor, getStatusIcon, ti
 }
 
 // Activity item component
-export function ActivityItem({ activity, timeAgo }) {
+export function ActivityItem({ activity, timeAgo }: { activity: any; timeAgo: (date: string) => string }) {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'job_match':

@@ -136,20 +136,20 @@ export class AgentApplyService {
       });
 
       // Fix 1: Stealth — patch navigator.webdriver and remove CDP fingerprints
-      await context.addInitScript(() => {
+      // Using string form to avoid TypeScript errors (this runs in browser context)
+      await context.addInitScript(`
         Object.defineProperty(navigator, 'webdriver', { get: () => false });
         Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
         Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
         // Remove Chrome DevTools Protocol automation artifacts
-        const win = window as any;
-        delete win.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-        delete win.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
-        delete win.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+        delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+        delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+        delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
         // Make chrome object look real
-        if (!win.chrome) {
-          win.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
+        if (!window.chrome) {
+          window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
         }
-      });
+      `);
 
       const page = await context.newPage();
       const candidateData = task.candidateData as CandidateData;
@@ -561,7 +561,7 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { response?: string };
         const text = data.response || '';
         // Extract JSON from response
         const jsonMatch = text.match(/\{[^}]+\}/);
@@ -597,7 +597,7 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
         }
         if (!el) continue;
 
-        const tagName = await el.evaluate((e: Element) => e.tagName.toLowerCase());
+        const tagName = await el.evaluate((e: unknown) => (e as { tagName: string }).tagName.toLowerCase());
 
         if (tagName === 'select') {
           // Try matching option by text

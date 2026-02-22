@@ -123,9 +123,9 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
   const jobRequirements = Array.isArray(job.requirements) ? job.requirements : [];
 
   // Semantic skill matching using embeddings
-  const candidateSkillEmbeddings = candidateSkills.map(skill => getSkillEmbedding(skill));
-  const jobSkillEmbeddings = jobSkills.map(skill => getSkillEmbedding(skill));
-  const jobReqEmbeddings = jobRequirements.map(req => getSkillEmbedding(req));
+  const candidateSkillEmbeddings = candidateSkills.map((skill: string) => getSkillEmbedding(skill));
+  const jobSkillEmbeddings = jobSkills.map((skill: string) => getSkillEmbedding(skill));
+  const jobReqEmbeddings = jobRequirements.map((req: string) => getSkillEmbedding(req));
 
   let totalSimilarity = 0;
   let maxSimilarities: Array<{ skill: string; similarity: number; matchedWith: string }> = [];

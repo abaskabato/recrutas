@@ -110,7 +110,7 @@ describe('SOTA Scraper Integration', () => {
         ...mockScrapedJob,
         requirements: [],
         skills: [],
-        salary: undefined
+        salary: undefined as any
       };
       
       const ingestionJob = convertToIngestionFormat(incompleteJob);

@@ -155,7 +155,7 @@ export default function InstantJobSearch() {
 
     // If authenticated, check if it's an internal or external job
     if (job.source === 'platform') {
-      applyMutation.mutate(job.job.id);
+      applyMutation.mutate(job.job?.id!);
     } else {
       // For external jobs, open the link in a new tab
       window.open(job.externalUrl, '_blank');
@@ -334,7 +334,7 @@ export default function InstantJobSearch() {
                           )}
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            <span>{new Date(job.createdAt).toLocaleDateString()}</span>
+                            <span>{new Date(job.createdAt ?? Date.now()).toLocaleDateString()}</span>
                           </div>
                         </div>
 

@@ -1,5 +1,14 @@
-// Simple AI matching algorithm (mock implementation)
-// In a real application, this would be more sophisticated with ML models
+/**
+ * Client-side Job Matching Utility
+ *
+ * This is a lightweight matching algorithm for client-side use.
+ * For production matching, the server uses:
+ * - server/ai-service.ts - AI-powered semantic matching
+ * - server/ml-matching.ts - Machine learning embeddings
+ * - server/advanced-matching-engine.ts - Multi-factor scoring
+ *
+ * This client utility provides quick preliminary scores for UI feedback.
+ */
 
 export interface CandidateProfile {
   skills: string[];

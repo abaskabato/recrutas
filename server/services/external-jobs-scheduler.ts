@@ -112,7 +112,7 @@ export class ExternalJobsScheduler {
         message: 'External jobs scrape completed successfully'
       };
     } catch (error) {
-      console.error('[ExternalJobsScheduler] Error:', error?.message);
+      console.error('[ExternalJobsScheduler] Error:', (error as Error)?.message);
       throw error;
     }
   }

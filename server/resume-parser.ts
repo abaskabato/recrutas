@@ -163,7 +163,7 @@ export class ResumeParser {
   }
 
   private extractEducation(text: string): string[] {
-    const education = [];
+    const education: string[] = [];
     const educationSection = this.extractSection(text, ['education', 'academic background', 'qualifications']);
     
     if (educationSection) {
@@ -235,12 +235,12 @@ export class ResumeParser {
   }
 
   private extractWorkHistory(text: string): ParsedResume['workHistory'] {
-    const workHistory = [];
+    const workHistory: Array<{ company: string; position: string; duration: string }> = [];
     const workSection = this.extractSection(text, ['experience', 'work experience', 'employment', 'work history', 'professional experience']);
     
     if (workSection) {
       const lines = workSection.split('\n').filter(line => line.trim().length > 0);
-      let currentJob = null;
+      let currentJob: { company: string; position: string; duration: string } | null = null;
 
       lines.forEach(line => {
         line = line.trim();

@@ -20,7 +20,7 @@ if (!connectionString) {
 const maskedConnectionString = connectionString.replace(/:([^:]+)@/, ':********@');
 console.log(`🔗 Using database connection: ${maskedConnectionString}`);
 
-export let client;
+export let client: postgres.Sql<{}>;
 try {
   // Detect if using Supabase pooler (pgBouncer)
   const isPgBouncer = connectionString.includes('pooler.supabase.com') ||

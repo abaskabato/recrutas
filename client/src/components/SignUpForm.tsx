@@ -35,7 +35,7 @@ export default function SignUpForm({ role }: SignUpFormProps) {
 
   const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 
-  const handleSignUp = async (e) => {
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
@@ -54,10 +54,10 @@ export default function SignUpForm({ role }: SignUpFormProps) {
         title: "Account created",
         description: "Please check your email to verify your account.",
       });
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: "Error signing up",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {

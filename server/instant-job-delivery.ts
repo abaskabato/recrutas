@@ -135,12 +135,12 @@ export class InstantJobDelivery {
       const jobSkills = job.skills?.map((s: string) => s.toLowerCase()) || [];
       const jobText = `${job.title} ${job.description}`.toLowerCase();
       
-      const matchedSkills = request.skills.filter(skill => {
-        const skillLower = skill.toLowerCase();
-        const escaped = skillLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return jobSkills.some(js => js === skillLower) ||
-          new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(jobText);
-      });
+        const matchedSkills = request.skills.filter(skill => {
+          const skillLower = skill.toLowerCase();
+          const escaped = skillLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return jobSkills.some((js: string) => js === skillLower) ||
+            new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(jobText);
+        });
       
       score += (matchedSkills.length / request.skills.length) * 40;
     }
@@ -241,7 +241,7 @@ export class InstantJobDelivery {
           }
         }
       } catch (error) {
-        console.log(`Could not fetch from ${source}:`, error.message);
+        console.log(`Could not fetch from ${source}:`, (error as Error).message);
       }
     }
 

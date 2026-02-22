@@ -37,7 +37,7 @@ async function initializeSupabase() {
       console.log('"resumes" bucket already exists.');
     }
   } catch (e) {
-    console.error('Unexpected error during Supabase initialization:', e.message);
+    console.error('Unexpected error during Supabase initialization:', (e as Error).message);
   }
 }
 

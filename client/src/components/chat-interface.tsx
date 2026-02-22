@@ -111,7 +111,7 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
             </div>
           ) : (
             messages.map((msg: any) => {
-              const isCurrentUser = msg.senderId === user.id;
+              const isCurrentUser = msg.senderId === user?.id;
               return (
                 <div key={msg.id} className={`flex items-start space-x-3 ${isCurrentUser ? 'justify-end' : ''}`}>
                   {!isCurrentUser && (

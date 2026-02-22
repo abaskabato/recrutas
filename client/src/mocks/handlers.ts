@@ -1,3 +1,13 @@
+/**
+ * MSW (Mock Service Worker) Handlers for Testing
+ *
+ * WARNING: This file is for TESTING ONLY.
+ * These handlers mock API responses for unit/integration tests.
+ * They should NEVER be used in production builds.
+ *
+ * The handlers are only loaded via setupTests.ts during test runs.
+ * Production code should use real API endpoints.
+ */
 import { http, HttpResponse } from 'msw';
 
 // Mock data generators
@@ -79,9 +89,9 @@ const mockJobMatches = [
   },
 ];
 
-const mockSavedJobs = [1];
-const mockAppliedJobs = [2];
-const mockHiddenJobs = [];
+const mockSavedJobs: number[] = [1];
+const mockAppliedJobs: number[] = [2];
+const mockHiddenJobs: number[] = [];
 
 export const handlers = [
   http.get('/api/candidate/profile', () => {

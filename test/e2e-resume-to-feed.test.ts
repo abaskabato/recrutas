@@ -59,7 +59,7 @@ describe('E2E: Resume Upload to Job Feed', () => {
       // Step 2: Wait for AI parsing to complete
       console.log('Step 2: Waiting for AI parsing...');
       const parseCompleted = await waitForActivityLogEvent(
-        testUserId,
+        () => getActivityLogs(testUserId),
         'resume_parsing_complete',
         60000
       );
@@ -178,7 +178,7 @@ describe('E2E: Resume Upload to Job Feed', () => {
 
       if (!hasParsingEvent) {
         console.log('Waiting for parsing event...');
-        await waitForActivityLogEvent(testUserId, 'resume_parsing_complete', 45000).catch(
+        await waitForActivityLogEvent(() => getActivityLogs(testUserId), 'resume_parsing_complete', 45000).catch(
           () => {
             console.log('Parsing may have failed, will use manual update');
           }

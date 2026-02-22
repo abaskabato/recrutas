@@ -59,7 +59,7 @@ export function sendJobMatchNotification(userId: string, jobMatch: any) {
 }
 
 export function sendApplicationStatusUpdate(userId: string, application: any) {
-  const statusMessages = {
+  const statusMessages: Record<string, string> = {
     viewed: 'Your application has been viewed',
     interested: 'Employer is interested in your profile',
     interview: 'Interview scheduled',
@@ -70,7 +70,7 @@ export function sendApplicationStatusUpdate(userId: string, application: any) {
   const notification = {
     type: 'application_update',
     title: 'Application Update',
-    message: `${statusMessages[application.status]} - ${application.job.title} at ${application.job.company}`,
+    message: `${statusMessages[application.status] || 'Status updated'} - ${application.job.title} at ${application.job.company}`,
     data: application,
     timestamp: new Date().toISOString()
   };

@@ -163,9 +163,9 @@ export class AIResumeParser {
           throw new Error('PDF extracted text is empty or too short. The PDF may be scanned/image-based.');
         }
         return data.text;
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[AIResumeParser] PDF parsing failed:', error);
-        throw new Error(`Failed to extract text from PDF: ${error.message}`);
+        throw new Error(`Failed to extract text from PDF: ${(error as Error).message}`);
       }
     } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
       try {
@@ -174,9 +174,9 @@ export class AIResumeParser {
           throw new Error('Word document extracted text is empty or too short.');
         }
         return result.value;
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[AIResumeParser] Word document parsing failed:', error);
-        throw new Error(`Failed to extract text from Word document: ${error.message}`);
+        throw new Error(`Failed to extract text from Word document: ${(error as Error).message}`);
       }
     } else if (mimeType === 'text/plain' || mimeType === 'application/json') {
       return fileBuffer.toString('utf-8');
@@ -437,8 +437,8 @@ Return JSON with this exact structure:
       let extractedData;
       try {
         extractedData = JSON.parse(result.response || '{}');
-      } catch (parseError) {
-        console.warn('Failed to parse Ollama response, using fallback:', parseError.message);
+      } catch (parseError: unknown) {
+        console.warn('Failed to parse Ollama response, using fallback:', (parseError as Error).message);
         return this.extractWithFallback(text);
       }
 
@@ -452,8 +452,8 @@ Return JSON with this exact structure:
         projects: extractedData.projects || [],
         languages: extractedData.languages || []
       };
-    } catch (error) {
-      console.warn('Ollama extraction failed:', error.message);
+    } catch (error: unknown) {
+      console.warn('Ollama extraction failed:', (error as Error).message);
       throw error;  // Will be caught by parent extractWithAI and trigger fallback
     }
   }
@@ -553,8 +553,8 @@ ${truncatedText}`
     let extractedData;
     try {
       extractedData = JSON.parse(content);
-    } catch (parseError) {
-      console.warn('[AIResumeParser] Failed to parse Groq response:', parseError.message);
+    } catch (parseError: unknown) {
+      console.warn('[AIResumeParser] Failed to parse Groq response:', (parseError as Error).message);
       throw new Error('Failed to parse Groq JSON response');
     }
 

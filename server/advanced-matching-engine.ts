@@ -649,7 +649,7 @@ export class AdvancedMatchingEngine {
               matchScore: finalScore * 100,
               confidenceLevel: Math.round(finalScore * 100),
               skillMatches: criteria.skills.filter(s => 
-                (job.skills || []).some(js => js.toLowerCase().includes(s.toLowerCase()))
+                (job.skills || []).some((js: string) => js.toLowerCase().includes(s.toLowerCase()))
               ),
               aiExplanation: `Semantic match: ${Math.round(semanticSim * 100)}%, Skill match: ${Math.round(skillMatch * 100)}%`,
               urgencyScore: 0.5,

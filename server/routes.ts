@@ -186,14 +186,14 @@ function processJobMatchesInBackground(jobId: number) {
 
           console.log(`[Background] Processed batch ${Math.floor(i / BATCH_SIZE) + 1} for job ${jobId}`);
         } catch (batchError) {
-          console.error(`[Background] Batch processing error for job ${jobId}:`, batchError?.message);
+          console.error(`[Background] Batch processing error for job ${jobId}:`, (batchError as Error)?.message);
           // Continue with next batch
         }
       }
 
       console.log(`[Background] Completed candidate matching for job ${jobId}`);
     } catch (error) {
-      console.error(`[Background] Error processing job matches for job ${jobId}:`, error?.message);
+      console.error(`[Background] Error processing job matches for job ${jobId}:`, (error as Error)?.message);
     }
   }, 0);
 }
@@ -285,34 +285,6 @@ async function generateExamQuestions(job: any) {
   });
 
   return questions;
-}
-
-async function findMatchingCandidates(job: any) {
-  // This is a placeholder function. In a real application, this would
-  // involve a more complex matching algorithm.
-  const allCandidates = await storage.getAllCandidateUsers();
-  const matches = [];
-
-  for (const candidate of allCandidates) {
-    let score = 0;
-    if (candidate.skills && job.skills) {
-      for (const skill of job.skills) {
-        if (candidate.skills.includes(skill)) {
-          score += 10;
-        }
-      }
-    }
-
-    if (score > 0) {
-      matches.push({
-        candidateId: candidate.userId,
-        matchScore: score,
-        matchReasons: [`Shared skills: ${job.skills.filter((s: any) => candidate.skills.includes(s)).join(", ")}`],
-      });
-    }
-  }
-
-  return matches;
 }
 
 export async function registerRoutes(app: Express): Promise<Express> {
@@ -928,10 +900,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error) {
       console.error("Error processing resume upload:", error);
       console.error("Error details:", {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack,
-        originalError: error?.originalError
+        name: (error as Error)?.name,
+        message: (error as Error)?.message,
+        stack: (error as Error)?.stack,
+        originalError: (error as any)?.originalError
       });
       if (error instanceof ResumeProcessingError) {
         return res.status(500).json({
@@ -941,7 +913,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       res.status(500).json({
         message: "Failed to upload resume",
-        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+        details: process.env.NODE_ENV === 'development' ? (error as Error)?.message : undefined
       });
     }
   });
@@ -1264,7 +1236,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
               await storage.createJobExam(examData);
               console.log(`[Background] Exam generated for job ${job.id}`);
             } catch (examError) {
-              console.warn(`[Background] Failed to generate exam for job ${job.id}:`, examError?.message);
+              console.warn(`[Background] Failed to generate exam for job ${job.id}:`, (examError as Error)?.message);
               // Continue - exam generation is not critical
             }
           }
@@ -1276,7 +1248,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
           // Process candidate matching in background
           processJobMatchesInBackground(job.id);
         } catch (bgError) {
-          console.error(`[Background] Error processing job ${job.id}:`, bgError?.message);
+          console.error(`[Background] Error processing job ${job.id}:`, (bgError as Error)?.message);
         }
       }, 0);
 
@@ -1295,7 +1267,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       res.status(500).json({
         message: "Failed to create job posting",
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
       });
     }
   });
@@ -2107,7 +2079,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // AGENT APPLY ENDPOINTS
   // ==========================================
 
+  // Feature flag for agent apply - disabled by default until production testing
+  const AGENT_APPLY_ENABLED = process.env.ENABLE_AGENT_APPLY === 'true';
+
   app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, async (req: any, res) => {
+    if (!AGENT_APPLY_ENABLED) {
+      return res.status(503).json({ 
+        message: "Agent Apply is currently unavailable. Please apply directly on the job posting.",
+        disabled: true 
+      });
+    }
+
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);

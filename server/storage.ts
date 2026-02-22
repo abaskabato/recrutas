@@ -920,7 +920,7 @@ export class DatabaseStorage implements IStorage {
         if (jobPreferences.industries && jobPreferences.industries.length > 0) {
           const jobIndustry = job.industry?.toLowerCase();
           const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
-          if (jobIndustry && !preferredIndustries.some(ind => jobIndustry.includes(ind))) return false;
+          if (jobIndustry && !preferredIndustries.some((ind: string) => jobIndustry.includes(ind))) return false;
         }
         if (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0) {
           const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
@@ -1000,7 +1000,7 @@ export class DatabaseStorage implements IStorage {
         .from(candidateProfiles)
         .innerJoin(users, eq(candidateProfiles.userId, users.id))
         .where(
-          or(...job.skills.map(skill =>
+          or(...job.skills.map((skill: string) =>
             sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${candidateProfiles.skills}) AS cs WHERE LOWER(cs) = LOWER(${skill}))`
           ))
         )

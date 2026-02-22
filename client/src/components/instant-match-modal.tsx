@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/components/theme-provider";
 
-const JobCard = ({ job, index, onApply, onLike, onChat, isLiked, theme }) => (
+const JobCard = ({ job, index, onApply, onLike, onChat, isLiked, theme }: { job: any; index: number; onApply: (id: number) => void; onLike: (id: number) => void; onChat: (id: number) => void; isLiked: boolean; theme: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -111,7 +111,7 @@ const JobCard = ({ job, index, onApply, onLike, onChat, isLiked, theme }) => (
   </motion.div>
 );
 
-const JobCardSkeleton = ({ theme }) => (
+const JobCardSkeleton = ({ theme }: { theme: string }) => (
   <div className={`border rounded-xl p-4 sm:p-5 shadow-lg ${
     theme === 'dark' ? 'bg-slate-800/80 border-slate-700/50' : 'bg-white border-gray-200'
   }`}>
