@@ -877,7 +877,20 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Resume upload
-  app.post('/api/candidate/resume', isAuthenticated, upload.single('resume'), async (req: any, res) => {
+  // NOTE: multer errors (wrong type, file too large) must be caught explicitly —
+  // Express default error handler returns 500 for them. Use callback form instead.
+  app.post('/api/candidate/resume', isAuthenticated, (req: any, res: any, next: any) => {
+    upload.single('resume')(req, res, (err: any) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({ message: 'File too large. Maximum size is 4MB.' });
+        }
+        // fileFilter rejection or other multer error → 400
+        return res.status(400).json({ message: err.message || 'File upload rejected.' });
+      }
+      next();
+    });
+  }, async (req: any, res) => {
     try {
       if (!req.file) {
         console.error("Resume upload error: No file uploaded or file too large/wrong type.");

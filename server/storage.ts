@@ -1265,14 +1265,27 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getChatMessages(chatRoomId: number): Promise<(ChatMessage & { sender: User })[]> {
+  async getChatMessages(chatRoomId: number): Promise<any[]> {
     try {
-      return await db
-        .select()
-        .from(chatMessages)
-        .innerJoin(users, eq(chatMessages.senderId, users.id))
-        .where(eq(chatMessages.chatRoomId, chatRoomId))
-        .orderBy(chatMessages.createdAt) as any;
+      // Use raw SQL to return flat objects — Drizzle 0.39 with innerJoin + default select()
+      // returns nested {chatMessages: {...}, users: {...}} objects which break callers.
+      const rows = await db.execute(sql`
+        SELECT
+          cm.id,
+          cm.chat_room_id AS "chatRoomId",
+          cm.sender_id AS "senderId",
+          cm.message,
+          cm.created_at AS "createdAt",
+          u.first_name AS "senderFirstName",
+          u.last_name AS "senderLastName",
+          u.email AS "senderEmail"
+        FROM chat_messages cm
+        INNER JOIN users u ON cm.sender_id = u.id
+        WHERE cm.chat_room_id = ${chatRoomId}
+        ORDER BY cm.created_at ASC
+      `);
+      // Convert RowList → plain array so res.json() serializes cleanly
+      return Array.from(rows).map((r: any) => ({ ...r }));
     } catch (error) {
       console.error('Error fetching chat messages:', error);
       throw error;
@@ -1859,6 +1872,7 @@ export class DatabaseStorage implements IStorage {
       await this.createNotification({
         userId: candidateId,
         type: 'chat_access_granted',
+        title: 'Chat Access Granted',
         message: `You now have chat access for ${job.title}`,
         metadata: { jobId, ranking }
       });

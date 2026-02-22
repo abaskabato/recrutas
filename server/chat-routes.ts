@@ -127,8 +127,11 @@ export function registerChatRoutes(app: Express) {
         try {
             const { jobId, candidateId } = req.body;
 
-            // Only talent owners can create chat rooms
-            if (req.user.role !== 'talent_owner') {
+            // Only talent owners can create chat rooms.
+            // NOTE: req.user.role is not set by the auth middleware (it only sets id/email/user_metadata).
+            // We must look up the role from the DB to avoid a permanent 403 for all talent owners.
+            const requestingUser = await storage.getUser(req.user.id);
+            if (!requestingUser || requestingUser.role !== 'talent_owner') {
                 return res.status(403).json({ message: "Only talent owners can initiate chats" });
             }
 
