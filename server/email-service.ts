@@ -9,7 +9,7 @@ if (!process.env.RESEND_API_KEY) {
   console.warn("RESEND_API_KEY not configured - email sending will be disabled");
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 interface EmailParams {
   to: string;
@@ -20,7 +20,7 @@ interface EmailParams {
 }
 
 export async function sendEmail(params: EmailParams): Promise<boolean> {
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.RESEND_API_KEY || !resend) {
     console.log(`Development mode: Would send email to ${params.to} with subject "${params.subject}"`);
     return true;
   }
