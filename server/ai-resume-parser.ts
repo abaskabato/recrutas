@@ -3,6 +3,7 @@ import * as path from 'path';
 import mammoth from 'mammoth';
 import { generateJobMatch } from './ai-service';
 import Groq from 'groq-sdk';
+import { parseResumeWithIntelligence } from './skill-intelligence';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -582,24 +583,32 @@ ${truncatedText}`
   }
 
   private async extractWithFallback(text: string): Promise<AIExtractedData> {
-    console.log('[AIResumeParser] Using fallback rule-based extraction');
+    console.log('[AIResumeParser] Using Skill Intelligence Engine (deterministic fallback)');
     console.log(`[AIResumeParser] Text length: ${text.length} characters`);
 
-    const skills = this.extractSkillsAI(text);
-    console.log(`[AIResumeParser] Fallback found ${skills.technical.length} technical skills:`, skills.technical.slice(0, 10));
+    const result = parseResumeWithIntelligence(text);
 
-    const result = {
-      personalInfo: this.extractPersonalInfo(text),
+    console.log(`[AIResumeParser] Skill Intelligence Engine: ${result.technical.length} technical, ${result.tools.length} tools, ${result.soft.length} soft skills. Confidence: ${result.confidence}%`);
+    console.log(`[AIResumeParser] Top skills:`, [...result.technical, ...result.tools].slice(0, 10));
+
+    return {
+      personalInfo: result.personalInfo,
       summary: this.extractSummary(text),
-      skills,
-      experience: this.extractExperienceAI(text),
-      education: this.extractEducation(text),
-      certifications: this.extractCertifications(text),
-      projects: this.extractProjects(text),
-      languages: this.extractLanguages(text)
+      skills: {
+        technical: result.technical,
+        soft:      result.soft,
+        tools:     result.tools,
+      },
+      experience: {
+        totalYears: result.totalYears,
+        level:      result.experienceLevel,
+        positions:  result.positions,
+      },
+      education:       result.education,
+      certifications:  result.certifications,
+      projects:        this.extractProjects(text),
+      languages:       this.extractLanguages(text),
     };
-
-    return result;
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {

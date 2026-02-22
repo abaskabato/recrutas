@@ -11,7 +11,7 @@
  */
 
 // Lowercase alias → canonical name
-const SKILL_ALIASES: Record<string, string> = {
+export const SKILL_ALIASES: Record<string, string> = {
   // JavaScript ecosystem
   'js': 'JavaScript',
   'javascript': 'JavaScript',
