@@ -71,9 +71,12 @@ const SECTION_WEIGHTS: Record<string, number> = {
   unknown:        1.0,   // Body text
 };
 
-// ── Tech stack cluster expansion ──────────────────────────────────────────────
+// ── Role/stack cluster expansion ─────────────────────────────────────────────
+// When a cluster keyword is found anywhere in the resume, its constituent
+// skills are inferred. Covers tech stacks AND trade/healthcare/hospitality roles.
 
 const STACK_CLUSTERS: Record<string, string[]> = {
+  // ── Tech stacks ──────────────────────────────────────────────────────────
   'mern':                   ['MongoDB', 'Express.js', 'React', 'Node.js'],
   'mern stack':             ['MongoDB', 'Express.js', 'React', 'Node.js'],
   'mean':                   ['MongoDB', 'Express.js', 'Angular', 'Node.js'],
@@ -90,6 +93,65 @@ const STACK_CLUSTERS: Record<string, string[]> = {
   'pern stack':             ['PostgreSQL', 'Express.js', 'React', 'Node.js'],
   't3 stack':               ['TypeScript', 'Next.js', 'Tailwind CSS'],
   'serverless stack':       ['AWS Lambda', 'Serverless', 'Node.js'],
+
+  // ── Healthcare roles ─────────────────────────────────────────────────────
+  'registered nurse':       ['Patient Care', 'Electronic Medical Records', 'BLS Certified', 'HIPAA Compliance'],
+  'rn':                     ['Patient Care', 'Electronic Medical Records', 'BLS Certified'],
+  'lpn':                    ['Patient Care', 'Electronic Medical Records', 'CPR Certified'],
+  'certified nursing assistant': ['Patient Care', 'CPR Certified', 'HIPAA Compliance'],
+  'medical assistant':      ['Patient Care', 'Electronic Medical Records', 'Phlebotomy', 'HIPAA Compliance'],
+  'emt':                    ['CPR Certified', 'BLS Certified', 'Patient Care'],
+  'paramedic':              ['CPR Certified', 'BLS Certified', 'Patient Care'],
+  'phlebotomist':           ['Phlebotomy', 'Patient Care', 'HIPAA Compliance'],
+  'home health aide':       ['Patient Care', 'CPR Certified', 'HIPAA Compliance'],
+
+  // ── Trades & construction ────────────────────────────────────────────────
+  'master electrician':     ['Electrical', 'OSHA Compliance', 'Blueprint Reading'],
+  'journeyman electrician': ['Electrical', 'OSHA Compliance'],
+  'master plumber':         ['Plumbing', 'OSHA Compliance', 'Blueprint Reading'],
+  'hvac technician':        ['HVAC', 'OSHA Compliance'],
+  'hvac tech':              ['HVAC', 'OSHA Compliance'],
+  'general contractor':     ['Construction', 'Blueprint Reading', 'OSHA Compliance', 'Project Management'],
+  'project superintendent': ['Construction', 'Blueprint Reading', 'OSHA Compliance', 'Project Management'],
+  'welder':                 ['Welding', 'OSHA Compliance'],
+  'pipe welder':            ['Welding', 'Plumbing', 'OSHA Compliance'],
+  'carpenter':              ['Carpentry', 'Blueprint Reading', 'OSHA Compliance'],
+  'forklift operator':      ['Forklift Operation', 'OSHA Compliance', 'Warehouse'],
+  'warehouse associate':    ['Warehouse', 'Inventory Management', 'Forklift Operation'],
+  'cdl driver':             ['CDL', 'Truck Driver'],
+  'cdl class a':            ['CDL', 'Truck Driver'],
+  'cdl class b':            ['CDL', 'Truck Driver'],
+
+  // ── Food service & hospitality ────────────────────────────────────────────
+  'executive chef':         ['Culinary Arts', 'Kitchen Staff', 'Food Safety', 'Inventory Management'],
+  'head chef':              ['Culinary Arts', 'Kitchen Staff', 'Food Safety'],
+  'sous chef':              ['Culinary Arts', 'Kitchen Staff', 'Food Safety'],
+  'line cook':              ['Line Cook', 'Food Safety', 'Food Preparation'],
+  'prep cook':              ['Prep Cook', 'Food Safety', 'Food Preparation'],
+  'restaurant manager':     ['Customer Service', 'POS Systems', 'Inventory Management', 'Food Safety'],
+  'food service manager':   ['Food Safety', 'Inventory Management', 'Customer Service'],
+  'barista':                ['Barista', 'Customer Service', 'Cash Handling', 'POS Systems'],
+  'hotel manager':          ['Housekeeping', 'Customer Service', 'Inventory Management'],
+  'front desk agent':       ['Receptionist', 'Customer Service', 'Cash Handling'],
+
+  // ── Retail & customer service ─────────────────────────────────────────────
+  'store manager':          ['Retail Sales', 'Inventory Management', 'Customer Service', 'Cash Handling'],
+  'assistant manager':      ['Retail Sales', 'Inventory Management', 'Customer Service'],
+  'sales associate':        ['Sales', 'Customer Service', 'Cash Handling', 'POS Systems'],
+  'cashier':                ['Cashier', 'Cash Handling', 'POS Systems', 'Customer Service'],
+  'customer service representative': ['Customer Service', 'Call Center', 'Data Entry'],
+  'call center agent':      ['Call Center', 'Customer Service', 'Data Entry'],
+  'receptionist':           ['Receptionist', 'Customer Service', 'Data Entry'],
+
+  // ── Security & safety ────────────────────────────────────────────────────
+  'security guard':         ['Security', 'Safety Compliance'],
+  'security officer':       ['Security', 'Safety Compliance', 'OSHA Compliance'],
+  'loss prevention':        ['Security', 'Safety Compliance', 'Retail Sales'],
+
+  // ── Transportation & logistics ────────────────────────────────────────────
+  'delivery driver':        ['Delivery Driver', 'Customer Service'],
+  'logistics coordinator':  ['Inventory Management', 'Warehouse'],
+  'supply chain':           ['Inventory Management', 'Logistics'],
 };
 
 // ── Soft skills (not in SKILL_ALIASES — captured separately) ──────────────────
@@ -348,6 +410,27 @@ const CHILD_TO_PARENTS: Record<string, string[]> = {
   'MySQL':          ['SQL'],
   'SQLite':         ['SQL'],
   'MongoDB':        ['NoSQL'],
+
+  // ── Non-tech role inferences ──────────────────────────────────────────────
+  // Knowing a specialized skill implies foundational ones in the same domain
+  'Electronic Medical Records': ['HIPAA Compliance'],
+  'Phlebotomy':                 ['Patient Care'],
+  'BLS Certified':              ['CPR Certified'],
+  'HVAC':                       ['OSHA Compliance'],
+  'Electrical':                 ['OSHA Compliance'],
+  'Plumbing':                   ['OSHA Compliance'],
+  'Welding':                    ['OSHA Compliance'],
+  'Carpentry':                  ['OSHA Compliance'],
+  'Construction':               ['OSHA Compliance'],
+  'Forklift Operation':         ['Warehouse', 'OSHA Compliance'],
+  'CDL':                        ['Truck Driver'],
+  'Culinary Arts':              ['Food Safety'],
+  'Line Cook':                  ['Food Safety', 'Food Preparation'],
+  'Prep Cook':                  ['Food Safety', 'Food Preparation'],
+  'Retail Sales':               ['Customer Service'],
+  'Sales':                      ['Customer Service'],
+  'Call Center':                ['Customer Service'],
+  'Logistics':                  ['Inventory Management'],
 };
 
 function inferParentSkills(candidates: Map<string, SkillCandidate>): void {
@@ -372,11 +455,20 @@ function inferParentSkills(candidates: Map<string, SkillCandidate>): void {
 
 // Tools vs core technical skills
 const TOOL_SKILLS = new Set([
+  // ── Tech tools ────────────────────────────────────────────────────────────
   'Git', 'GitHub', 'GitLab', 'Bitbucket', 'Jira', 'Confluence', 'Trello',
   'Notion', 'Slack', 'Figma', 'Sketch', 'Adobe XD', 'Postman', 'Insomnia',
   'VS Code', 'IntelliJ', 'Vim', 'Webpack', 'Vite', 'npm', 'Yarn', 'pnpm',
   'Storybook', 'ESLint', 'Prettier', 'Datadog', 'Grafana', 'Prometheus',
-  'Jira', 'Linear', 'Asana', 'Monday.com', 'Tableau', 'Power BI', 'Looker',
+  'Linear', 'Asana', 'Monday.com', 'Tableau', 'Power BI', 'Looker',
+  // ── Non-tech tools ────────────────────────────────────────────────────────
+  'POS Systems',              // retail & food service
+  'Electronic Medical Records', // healthcare EMR (Epic, Cerner, etc.)
+  'Microsoft Office',         // universal office suite
+  'QuickBooks',               // accounting
+  'Salesforce',               // CRM (used in sales/support)
+  'Zoom',                     // remote communication
+  'Google Workspace',         // office/collaboration
 ]);
 
 function classifySkills(candidates: Map<string, SkillCandidate>): {

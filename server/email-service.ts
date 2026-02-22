@@ -26,13 +26,14 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await resend.emails.send({
       to: params.to,
       from: params.from,
       subject: params.subject,
       text: params.text,
       html: params.html,
-    });
+    } as any);
     if (error) {
       console.error('Resend email error:', error);
       return false;
