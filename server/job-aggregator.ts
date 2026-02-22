@@ -1,6 +1,7 @@
 import { hiringCafeService } from './services/hiring-cafe.service';
 import { weWorkRemotelyService } from './services/we-work-remotely.service';
 import { getProfessions, getProfession, detectProfession, ProfessionConfig } from './config/professions';
+import { SKILL_ALIASES } from './skill-normalizer';
 
 // Trust scores for different job sources (0-100)
 // Higher scores indicate more trustworthy/verified sources
@@ -529,24 +530,32 @@ export class JobAggregator {
 
   private extractSkills(skillsData: any): string[] {
     if (Array.isArray(skillsData)) {
-      return skillsData.slice(0, 10);
+      // Normalize each tag/skill through SKILL_ALIASES so they match candidate skills
+      const normalized = new Set<string>();
+      for (const item of skillsData) {
+        const key = String(item).toLowerCase().trim();
+        const canonical = SKILL_ALIASES[key];
+        if (canonical) normalized.add(canonical);
+        else if (key.length > 1) normalized.add(item); // keep raw if not in aliases
+      }
+      return Array.from(normalized).slice(0, 15);
     }
 
-    if (typeof skillsData === 'string') {
-      // Extract skills from text using common patterns
-      const commonSkills = [
-        'JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Java', 'Go', 'Rust',
-        'AWS', 'Docker', 'Kubernetes', 'PostgreSQL', 'MongoDB', 'Redis',
-        'HTML', 'CSS', 'Vue.js', 'Angular', 'Express', 'Django', 'Flask',
-        'Git', 'CI/CD', 'GraphQL', 'REST', 'API', 'Microservices',
-        'Machine Learning', 'AI', 'Data Science', 'Analytics'
-      ];
+    if (typeof skillsData === 'string' && skillsData.length > 0) {
+      // N-gram scan against full SKILL_ALIASES (same approach as Skill Intelligence Engine)
+      const text = skillsData.toLowerCase();
+      const words = skillsData.split(/[\s,;|•·()\[\]{}<>]+/).filter(w => w.length > 0);
+      const found = new Set<string>();
 
-      const foundSkills = commonSkills.filter(skill =>
-        skillsData.toLowerCase().includes(skill.toLowerCase())
-      );
+      for (let i = 0; i < words.length; i++) {
+        for (let n = 1; n <= 4 && i + n <= words.length; n++) {
+          const phrase = words.slice(i, i + n).join(' ').toLowerCase();
+          const canonical = SKILL_ALIASES[phrase];
+          if (canonical) found.add(canonical);
+        }
+      }
 
-      return foundSkills.slice(0, 8);
+      return Array.from(found).slice(0, 15);
     }
 
     return [];

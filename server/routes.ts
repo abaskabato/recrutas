@@ -407,6 +407,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       matchTier: job.matchTier ?? (job.matchScore >= 75 ? 'great' : job.matchScore >= 50 ? 'good' : 'worth-a-look'),
       confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 90 : (job.matchScore > 60 ? 70 : 50)),
       skillMatches: job.skillMatches || [],
+      matchReasons: job.skillMatches?.length > 0 ? job.skillMatches : undefined,
       aiExplanation: aiExplanation || job.aiExplanation,
       status: 'pending',
       createdAt: new Date().toISOString()
@@ -591,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
             const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
             return {
               ...job,
-              id: `remoteok_${job.externalId}`,
+              id: job.id || `remoteok_${job.externalId}`,
               matchScore: mlScore.matchScore,
               skillMatches: mlScore.skillMatches,
               aiExplanation: mlScore.aiExplanation,
