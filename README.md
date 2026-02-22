@@ -1,12 +1,188 @@
+# Recrutas — Apply Here. Know Today.
 
-# Recrutas - AI-Powered Hiring Platform
+> The hiring platform where every candidate gets a same-day response.
 
-Recrutas is a full-stack recruitment platform that connects job seekers with opportunities through AI-powered matching, resume parsing, and intelligent job aggregation. The platform targets two user personas:
+---
 
-- **Candidates**: Job seekers who want personalized job recommendations, easy applications, and transparency into application status
-- **Talent Owners**: Recruiters and hiring managers who need to post jobs, screen candidates, and manage applicants
+## What Is This
 
-**Mission**: "Apply here, know where you stand today"
+Recrutas is a candidate-first hiring platform built around one hard promise: **if you apply, you know where you stand today.**
+
+Internal jobs (posted directly by companies on Recrutas) work like this:
+1. Company posts a job with an auto-generated skills exam
+2. Candidates apply and take the exam
+3. Top scorers are surfaced to the hiring manager automatically
+4. **Every candidate** sees their status the same day — pass, waitlist, or not a fit
+
+External jobs (aggregated from 94 companies across Greenhouse, Lever, Workday, and direct scrapers) are shown fresh and verified — ghost jobs and dead links are filtered out automatically.
+
+---
+
+## Current State (February 2026)
+
+### What's Built and Working
+
+| Feature | Status |
+|---------|--------|
+| Candidate signup + resume upload + AI parsing | ✅ Production-ready |
+| Job matching (semantic + skill + recency + liveness) | ✅ Production-ready |
+| Internal job posting with auto-generated exams | ✅ Production-ready |
+| Exam taking, scoring, auto-ranking | ✅ Production-ready |
+| Candidate ↔ hiring manager chat (exam-gated) | ✅ Production-ready |
+| Real-time notifications | ✅ Production-ready |
+| Application status tracker | ✅ Production-ready |
+| Job scraping (94 companies, 2× daily) | ✅ Running on GitHub Actions |
+| Ghost job / liveness detection | ✅ Running every 6 hours |
+| Stripe subscriptions (talent owner tiers) | ✅ Production-ready |
+| Mobile responsive (375px tested) | ✅ Production-ready |
+| E2E test suite | ✅ 87/87 passing |
+
+### Test Coverage
+
+```
+e2e/comprehensive-mvp.spec.ts   61/61  — core MVP flows
+e2e/uncovered-flows.spec.ts     26/26  — exam, chat, mobile, resume upload
+─────────────────────────────────────
+Total                           87/87
+```
+
+### Recent Bug Fixes (Feb 2026)
+
+All caught by the E2E suite — these would have silently broken real users:
+
+- **Chat room creation always returned 403** — `req.user.role` is never populated by Supabase JWT middleware; fixed with a DB lookup to verify the role
+- **Exam submit crashed with NOT NULL error** — `grantChatAccess` created a notification missing the required `title` field
+- **Chat messages returned garbled data** — Drizzle ORM 0.39 nested join bug; fixed with raw SQL (same workaround used elsewhere)
+- **Bad resume uploads returned 500** — Multer errors weren't caught; fixed to return proper 400 (wrong type) / 413 (too large)
+
+---
+
+## Go-To-Market Strategy
+
+### The Core Wedge
+
+The ATS black hole is the most hated thing in hiring. Candidates send applications and hear nothing. This isn't a data problem — it's a **commitment problem**. Companies don't commit to responding.
+
+Recrutas forces the commitment structurally: the exam filters automatically, so there's no backlog for recruiters to ignore. Every candidate gets a status the same day because the system decides it, not a person.
+
+### Phase 1 — Prove the Promise (Now → 100 candidates)
+
+**Target**: 3–5 early-stage startups (Series A or earlier) with active engineering or ops hiring.
+
+**Why startups, not enterprises**:
+- No procurement process — hire a tool in a day
+- Hiring managers ARE the decision makers; you don't deal with HR
+- They hate ATS overhead
+- They move fast enough to validate the promise within weeks
+
+**Acquisition**:
+- Direct outreach to hiring managers and founders at YC alumni companies
+- Pitch: "Post one job, run an exam, every candidate gets a response today. We handle the filtering."
+- Don't pitch HR. Pitch the person who's actively frustrated by their screening process.
+
+**Success metric**: 1 company posts a real job, 10+ candidates apply, all get same-day responses.
+
+### Phase 2 — Build Both Sides (100 → 1,000 candidates)
+
+**Candidate supply**:
+- Partner with 1–2 coding bootcamps (grads are motivated, time-sensitive job seekers — exactly who benefits most from same-day responses)
+- Offer bootcamp a co-branded job board with guaranteed response times
+- Each bootcamp cohort = 50–100 warm candidates
+
+**Company supply**:
+- Use the first 3–5 companies as case studies
+- The story: "Posted on Recrutas, hired in 5 days, every candidate knew their status within 24 hours"
+- Publish that story on LinkedIn and target hiring managers in adjacent companies
+
+### Phase 3 — Word of Mouth Flywheel (1,000+ candidates)
+
+The moat is the **candidate experience story**. Nobody talks about getting hired. Everybody talks about being treated with respect during a job search.
+
+When candidates share "I applied to 10 jobs today, only Recrutas told me where I stood by end of day" — that's your acquisition channel. No ad spend needed.
+
+**Monetization** (talent owners pay, candidates free forever):
+- Starter $49/mo — 3 active job postings
+- Growth $149/mo — 10 postings + candidate discovery
+- Enterprise $299/mo — unlimited + priority support
+
+---
+
+## What You Should Do Next
+
+This is ordered by impact. Do these in sequence.
+
+### This Week
+
+**1. Find your first company.**
+Go to the YC company directory. Filter for companies that raised in 2023–2024 (actively growing, actively hiring). Find the ones posting engineering jobs on LinkedIn or Greenhouse right now. Message the founder or engineering lead directly on LinkedIn:
+
+> "I built a hiring tool that guarantees every candidate gets a response the same day they apply — the exam filters automatically so you don't have to. Would you test it with one open role? Free for the first 90 days."
+
+You need 1 yes. Not 5. Just 1.
+
+**2. Prepare a live demo.**
+Create a demo job with a real exam. Walk a founder through: post job → exam auto-generates → apply as a candidate → get scored → see results. The demo sells itself if the timing is right.
+
+### Next Two Weeks
+
+**3. Talk to a bootcamp.**
+Lambda School, App Academy, Flatiron, or any local coding bootcamp. Don't pitch the platform — pitch the outcome: "Your grads apply to jobs and get ghosted. On Recrutas, they'll know where they stand the same day." Ask to run a pilot with their next graduating cohort.
+
+**4. Get one real candidate story.**
+Someone goes through: apply → exam → same-day response. Document it. Quote it. Post it. This is your most powerful piece of marketing content.
+
+**5. Post on indie hacker / Product Hunt / LinkedIn.**
+Once you have even one company and one real candidate story, post the "problem → solution → early results" narrative. The promise is differentiated enough to get traction.
+
+### What NOT to do right now
+
+- Don't add more features before you have paying companies
+- Don't pitch enterprises or agencies
+- Don't spend money on ads before you have the story proven organically
+- Don't work on the "Matched For You" external jobs side — that's a commodity. Your moat is the internal jobs + same-day response promise
+
+---
+
+## Future Scalability Plans
+
+### Near-Term (0 → 1,000 active users)
+
+Everything needed for this scale is already built. No engineering required — just distribution.
+
+| Area | Current | Needed for 1,000 users |
+|------|---------|----------------------|
+| DB | Supabase (free tier) | Supabase Pro ($25/mo) |
+| Hosting | Vercel Hobby | Vercel Pro ($20/mo) |
+| Job scraping | GitHub Actions (free) | Same |
+| Email | Resend (free tier) | Same or Resend paid |
+| AI parsing | Groq (free tier) | Same |
+
+Monthly infrastructure cost at 1,000 users: **~$50–100/mo**. One paying company covers it.
+
+### Medium-Term (1,000 → 10,000 users)
+
+| Area | Change | Why |
+|------|--------|-----|
+| Vector search | Migrate from in-memory to `pgvector` in Supabase | Persistent, no cold-start on serverless |
+| Background workers | Move from in-process to Railway or Render worker | Serverless can't run long background tasks |
+| Job scraping | Expand from 94 → 300+ companies | Tier 3 (custom scrapers) is most fragile; use browser automation (Playwright) |
+| Exam generation | Add more question types (code challenges, case studies) | Deeper filtering for technical roles |
+| Resume parsing | Fine-tune on hiring data for better skill extraction | Accuracy matters at scale |
+
+### Long-Term (10,000+ users)
+
+| Feature | Description |
+|---------|-------------|
+| ATS integrations | Sync with Greenhouse/Lever so companies don't change workflow |
+| Video exam responses | Short async video answers for culture-fit screening |
+| Salary benchmarking | Real-time salary data surfaced to candidates on application |
+| Candidate referral graph | "You know someone at this company" matching |
+| Employer branding pages | Company profiles with response-rate and time-to-decision metrics (public) |
+| pgvector + RAG matching | Full retrieval-augmented matching using structured resume + JD embeddings |
+
+The platform moat compounds over time: more exam submissions → better auto-ranking models → more accurate same-day decisions → more candidates trust the platform → more companies want to be on it.
+
+---
 
 ## Quick Start
 
@@ -14,11 +190,11 @@ Recrutas is a full-stack recruitment platform that connects job seekers with opp
 - Node.js 20.x
 - npm 10+
 - Supabase account (PostgreSQL + Auth)
-- Optional: Groq API key (for AI resume parsing)
+- Optional: Groq API key (AI resume parsing), Resend API key (email)
 
 ### Installation
 ```bash
-git clone <repository-url>
+git clone https://github.com/abaskabato/recrutas.git
 cd recrutas
 npm install
 ```
@@ -28,9 +204,9 @@ npm install
 cp .env.example .env
 ```
 
-Required variables in `.env`:
+Required variables:
 ```
-# Database (from Supabase dashboard)
+# Database (Supabase dashboard → Settings → Database)
 DATABASE_URL=postgresql://...
 DIRECT_URL=postgresql://...
 
@@ -40,145 +216,165 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_JWT_SECRET=your-jwt-secret
 
-# App URLs
+# App
 FRONTEND_URL=http://localhost:5173
 PORT=5000
 
-# Security (generate with: openssl rand -base64 32)
+# Security (generate: openssl rand -base64 32)
 DEV_SECRET=your-dev-secret
 ADMIN_SECRET=your-admin-secret
 CRON_SECRET=your-cron-secret
 ```
 
-Optional (for AI features):
+Optional:
 ```
-GROQ_API_KEY=your-groq-key
-OPENAI_API_KEY=your-openai-key
+GROQ_API_KEY=...       # Resume AI parsing (Llama 3)
+RESEND_API_KEY=...     # Transactional email
+STRIPE_SECRET_KEY=...  # Payments
 ```
 
-### Database Setup
+### Run
+
 ```bash
-npm run db:push
-```
-
-### Running the Application
-
-**Development (both frontend + backend):**
-```bash
+# Both frontend + backend
 npm run dev:all
-```
 
-**Frontend only:**
-```bash
+# Backend only
+npm run dev:server
+
+# Frontend only
 npm run dev
 ```
 
-**Backend only:**
-```bash
-npm run dev:server
-```
+Frontend: `http://localhost:5173` · API: `http://localhost:5000`
 
-**Seed database with test data:**
+### Seed test data
 ```bash
 curl -X POST http://localhost:5000/api/dev/seed -H "x-dev-secret: your-dev-secret"
 ```
-
-Access the app at `http://localhost:5173`
-
-Test credentials (after seeding):
-- Candidate: `john.dev@email.com`
-- Recruiter: `recruiter@techcorp.com`
 
 ---
 
 ## Architecture Overview
 
-### High-Level System Diagram
-
 ```
-                                    +------------------+
-                                    |   PostgreSQL     |
-                                    |  (Supabase)      |
-                                    +--------+---------+
-                                             |
-                                    +--------v---------+
-                                    |  Express API    |
-                                    |  (server/index) |
-                                    +--------+--------+
-                                             |
-        +----------------+                    |                    +----------------+
-        | GitHub Actions |                    |                    |   Vercel       |
-        | (Scraper)      |--------------------+                    |   (Frontend)   |
-        +----------------+                                         +--------+--------+
-               |                                                           |
-               | 6AM/6PM UTC                                             |
-               v                                                           v
-+-------------+-------------+                     +-------------------+-------------------+
-|  Tier 1: Greenhouse   |                     |                   |                   |
-|  (29 companies)       |                     |   Browser         |   WebSocket       |
-|  Tier 2: Lever/Workday|                     |   (React SPA)     |   Notifications   |
-|  (22 companies)       |-------------------->|   wouter         |   Real-time       |
-|  Tier 3: Custom       |                     |   TanStack Query |                   |
-|  (21 companies)       |                     |                   |                   |
-+-----------------------+                     +-------------------+-------------------+
-                                                      |
-                                                      v
-                                        +---------------------------+
-                                        |    Vite Dev Proxy        |
-                                        |  (proxies /api to 5000)  |
-                                        +---------------------------+
+                              +------------------+
+                              |   PostgreSQL     |
+                              |  (Supabase)      |
+                              +--------+---------+
+                                       |
+                              +--------v---------+
+                              |  Express API     |
+                              |  standalone-     |
+                              |  server.js       |
+                              +--------+--------+
+                                       |
+   +----------------+                  |                  +----------------+
+   | GitHub Actions |                  |                  |   Vercel       |
+   | Scraper 6AM/6PM|------------------+                  |   (Frontend)   |
+   +----------------+                                     +--------+-------+
+          |                                                        |
+          v                                                        v
+   +-----------------------+                    +----------------------------------+
+   | Tier 1: Greenhouse    |                    |  React SPA (Vite)               |
+   | (29 companies, API)   |                    |  wouter routing                 |
+   | Tier 2: Lever/Workday |                    |  TanStack Query                 |
+   | (22 companies, API)   |                    |  Tailwind + shadcn/ui           |
+   | Tier 3: Custom        |                    |  WebSocket notifications        |
+   | (21 companies)        |                    +----------------------------------+
+   +-----------------------+
 ```
 
-### Stack Summary
+### Stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| Frontend | React 18 + TypeScript | SPA with Vite bundler |
-| Routing | wouter | Lightweight React router |
-| State | TanStack Query | Server state management |
-| Styling | Tailwind CSS + shadcn/ui | Component library |
-| Backend | Express + TypeScript | REST API |
-| Database | PostgreSQL (Supabase) | Primary data store |
-| ORM | Drizzle | Type-safe database queries |
-| Auth | Supabase Auth | JWT-based authentication |
-| Real-time | WebSockets | Live notifications |
-| AI/ML | Groq + Transformers | Resume parsing, job matching |
-| ML Embeddings | @xenova/transformers | Local sentence embeddings (SOTA) |
-| Learn-to-Rank | Custom (10 features) | Job ranking with online learning |
-| Payments | Stripe | Subscription management |
-| Scrape | GitHub Actions + Custom | Job aggregation |
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18 + TypeScript, Vite |
+| Routing | wouter |
+| State | TanStack Query |
+| Styling | Tailwind CSS + shadcn/ui |
+| Backend | Express + TypeScript |
+| Database | PostgreSQL (Supabase) + Drizzle ORM |
+| Auth | Supabase JWT |
+| Real-time | WebSockets |
+| AI/ML | Groq (resume parsing) + @xenova/transformers (embeddings) |
+| Payments | Stripe |
+| Email | Resend |
+| Scraping | GitHub Actions + custom ATS API adapters |
 
-### SOTA ML Architecture
+---
 
-Recrutas uses **state-of-the-art open-source ML** for job matching:
+## Matching Engine
+
+The advanced matching engine (`server/advanced-matching-engine.ts`) scores every job against a candidate's profile using four weighted dimensions:
+
+| Dimension | Weight | What it measures |
+|-----------|--------|-----------------|
+| Semantic similarity | 45% | all-MiniLM-L6-v2 embeddings (cosine) |
+| Recency | 25% | How recently the job was posted |
+| Liveness | 20% | Whether the job URL still resolves (ghost-job filter) |
+| Personalization | 10% | Candidate's past interactions (saves, applies) |
+
+Jobs are split into two feeds:
+- **Apply & Know Today** — internal jobs with exams (same-day response guaranteed)
+- **Matched For You** — external jobs (quality-filtered, fresh)
+
+Minimum match threshold: 40%.
+
+---
+
+## Job Pipeline
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    SOTA Job Matching Pipeline                         │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  1. Embeddings: @xenova/transformers (all-MiniLM-L6-v2)           │
-│     - 384-dim sentence embeddings                                   │
-│     - Runs locally (no external API needed)                         │
-│     - Pre-computed nightly via GitHub Actions                       │
-│                                                                      │
-│  2. Vector Search: In-memory (default) or Pinecone/Weaviate        │
-│     - Cosine similarity for semantic matching                       │
-│     - Hybrid search (dense + keyword) optional                     │
-│                                                                      │
-│  3. Learn-to-Rank: 10-feature ranking model                         │
-│     - Semantic similarity, skill match, experience, location,       │
-│       work type, salary, company trust, recency, engagement         │
-│     - Online learning from candidate interactions                   │
-│                                                                      │
-│  4. Fast Match: Pre-computed embeddings in PostgreSQL              │
-│     - Cosine similarity only (no ML inference at runtime)           │
-│     - Instant responses                                             │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+GitHub Actions (6AM + 6PM UTC)
+  └─ Tier 1: 29 Greenhouse companies (API)
+  └─ Tier 2: 22 Lever/Workday companies (API)
+  └─ Tier 3: 21 custom career pages
+       │
+       ▼
+job-ingestion.service.ts
+  └─ Normalize fields
+  └─ Deduplicate (unique on externalId + source)
+  └─ Coerce nulls, validate required fields
+       │
+       ▼
+PostgreSQL (job_postings)
+  └─ liveness check every 6h (job-liveness-service.ts)
+  └─ ghost detection on stale jobs
+       │
+       ▼
+/api/ai-matches → candidate feed
 ```
 
-**100% Free** - No paid external APIs required for MVP.
+---
+
+## Exam Flow
+
+```
+Talent owner posts job with hasExam: true
+  └─ exam.service.ts auto-generates questions via Groq
+       │
+       ▼
+Candidate applies → sees exam
+  └─ Questions served without correctAnswer field (IDOR-safe)
+       │
+       ▼
+Candidate submits answers
+  └─ Scored immediately
+  └─ rankCandidatesByExamScore() runs automatically
+  └─ Top scorers granted chat access
+  └─ All applicants notified of their status same day
+```
+
+---
+
+## Chat System
+
+Chat rooms are exam-gated:
+- Only talent owners can create rooms (verified via DB lookup, not JWT claim)
+- Candidates are granted access based on exam score ranking
+- Messages sanitized server-side (HTML tags stripped, 5,000 char limit)
+- Messages stored flat via raw SQL (Drizzle 0.39 nested join workaround)
 
 ---
 
@@ -186,765 +382,166 @@ Recrutas uses **state-of-the-art open-source ML** for job matching:
 
 ```
 recrutas/
-├── api/                          # Vercel serverless function
-│   ├── index.js                  # Entry point for Vercel
-│   └── cron/
-│       └── scrape-external-jobs.ts
-├── client/                       # React frontend
-│   ├── src/
-│   │   ├── components/          # Feature components + shadcn/ui
-│   │   │   ├── ui/             # shadcn/ui primitives (don't modify)
-│   │   │   └── *.tsx           # Feature components
-│   │   ├── contexts/           # React Context providers
-│   │   ├── hooks/              # Custom React hooks
-│   │   ├── lib/                # Utilities (auth, API client, utils)
-│   │   ├── pages/              # Route pages
-│   │   ├── types/              # TypeScript type definitions
-│   │   ├── App.tsx            # Root component with routing
-│   │   └── main.tsx           # Entry point
-│   ├── public/                 # Static assets
-│   └── vite.config.ts          # Vite configuration
-├── server/                       # Express backend
-│   ├── index.ts                # Express app configuration
-│   ├── routes.ts               # All API routes
-│   ├── storage.ts              # Database storage layer (IStorage interface)
-│   ├── db.ts                   # Drizzle database instance
-│   ├── middleware/
-│   │   └── auth.ts             # JWT authentication middleware
-│   ├── services/               # Business logic services
-│   │   ├── resume.service.ts   # Resume upload + AI parsing
-│   │   ├── exam.service.ts     # Job exam management
-│   │   ├── stripe.service.ts   # Payment processing
-│   │   ├── job.service.ts      # Job CRUD operations
-│   │   ├── batch-embedding.service.ts  # Pre-compute job embeddings
-│   │   └── external-jobs-scheduler.ts
-│   ├── notification-service.ts # Real-time notifications
-│   ├── advanced-matching-engine.ts  # SOTA matching with LTR
-│   ├── ml-matching.ts          # @xenova/transformers embeddings
-│   ├── vector-search.ts        # Vector DB (Pinecone/Weaviate/in-memory)
-│   ├── learn-to-rank.ts        # 10-feature ranking model
-│   ├── ai-service.ts           # AI job matching
-│   ├── ai-resume-parser.ts     # Resume parsing with Groq
-│   ├── company-jobs-aggregator.ts
-│   ├── job-aggregator.ts       # Job aggregation (RemoteOK, etc.)
-│   └── scraper-v2/             # Job scraping infrastructure
-├── shared/                      # Shared code between frontend/backend
-│   └── schema.ts              # Drizzle ORM schema + Zod schemas
-├── scripts/                     # Build and utility scripts
-│   └── scrape-tier.ts          # Tiered company scraper
-├── drizzle/                     # Drizzle migrations
-├── .github/
-│   └── workflows/
-│       ├── scrape-tech-companies.yml  # Job scraping (2x/day)
-│       └── batch-embeddings.yml      # Embedding computation (daily)
-├── standalone-server.js         # Dev/Docker server entry point
-├── api/index.js                 # Vercel serverless handler
-├── vercel.json                  # Vercel configuration
-├── Dockerfile                   # Multi-stage Docker build
-└── package.json                 # Root package.json (workspaces)
+├── client/src/
+│   ├── pages/              # Route pages (Landing, Auth, Dashboards, Exam, Chat)
+│   ├── components/         # Feature components + shadcn/ui primitives
+│   ├── hooks/              # Custom React hooks
+│   └── lib/                # API client, auth utils
+├── server/
+│   ├── index.ts            # Express app configuration
+│   ├── routes.ts           # All API routes
+│   ├── chat-routes.ts      # Chat API routes
+│   ├── storage.ts          # Database storage layer (IStorage)
+│   ├── db.ts               # Drizzle instance
+│   ├── middleware/auth.ts  # JWT verification
+│   ├── advanced-matching-engine.ts
+│   ├── job-liveness-service.ts
+│   ├── email-service.ts
+│   └── services/
+│       ├── resume.service.ts
+│       ├── exam.service.ts
+│       ├── job-ingestion.service.ts
+│       └── stripe.service.ts
+├── shared/schema.ts        # Drizzle schema (single source of truth)
+├── e2e/                    # Playwright E2E tests (87 tests)
+├── scripts/scrape-tier.ts  # Tiered company scraper
+├── .github/workflows/      # GitHub Actions (scraping + embeddings)
+├── standalone-server.js    # Dev / Docker entry point
+├── api/index.js            # Vercel serverless handler
+└── vercel.json
 ```
 
 ---
 
-## Server Deep Dive
+## API Routes
 
-### Entry Points
+### Authentication
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/user` | GET | Current user |
+| `/api/auth/role` | POST | Set role (candidate / talent_owner) |
 
-**1. standalone-server.js** (Development + Docker)
-- Loads environment from `.env`
-- Calls `configureApp()` from `server/index.ts`
-- Creates HTTP server with WebSocket support for notifications
-- Graceful shutdown handling
-- Listens on port 5000 (or 5001 for tests)
+### Candidate
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/candidate/profile` | GET / POST | Profile CRUD |
+| `/api/candidate/resume` | POST | Upload resume (PDF/DOCX, max 4MB) |
+| `/api/candidate/apply/:jobId` | POST | Apply to job |
+| `/api/candidate/stats` | GET | Application stats |
+| `/api/ai-matches` | GET | Personalized job feed |
 
-**2. api/index.js** (Vercel serverless)
-- Imports compiled Express app from `dist/server/index.js`
-- Wraps Express in Vercel serverless handler
-- 50-second timeout for long-running requests
+### Talent Owner
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/jobs` | POST | Create job posting |
+| `/api/jobs/:jobId` | PUT / DELETE | Manage job |
+| `/api/jobs/:jobId/applicants` | GET | Applicant list with exam scores |
+| `/api/jobs/:jobId/exam` | GET | Fetch exam |
+| `/api/jobs/:jobId/exam/submit` | POST | Submit answers + auto-rank |
 
-### Startup Sequence
+### Chat
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat/rooms` | GET | Rooms for current user |
+| `/api/chat/rooms/create` | POST | Create room (talent owner only) |
+| `/api/chat/rooms/:id/messages` | GET / POST | Read / send messages |
 
-When `configureApp()` runs (`server/index.ts:96`):
-
-1. **Configure CORS** - Allow Vercel deployments, localhost, configured FRONTEND_URL
-2. **Setup rate limiting** - 100 req/15min general, 10 req/15min auth
-3. **Stripe webhook** - Raw body handler before express.json()
-4. **Express body parsers** - JSON + URL-encoded
-5. **Request tracing** - Sentry middleware for error tracking
-6. **Logging middleware** - Log API requests
-7. **Initialize Supabase storage** - Ensure 'resumes' bucket exists
-8. **Register routes** - Call `registerRoutes(app)` from `routes.ts`
-9. **Register chat routes** - WebSocket chat functionality
-10. **Start background services** (if not serverless) - Company discovery, liveness, refresh
-11. **Error handler** - Final error middleware
-
-### Authentication Flow
-
-```
-Client (browser)
-     |
-     | 1. Supabase Auth (email/password, OAuth)
-     v
-Supabase Auth Service
-     |
-     | 2. Returns JWT access_token
-     v
-Client stores token in session
-     |
-     | 3. GET /api/auth/user
-     |    Authorization: Bearer <token>
-     v
-server/middleware/auth.ts:isAuthenticated()
-     |
-     | - Extract token from Authorization header or cookies
-     | - Verify JWT signature using SUPABASE_JWT_SECRET
-     | - Decode payload, extract user.id (sub)
-     v
-     |
-     | 4. Attach user to req.user
-     v
-Express route handler receives req.user
-```
-
-### API Route Map
-
-#### Authentication
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/auth/user` | GET | Required | Get current user |
-| `/api/auth/role` | POST | Required | Set user role (candidate/talent_owner) |
-
-#### Candidate Operations
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/candidate/profile` | GET | Required | Get candidate profile |
-| `/api/candidate/profile` | POST | Required | Create/update profile |
-| `/api/candidate/resume` | POST | Required | Upload resume (multipart) |
-| `/api/candidate/stats` | GET | Required | Application statistics |
-| `/api/candidate/applications` | GET | Required | List applications |
-| `/api/candidate/saved-jobs` | GET/POST/DELETE | Required | Save/unsave jobs |
-| `/api/candidate/apply/:jobId` | POST | Required | Apply to job |
-
-#### Talent Owner Operations
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/talent-owner/jobs` | GET | Required | List own job postings |
-| `/api/talent-owner/profile` | GET | Required | Get talent owner profile |
-| `/api/talent-owner/profile/complete` | POST | Required | Complete onboarding |
-| `/api/jobs` | POST | Required | Create job posting |
-| `/api/jobs/:jobId` | PUT/PATCH/DELETE | Required | Manage job |
-| `/api/jobs/:jobId/applicants` | GET | Required | List applicants |
-| `/api/jobs/:jobId/discovery` | GET | Required | Find matching candidates |
-
-#### Job Discovery & Matching
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/ai-matches` | GET | Required | Personalized job feed |
-| `/api/advanced-matches/:candidateId` | GET | Required | Advanced matching |
-| `/api/external-jobs` | GET | Public | Aggregated external jobs |
-
-#### Exams & Screening
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/jobs/:jobId/exam` | GET | Required | Get exam for job |
-| `/api/jobs/:jobId/exam/submit` | POST | Required | Submit exam answers |
-| `/api/jobs/:jobId/screening-questions` | GET/POST | Required | Manage questions |
-
-#### Interviews
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/interviews/schedule` | POST | Required | Schedule interview |
-
-#### Notifications
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/notifications` | GET | Required | List notifications |
-| `/api/notifications/count` | GET | Required | Unread count |
-| `/api/notifications/:id/read` | POST | Required | Mark as read |
-| `/api/notifications/poll` | GET | Required | Long-polling endpoint |
-| `/ws` | WebSocket | Required | Real-time notifications |
-
-#### Payments (Stripe)
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/subscription/status` | GET | Required | Get subscription |
-| `/api/subscription/tiers` | GET | Public | List pricing tiers |
-| `/api/stripe/create-checkout` | POST | Required | Create checkout session |
-| `/api/stripe/portal` | POST | Required | Customer portal |
-| `/api/stripe/webhook` | POST | None | Stripe webhooks |
-
-#### AI Features
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/ai/screening-questions` | POST | Required | Generate AI questions |
-
-#### Admin
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/dev/seed` | POST | Dev only | Seed database |
-| `/api/admin/init-subscription-tiers` | POST | Admin | Initialize Stripe tiers |
-| `/api/cron/scrape-external-jobs` | POST | Cron | Trigger scraping |
-| `/api/admin/run-ghost-job-detection` | POST | Admin | Run ghost job detection |
-
-### Storage Layer Pattern
-
-The storage layer follows the **Repository Pattern** with an interface:
-
-**Interface** (`server/storage.ts:72+-100`):
-```typescript
-export interface IStorage {
-  // User operations
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
-  // ... many more methods
-}
-```
-
-**Implementation** (`server/storage.ts`):
-- Uses Drizzle ORM for type-safe queries
-- All methods are async/Promise-based
-- Exports singleton `storage` instance
-
-**Usage in routes**:
-```typescript
-import { storage } from './storage';
-
-app.get('/api/jobs/:id', async (req, res) => {
-  const job = await storage.getJobPosting(parseInt(req.params.id));
-  res.json(job);
-});
-```
-
-### Services Breakdown
-
-| Service | File | Purpose | Key Methods |
-|---------|------|---------|--------------|
-| Resume | `services/resume.service.ts` | Upload, parse, store resumes | `uploadAndProcessResume()` |
-| Exam | `services/exam.service.ts` | Create/submit job exams | `submitExam()` |
-| Stripe | `services/stripe.service.ts` | Subscriptions, checkout | `createCheckoutSession()`, `handleWebhook()` |
-| Job | `services/job.service.ts` | Job CRUD with validation | `createJob()`, `updateJob()` |
-| External Jobs | `services/external-jobs-scheduler.ts` | Background scraping | `triggerScrape()` |
-| Notification | `notification-service.ts` | Real-time + polling | `createNotification()`, `pollNotifications()` |
-| AI | `ai-service.ts` | Job matching, screening | `generateJobMatch()` |
-| Resume Parser | `ai-resume-parser.ts` | Extract info from resumes | `parseResume()` |
-| Matching | `advanced-matching-engine.ts` | Personalized recommendations | `getPersonalizedJobFeed()` |
+### Payments
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/subscription/tiers` | GET | Pricing tiers |
+| `/api/stripe/create-checkout` | POST | Checkout session |
+| `/api/stripe/webhook` | POST | Stripe webhook |
 
 ---
 
-## Client Deep Dive
+## Deployment
 
-### Routing (wouter)
-
-Routes defined in `client/src/App.tsx:26-65`:
-
-```typescript
-<Switch>
-  <Route path="/" component={Landing} />
-  <Route path="/auth" component={AuthPage} />
-  <Route path="/signup/candidate" component={SignUpCandidatePage} />
-  <Route path="/signup/talent-owner" component={SignUpTalentPage} />
-  <Route path="/role-selection">
-    <AuthGuard><GuidedSetup /></AuthGuard>
-  </Route>
-  <Route path="/candidate-dashboard">
-    <RoleGuard allowedRoles={['candidate']}><CandidateDashboard /></RoleGuard>
-  </Route>
-  <Route path="/talent-dashboard">
-    <RoleGuard allowedRoles={['talent_owner']}><TalentDashboard /></RoleGuard>
-  </Route>
-  <Route path="/exam/:jobId">
-    <RoleGuard><ExamPage /></RoleGuard>
-  </Route>
-  <Route path="/chat/:id">
-    <RoleGuard><Chat /></RoleGuard>
-  </Route>
-</Switch>
-```
-
-**Route Guards**:
-- `AuthGuard` - Requires authentication
-- `RoleGuard` - Requires specific role(s)
-
-### Auth Flow (Client)
-
-```
-1. User signs up/login via Supabase Auth
-   - Uses @supabase/auth-helpers-react SessionContextProvider
-   - Stores session in browser
-
-2. API requests include JWT token:
-   client/src/lib/queryClient.ts:apiRequest()
-   
-   const { data: { session } } = await supabase.auth.getSession();
-   headers['Authorization'] = `Bearer ${session?.access_token}`;
-
-3. Server validates token in middleware/auth.ts
-   - Returns 401 if missing/invalid
-   - Attaches req.user for route handlers
-```
-
-### State Management
-
-**Server State** (TanStack Query):
-- `useQuery` for data fetching with caching
-- `useMutation` for data mutations with cache invalidation
-- Query keys: `['jobs', filters]`, `['candidate', 'profile']`, etc.
-
-**UI State**:
-- `useState` for local component state
-- React Context for cross-component state:
-  - `GuidedSetupContext` - Onboarding flow state
-  - `AppProviders` - Query client, theme, etc.
-
-### API Call Pattern
-
-Use `apiRequest` helper from `client/src/lib/queryClient.ts`:
-
-```typescript
-import { apilib/queryClient';
-
-//Request } from '@/ GET request
-const response = await apiRequest('GET', '/api/candidate/profile');
-const profile = await response.json();
-
-// POST request
-const response = await apiRequest('POST', '/api/jobs', jobData);
-const job = await response.json();
-
-// FormData (file upload)
-const formData = new FormData();
-formData.append('resume', file);
-const response = await apiRequest('POST', '/api/candidate/resume', formData);
-```
-
-### Component Architecture
-
-**Layer 1: Pages** (`client/src/pages/`)
-- Full-page components
-- Compose feature components
-- Handle routing logic
-
-**Layer 2: Feature Components** (`client/src/components/`)
-- Domain-specific UI blocks
-- Examples: `job-card.tsx`, `chat-interface.tsx`, `application-tracker.tsx`
-
-**Layer 3: shadcn/ui Primitives** (`client/src/components/ui/`)
-- Low-level components (Button, Dialog, Card, etc.)
-- Built on Radix UI primitives
-- Styled with Tailwind CSS
-
----
-
-## Database
-
-### Drizzle ORM Schema
-
-Single source of truth: `shared/schema.ts`
-
-**Key Tables**:
-
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `users` | Authentication | id (UUID), email, role, profile_complete |
-| `candidate_users` | Candidate profiles | userId, skills, resumeUrl, experience |
-| `talent_owner_profiles` | Recruiter profiles | userId, companyName, industry |
-| `job_postings` | Job listings | talentOwnerId, title, company, status, source |
-| `job_applications` | Applications | jobId, candidateId, status |
-| `job_matches` | AI recommendations | jobId, candidateId, matchScore |
-| `job_exams` | Screening exams | jobId, questions (JSON), timeLimit |
-| `exam_attempts` | Candidate exam submissions | examId, candidateId, score |
-| `chat_rooms` | Messaging | jobId, candidateId, hiringManagerId |
-| `notifications` | User notifications | userId, type, read |
-| `interviews` | Scheduled interviews | candidateId, jobId, scheduledAt |
-| `saved_jobs` | Bookmarked jobs | userId, jobId |
-| `subscription_tiers` | Pricing tiers | name, priceMonthly, features |
-| `user_subscriptions` | Active subscriptions | userId, tierId, status |
-
-**Important Constraints**:
-- `job_postings`: Unique on (externalId, source) - prevents duplicate external jobs
-- `job_applications`: Unique on (jobId, candidateId) - one application per job
-- `chat_rooms`: Unique on (jobId, candidateId) - one chat per application
-
-### Migration Workflow
+### Vercel (live)
 
 ```bash
-# Make schema changes in shared/schema.ts
-# Then push to database:
-npm run db:push
+vercel deploy --prod
 ```
 
-Drizzle Kit handles migration generation automatically.
+- Frontend: static build in `dist/public`
+- Backend: serverless at `api/index.js`
+- Cron: `/api/cron/scrape-external-jobs` daily at 3AM UTC
 
----
-
-## Data Flows
-
-### Job Pipeline
-
-```
-+----------+    +----------+    +----------+    +----------+    +----------+
-| Scrape   | -> | Ingest   | -> | Dedup    | -> | Liveness | -> | Display  |
-+----------+    +----------+    +----------+    +----------+    +----------+
-     |               |               |               |               |
-     v               v               v               v               v
-GitHub Actions  job-ingestion   unique(jobId,   liveness-check   /api/ai-matches
-cron/6AM+6PM   service.ts      source)         service.ts       /api/external-jobs
-```
-
-**Detailed Flow**:
-1. **Scraping**: GitHub Actions runs `scripts/scrape-tier.ts` at 6AM/6PM UTC
-   - Tier 1: 29 Greenhouse boards
-   - Tier 2: 22 Lever/Workday boards
-   - Tier 3: 21 custom career pages
-   
-2. **Ingestion**: `job-ingestion.service.ts` normalizes and stores jobs
-
-3. **Deduplication**: Database unique constraint on (externalId, source)
-
-4. **Liveness**: `job-liveness-service.ts` pings external URLs weekly
-
-5. **Display**: Jobs appear in candidate feeds via `/api/ai-matches`
-
-### Candidate Flow
-
-```
-+----------+    +----------+    +----------+    +----------+    +----------+
-| Sign up  | -> | Resume   | -> | Profile  | -> | Matching | -> | Apply    |
-+----------+    +----------+    +----------+    +----------+    +----------+
-     |               |               |               |               |
-     v               v               v               v               v
-Supabase Auth  upload/resume    AI parses to   /api/ai-matches  /api/candidate
-               .pdf/.docx      extract skills   shows relevant   apply/:jobId
-                                                  jobs
-```
-
-**Detailed Flow**:
-1. **Sign up**: Create Supabase Auth account, select role
-2. **Resume upload**: POST to `/api/candidate/resume` with PDF/DOCX
-3. **AI parsing**: Groq/Llama 3 extracts: name, email, skills, experience
-4. **Profile**: Extracted data populates candidate_users table
-5. **Matching**: Advanced matching engine scores jobs against skills
-6. **Apply**: Creates job_applications record, notifies recruiter
-
-### Matching Engine
-
-The **SOTA 10-factor** weighted scoring system (`server/advanced-matching-engine.ts`):
-
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Semantic Similarity | 25% | ML embeddings (all-MiniLM-L6-v2) |
-| Skill Match | 20% | Overlap between candidate skills and job requirements |
-| Experience Alignment | 10% | Years of experience vs job level |
-| Location Fit | 8% | Geographic preference match |
-| Work Type Fit | 7% | Remote/hybrid/onsite preference |
-| Salary Fit | 8% | Salary range alignment |
-| Company Trust | 7% | Fortune 500, verified companies |
-| Recency | 8% | Freshly posted jobs |
-| Engagement | 4% | Application count signals |
-| Personalization | 3% | User behavior & preferences |
-
-**Learn-to-Rank**: The model adapts based on candidate interactions (views, clicks, saves, applies).
-
----
-
-## Background Services & Cron
-
-### GitHub Actions Scraper
-
-**Schedule**: `0 6,18 * * *` (6:00 AM and 6:00 PM UTC)
-
-**Workflow**: `.github/workflows/scrape-tech-companies.yml`
-
-Runs as separate jobs:
-1. Tier 1: Greenhouse companies (29) - 15min timeout
-2. Tier 2: Lever + Workday (22) - 10min timeout
-3. Tier 3: Custom career pages (21) - 5min timeout
-4. Cleanup: Remove jobs older than 15 days
-
-### Vercel Cron
-
-**Schedule**: `0 3 * * *` (3:00 AM UTC daily)
-
-**Endpoint**: `/api/cron/scrape-external-jobs`
-
-Configured in `vercel.json:43-48`
-
-Triggers external job scraping (hiring.cafe, RemoteOK)
-
-### GitHub Actions Batch Embeddings
-
-**Schedule**: `0 3 * * *` (3:00 AM UTC daily)
-
-**Workflow**: `.github/workflows/batch-embeddings.yml`
-
-- Pre-computes vector embeddings for all active jobs
-- Stores embeddings in PostgreSQL (`vector_embedding` column)
-- Enables fast matching (cosine similarity only, no ML inference)
-- Can be manually triggered with `--force` to refresh all
+### Docker
 
 ```bash
-# Manual trigger
-npx tsx server/services/batch-embedding.service.ts --force
-```
-
-### In-Process Services
-
-These run when `ENABLE_BACKGROUND_SERVICES=true` (dev mode):
-
-| Service | File | Frequency | Purpose |
-|---------|------|-----------|---------|
-| Company Discovery | `company-discovery.ts` | Every 6 hours | Find new companies to scrape |
-| Job Liveness | `job-liveness-service.ts` | Weekly | Verify external jobs still exist |
-| Job Refresh | `services/job-refresh.service.ts` | Hourly | Update existing job data |
-| External Jobs | `services/external-jobs-scheduler.ts` | Hourly | Refresh external job cache |
-
-**Note**: Background services are disabled on Vercel serverless to prevent connection pool exhaustion.
-
----
-
-## ML Matching Pipeline
-
-### How It Works
-
-```
-1. Batch Phase (GitHub Actions - nightly)
-   └── Compute embeddings for all active jobs
-       └── Store in PostgreSQL (vector_embedding column)
-
-2. Request Phase (your server)
-   └── Candidate uploads resume → Skills extracted
-       └── Generate candidate embedding (or use pre-computed)
-           └── Fast match: Cosine similarity on stored vectors
-               └── Or Full match: @xenova/transformers + Learn-to-Rank
-```
-
-### Matching Modes
-
-| Mode | Speed | Accuracy | Use Case |
-|------|-------|----------|----------|
-| Fast Match | ~10ms | Good | Pre-computed embeddings available |
-| Full ML | ~500ms | Best | Full semantic understanding |
-| Learn-to-Rank | +100ms | Best | With behavioral signals |
-
-### Environment Variables
-
-```
-# Required for MVP (all free)
-DATABASE_URL=postgresql://...
-GROQ_API_KEY=your-groq-key  # Optional - for resume parsing
-
-# Optional (for scaling)
-PINECONE_API_KEY=xxx        # Vector DB (optional)
-WEAVIATE_URL=xxx            # Vector DB (optional)
+docker build -t recrutas .
+docker run -p 3000:3000 recrutas
 ```
 
 ---
 
-## External Integrations
+## Testing
 
-| Service | Purpose | Auth Method | File Location |
-|---------|---------|-------------|--------------|
-| Supabase | Database + Auth | API keys + JWT | `server/lib/supabase-client.ts` |
-| Groq | Resume parsing (optional) | API key (GROQ_API_KEY) | `server/ai-resume-parser.ts` |
-| @xenova/transformers | ML embeddings | Local (free) | `server/ml-matching.ts` |
-| Pinecone/Weaviate | Vector DB (optional) | API key | `server/vector-search.ts` |
-| Stripe | Payments | API keys + Webhooks | `server/services/stripe.service.ts` |
-| SendGrid | Email | API key (SENDGRID_API_KEY) | `server/email-service.ts` |
-| RemoteOK | Job aggregation | Public API | `server/job-aggregator.ts` |
-| Hiring.cafe | Job aggregation | Public API | `server/services/hiring-cafe.service.ts` |
+```bash
+# Run all E2E tests
+npx playwright test
+
+# Run specific suite
+npx playwright test e2e/comprehensive-mvp.spec.ts --reporter=list
+npx playwright test e2e/uncovered-flows.spec.ts --reporter=list
+
+# Type check
+npm run type-check
+```
+
+Test credentials (after seeding):
+- Candidate: `abaskabato@gmail.com` / `123456`
+- Talent owner: `rainierit@proton.me` / `rainierit08`
 
 ---
 
 ## Environment Variables
 
 ### Required
-
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (pooler) |
+| `DATABASE_URL` | PostgreSQL pooler connection |
 | `DIRECT_URL` | PostgreSQL direct connection |
 | `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role (admin) |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role |
 | `SUPABASE_JWT_SECRET` | JWT verification secret |
-| `FRONTEND_URL` | Frontend URL for CORS |
-| `DEV_SECRET` | Secret for dev-only endpoints |
-| `ADMIN_SECRET` | Secret for admin endpoints |
-| `CRON_SECRET` | Secret for cron endpoints |
+| `FRONTEND_URL` | Frontend URL (CORS) |
+| `DEV_SECRET` | Dev endpoints guard |
+| `CRON_SECRET` | Cron endpoints guard |
 
-### Optional (AI)
-
+### Optional
 | Variable | Description |
 |----------|-------------|
-| `GROQ_API_KEY` | Groq API for Llama 3 resume parsing |
-| `OPENAI_API_KEY` | OpenAI for job matching |
-| `HF_API_KEY` | HuggingFace for alternative parsing |
-
-### Optional (Payments)
-
-| Variable | Description |
-|----------|-------------|
-| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `GROQ_API_KEY` | Llama 3 resume parsing |
+| `RESEND_API_KEY` | Transactional email |
+| `STRIPE_SECRET_KEY` | Payments |
 | `VITE_STRIPE_PUBLIC_KEY` | Stripe publishable key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature secret |
-
-### Optional (Email)
-
-| Variable | Description |
-|----------|-------------|
-| `SENDGRID_API_KEY` | SendGrid for transactional email |
-
----
-
-## Deployment
-
-### Vercel (Primary)
-
-**How it works**:
-- Frontend: Static build in `dist/public`
-- Backend: Serverless function at `/api/index.js`
-- Rewrites: All `/api/*` -> serverless, all else -> static
-
-**Build command**: `npm run build`
-- Runs Vite build for frontend
-- Runs esbuild for backend
-- Generates API handler
-
-**Vercel-specific files**:
-- `vercel.json` - Builds, rewrites, cron
-- `api/index.js` - Serverless entry point
-
-**Cron jobs** (in vercel.json):
-- Scrape external jobs daily at 3AM UTC
-
-### Docker (Alternative)
-
-**Multi-stage build** (`Dockerfile`):
-1. **deps**: Install production npm dependencies
-2. **builder**: Build the app (frontend + backend)
-3. **runner**: Run the standalone server
-
-**Build and run**:
-```bash
-docker build -t recrutas .
-docker run -p 3000:3000 recrutas
-```
-
-**Docker Compose** (development):
-```bash
-docker-compose up
-```
-
-### Railway (Alternative)
-
-Uses `railway.toml` for configuration.
-
----
-
-## Testing
-
-### Test Commands
-
-| Command | Framework | Scope |
-|---------|-----------|-------|
-| `npm run test` | Jest + Vitest | All tests |
-| `npm run test:unit:backend` | Jest | Backend unit tests |
-| `npm run test:integration:backend` | Jest | Backend integration tests |
-| `npm run test:frontend` | Vitest | Frontend unit tests |
-| `npm run test:e2e` | Playwright | End-to-end tests |
-| `npm run test:playwright` | Playwright | Playwright tests |
-| `npm run test:coverage` | Jest | Coverage report |
-
-### Running Single Tests
-
-```bash
-# Backend single test
-npx jest test/jobs.test.ts
-
-# Frontend single test
-npx vitest run components/job-card.test.tsx
-
-# E2E single test
-npx playwright test tests/login.spec.ts
-```
-
-### Code Quality
-
-```bash
-npm run type-check    # TypeScript type checking
-npm run check         # type-check + lint
-```
-
----
-
-## Key Files Quick Reference
-
-| What you need | File path |
-|---------------|------------|
-| Database schema | `shared/schema.ts` |
-| API routes | `server/routes.ts` |
-| Auth middleware | `server/middleware/auth.ts` |
-| Storage layer | `server/storage.ts` |
-| React routing | `client/src/App.tsx` |
-| API client | `client/src/lib/queryClient.ts` |
-| Environment template | `.env.example` |
-| Vercel config | `vercel.json` |
-| Docker config | `Dockerfile` |
-| GitHub scraping workflow | `.github/workflows/scrape-tech-companies.yml` |
-| Drizzle config | `drizzle.config.ts` |
-| Package scripts | `package.json:9-39` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing |
 
 ---
 
 ## Changelog
 
-### `5e3178b` — fix: resume matching crash, modal scroll, and scan UX improvements
-- **Bug fix**: `fetchScoredJobs` in `server/storage.ts` had infinite recursion — when a candidate's skills normalized to empty, it called itself again causing a stack overflow crash after certain resume types. Now returns `null` to fall through to the discovery feed.
-- **Performance**: `server/ai-resume-parser.ts` truncates resume text to 4,000 chars before sending to Groq, reducing AI inference time 50–70% for large resumes.
-- **UX**: Resume upload button changes label to "Still scanning, almost done…" after 8 seconds so users know the AI parse hasn't hung.
-- **UX**: All dialogs (`client/src/components/ui/dialog.tsx`) now have `overflow-y-auto max-h-[90dvh]` by default so users can always scroll to buttons at the bottom of modals.
-- **UI**: Talent dashboard applicant cards now show exam score badge with colour-coded tiers (green ≥80%, blue ≥60%, grey <60%).
-- **Landing**: Hero copy updated to "Apply Here. Know Today." with mission-aligned step descriptions.
+### `8bd5ece` — fix: null-guard Resend client when RESEND_API_KEY missing
+- Avoids crashing when email key is not set in dev
 
-### `e304d0e` / `14b9353` — fix: FRONTEND_URL env var handling
-- Reverted hardcoded `recrutas.ai` domain; production now defaults `FRONTEND_URL` to `https://recrutas.ai` if the env var is not set, keeping local dev unaffected.
+### `27351fb` — fix: 4 production bugs found during E2E coverage expansion
+- Chat room creation always returned 403 (req.user.role never set by JWT middleware)
+- Exam submit crashed with NOT NULL constraint on notification title
+- Chat messages returned nested Drizzle objects instead of flat rows
+- Resume upload returned 500 on wrong type / oversized file
 
-### `6dac27a` / `843fd2f` / `c9fecd4` — public launch hardening
-- Security headers (CSP, HSTS, X-Frame-Options) added via Express middleware.
-- Talent dashboard null-safety fixes prevent white-screen crashes when applicant data is partially populated.
-- Exam race condition fixed — rapid double-submits no longer create duplicate attempt records.
-- Resilient matching: `/api/ai-matches` now returns a discovery feed instead of 500-erroring when the matching engine has no scored results.
-- Legacy `'applied'` application status handled gracefully in the tracker dropdown.
+### `943dc35` — fix: 5 production bugs + 61/61 E2E tests
+- Rate limiter, DB pool, getApplicantsForJob (Drizzle bug), transparency_settings schema, job ingestion null fields
 
-### `c7a400f` — fix: consistent job matching
-- Skill match score now uses the number of **job-required skills** as the denominator (not total candidate skills), giving accurate per-job fit percentages.
-- Exact case-insensitive skill comparison replaces partial substring matching.
-- `matchScore`, `skillMatches`, and `aiExplanation` fields correctly propagated to all API response shapes.
+### `a571777` — fix: extract RemoteOK skills from description not tags
 
-### `eb41b6d` — feat: "Apply For Me" agentic auto-apply
-- New `server/services/agent-apply.service.ts` — Playwright-based browser agent that navigates to an external job URL and fills out the application form on behalf of the candidate.
-- Triggered via `POST /api/candidate/agent-apply/:jobId`.
-- Gracefully degrades: if the external site cannot be automated, returns a manual-apply fallback URL.
+### `83ead15` — fix: repair job matching pipeline end-to-end
 
-### `69c55d4` / `2697712` — feat: SOTA ML matching pipeline
-- Added `server/ml-matching.ts` — generates 384-dim sentence embeddings using `@xenova/transformers` (all-MiniLM-L6-v2) locally, no external API required.
-- Added `server/vector-search.ts` — in-memory cosine similarity search; optional Pinecone/Weaviate adapters for production scale.
-- Added `server/learn-to-rank.ts` — 10-feature LTR model (semantic similarity, skill match, experience, location, work type, salary, trust, recency, engagement, personalization) with online learning from candidate interactions.
-- Added `server/services/batch-embedding.service.ts` — pre-computes and stores job embeddings nightly via GitHub Actions (`.github/workflows/batch-embeddings.yml`).
-- Fixed salary math overflow, LTR gradient bias, and confidence score range (now always 0–100).
+### `cd9bdb1` — perf: promote Skill Intelligence Engine to primary resume parser
 
-### `59891fd` — feat: pricing model restructure
-- Candidates are now **free forever**.
-- Talent Owner tiers: Starter $49/mo, Growth $149/mo, Enterprise $299/mo.
-- Updated `server/services/stripe.service.ts` and subscription tier seed data.
+### `e88c54f` — feat: expand Skill Intelligence Engine to all job types
 
-### `0c545bd` — fix: brand identity
-- Emerald green (`#10b981`) replaces the previous blue as the primary accent colour throughout Tailwind config and CSS variables.
-- Custom favicon added (`client/public/favicon.ico`).
-- Inter font set as the global sans-serif via `index.html`.
-- Vercel build alias `recrutas.ai` configured in `vercel.json`.
-
-### `de7dc88` — fix: MVP launch blockers
-- Exam page route parameter renamed from `:id` to `:jobId` for consistency with other job routes.
-- Plugged IDOR hole: candidates can no longer fetch exam results for jobs they didn't apply to.
-- Fixed data mapping bug where `externalUrl` was not forwarded to the frontend job card.
+### `80711b4` — feat: replace AI resume parser fallback with Skill Intelligence Engine
