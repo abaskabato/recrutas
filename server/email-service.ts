@@ -1,18 +1,15 @@
-import { MailService } from '@sendgrid/mail';
+import { Resend } from 'resend';
 
 // Derive frontend URL: explicit env var > Vercel auto-URL > localhost dev fallback
 const FRONTEND_URL = process.env.FRONTEND_URL
   || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
   || 'http://localhost:5000';
 
-if (!process.env.SENDGRID_API_KEY) {
-  console.warn("SENDGRID_API_KEY not configured - email sending will be disabled");
+if (!process.env.RESEND_API_KEY) {
+  console.warn("RESEND_API_KEY not configured - email sending will be disabled");
 }
 
-const mailService = new MailService();
-if (process.env.SENDGRID_API_KEY) {
-  mailService.setApiKey(process.env.SENDGRID_API_KEY);
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface EmailParams {
   to: string;
@@ -23,24 +20,27 @@ interface EmailParams {
 }
 
 export async function sendEmail(params: EmailParams): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY) {
+  if (!process.env.RESEND_API_KEY) {
     console.log(`Development mode: Would send email to ${params.to} with subject "${params.subject}"`);
-    console.log(`Email content: ${params.text || params.html}`);
     return true;
   }
 
   try {
-    await mailService.send({
+    const { error } = await resend.emails.send({
       to: params.to,
       from: params.from,
       subject: params.subject,
-      text: params.text || undefined,
-      html: params.html || undefined,
-    } as any);
+      text: params.text,
+      html: params.html,
+    });
+    if (error) {
+      console.error('Resend email error:', error);
+      return false;
+    }
     console.log(`Email sent successfully to ${params.to}`);
     return true;
   } catch (error) {
-    console.error('SendGrid email error:', error);
+    console.error('Resend email error:', error);
     return false;
   }
 }
