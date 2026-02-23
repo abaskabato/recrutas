@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { useLocation } from "wouter";
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -58,6 +59,7 @@ interface AIJobFeedProps {
 }
 
 export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
@@ -66,6 +68,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
   const [displayLimit, setDisplayLimit] = useState(INITIAL_JOB_LIMIT);
+  const [agentApplyingIds, setAgentApplyingIds] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -211,14 +214,26 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   const handleAgentApply = (e: React.MouseEvent, match: AIJobMatch) => {
     e.stopPropagation();
-    if (appliedJobIds.has(match.job.id)) return;
-    agentApplyMutation.mutate(match.job.id);
+    if (appliedJobIds.has(match.job.id) || agentApplyingIds.has(match.job.id)) return;
+    setAgentApplyingIds(prev => new Set(prev).add(match.job.id));
+    agentApplyMutation.mutate(match.job.id, {
+      onSettled: () => {
+        setAgentApplyingIds(prev => { const next = new Set(prev); next.delete(match.job.id); return next; });
+      },
+    });
   };
 
   const handleApply = (e: React.MouseEvent, match: AIJobMatch) => {
     e.stopPropagation();
     if (appliedJobIds.has(match.job.id)) return;
-    applyMutation.mutate(match.job.id);
+    const isInternal = !match.job.externalUrl;
+    applyMutation.mutate(match.job.id, {
+      onSuccess: () => {
+        if (isInternal && match.job.hasExam) {
+          setLocation(`/exam/${match.job.id}`);
+        }
+      },
+    });
     if (match.job.externalUrl) {
       toast({
         title: "Opening External Application",
@@ -227,7 +242,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       setTimeout(() => {
         window.open(match.job.externalUrl, '_blank');
       }, 500);
-    } else {
+    } else if (!match.job.hasExam) {
       toast({
         title: "Application Submitted",
         description: `Your application for ${match.job.title} at ${match.job.company} has been sent.`,
@@ -470,22 +485,28 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                         <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-2 sm:gap-1.5 lg:gap-2 sm:shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-gray-700">
                           <Button
                             size="sm"
-                            variant={isApplied ? "secondary" : "default"}
+                            variant={isApplied ? "outline" : "default"}
                             onClick={(e) => handleApply(e, match)}
                             disabled={isApplied}
-                            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm"
-                            title={match.job.externalUrl ? "Opens company career page in new tab" : "Submit application for this job"}
+                            className={`flex-1 sm:flex-none text-xs sm:text-sm ${isApplied ? 'border-green-400 text-green-700 dark:border-green-600 dark:text-green-400' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                            title={match.job.externalUrl ? "Opens company career page in new tab" : isInternalJob && match.job.hasExam ? "Apply and take the screening exam" : "Submit application for this job"}
                           >
-                            {isApplied ? <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" /> : <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
-                            <span className="hidden sm:inline">{isApplied ? "Applied" : (match.job.externalUrl ? "Apply Externally" : "Apply Now")}</span>
-                            <span className="sm:hidden">{isApplied ? "Applied" : "Apply"}</span>
+                            {isApplied
+                              ? <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              : isInternalJob && match.job.hasExam
+                                ? <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                : <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
+                            <span className="hidden sm:inline">
+                              {isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Apply & Take Exam" : match.job.externalUrl ? "Apply Externally" : "Apply Now"}
+                            </span>
+                            <span className="sm:hidden">{isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Exam" : "Apply"}</span>
                           </Button>
                           {match.job.externalUrl && !isApplied && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={(e) => handleAgentApply(e, match)}
-                              disabled={agentApplyMutation.isPending}
+                              disabled={agentApplyingIds.has(match.job.id)}
                               className="flex-1 sm:flex-none border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20 text-xs sm:text-sm"
                               title="Our agent will automatically fill and submit the application for you"
                             >
