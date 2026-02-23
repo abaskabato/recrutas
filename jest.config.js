@@ -8,8 +8,6 @@ export default {
     '^(\.{1,2}/.*)\\.js$': '$1',
   },
   transform: {
-    // '^.+\\.[tj]sx?$' to process js/ts with `ts-jest`
-    // '^.+\\.m?[tj]sx?$' to process js/ts/mjs/mts with `ts-jest`
     '^.+\\.tsx?$': [
       'ts-jest',
       {
@@ -17,6 +15,9 @@ export default {
       },
     ],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(@xenova)/)',
+  ],
   // Point to your backend tests
   testMatch: [
     '**/server/**/*.test.ts',
