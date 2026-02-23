@@ -1120,7 +1120,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
       if (isInternalJob) {
-        // Enhanced notification for internal jobs with professional links
+        // Notify talent owner of new application
         const hasLinks = applicationMetadata?.linkedinUrl || applicationMetadata?.githubUrl || applicationMetadata?.portfolioUrl;
         await notificationService.createNotification({
           userId: job.talentOwnerId,
@@ -1129,8 +1129,20 @@ export async function registerRoutes(app: Express): Promise<Express> {
           message: `You have a new application for ${job.title}.${hasLinks ? ' Candidate has provided professional links.' : ''}`,
           relatedApplicationId: application.id,
         });
+
+        // Notify candidate their application was received (core promise: know where you stand)
+        const examNote = job.hasExam ? ' Complete the screening exam to advance your application.' : '';
+        await notificationService.createNotification({
+          userId,
+          type: 'application_submitted',
+          title: 'Application Submitted',
+          message: `Your application for ${job.title} at ${job.company} was received.${examNote}`,
+          priority: 'medium',
+          relatedApplicationId: application.id,
+          data: { jobTitle: job.title, companyName: job.company, hasExam: job.hasExam }
+        });
       }
-      
+
       res.json(application);
     } catch (error) {
       console.error("Error applying to job:", error);
@@ -2179,6 +2191,25 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error: any) {
       console.error("Error fetching agent tasks:", error?.message);
       res.status(500).json({ message: "Failed to fetch agent tasks" });
+    }
+  });
+
+  app.delete('/api/candidate/agent-tasks/:taskId', isAuthenticated, async (req: any, res) => {
+    try {
+      const taskId = parseIntParam(req.params.taskId);
+      if (!taskId) return res.status(400).json({ message: "Invalid task id" });
+      // Verify task belongs to this candidate and is still cancellable
+      const tasks = await storage.getAgentTasksForCandidate(req.user.id);
+      const task = tasks.find((t: any) => t.id === taskId);
+      if (!task) return res.status(404).json({ message: "Task not found" });
+      if (!['queued', 'processing'].includes(task.status)) {
+        return res.status(409).json({ message: "Task cannot be cancelled in its current state" });
+      }
+      await storage.updateAgentTaskStatus(taskId, 'cancelled');
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error cancelling agent task:", error?.message);
+      res.status(500).json({ message: "Failed to cancel task" });
     }
   });
 

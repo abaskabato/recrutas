@@ -876,11 +876,37 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
 // Simple Saved Jobs List Component
 function SavedJobsList() {
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const { data: savedJobs, isLoading } = useQuery({
     queryKey: ['/api/candidate/saved-jobs'],
     queryFn: async () => {
       const response = await apiRequest("GET", '/api/candidate/saved-jobs');
       return response.json();
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      await apiRequest("DELETE", `/api/candidate/saved-jobs/${jobId}`);
+    },
+    onMutate: async (jobId: number) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/candidate/saved-jobs'] });
+      const prev = queryClient.getQueryData(['/api/candidate/saved-jobs']);
+      queryClient.setQueryData(['/api/candidate/saved-jobs'], (old: any[]) =>
+        old ? old.filter((j: any) => j.id !== jobId) : old
+      );
+      return { prev };
+    },
+    onError: (_err, _jobId, context) => {
+      if (context?.prev) queryClient.setQueryData(['/api/candidate/saved-jobs'], context.prev);
+      toast({ title: "Error", description: "Failed to unsave job.", variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/saved-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
     },
   });
 
@@ -903,16 +929,38 @@ function SavedJobsList() {
       {savedJobs.map((job: any) => (
         <Card key={job.id} className="hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-semibold text-lg">{job.title}</h3>
-                <p className="text-gray-600">{job.company}</p>
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-lg leading-tight">{job.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{job.company}</p>
                 <p className="text-sm text-gray-500">{job.location}</p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => window.open(job.externalUrl || '#', '_blank')}>
-                <ExternalLink className="h-4 w-4 mr-1" />
-                View
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (job.externalUrl) {
+                      window.open(job.externalUrl, '_blank');
+                    } else {
+                      setLocation(`/candidate-dashboard?tab=jobs&job=${job.id}`);
+                    }
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => unsaveMutation.mutate(job.id)}
+                  disabled={unsaveMutation.isPending}
+                  className="text-gray-400 hover:text-red-500"
+                  title="Remove from saved"
+                >
+                  <Bookmark className="h-4 w-4 fill-current" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

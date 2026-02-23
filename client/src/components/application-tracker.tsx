@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot } from "lucide-react";
+import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -95,6 +95,21 @@ export default function ApplicationTracker() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    },
+  });
+
+  const cancelAgentTaskMutation = useMutation({
+    mutationFn: async (taskId: number) => {
+      const res = await apiRequest('DELETE', `/api/candidate/agent-tasks/${taskId}`);
+      if (!res.ok) throw new Error('Failed to cancel task');
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Agent Task Cancelled" });
+      queryClient.invalidateQueries({ queryKey: ["/api/candidate/agent-tasks"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not cancel task.", variant: "destructive" });
     },
   });
 
@@ -247,10 +262,25 @@ export default function ApplicationTracker() {
                       {(application.autoFilled || application.metadata?.agentApply) && agentTaskByAppId.get(application.id) && (() => {
                         const task = agentTaskByAppId.get(application.id)!;
                         const cfg = agentStatusConfig[task.status] || agentStatusConfig.queued;
+                        const cancellable = ['queued', 'processing'].includes(task.status);
                         return (
-                          <Badge variant="secondary" className={`text-xs ${cfg.color}`}>
-                            {cfg.label}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="secondary" className={`text-xs ${cfg.color}`}>
+                              {cfg.label}
+                            </Badge>
+                            {cancellable && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 w-5 p-0 text-gray-400 hover:text-red-500"
+                                title="Cancel agent task"
+                                disabled={cancelAgentTaskMutation.isPending}
+                                onClick={() => cancelAgentTaskMutation.mutate(task.id)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         );
                       })()}
                       {application.match && (
