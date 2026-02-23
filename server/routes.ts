@@ -780,11 +780,35 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Sync Supabase auth user into local DB (called after signup/login)
+  app.post('/api/auth/sync', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      const user = await storage.upsertUser({
+        id: req.user.id,
+        email: req.user.email || '',
+        name: req.user.email || req.user.id,
+        emailVerified: true,
+      });
+      res.json({ success: true, user });
+    } catch (error) {
+      console.error("Error syncing user:", error);
+      res.status(500).json({ message: "Failed to sync user" });
+    }
+  });
+
   app.post('/api/auth/role', isAuthenticated, async (req: any, res) => {
     try {
       if (!req.user) return res.status(401).json({ message: "Unauthorized" });
       const { role } = req.body;
       if (!['candidate', 'talent_owner'].includes(role)) return res.status(400).json({ message: "Invalid role" });
+      // Ensure user exists in local DB before updating role (Supabase Auth doesn't auto-sync)
+      await storage.upsertUser({
+        id: req.user.id,
+        email: req.user.email || '',
+        name: req.user.email || req.user.id,
+        emailVerified: true,
+      });
       const updatedUser = await storage.updateUserRole(req.user.id, role);
       res.json({ success: true, user: updatedUser });
     } catch (error) {
@@ -1596,6 +1620,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(result);
     } catch (error) {
       console.error("Error submitting exam:", error);
+      const message = (error as Error).message;
+      if (message === 'Exam already submitted for this job') {
+        return res.status(409).json({ message });
+      }
       res.status(500).json({ message: "Failed to submit exam" });
     }
   });

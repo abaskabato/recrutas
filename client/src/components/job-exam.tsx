@@ -40,7 +40,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [result, setResult] = useState<{ score: number; passed: boolean; alreadySubmitted?: boolean } | null>(null);
   const { toast } = useToast();
 
   // Fetch exam data
@@ -86,6 +86,12 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
       const response = await apiRequest('POST', `/api/jobs/${jobId}/exam/submit`, {
         answers: examAnswers
       });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const err: any = new Error(data.message || 'Exam submission failed');
+        err.status = response.status;
+        throw err;
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -93,6 +99,10 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
     },
     onError: (error: any) => {
       setIsSubmitting(false);
+      if (error.status === 409) {
+        setResult({ score: 0, passed: false, alreadySubmitted: true });
+        return;
+      }
       toast({
         title: "Submission Failed",
         description: error.message,
@@ -127,6 +137,22 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   };
 
   if (result) {
+    if (result.alreadySubmitted) {
+      return (
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="p-10 text-center space-y-6">
+            <CheckCircle className="w-16 h-16 text-blue-500 mx-auto" />
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Already Completed</h2>
+              <p className="text-slate-500">You've already submitted this exam. Check your application status in the dashboard.</p>
+            </div>
+            <Button onClick={() => onComplete(0, false)} className="w-full max-w-xs">
+              Back to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
     return (
       <Card className="max-w-2xl mx-auto">
         <CardContent className="p-10 text-center space-y-6">

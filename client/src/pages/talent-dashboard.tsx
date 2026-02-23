@@ -168,6 +168,9 @@ export default function TalentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedApplicantId, setExpandedApplicantId] = useState<number | null>(null);
+  const [scheduleInterviewOpen, setScheduleInterviewOpen] = useState(false);
+  const [scheduleApplicant, setScheduleApplicant] = useState<{ applicationId: number; candidateId: string; name: string } | null>(null);
+  const [interviewForm, setInterviewForm] = useState({ scheduledAt: '', duration: 60, platform: 'video', meetingLink: '', notes: '' });
   const [screeningQuestions, setScreeningQuestions] = useState<{ [key: number]: string[] }>();
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [jobToDelete, setJobToDelete] = useState<JobPosting | null>(null);
@@ -262,6 +265,24 @@ export default function TalentDashboard() {
         description: getErrorMessage(error),
         variant: "destructive",
       });
+    },
+  });
+
+  // Schedule interview mutation
+  const scheduleInterviewMutation = useMutation({
+    mutationFn: async (data: { candidateId: string; jobId: number; applicationId: number; scheduledAt: string; duration: number; platform: string; meetingLink: string; notes: string }) => {
+      const res = await apiRequest('POST', '/api/interviews/schedule', data);
+      if (!res.ok) { const err = await res.json().catch(() => ({ message: 'Failed to schedule interview' })); throw new Error(err.message); }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Interview scheduled!", description: "The candidate has been notified." });
+      setScheduleInterviewOpen(false);
+      setInterviewForm({ scheduledAt: '', duration: 60, platform: 'video', meetingLink: '', notes: '' });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs', selectedJob?.id, 'applicants'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: getErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -1103,7 +1124,7 @@ export default function TalentDashboard() {
                                     <p className="text-sm text-gray-600 dark:text-gray-400">{applicant.match.aiExplanation}</p>
                                   </div>
                                 )}
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap">
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -1119,6 +1140,18 @@ export default function TalentDashboard() {
                                   >
                                     <MessageSquare className="h-4 w-4 mr-2" />
                                     Start Chat
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                    onClick={() => {
+                                      setScheduleApplicant({ applicationId: applicant.applicationId, candidateId: applicant.candidate?.id, name: `${applicant.candidate?.firstName || ''} ${applicant.candidate?.lastName || ''}`.trim() });
+                                      setScheduleInterviewOpen(true);
+                                    }}
+                                  >
+                                    <Calendar className="h-4 w-4 mr-2" />
+                                    Schedule Interview
                                   </Button>
                                 </div>
                                 {questions && (
@@ -1692,6 +1725,89 @@ export default function TalentDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Schedule Interview Dialog */}
+      <Dialog open={scheduleInterviewOpen} onOpenChange={setScheduleInterviewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Interview{scheduleApplicant?.name ? ` — ${scheduleApplicant.name}` : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Date &amp; Time *</label>
+              <Input
+                type="datetime-local"
+                value={interviewForm.scheduledAt}
+                onChange={(e) => setInterviewForm(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Duration (minutes)</label>
+              <Select value={String(interviewForm.duration)} onValueChange={(v) => setInterviewForm(prev => ({ ...prev, duration: Number(v) }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 min</SelectItem>
+                  <SelectItem value="45">45 min</SelectItem>
+                  <SelectItem value="60">60 min</SelectItem>
+                  <SelectItem value="90">90 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Platform</label>
+              <Select value={interviewForm.platform} onValueChange={(v) => setInterviewForm(prev => ({ ...prev, platform: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="video">Video Call</SelectItem>
+                  <SelectItem value="phone">Phone</SelectItem>
+                  <SelectItem value="onsite">On-site</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Meeting Link (optional)</label>
+              <Input
+                type="url"
+                placeholder="https://meet.google.com/..."
+                value={interviewForm.meetingLink}
+                onChange={(e) => setInterviewForm(prev => ({ ...prev, meetingLink: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notes (optional)</label>
+              <Textarea
+                placeholder="Preparation notes for the candidate..."
+                value={interviewForm.notes}
+                onChange={(e) => setInterviewForm(prev => ({ ...prev, notes: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                className="flex-1"
+                disabled={!interviewForm.scheduledAt || scheduleInterviewMutation.isPending || !selectedJob || !scheduleApplicant}
+                onClick={() => {
+                  if (!selectedJob || !scheduleApplicant) return;
+                  scheduleInterviewMutation.mutate({
+                    candidateId: scheduleApplicant.candidateId,
+                    jobId: selectedJob.id,
+                    applicationId: scheduleApplicant.applicationId,
+                    scheduledAt: interviewForm.scheduledAt,
+                    duration: interviewForm.duration,
+                    platform: interviewForm.platform,
+                    meetingLink: interviewForm.meetingLink,
+                    notes: interviewForm.notes,
+                  });
+                }}
+              >
+                {scheduleInterviewMutation.isPending ? 'Scheduling...' : 'Confirm Interview'}
+              </Button>
+              <Button variant="outline" onClick={() => setScheduleInterviewOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -95,6 +95,10 @@ export class ExamService {
       if (error instanceof ExamProcessingError) {
         throw error;
       }
+      const message = (error as Error).message;
+      if (message === 'Exam already submitted for this job') {
+        throw new ExamProcessingError(message);
+      }
       throw new ExamProcessingError("Failed to submit exam");
     }
   }

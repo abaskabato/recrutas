@@ -39,7 +39,7 @@ export default function SignUpForm({ role }: SignUpFormProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -50,6 +50,13 @@ export default function SignUpForm({ role }: SignUpFormProps) {
         },
       });
       if (error) throw error;
+      // Bootstrap user record in local DB so role assignment works after email verification
+      if (data.session?.access_token) {
+        await fetch('/api/auth/sync', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        }).catch(() => {}); // Non-critical: user will be synced on first role assignment
+      }
       toast({
         title: "Account created",
         description: "Please check your email to verify your account.",
