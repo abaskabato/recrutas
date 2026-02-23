@@ -92,6 +92,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
       setResult({ score: data.score, passed: data.passed });
     },
     onError: (error: any) => {
+      setIsSubmitting(false);
       toast({
         title: "Submission Failed",
         description: error.message,

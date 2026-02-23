@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -439,10 +439,11 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                           <h3 className="font-semibold text-base sm:text-lg leading-tight hover:text-blue-600 transition-colors">
                             <button
                               type="button"
-                              className="text-left hover:underline line-clamp-2 sm:line-clamp-1"
+                              className="text-left hover:underline flex items-center gap-1 group"
                               onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
                             >
-                              {match.job.title}
+                              <span className="line-clamp-2 sm:line-clamp-1">{match.job.title}</span>
+                              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-400 group-hover:text-blue-500 transition-transform ${expandedMatchId === match.id ? 'rotate-180' : ''}`} />
                             </button>
                           </h3>
                           <div className="flex flex-col sm:flex-row sm:items-center gap-y-1 sm:gap-x-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -521,6 +522,47 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                           </div>
                         </div>
                       </div>
+                      {/* Expanded detail panel */}
+                      {expandedMatchId === match.id && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-3">
+                          {match.job.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-6">
+                              {match.job.description}
+                            </p>
+                          )}
+                          {(match.job.salaryMin || match.job.salaryMax) && (
+                            <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                              <DollarSign className="h-3.5 w-3.5 shrink-0" />
+                              {match.job.salaryMin && match.job.salaryMax
+                                ? `$${match.job.salaryMin.toLocaleString()} – $${match.job.salaryMax.toLocaleString()}/yr`
+                                : match.job.salaryMin
+                                  ? `From $${match.job.salaryMin.toLocaleString()}/yr`
+                                  : `Up to $${match.job.salaryMax!.toLocaleString()}/yr`}
+                            </div>
+                          )}
+                          {match.job.skills && match.job.skills.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {match.job.skills.slice(0, 10).map((skill: string) => (
+                                <Badge
+                                  key={skill}
+                                  variant="outline"
+                                  className={`text-xs ${match.skillMatches?.includes(skill) ? 'border-green-400 text-green-700 dark:text-green-400' : ''}`}
+                                >
+                                  {match.skillMatches?.includes(skill) && <Check className="h-2.5 w-2.5 mr-1" />}
+                                  {skill}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1"
+                            onClick={() => setExpandedMatchId(null)}
+                          >
+                            <ChevronUp className="h-3 w-3" /> Show less
+                          </button>
+                        </div>
+                      )}
                       {match.job.externalSource && match.job.externalSource !== 'internal' && (
                         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                           <div className="flex items-center">

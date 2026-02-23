@@ -471,33 +471,43 @@ export default function CandidateStreamlinedDashboard() {
           <nav className="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setActiveTab('jobs')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'jobs'
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'jobs'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
                 }`}
             >
-              <Search className="h-4 w-4 mr-2 inline" />
+              <Search className="h-4 w-4" />
               Jobs
+              {(stats?.newMatches ?? 0) > 0 && activeTab !== 'jobs' && (
+                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-blue-500 text-white text-xs font-bold">
+                  {stats!.newMatches}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('saved')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'saved'
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'saved'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
                 }`}
             >
-              <Bookmark className="h-4 w-4 mr-2 inline" />
+              <Bookmark className="h-4 w-4" />
               Saved
             </button>
             <button
               onClick={() => setActiveTab('applications')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'applications'
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'applications'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
                 }`}
             >
-              <Briefcase className="h-4 w-4 mr-2 inline" />
+              <Briefcase className="h-4 w-4" />
               Applications
+              {(stats?.applicationsPending ?? 0) > 0 && activeTab !== 'applications' && (
+                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-orange-500 text-white text-xs font-bold">
+                  {stats!.applicationsPending}
+                </span>
+              )}
             </button>
             {/* Recrutas Agent - hidden for now, will be added as premium feature */}
             {/* 
@@ -561,7 +571,37 @@ export default function CandidateStreamlinedDashboard() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="max-w-4xl">
+          <div className="max-w-4xl space-y-6">
+            {/* Profile completion meter */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Profile Completion</span>
+                  <span className={`text-sm font-bold ${profileCompletion === 100 ? 'text-green-600' : profileCompletion >= 50 ? 'text-blue-600' : 'text-orange-500'}`}>
+                    {profileCompletion}%
+                  </span>
+                </div>
+                <Progress value={profileCompletion} className="h-2" />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  {profileCompletion === 100
+                    ? 'Your profile is complete — great matches incoming!'
+                    : profileCompletion < 33
+                      ? 'Upload a resume to unlock AI-matched jobs'
+                      : profileCompletion < 66
+                        ? 'Add experience, location, or salary range to improve matches'
+                        : 'Almost there — fill in the remaining fields for better matches'}
+                </p>
+              </CardContent>
+            </Card>
+            {/* Resume nudge when no resume on file */}
+            {!hasResume && (
+              <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  No resume on file yet. Upload one below to get AI-powered job matches.
+                </p>
+              </div>
+            )}
             <ProfileUpload onProfileSaved={() => setActiveTab('jobs')} />
           </div>
         )}
