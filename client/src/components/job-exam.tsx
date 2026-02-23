@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, Trophy, XCircle } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { apiRequest } from '@/lib/queryClient';
@@ -40,6 +40,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
   const { toast } = useToast();
 
   // Fetch exam data
@@ -64,11 +65,12 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
 
   // Timer countdown
   useEffect(() => {
-    if (timeRemaining <= 0) return;
-    
+    if (!exam || timeRemaining <= 0) return;
+
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
+          clearInterval(timer);
           handleSubmitExam();
           return 0;
         }
@@ -77,7 +79,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining > 0]);
+  }, [!!exam]);
 
   const submitExamMutation = useMutation({
     mutationFn: async (examAnswers: Record<string, string>) => {
@@ -86,15 +88,8 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
       });
       return response.json();
     },
-    onSuccess: (result) => {
-      toast({
-        title: result.passed ? "Exam Passed!" : "Exam Completed",
-        description: result.passed 
-          ? `You scored ${result.score}% and passed the exam!`
-          : `You scored ${result.score}%. The passing score was ${exam?.passingScore}%.`,
-        variant: result.passed ? "default" : "destructive",
-      });
-      onComplete(result.score, result.passed);
+    onSuccess: (data) => {
+      setResult({ score: data.score, passed: data.passed });
     },
     onError: (error: any) => {
       toast({
@@ -129,6 +124,36 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
     const answered = Object.keys(answers).length;
     return (answered / exam.questions.length) * 100;
   };
+
+  if (result) {
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardContent className="p-10 text-center space-y-6">
+          {result.passed ? (
+            <Trophy className="w-16 h-16 text-green-500 mx-auto" />
+          ) : (
+            <XCircle className="w-16 h-16 text-red-500 mx-auto" />
+          )}
+          <div>
+            <h2 className="text-2xl font-bold mb-2">
+              {result.passed ? "You Passed!" : "Not Quite"}
+            </h2>
+            <p className="text-4xl font-bold mb-1">
+              {result.score}<span className="text-xl font-normal text-slate-500">%</span>
+            </p>
+            <p className="text-slate-500">
+              {result.passed
+                ? "Great work! Your application has advanced."
+                : `Passing score was ${exam?.passingScore ?? 70}%. Keep practicing!`}
+            </p>
+          </div>
+          <Button onClick={() => onComplete(result.score, result.passed)} className="w-full max-w-xs">
+            Back to Dashboard
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!exam) {
     return (

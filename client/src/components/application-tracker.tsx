@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -263,6 +264,18 @@ export default function ApplicationTracker() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-3">
+                    {/* Progress bar */}
+                    {(() => {
+                      const pct = getProgressPercentage(application.status);
+                      return pct > 0 ? (
+                        <div className="space-y-1">
+                          <Progress value={pct} className="h-1.5" />
+                          <p className="text-xs text-gray-500">
+                            {application.job?.externalUrl ? 'Status self-reported' : 'Status updated by employer'}
+                          </p>
+                        </div>
+                      ) : null;
+                    })()}
                     {/* Self-service status update for external jobs */}
                     {application.job?.externalUrl && (
                       <div className="flex items-center gap-2">

@@ -92,6 +92,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     maxTravelDays: 0
   });
   const [parsedResumeData, setParsedResumeData] = useState<ExtractedInfo | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadElapsed, setUploadElapsed] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -221,8 +222,21 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
         toast({ title: "File Too Large", description: "Please upload a file smaller than 5MB.", variant: "destructive" });
         return;
       }
-      uploadMutation.mutate(file);
+      setPendingFile(file);
+      // Reset the input so re-selecting same file triggers onChange
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleConfirmUpload = () => {
+    if (pendingFile) {
+      uploadMutation.mutate(pendingFile);
+      setPendingFile(null);
+    }
+  };
+
+  const handleCancelUpload = () => {
+    setPendingFile(null);
   };
 
   const handleSaveParsedData = () => {
@@ -303,7 +317,26 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
               <><Upload className="h-5 w-5 text-primary" /><span>Upload & AI Scan Resume</span></>
             )}
           </Button>
-          {profile && (profile as any)?.resumeUrl && !parsedResumeData && (
+          {pendingFile && !uploadMutation.isPending && (
+            <div className="mt-4 p-4 border-2 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 rounded-lg space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">{pendingFile.name}</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">{(pendingFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleConfirmUpload} className="bg-blue-600 hover:bg-blue-700">
+                  <Check className="h-4 w-4 mr-1" /> Upload &amp; Scan
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleCancelUpload}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {profile && (profile as any)?.resumeUrl && !parsedResumeData && !pendingFile && (
             <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
               <p className="text-sm font-medium text-green-800 dark:text-green-200">A resume is on file and has been scanned.</p>
             </div>
@@ -514,6 +547,13 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
                         {parsedResumeData.skills.soft.map((skill: string, index: number) => (
                           <Badge key={index} variant="outline" className="flex items-center gap-1">
                             {skill}
+                            <button onClick={() => {
+                              const newSkills = { ...parsedResumeData.skills };
+                              newSkills.soft = newSkills.soft.filter((s: string) => s !== skill);
+                              setParsedResumeData(prev => prev ? { ...prev, skills: newSkills, skillsCount: (newSkills.technical?.length || 0) + (newSkills.soft?.length || 0) + (newSkills.tools?.length || 0) } : null);
+                            }}>
+                              <X className="h-3 w-3" />
+                            </button>
                           </Badge>
                         ))}
                       </div>
@@ -526,6 +566,13 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
                         {parsedResumeData.skills.tools.map((skill: string, index: number) => (
                           <Badge key={index} variant="outline" className="bg-gray-100 flex items-center gap-1">
                             {skill}
+                            <button onClick={() => {
+                              const newSkills = { ...parsedResumeData.skills };
+                              newSkills.tools = newSkills.tools.filter((s: string) => s !== skill);
+                              setParsedResumeData(prev => prev ? { ...prev, skills: newSkills, skillsCount: (newSkills.technical?.length || 0) + (newSkills.soft?.length || 0) + (newSkills.tools?.length || 0) } : null);
+                            }}>
+                              <X className="h-3 w-3" />
+                            </button>
                           </Badge>
                         ))}
                       </div>

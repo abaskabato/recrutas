@@ -246,7 +246,10 @@ export default function CandidateStreamlinedDashboard() {
             {/* User Menu */}
             <div className="flex items-center space-x-4">
               <ThemeToggleButton />
-              <RealTimeNotifications />
+              <RealTimeNotifications onNavigate={(tab, path) => {
+                if (path) setLocation(path);
+                else if (tab) setActiveTab(tab as any);
+              }} />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

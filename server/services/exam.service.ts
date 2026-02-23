@@ -4,6 +4,7 @@ import Groq from "groq-sdk";
 // Interface for notification service to avoid circular dependency
 interface INotificationService {
   notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number): Promise<void>;
+  notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number): Promise<void>;
 }
 
 function getGroqClient(): Groq | null {
@@ -25,7 +26,7 @@ class ExamProcessingError extends Error {
 export class ExamService {
   constructor(private storage: IStorage, private notificationService: INotificationService) {}
 
-  async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number }> {
+  async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number; passed: boolean }> {
     console.log(`[ExamService] Submitting exam for job ${jobId} and user ${userId}`);
 
     try {
@@ -76,7 +77,19 @@ export class ExamService {
         applicationId
       );
 
-      return { score };
+      // Notify the candidate of their result (core promise: know where you stand today)
+      const passingScore = exam.passingScore || 70;
+      const passed = score >= passingScore;
+      await this.notificationService.notifyCandidateExamResult(
+        userId,
+        job.title,
+        score,
+        passed,
+        passingScore,
+        applicationId
+      );
+
+      return { score, passed };
     } catch (error) {
       console.error("[ExamService] Error submitting exam:", error);
       if (error instanceof ExamProcessingError) {

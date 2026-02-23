@@ -183,8 +183,12 @@ class NotificationService {
       case 'status_update':
         return preferences.applicationUpdates;
       case 'exam_completed':
+      case 'exam_passed':
+      case 'exam_failed':
       case 'high_score_alert':
         return preferences.examAlerts;
+      case 'application_submitted':
+        return preferences.applicationUpdates;
       case 'candidate_message':
       case 'direct_connection':
         return preferences.messageNotifications;
@@ -363,6 +367,24 @@ class NotificationService {
       priority,
       relatedApplicationId: applicationId,
       data: { candidateName, jobTitle, score }
+    });
+  }
+
+  async notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number) {
+    const priority = passed ? 'high' : 'medium';
+    const title = passed ? 'Exam Passed — Chat Unlocked!' : 'Exam Result';
+    const message = passed
+      ? `You scored ${score}% on the ${jobTitle} screening (threshold: ${passingScore}%). You've unlocked chat with the hiring team!`
+      : `You scored ${score}% on the ${jobTitle} screening (threshold: ${passingScore}%). Unfortunately you didn't meet the threshold this time.`;
+
+    await this.createNotification({
+      userId: candidateId,
+      type: passed ? 'exam_passed' : 'exam_failed',
+      title,
+      message,
+      priority,
+      relatedApplicationId: applicationId,
+      data: { jobTitle, score, passingScore, passed }
     });
   }
 
