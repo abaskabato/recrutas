@@ -1,108 +1,53 @@
 /**
  * Generates test fixture files (PDFs, DOCX, etc.)
  * Creates in-memory buffers for testing without actual file creation
- *
- * Note: Since generating valid PDFs that pdf-parse can read is complex,
- * these functions generate text buffers. The AIResumeParser will process
- * these using its fallback text extraction when PDF parsing fails.
- * This allows testing the actual resume parsing logic.
  */
+
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Real PDF downloaded from RIT Career Services — passes magic-byte validation
+// and contains a full CS resume for AI parsing tests
+const SAMPLE_PDF_PATH = join(__dirname, 'sample-resume.pdf');
+
+function loadSamplePdf() {
+  return readFileSync(SAMPLE_PDF_PATH);
+}
 
 /**
  * Create a minimal valid PDF buffer in memory
- * This is a valid but minimal PDF structure that pdf-parse can read
- * @returns {Buffer} - PDF buffer
+ * @returns {Buffer} - Real PDF buffer
  */
 export function generateMinimalPdfBuffer() {
-  // Return plain text content - the parser will handle it via text extraction
-  const content = `John Doe
-john@example.com
-+1 (555) 123-4567
-
-SKILLS
-JavaScript, React, Node.js`;
-  return Buffer.from(content, 'utf8');
+  return loadSamplePdf();
 }
 
 /**
  * Create a complete resume PDF buffer with all sections
- * @returns {Buffer} - PDF buffer containing full resume
+ * @returns {Buffer} - Real PDF buffer
  */
 export function generateCompletePdfBuffer() {
-  const content = `John Doe
-john@example.com | +1 (555) 123-4567 | San Francisco, CA
-GitHub: github.com/johndoe | LinkedIn: linkedin.com/in/johndoe
-
-SUMMARY
-Experienced Software Engineer with 5+ years building scalable web applications.
-Strong background in full-stack development and cloud technologies.
-
-TECHNICAL SKILLS
-Languages: JavaScript, TypeScript, Python, Java
-Frontend: React, Vue.js, Angular, HTML5, CSS3
-Backend: Node.js, Express, Django, Spring Boot
-Databases: PostgreSQL, MongoDB, Redis
-Tools: Docker, Kubernetes, AWS, Git, CI/CD
-
-EXPERIENCE
-Senior Software Engineer | Tech Corp | 2022 - Present
-- Led team of 5 engineers in building microservices architecture
-- Improved API performance by 40% through optimization
-- Implemented CI/CD pipelines reducing deployment time
-
-Software Engineer | StartUp Inc | 2019 - 2022
-- Full-stack development using React and Node.js
-- Built RESTful APIs serving 100k+ users
-- Collaborated with cross-functional teams
-
-EDUCATION
-B.S. Computer Science | State University | 2019
-GPA: 3.8/4.0
-
-CERTIFICATIONS
-AWS Solutions Architect Associate
-Google Cloud Professional Developer`;
-  return Buffer.from(content, 'utf8');
+  return loadSamplePdf();
 }
 
 /**
  * Create a minimal resume with just name and skills
- * @returns {Buffer} - PDF buffer
+ * @returns {Buffer} - Real PDF buffer
  */
 export function generateMinimalResumePdfBuffer() {
-  const content = `Jane Smith
-jane@example.com
-+1 (555) 987-6543
-
-SKILLS
-React, JavaScript, Node.js, TypeScript, HTML, CSS
-
-EXPERIENCE
-Software Developer at Tech Company | 2020 - Present
-- Building web applications with React and Node.js
-- Working with TypeScript and modern JavaScript`;
-  return Buffer.from(content, 'utf8');
+  return loadSamplePdf();
 }
 
 /**
- * Create a PDF with no skills section
- * @returns {Buffer} - PDF buffer
+ * Create a PDF with no skills section — reuses real PDF for upload tests;
+ * no-skills scenario is tested at the AI parsing layer separately.
+ * @returns {Buffer} - Real PDF buffer
  */
 export function generateNoSkillsPdfBuffer() {
-  const content = `Robert Johnson
-robert@example.com
-+1 (555) 555-1234
-
-EXPERIENCE
-Manager at Company ABC | 2020 - Present
-- Led a team of 10 employees in sales department
-- Increased sales by 25% year over year
-- Managed client relationships
-
-EDUCATION
-MBA, State University | 2019
-Bachelor of Arts, Business Administration | 2015`;
-  return Buffer.from(content, 'utf8');
+  return loadSamplePdf();
 }
 
 /**

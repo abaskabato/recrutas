@@ -3,68 +3,70 @@
  * Provides common helper functions for authentication and cleanup
  */
 
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Anon client — used only to obtain user-scoped JWTs for test requests
 import { supabase } from '../server/lib/supabase-client.ts';
+
+// Admin client — bypasses RLS for test setup/teardown
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error(
+    'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for integration tests'
+  );
+}
+
+const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 /**
  * Create a new test candidate user and get authentication token
- * @returns {Promise<{token: string, userId: string}>}
+ * @returns {Promise<{token: string, userId: string, email: string}>}
  */
 export async function createNewUserAndGetToken() {
   const email = `test-candidate-${Date.now()}@example.com`;
   const password = 'TestPassword123!';
 
-  // Create user in Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  // Use admin API: creates user without email confirmation
+  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
     email,
     password,
+    email_confirm: true,
   });
 
   if (authError) {
-    throw new Error(`Auth signup failed: ${authError.message || JSON.stringify(authError)}`);
+    throw new Error(`Auth user creation failed: ${authError.message}`);
   }
 
   const userId = authData.user.id;
 
-  // Create candidate profile
-  const { error: profileError } = await supabase
-    .from('candidateProfiles')
-    .insert([
-      {
-        userId,
-        skills: [],
-        experience: 'entry',
-        resumeParsed: false,
-      },
-    ]);
-
-  if (profileError) {
-    const errorDetails = profileError.message || profileError.code || JSON.stringify(profileError);
-    const message = `Candidate profile creation failed: ${errorDetails}. Check that backend server is running and database is configured.`;
-    console.error('❌ Profile error:', profileError);
-    throw new Error(message);
-  }
-
-  // Create user record
-  const { error: userError } = await supabase
+  // Insert via admin client — bypasses RLS
+  const { error: userError } = await adminSupabase
     .from('users')
-    .insert([
-      {
-        id: userId,
-        email,
-        role: 'candidate',
-      },
-    ]);
+    .insert([{ id: userId, email, name: email, role: 'candidate' }]);
 
   if (userError && !userError.message.includes('duplicate')) {
     throw new Error(`User record creation failed: ${userError.message}`);
   }
 
-  // Get session token
-  const { data: sessionData, error: sessionError } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { error: profileError } = await adminSupabase
+    .from('candidate_users')
+    .insert([{ user_id: userId, skills: [], experience_level: 'entry' }]);
+
+  if (profileError) {
+    throw new Error(`Candidate profile creation failed: ${profileError.message}`);
+  }
+
+  // Sign in with anon client to get a real user-scoped JWT
+  const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
   if (sessionError) {
     throw new Error(`Auth signin failed: ${sessionError.message}`);
@@ -79,60 +81,44 @@ export async function createNewUserAndGetToken() {
 
 /**
  * Create a new test talent owner user and get authentication token
- * @returns {Promise<{token: string, userId: string}>}
+ * @returns {Promise<{token: string, userId: string, email: string}>}
  */
 export async function createNewTalentOwnerAndGetToken() {
   const email = `test-recruiter-${Date.now()}@example.com`;
   const password = 'TestPassword123!';
 
-  // Create user in Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUp({
+  const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
     email,
     password,
+    email_confirm: true,
   });
 
   if (authError) {
-    throw new Error(`Auth signup failed: ${authError.message || JSON.stringify(authError)}`);
+    throw new Error(`Auth user creation failed: ${authError.message}`);
   }
 
   const userId = authData.user.id;
 
-  // Create talent owner profile
-  const { error: profileError } = await supabase
-    .from('talentOwnerProfiles')
-    .insert([
-      {
-        userId,
-        companyName: `Test Company ${Date.now()}`,
-        hiringTimeline: 'immediate',
-      },
-    ]);
-
-  if (profileError) {
-    throw new Error(`Talent owner profile creation failed: ${profileError.message}`);
-  }
-
-  // Create user record with talent_owner role
-  const { error: userError } = await supabase
+  const { error: userError } = await adminSupabase
     .from('users')
-    .insert([
-      {
-        id: userId,
-        email,
-        role: 'talent_owner',
-      },
-    ]);
+    .insert([{ id: userId, email, name: email, role: 'talent_owner' }]);
 
   if (userError && !userError.message.includes('duplicate')) {
     throw new Error(`User record creation failed: ${userError.message}`);
   }
 
-  // Get session token
-  const { data: sessionData, error: sessionError } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { error: profileError } = await adminSupabase
+    .from('talent_owner_profiles')
+    .insert([{ user_id: userId, company_name: `Test Company ${Date.now()}`, hiring_timeline: 'immediate' }]);
+
+  if (profileError) {
+    throw new Error(`Talent owner profile creation failed: ${profileError.message}`);
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
   if (sessionError) {
     throw new Error(`Auth signin failed: ${sessionError.message}`);
@@ -152,33 +138,13 @@ export async function createNewTalentOwnerAndGetToken() {
  */
 export async function deleteUser(userId) {
   try {
-    // Delete candidate profile if exists
-    await supabase
-      .from('candidateProfiles')
-      .delete()
-      .eq('userId', userId);
-
-    // Delete talent owner profile if exists
-    await supabase
-      .from('talentOwnerProfiles')
-      .delete()
-      .eq('userId', userId);
-
-    // Delete user record
-    await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId);
-
-    // Delete from auth
-    const { data: { users } } = await supabase.auth.admin.listUsers();
-    const user = users.find((u) => u.id === userId);
-    if (user) {
-      await supabase.auth.admin.deleteUser(userId);
-    }
+    await adminSupabase.from('candidate_users').delete().eq('user_id', userId);
+    await adminSupabase.from('talent_owner_profiles').delete().eq('user_id', userId);
+    await adminSupabase.from('users').delete().eq('id', userId);
+    await adminSupabase.auth.admin.deleteUser(userId);
   } catch (err) {
     console.error(`Failed to delete user ${userId}:`, err.message);
-    // Don't throw - cleanup should not fail tests
+    // Don't throw — cleanup should not fail tests
   }
 }
 
@@ -188,7 +154,7 @@ export async function deleteUser(userId) {
  * @returns {Promise<Object|null>}
  */
 export async function getUser(userId) {
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('users')
     .select('*')
     .eq('id', userId)
@@ -207,10 +173,10 @@ export async function getUser(userId) {
  * @returns {Promise<Object|null>}
  */
 export async function getCandidateProfile(userId) {
-  const { data, error } = await supabase
-    .from('candidateProfiles')
+  const { data, error } = await adminSupabase
+    .from('candidate_users')
     .select('*')
-    .eq('userId', userId)
+    .eq('user_id', userId)
     .single();
 
   if (error && error.code !== 'PGRST116') {
@@ -226,11 +192,11 @@ export async function getCandidateProfile(userId) {
  * @returns {Promise<Array>}
  */
 export async function getActivityLogs(userId) {
-  const { data, error } = await supabase
-    .from('activityLogs')
+  const { data, error } = await adminSupabase
+    .from('activity_logs')
     .select('*')
-    .eq('userId', userId)
-    .order('createdAt', { ascending: false });
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(`Failed to get activity logs: ${error.message}`);
@@ -248,8 +214,7 @@ export async function clearTestData() {
     // This is dangerous - only use if you have a dedicated test database
     console.warn('⚠️  Clearing test data...');
 
-    // Delete test records (filter by email pattern)
-    const { data: testUsers } = await supabase.auth.admin.listUsers();
+    const { data: testUsers } = await adminSupabase.auth.admin.listUsers();
     const testUserIds = testUsers
       .filter((u) => u.email.includes('test-'))
       .map((u) => u.id);

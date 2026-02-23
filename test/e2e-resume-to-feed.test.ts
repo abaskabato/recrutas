@@ -21,7 +21,7 @@ jest.setTimeout(120000);
 describe('E2E: Resume Upload to Job Feed', () => {
   let testUserId: string;
   let authToken: string;
-  const API_BASE = 'http://localhost:3000/api';
+  const API_BASE = 'http://localhost:5001/api';
 
   beforeAll(async () => {
     const result = await createNewUserAndGetToken();

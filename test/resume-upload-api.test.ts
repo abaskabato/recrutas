@@ -15,7 +15,7 @@ import { createNewUserAndGetToken, deleteUser } from './test-utils';
 describe('Resume Upload API Integration Tests', () => {
   let testUserId: string;
   let authToken: string;
-  const API_BASE = process.env.API_BASE || 'http://localhost:3000/api';
+  const API_BASE = process.env.API_BASE || 'http://localhost:5001/api';
 
   beforeAll(async () => {
     // Create test user

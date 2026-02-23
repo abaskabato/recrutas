@@ -50,7 +50,7 @@ async function waitForActivityLogEvent(getActivityLogs, eventName, timeout = 300
     async () => {
       const logs = await getActivityLogs();
       lastLogs = logs;
-      return logs.some((log) => log.action === eventName);
+      return logs.some((log) => log.type === eventName);
     },
     timeout,
     500
@@ -62,7 +62,7 @@ async function waitForActivityLogEvent(getActivityLogs, eventName, timeout = 300
     );
   }
 
-  return lastLogs.find((log) => log.action === eventName);
+  return lastLogs.find((log) => log.type === eventName);
 }
 
 /**
