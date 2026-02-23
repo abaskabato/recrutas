@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X } from "lucide-react";
+import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X, FileText } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -30,6 +30,7 @@ interface ApplicationStatus {
     salaryMax?: number;
     workType: string;
     externalUrl?: string;
+    hasExam?: boolean;
   };
   match?: {
     matchScore: string;
@@ -346,6 +347,13 @@ export default function ApplicationTracker() {
                         )}
                       </div>
                       <div className="flex gap-2">
+                        {/* Take Exam button: internal jobs with exam, submitted/applied status */}
+                        {!application.job?.externalUrl && application.job?.hasExam && ['applied', 'submitted'].includes(application.status) && (
+                          <Button variant="outline" size="sm" className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400" onClick={() => setLocation(`/exam/${application.job?.id}`)}>
+                            <FileText className="h-4 w-4 mr-1" />
+                            Take Exam
+                          </Button>
+                        )}
                         {/* Message button: only for internal jobs at screening+ stage */}
                         {!application.job?.externalUrl && ['screening', 'interview_scheduled', 'interview_completed', 'offer'].includes(application.status) && (
                           <Button variant="outline" size="sm" onClick={() => setLocation('/chat')}>

@@ -1424,6 +1424,7 @@ export class DatabaseStorage implements IStorage {
             location: jobPostings.location,
             workType: jobPostings.workType,
             externalUrl: jobPostings.externalUrl,
+            hasExam: jobPostings.hasExam,
           }
         })
         .from(jobApplications)
