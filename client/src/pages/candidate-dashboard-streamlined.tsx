@@ -747,19 +747,52 @@ interface SettingsModalProps {
 
 function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [jobAlerts, setJobAlerts] = useState(true);
   const [applicationUpdates, setApplicationUpdates] = useState(true);
   const [profileVisibility, setProfileVisibility] = useState(true);
-  const { toast } = useToast();
 
-  const handleSave = () => {
-    toast({
-      title: "Settings Saved",
-      description: "Your preferences have been updated successfully.",
-    });
-    onOpenChange(false);
-  };
+  const { data: savedPrefs } = useQuery({
+    queryKey: ['/api/candidate/notification-preferences'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/candidate/notification-preferences');
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  useEffect(() => {
+    if (savedPrefs && Object.keys(savedPrefs).length > 0) {
+      setEmailNotifications(savedPrefs.emailNotifications ?? true);
+      setJobAlerts(savedPrefs.inAppNotifications ?? true);
+      setApplicationUpdates(savedPrefs.applicationUpdates ?? true);
+    }
+  }, [savedPrefs]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('PUT', '/api/candidate/notification-preferences', {
+        emailNotifications,
+        inAppNotifications: jobAlerts,
+        applicationUpdates,
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/notification-preferences'] });
+      toast({ title: "Settings Saved", description: "Your preferences have been updated." });
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save settings.", variant: "destructive" });
+    },
+  });
+
+  const handleSave = () => saveMutation.mutate();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -865,8 +898,8 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
-            Save Changes
+          <Button onClick={handleSave} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </DialogContent>

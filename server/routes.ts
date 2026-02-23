@@ -2194,6 +2194,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  app.get('/api/candidate/notification-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const prefs = await storage.getNotificationPreferences(req.user.id);
+      res.json(prefs || {});
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+
+  app.put('/api/candidate/notification-preferences', isAuthenticated, async (req: any, res) => {
+    try {
+      const prefs = await storage.updateNotificationPreferences(req.user.id, req.body);
+      res.json(prefs);
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
   app.delete('/api/candidate/agent-tasks/:taskId', isAuthenticated, async (req: any, res) => {
     try {
       const taskId = parseIntParam(req.params.taskId);
