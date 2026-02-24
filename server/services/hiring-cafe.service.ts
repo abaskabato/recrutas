@@ -10,6 +10,7 @@
  */
 
 import { ExternalJobInput } from './job-ingestion.service.js';
+import { SKILL_ALIASES } from '../skill-normalizer.js';
 
 const HIRING_CAFE_API_URL = 'https://hiring.cafe/api/search-jobs';
 const PAGE_SIZE = 1000;
@@ -47,46 +48,6 @@ interface SearchOptions {
   signal?: AbortSignal;
 }
 
-// Common skills for keyword extraction from descriptions
-const COMMON_SKILLS = [
-  // Tech
-  'JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Java', 'Go', 'Rust',
-  'AWS', 'Docker', 'Kubernetes', 'PostgreSQL', 'MongoDB', 'Redis', 'SQL',
-  'HTML', 'CSS', 'Vue.js', 'Angular', 'Express', 'Django', 'Flask',
-  'Git', 'CI/CD', 'GraphQL', 'REST', 'API', 'Microservices',
-  'Machine Learning', 'AI', 'Data Science', 'Analytics',
-  // Hospitality & Food Service
-  'Dishwashing', 'Kitchen Staff', 'Line Cook', 'Prep Cook', 'Server', 'Bartender',
-  'Host', 'Busser', 'Food Preparation', 'Culinary Arts', 'Barista', 'Housekeeping',
-  'Sanitation', 'Food Safety', 'ServSafe', 'HACCP', 'POS Systems', 'Cash Handling',
-  'Cashier', 'Restaurant', 'Hospitality',
-  // Trades & Construction
-  'Electrical', 'Plumbing', 'Carpentry', 'Welding', 'HVAC', 'Roofing', 'Masonry',
-  'Painting', 'Landscaping', 'General Labor', 'Construction', 'Warehouse',
-  'Forklift Operation', 'Blueprint Reading', 'OSHA',
-  // Healthcare
-  'Certified Nursing Assistant', 'CNA', 'Home Health Aide', 'HHA',
-  'Medical Assistant', 'Phlebotomy', 'CPR Certified', 'BLS Certified',
-  'Patient Care', 'Electronic Medical Records', 'EMR', 'HIPAA Compliance',
-  'Medical Terminology', 'Vital Signs',
-  // Retail & Customer Service
-  'Retail Sales', 'Sales', 'Customer Service', 'Call Center', 'Receptionist',
-  'Front Desk', 'Clerical', 'Data Entry', 'Inventory Management', 'Stocking',
-  'Merchandising', 'Visual Merchandising', 'Loss Prevention',
-  // Transportation
-  'Delivery Driver', 'Truck Driver', 'CDL', 'Commercial Drivers License',
-  'Rideshare Driver', 'Courier', 'DOT', 'Delivery',
-  // Cleaning & Maintenance
-  'Janitorial', 'Cleaning', 'Housekeeping', 'Maintenance', 'Handyman',
-  'Property Maintenance', 'Groundskeeping',
-  // Security
-  'Security', 'Security Guard', 'Security Officer', 'Surveillance',
-  'Safety Compliance', 'First Aid',
-  // General
-  'Microsoft Office', 'Excel', 'Word', 'Communication', 'Teamwork', 'Leadership',
-  'Time Management', 'Problem Solving', 'Attention to Detail', 'Multitasking',
-  'Physical Stamina', 'Heavy Lifting',
-];
 
 /**
  * Strip HTML tags from a string, returning plain text.
@@ -105,15 +66,21 @@ function stripHtml(html: string): string {
 }
 
 /**
- * Extract skills from text using keyword matching.
+ * Extract skills from text using n-gram lookup against the full SKILL_ALIASES taxonomy.
+ * Identical approach to job-ingestion.service.ts for consistency.
  */
 function extractSkillsFromText(text: string): string[] {
-  return COMMON_SKILLS
-    .filter(skill => {
-      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`(?<![a-zA-Z])${escaped}(?![a-zA-Z])`, 'i').test(text);
-    })
-    .slice(0, 10);
+  if (!text) return [];
+  const words = text.split(/[\s,;|•·()\[\]{}<>]+/).filter(w => w.length > 0);
+  const found = new Set<string>();
+  for (let i = 0; i < words.length; i++) {
+    for (let n = 1; n <= 4 && i + n <= words.length; n++) {
+      const phrase = words.slice(i, i + n).join(' ').toLowerCase();
+      const canonical = SKILL_ALIASES[phrase];
+      if (canonical) found.add(canonical);
+    }
+  }
+  return Array.from(found).slice(0, 15);
 }
 
 /**

@@ -500,15 +500,57 @@ export function normalizeSkills(skills: string[]): string[] {
  * E.g., a React developer can partially match Next.js, Remix, Gatsby jobs.
  */
 const SKILL_PARENTS: Record<string, string[]> = {
+  // JavaScript / TypeScript
   'React': ['Next.js', 'Remix', 'Gatsby', 'React Native'],
   'JavaScript': ['TypeScript', 'Node.js', 'React', 'Vue.js', 'Angular', 'Next.js'],
-  'TypeScript': ['JavaScript'],
-  'Python': ['Django', 'Flask', 'FastAPI', 'NumPy', 'Pandas', 'PyTorch', 'TensorFlow', 'Scikit-learn'],
+  'TypeScript': ['JavaScript', 'Angular'],
   'Node.js': ['Express.js', 'NestJS'],
-  'SQL': ['PostgreSQL', 'MySQL', 'SQLite', 'SQL Server', 'MariaDB'],
-  'AWS': ['CloudFormation', 'AWS Lambda'],
-  'Docker': ['Kubernetes'],
+  'Vue.js': ['Nuxt.js'],
+  'Svelte': ['SvelteKit'],
+
+  // Upward links (child → parent for partial credit)
+  'Next.js': ['React'],
+  'Remix': ['React'],
+  'React Native': ['React'],
+  'Express.js': ['Node.js'],
+  'NestJS': ['Node.js'],
+  'Nuxt.js': ['Vue.js'],
+  'SvelteKit': ['Svelte'],
+  'Angular': ['TypeScript'],
+
+  // Python
+  'Python': ['Django', 'Flask', 'FastAPI', 'NumPy', 'Pandas', 'PyTorch', 'TensorFlow', 'Scikit-learn'],
+  'Django': ['Python'],
+  'Flask': ['Python'],
+  'FastAPI': ['Python'],
+
+  // JVM
   'Java': ['Spring', 'Spring Boot'],
+  'Spring': ['Java'],
+  'Spring Boot': ['Java'],
+  'Kotlin': ['Android'],
+  'Swift': ['iOS'],
+
+  // Databases
+  'SQL': ['PostgreSQL', 'MySQL', 'SQLite', 'SQL Server', 'MariaDB'],
+
+  // Cloud & DevOps
+  'AWS': ['AWS Lambda', 'CloudFormation', 'DynamoDB', 'Redshift'],
+  'GCP': ['BigQuery'],
+  'Azure': ['Cosmos DB'],
+  'Docker': ['Kubernetes', 'Docker Compose'],
+  'Kubernetes': ['Helm'],
+  'CI/CD': ['GitHub Actions', 'Jenkins', 'GitLab CI'],
+  'Linux': ['Bash'],
+  'Go': ['gRPC'],
+
+  // GraphQL
+  'GraphQL': ['Apollo'],
+
+  // .NET
+  'C#': ['.NET', 'ASP.NET'],
+
+  // Ruby / PHP
   'Ruby': ['Ruby on Rails'],
   'PHP': ['Laravel', 'Symfony'],
 };

@@ -6,6 +6,7 @@ import { semanticJobSearch, indexJobForSearch, hybridJobSearch, type SearchResul
 import { rankJobsWithLTR, learnToRank, type RankableJob, type CandidateProfile, type RankedJob } from './learn-to-rank.js';
 import { db } from './db.js';
 import { jobPostings } from '../shared/schema.js';
+import { normalizeSkills, getRelatedSkills } from './skill-normalizer.js';
 
 export class MatchingEngineError extends Error {
   constructor(message: string, public cause?: Error) {
@@ -108,10 +109,11 @@ export class AdvancedMatchingEngine {
         const oldestKey = this.matchCache.keys().next().value;
         if (oldestKey !== undefined) this.matchCache.delete(oldestKey);
       }
-      this.matchCache.set(cacheKey, matches.slice(0, 50)); // Top 50 matches
+      const topMatches = matches.slice(0, 50); // Top 50 matches
+      this.matchCache.set(cacheKey, topMatches);
       setTimeout(() => this.matchCache.delete(cacheKey), this.CACHE_DURATION);
 
-      return matches;
+      return topMatches;
     } catch (error) {
       console.error('Advanced matching error:', error);
       throw new MatchingEngineError(
@@ -584,18 +586,26 @@ export class AdvancedMatchingEngine {
 
   private calculateSimpleSkillMatch(candidateSkills: string[], jobSkills: string[]): number {
     if (!candidateSkills?.length || !jobSkills?.length) return 0;
-    
-    const normalizedCand = candidateSkills.map(s => s.toLowerCase());
-    const normalizedJob = jobSkills.map(s => s.toLowerCase());
-    
-    let matches = 0;
+
+    const normalizedCand   = normalizeSkills(candidateSkills).map(s => s.toLowerCase());
+    const normalizedJobSet = new Set(normalizeSkills(jobSkills).map(s => s.toLowerCase()));
+    const counted = new Set<string>();
+
+    let exact = 0;
     for (const cs of normalizedCand) {
-      if (normalizedJob.some(js => js.includes(cs) || cs.includes(js))) {
-        matches++;
+      if (normalizedJobSet.has(cs)) { exact++; counted.add(cs); }
+    }
+
+    let partial = 0;
+    for (const cs of candidateSkills) {
+      for (const related of getRelatedSkills(cs)) {
+        const r = related.toLowerCase();
+        if (normalizedJobSet.has(r) && !counted.has(r)) { partial++; counted.add(r); }
       }
     }
-    
-    return Math.min(matches / normalizedJob.length, 1);
+
+    // Floor of 3 prevents a 1-skill job from always returning 1.0
+    return Math.min((exact + 0.5 * partial) / Math.max(normalizedJobSet.size, 3), 1);
   }
 
   getLTRStats() {

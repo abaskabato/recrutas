@@ -35,8 +35,8 @@ import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { hiringCafeService } from './services/hiring-cafe.service';
 import { jobIngestionService } from './services/job-ingestion.service';
-import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo } from './ml-matching';
-import { normalizeSkills } from './skill-normalizer';
+import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
+import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
 
 // In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
 let remoteOkCache: { data: any[]; timestamp: number } | null = null;
@@ -54,21 +54,33 @@ function simpleSkillMatch(candidateSkills: string[], job: any): {
   aiExplanation: string;
   confidenceLevel: number;
 } {
-  const normalizedSkills = candidateSkills.map((s: string) => s.toLowerCase());
-  // Normalize job skills so "ReactJS" matches candidate's "React"
-  const jobSkills = normalizeSkills(job.skills || []).map((s: string) => s.toLowerCase());
-  const matchingSkills = normalizedSkills.filter((s: string) =>
-    jobSkills.some((js: string) => js === s)
-  );
-  const jobSkillsCount = jobSkills.length || 1;
-  const matchScore = matchingSkills.length > 0
-    ? Math.round((matchingSkills.length / Math.max(jobSkillsCount, 1)) * 100)
-    : 0;
+  const normalizedCand = normalizeSkills(candidateSkills).map(s => s.toLowerCase());
+  const normalizedJob  = normalizeSkills(job.skills || []).map(s => s.toLowerCase());
+  // Floor of 3 prevents a 1-skill job from always scoring 100%
+  const jobSkillsCount = Math.max(normalizedJob.length, 3);
+
+  const exactMatches = normalizedCand.filter(s => normalizedJob.includes(s));
+  const exactMatchSet = new Set(exactMatches);
+
+  // Partial credit for SKILL_PARENTS relationships (e.g. Next.js → React)
+  const partialMatches: string[] = [];
+  for (const skill of candidateSkills) {
+    for (const related of getRelatedSkills(skill)) {
+      const r = related.toLowerCase();
+      if (normalizedJob.includes(r) && !exactMatchSet.has(r)) {
+        partialMatches.push(related);
+      }
+    }
+  }
+
+  const effectiveMatches = exactMatches.length + 0.5 * partialMatches.length;
+  const matchScore = Math.min(100, Math.round((effectiveMatches / jobSkillsCount) * 100));
+
   return {
     matchScore,
-    skillMatches: matchingSkills,
-    aiExplanation: matchingSkills.length > 0
-      ? `${matchingSkills.length} skill matches: ${matchingSkills.join(', ')}`
+    skillMatches: [...exactMatches, ...partialMatches.map(s => `~${s}`)],
+    aiExplanation: effectiveMatches > 0
+      ? `${exactMatches.length} direct + ${partialMatches.length} related skill matches`
       : 'No skill matches found',
     confidenceLevel: 1,
   };
@@ -517,46 +529,70 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Score hiring.cafe jobs using ML matching (open-source transformers)
       const candidateExperience = candidate?.experience || '';
 
-      // Pre-compute candidate embedding once (reused across all jobs)
+      // Pre-compute candidate embedding once (reused across all jobs).
+      // Only use ML if the model is already loaded — avoids blocking the response
+      // on the 10-30s first-load delay. The warmup timer handles background preloading.
+      const useML = mlScoringEnabled && isModelLoaded();
       let candidateEmbedding: number[] | undefined;
-      if (mlScoringEnabled && candidateSkills.length > 0) {
+      if (useML && candidateSkills.length > 0) {
         try {
           candidateEmbedding = await generateCandidateEmbedding(candidateSkills, candidateExperience);
         } catch (err) {
           console.warn('[ML Scoring] Failed to pre-compute candidate embedding:', err);
         }
       }
+      if (!useML) {
+        console.log('[ML Scoring] Model not yet loaded — using simple skill matching (fast path)');
+      }
 
       let scoredCafeJobs: any[] = [];
 
-      // Process in batches to avoid overwhelming the ML model - reduce to 3 jobs per batch for speed
+      // When ML model is loaded: process in batches to avoid memory pressure.
+      // When model is not loaded: score all jobs synchronously (simple skill match, no await needed).
       const batchSize = 3;
-      for (let i = 0; i < cafeJobs.length; i += batchSize) {
-        // Check timeout before each batch
-        if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
-          console.log('[Matching] Timeout - stopping cafe job scoring');
-          break;
+      if (useML) {
+        for (let i = 0; i < cafeJobs.length; i += batchSize) {
+          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
+            console.log('[Matching] Timeout - stopping cafe job scoring');
+            break;
+          }
+          const batch = cafeJobs.slice(i, i + batchSize);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (job) => {
+              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
+              return {
+                ...job,
+                id: `cafe_${job.externalId}`,
+                matchScore: mlScore.matchScore,
+                skillMatches: mlScore.skillMatches,
+                aiExplanation: mlScore.aiExplanation,
+                confidenceLevel: mlScore.confidenceLevel,
+                source: 'hiring-cafe',
+                trustScore: job.trustScore ?? 50,
+                livenessStatus: job.livenessStatus ?? 'unknown',
+              };
+            })
+          );
+          scoredCafeJobs.push(...batchResults
+            .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+            .map(r => r.value));
         }
-        const batch = cafeJobs.slice(i, i + batchSize);
-        const batchResults = await Promise.allSettled(
-          batch.map(async (job) => {
-            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-            return {
-              ...job,
-              id: `cafe_${job.externalId}`,
-              matchScore: mlScore.matchScore,
-              skillMatches: mlScore.skillMatches,
-              aiExplanation: mlScore.aiExplanation,
-              confidenceLevel: mlScore.confidenceLevel,
-              source: 'hiring-cafe',
-              trustScore: job.trustScore ?? 50,
-              livenessStatus: job.livenessStatus ?? 'unknown',
-            };
-          })
-        );
-        scoredCafeJobs.push(...batchResults
-          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-          .map(r => r.value));
+      } else {
+        // Fast path: synchronous simple skill matching (no model load needed)
+        scoredCafeJobs = cafeJobs.map((job) => {
+          const score = simpleSkillMatch(candidateSkills, job);
+          return {
+            ...job,
+            id: `cafe_${job.externalId}`,
+            matchScore: score.matchScore,
+            skillMatches: score.skillMatches,
+            aiExplanation: score.aiExplanation,
+            confidenceLevel: score.confidenceLevel,
+            source: 'hiring-cafe',
+            trustScore: job.trustScore ?? 50,
+            livenessStatus: job.livenessStatus ?? 'unknown',
+          };
+        });
       }
 
       // If DB returned matches, filter cafe jobs to 40%+ match
@@ -578,34 +614,52 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Add cafe job keys to seenKeys so RemoteOK deduplicates against them
       uniqueCafeJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
 
-      // Score and add RemoteOK jobs using ML matching (with timeout check)
+      // Score and add RemoteOK jobs (ML if loaded, otherwise simple matching)
       let scoredRemoteOkJobs: any[] = [];
-      for (let i = 0; i < Math.min(remoteOkJobs.length, 10); i += batchSize) { // Limit to 10 jobs max
-        // Check timeout before each batch
-        if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
-          console.log('[Matching] Timeout - stopping RemoteOK job scoring');
-          break;
+      const remoteOkLimit = remoteOkJobs.slice(0, 10);
+      if (useML) {
+        for (let i = 0; i < remoteOkLimit.length; i += batchSize) {
+          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
+            console.log('[Matching] Timeout - stopping RemoteOK job scoring');
+            break;
+          }
+          const batch = remoteOkLimit.slice(i, i + batchSize);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (job: any) => {
+              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
+              return {
+                ...job,
+                id: job.id || `remoteok_${job.externalId}`,
+                matchScore: mlScore.matchScore,
+                skillMatches: mlScore.skillMatches,
+                aiExplanation: mlScore.aiExplanation,
+                confidenceLevel: mlScore.confidenceLevel,
+                source: 'remote-ok',
+                trustScore: job.trustScore ?? 50,
+                livenessStatus: job.livenessStatus ?? 'unknown',
+              };
+            })
+          );
+          scoredRemoteOkJobs.push(...batchResults
+            .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+            .map(r => r.value));
         }
-        const batch = remoteOkJobs.slice(i, i + batchSize);
-        const batchResults = await Promise.allSettled(
-          batch.map(async (job: any) => {
-            const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-            return {
-              ...job,
-              id: job.id || `remoteok_${job.externalId}`,
-              matchScore: mlScore.matchScore,
-              skillMatches: mlScore.skillMatches,
-              aiExplanation: mlScore.aiExplanation,
-              confidenceLevel: mlScore.confidenceLevel,
-              source: 'remote-ok',
-              trustScore: job.trustScore ?? 50,
-              livenessStatus: job.livenessStatus ?? 'unknown',
-            };
-          })
-        );
-        scoredRemoteOkJobs.push(...batchResults
-          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-          .map(r => r.value));
+      } else {
+        // Fast path: synchronous simple skill matching
+        scoredRemoteOkJobs = remoteOkLimit.map((job: any) => {
+          const score = simpleSkillMatch(candidateSkills, job);
+          return {
+            ...job,
+            id: job.id || `remoteok_${job.externalId}`,
+            matchScore: score.matchScore,
+            skillMatches: score.skillMatches,
+            aiExplanation: score.aiExplanation,
+            confidenceLevel: score.confidenceLevel,
+            source: 'remote-ok',
+            trustScore: job.trustScore ?? 50,
+            livenessStatus: job.livenessStatus ?? 'unknown',
+          };
+        });
       }
 
       // Filter RemoteOK jobs by match score and deduplication

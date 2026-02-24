@@ -872,16 +872,18 @@ export class DatabaseStorage implements IStorage {
         }
 
         // Score: exact matches count 1.0, related matches count 0.5, divided by job skill count
-        const jobSkillsCount = job.skills?.length || 1;
+        // Floor of 3 prevents a 1-skill job from always scoring 100%
+        const jobSkillsCount = Math.max(job.skills?.length || 0, 3);
         const effectiveMatches = matchingSkills.length + 0.5 * partialMatchSkills.length;
         const skillMatchPercentage = effectiveMatches > 0
-          ? Math.round((effectiveMatches / Math.max(jobSkillsCount, 1)) * 100)
+          ? Math.round((effectiveMatches / jobSkillsCount) * 100)
           : 0;
 
         const expMultiplier = candidate.experienceLevel
           ? this.experienceLevelMultiplier(candidate.experienceLevel, job.title)
           : 1.0;
-        const adjustedMatchScore = Math.round(skillMatchPercentage * expMultiplier);
+        // Clamp to 100 so expMultiplier > 1 can't push score over 100
+        const adjustedMatchScore = Math.min(100, Math.round(skillMatchPercentage * expMultiplier));
 
         const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
 
@@ -904,7 +906,7 @@ export class DatabaseStorage implements IStorage {
           companyVerified: job.companyVerified || false,
         };
       })
-      .filter(job => job.matchScore >= 10) // 10% minimum threshold for broader job matching including non-tech roles
+      .filter(job => job.matchScore >= 20) // 20% minimum — requires at least 1/5 skills to match
       .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           const jobSalaryMin = job.salaryMin || 0;
@@ -938,7 +940,7 @@ export class DatabaseStorage implements IStorage {
         return scoreB - scoreA;
       });
 
-    console.log(`After filtering (40%+ match): ${recommendations.length} recommendations`);
+    console.log(`After filtering (20%+ match): ${recommendations.length} recommendations`);
     return recommendations;
   }
 

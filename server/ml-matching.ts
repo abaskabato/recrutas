@@ -5,6 +5,7 @@
  */
 
 import { pipeline, env } from '@xenova/transformers';
+import { normalizeSkills } from './skill-normalizer.js';
 
 // Skip local model checks since we're using pre-converted ONNX models
 env.allowLocalModels = false;
@@ -19,6 +20,8 @@ interface EmbeddingResult {
 }
 
 let embeddingPipeline: any = null;
+// Single in-flight promise so concurrent callers share one download instead of stacking N parallel downloads
+let pipelineLoadingPromise: Promise<any> | null = null;
 
 // Timeout wrapper for promises
 function withTimeout<T>(promise: Promise<T>, ms: number, operationName: string): Promise<T> {
@@ -27,7 +30,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operationName: string):
       console.warn(`[ML Matching] ${operationName} timed out after ${ms}ms`);
       reject(new Error(`${operationName} timed out after ${ms}ms`));
     }, ms);
-    
+
     promise
       .then(result => {
         clearTimeout(timer);
@@ -40,19 +43,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operationName: string):
   });
 }
 
-// Singleton pipeline for generating embeddings
+// Singleton pipeline — all concurrent callers await the same loading promise
 async function getEmbeddingPipeline() {
-  if (!embeddingPipeline) {
+  if (embeddingPipeline) return embeddingPipeline;
+
+  if (!pipelineLoadingPromise) {
     console.log('[ML Matching] Loading embedding model (first request may take 10-30 seconds)...');
-    // Add timeout to prevent infinite hang during model download
-    embeddingPipeline = await withTimeout(
+    pipelineLoadingPromise = withTimeout(
       pipeline('feature-extraction', MODEL_NAME),
-      60000, // 60 second timeout for model loading
+      60000,
       'Model loading'
-    );
-    console.log('[ML Matching] Model loaded successfully');
+    ).then(p => {
+      embeddingPipeline = p;
+      pipelineLoadingPromise = null;
+      console.log('[ML Matching] Model loaded successfully');
+      return p;
+    }).catch(err => {
+      pipelineLoadingPromise = null; // allow retry on next request
+      throw err;
+    });
   }
-  return embeddingPipeline;
+
+  return pipelineLoadingPromise;
 }
 
 /**
@@ -93,22 +105,23 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResult> 
  */
 export async function generateBatchEmbeddings(texts: string[]): Promise<EmbeddingResult[]> {
   const pipe = await getEmbeddingPipeline();
-  
+
   const results: EmbeddingResult[] = [];
-  
+
   for (const text of texts) {
     const truncatedText = text.slice(0, 2048);
-    const output: any = await pipe(truncatedText, {
-      pooling: 'mean',
-      normalize: true,
-    });
+    const output: any = await withTimeout(
+      pipe(truncatedText, { pooling: 'mean', normalize: true }),
+      30000,
+      'Batch embedding generation'
+    );
 
     results.push({
       embedding: Array.from(output.data).map((x: any) => Number(x)),
       tokens: output.data.length,
     });
   }
-  
+
   return results;
 }
 
@@ -196,19 +209,15 @@ export async function calculateMLMatchScore(
       jobEmbedding.embedding
     );
     
-    // Additional: Check explicit skill matches
-    const normalizedCandidateSkills = candidateSkills.map(s => s.toLowerCase().trim());
-    const normalizedJobSkills = [...(jobSkills || []), ...(jobRequirements || [])].map(s => s.toLowerCase().trim());
-    
+    // Additional: Check explicit skill matches (canonical exact match, no substring false positives)
+    const normalizedCandSkills = normalizeSkills(candidateSkills).map(s => s.toLowerCase());
+    const normalizedJobSkillSet = new Set(
+      normalizeSkills([...(jobSkills || []), ...(jobRequirements || [])]).map(s => s.toLowerCase())
+    );
     const explicitMatches: string[] = [];
-    for (const candidateSkill of normalizedCandidateSkills) {
-      for (const jobSkill of normalizedJobSkills) {
-        // Check for exact or partial matches
-        if (jobSkill.includes(candidateSkill) || candidateSkill.includes(jobSkill)) {
-          if (!explicitMatches.includes(candidateSkill)) {
-            explicitMatches.push(candidateSkill);
-          }
-        }
+    for (const skill of normalizedCandSkills) {
+      if (normalizedJobSkillSet.has(skill) && !explicitMatches.includes(skill)) {
+        explicitMatches.push(skill);
       }
     }
     
@@ -257,6 +266,14 @@ export async function calculateMLMatchScore(
       explanation: 'Unable to calculate match score',
     };
   }
+}
+
+/**
+ * Returns true if the embedding model is already loaded in memory.
+ * Used to skip ML scoring (and the 10-30s load delay) on the first request.
+ */
+export function isModelLoaded(): boolean {
+  return embeddingPipeline !== null;
 }
 
 /**
