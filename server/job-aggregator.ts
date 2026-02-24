@@ -1117,9 +1117,18 @@ export class JobAggregator {
   }
 
   // RemoteOK API - free, no authentication required
-  async fetchRemoteOKJobs(): Promise<ExternalJob[]> {
+  async fetchRemoteOKJobs(skillTags?: string[]): Promise<ExternalJob[]> {
     try {
-      const response = await this.fetchWithRetry('https://remoteok.io/api', {
+      let url = 'https://remoteok.io/api';
+      if (skillTags && skillTags.length > 0) {
+        const tags = skillTags.slice(0, 3)
+          .map(s => s.toLowerCase().replace(/[^a-z0-9]/g, '-'))
+          .join(',');
+        url = `https://remoteok.io/api?tags=${tags}`;
+        console.log(`[RemoteOK] Fetching with tags: ${tags}`);
+      }
+
+      const response = await this.fetchWithRetry(url, {
         headers: {
           'User-Agent': 'Recrutas-Platform/1.0'
         }

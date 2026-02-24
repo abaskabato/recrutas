@@ -224,7 +224,10 @@ export async function calculateMLMatchScore(
     // Combine ML similarity with explicit matches
     // ML similarity: 70%, Explicit matches: 30%
     const explicitMatchBonus = Math.min(explicitMatches.length * 0.1, 0.3);
-    const finalScore = Math.min((baseSimilarity * 0.7) + explicitMatchBonus, 1.0);
+    let finalScore = Math.min((baseSimilarity * 0.7) + explicitMatchBonus, 1.0);
+    // Semantic similarity alone shouldn't rank unrelated jobs highly —
+    // cap at 25% when there is no explicit skill overlap
+    if (explicitMatches.length === 0) finalScore = Math.min(finalScore, 0.25);
     
     // Confidence based on text quality
     const candidateTextLength = candidateSkills.join(' ').length + (candidateExperience || '').length;

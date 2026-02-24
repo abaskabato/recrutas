@@ -39,8 +39,14 @@ import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isMode
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
 
 // In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
-let remoteOkCache: { data: any[]; timestamp: number } | null = null;
+let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
 const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+// Skills that are medical/healthcare-specific and should not drive tech job queries
+const MEDICAL_SKILL_SET = new Set([
+  'patient care','bls certified','cpr certified',
+  'hipaa compliance','electronic medical records','phlebotomy'
+]);
 
 // ML-enhanced job scoring (disable with ENABLE_ML_MATCHING=false)
 const mlScoringEnabled = process.env.ENABLE_ML_MATCHING !== 'false';
@@ -473,19 +479,24 @@ export async function registerRoutes(app: Express): Promise<Express> {
         : Promise.resolve([]);
 
       // Also try RemoteOK as fallback (free, no rate limits) — cached for 15 min
+      const topTechSkills = (candidateSkills as string[])
+        .filter((s: string) => !MEDICAL_SKILL_SET.has(s.toLowerCase()))
+        .slice(0, 3);
+      const remoteOkCacheKey = topTechSkills.join(',');
+
       const remoteOkPromise = (async () => {
         if (candidateSkills.length === 0) return [];
-        // Return cached data if fresh
-        if (remoteOkCache && Date.now() - remoteOkCache.timestamp < REMOTEOK_CACHE_TTL) {
-          console.log(`[RemoteOK] Cache hit (${remoteOkCache.data.length} jobs)`);
+        // Return cached data if fresh and for the same skill key
+        if (remoteOkCache && remoteOkCache.key === remoteOkCacheKey && Date.now() - remoteOkCache.timestamp < REMOTEOK_CACHE_TTL) {
+          console.log(`[RemoteOK] Cache hit (${remoteOkCache.data.length} jobs, key: ${remoteOkCacheKey})`);
           return remoteOkCache.data;
         }
         try {
           const { JobAggregator } = await import('./job-aggregator.js');
           const aggregator = new JobAggregator();
-          const jobs = await aggregator.fetchRemoteOKJobs();
-          console.log(`[RemoteOK] Got ${jobs.length} jobs`);
-          remoteOkCache = { data: jobs, timestamp: Date.now() };
+          const jobs = await aggregator.fetchRemoteOKJobs(topTechSkills.length > 0 ? topTechSkills : undefined);
+          console.log(`[RemoteOK] Got ${jobs.length} jobs for tags: ${remoteOkCacheKey || '(none)'}`);
+          remoteOkCache = { data: jobs, timestamp: Date.now(), key: remoteOkCacheKey };
           return jobs;
         } catch (err) {
           console.warn('[RemoteOK] Failed:', err);

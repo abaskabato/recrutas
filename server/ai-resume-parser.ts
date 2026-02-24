@@ -598,6 +598,22 @@ ${truncatedText}`
 
     const result = parseResumeWithIntelligence(text);
 
+    // Domain coherence filter: if this looks like a CS resume (≥2 CS languages),
+    // strip medical/healthcare skills injected by template boilerplate in STACK_CLUSTERS.
+    const CS_LANGUAGES = new Set([
+      'python','java','javascript','typescript','c++','c#','c','ruby',
+      'go','rust','swift','kotlin','php','scala','r','.net'
+    ]);
+    const MEDICAL_SKILLS = new Set([
+      'patient care','bls certified','cpr certified',
+      'hipaa compliance','electronic medical records','phlebotomy'
+    ]);
+    const csLangCount = result.technical.filter(s => CS_LANGUAGES.has(s.toLowerCase())).length;
+    if (csLangCount >= 2) {
+      result.technical = result.technical.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
+      result.tools     = result.tools.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
+    }
+
     console.log(`[AIResumeParser] Skill Intelligence Engine: ${result.technical.length} technical, ${result.tools.length} tools, ${result.soft.length} soft skills. Confidence: ${result.confidence}%`);
     console.log(`[AIResumeParser] Top skills:`, [...result.technical, ...result.tools].slice(0, 10));
 
