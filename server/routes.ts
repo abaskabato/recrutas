@@ -416,8 +416,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // AI-powered job matching
   app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
-    const MATCHING_TIMEOUT_MS = 25000; // 25 second timeout for entire matching process
-    const EARLY_RETURN_THRESHOLD_MS = 18000; // return DB-only results if exceeded after fetches
+    const MATCHING_TIMEOUT_MS = 45000; // 45 second timeout - increased to allow ML model to load on first request (can take 10-30s)
+    const EARLY_RETURN_THRESHOLD_MS = 30000; // return DB-only results if exceeded after fetches
     const BATCH_ABORT_THRESHOLD_MS = 20000;  // stop scoring batches if exceeded
 
     // Create a timeout controller

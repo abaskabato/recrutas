@@ -20,11 +20,36 @@ interface EmbeddingResult {
 
 let embeddingPipeline: any = null;
 
+// Timeout wrapper for promises
+function withTimeout<T>(promise: Promise<T>, ms: number, operationName: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      console.warn(`[ML Matching] ${operationName} timed out after ${ms}ms`);
+      reject(new Error(`${operationName} timed out after ${ms}ms`));
+    }, ms);
+    
+    promise
+      .then(result => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch(err => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 // Singleton pipeline for generating embeddings
 async function getEmbeddingPipeline() {
   if (!embeddingPipeline) {
     console.log('[ML Matching] Loading embedding model (first request may take 10-30 seconds)...');
-    embeddingPipeline = await pipeline('feature-extraction', MODEL_NAME);
+    // Add timeout to prevent infinite hang during model download
+    embeddingPipeline = await withTimeout(
+      pipeline('feature-extraction', MODEL_NAME),
+      60000, // 60 second timeout for model loading
+      'Model loading'
+    );
     console.log('[ML Matching] Model loaded successfully');
   }
   return embeddingPipeline;
@@ -40,10 +65,15 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResult> 
     // Truncate to ~512 tokens (approx 2048 chars)
     const truncatedText = text.slice(0, 2048);
     
-    const output: any = await pipe(truncatedText, {
-      pooling: 'mean',
-      normalize: true,
-    });
+    // Add timeout for embedding generation
+    const output: any = await withTimeout(
+      pipe(truncatedText, {
+        pooling: 'mean',
+        normalize: true,
+      }),
+      30000, // 30 second timeout per embedding
+      'Embedding generation'
+    );
 
     // Convert to regular array of numbers
     const embedding: number[] = Array.from(output.data).map((x: any) => Number(x));
