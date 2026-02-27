@@ -6,7 +6,7 @@
  * and submits applications on behalf of candidates.
  */
 
-import { chromium, type Page, type Browser, type BrowserContext, type BrowserContextOptions } from 'playwright';
+import { chromium, type Page, type Browser, type BrowserContext, type BrowserContextOptions, type LaunchOptions } from 'playwright';
 import type { AgentTask } from '../../shared/schema';
 
 // ==========================================
@@ -150,7 +150,7 @@ export class AgentApplyService {
 
     // Try to use proxy with fallback to no proxy
     const proxy = getNextProxy();
-    const launchOptions: any = {
+    const launchOptions: LaunchOptions = {
       headless: true,
       args: [
         '--no-sandbox',
@@ -284,19 +284,17 @@ export class AgentApplyService {
       let stepCount = 0;
       const MAX_STEPS = 6;
       let finalSubmitted = false;
-      let hasClickedInitialApply = false;
       let previousUrl = initialUrl;
 
       while (stepCount < MAX_STEPS) {
         stepCount++;
 
         // On first step, check for initial "Apply for this role" button and click it first
-        if (!hasClickedInitialApply && stepCount === 1) {
+        if (stepCount === 1) {
           const initialApplyBtn = await activePage.$('button:has-text("Apply for this role"), a:has-text("Apply for this role")');
           if (initialApplyBtn && await initialApplyBtn.isVisible()) {
             addLog('step_0_initial_apply', 'Clicking initial "Apply for this role" button');
             await initialApplyBtn.click();
-            hasClickedInitialApply = true;
             // Wait for the actual form to load
             await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
             await page.waitForSelector('form input, form textarea, form select', { timeout: 8000 }).catch(() => {});
@@ -363,17 +361,9 @@ export class AgentApplyService {
 
         // Check if the form is gone (likely navigated away post-submit)
         const stillOnForm = await this.detectForm(activePage);
-        
-        // Also check for success indicators on current page even if form is still present
-        const hasSuccessIndicator = await this.verifySubmission(page);
-        
-        if (!stillOnForm || hasSuccessIndicator) {
+        if (!stillOnForm) {
           finalSubmitted = true;
-          if (hasSuccessIndicator) {
-            addLog(`step_${stepCount}_confirmed`, 'Submission confirmed via success indicator');
-          } else {
-            addLog(`step_${stepCount}_form_gone`, 'Form no longer present — likely submitted');
-          }
+          addLog(`step_${stepCount}_form_gone`, 'Form no longer present — likely submitted');
           break;
         }
 
@@ -383,15 +373,6 @@ export class AgentApplyService {
         if (page.url() !== previousUrl) {
           previousUrl = page.url();
           addLog(`step_${stepCount}_progress`, 'URL changed - form is progressing');
-        }
-      }
-
-      // If we've gone through multiple steps with URL changes, assume success
-      if (!finalSubmitted && stepCount >= 4) {
-        // Check if we made progress (URL changed at least twice)
-        if (previousUrl !== initialUrl) {
-          addLog('form_completed', `Completed ${stepCount} form steps with URL progression - assuming success`);
-          return { success: true, log };
         }
       }
 
@@ -466,7 +447,7 @@ export class AgentApplyService {
       { type: 'recaptcha', pattern: /google\.com\/recaptcha|recaptcha|v2.*invisible|data-sitekey.*recaptcha/i },
       { type: 'cloudflare', pattern: /cloudflare|challenge|checking your browser before accessing/i },
       { type: 'akamai', pattern: /akamai|bot detection|security check/i },
-      { type: 'perimeterx', pattern: /perimeterx|px-auth|/i },
+      { type: 'perimeterx', pattern: /perimeterx|px-auth/i },
       { type: 'cf_challenge', pattern: /cf_challenge|__cf_challenge_js|Cloudflare/i },
     ];
 
@@ -650,7 +631,7 @@ export class AgentApplyService {
     const url = page.url();
     const html = await page.content();
 
-    if (url.includes('linkedin.com') || html.includes('linkedin') || html.includes('nav-nav-')) {
+    if (url.includes('linkedin.com')) {
       return 'linkedin';
     }
     if (url.includes('greenhouse.io') || url.includes('boards.greenhouse') || html.includes('greenhouse')) {
