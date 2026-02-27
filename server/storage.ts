@@ -66,6 +66,37 @@ import { supabaseAdmin } from "./lib/supabase-admin";
 import { normalizeSkills, getRelatedSkills } from "./skill-normalizer";
 import { isUSLocation } from "./location-filter";
 
+const TECH_SKILL_KEYWORDS = [
+  'javascript', 'typescript', 'python', 'java', 'go', 'golang', 'rust', 'c++', 'c#', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r',
+  'react', 'vue', 'angular', 'svelte', 'next.js', 'nextjs', 'html', 'css', 'sass', 'less', 'tailwind', 'bootstrap',
+  'node.js', 'nodejs', 'express', 'django', 'flask', 'fastapi', 'spring', 'rails', '.net', 'asp.net',
+  'sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'dynamodb', 'cassandra', 'oracle',
+  'aws', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes', 'k8s', 'terraform', 'ansible', 'jenkins', 'ci/cd', 'devops',
+  'tensorflow', 'pytorch', 'keras', 'pandas', 'numpy', 'scikit-learn', 'spark', 'hadoop', 'tableau', 'power bi',
+  'machine learning', 'deep learning', 'nlp', 'natural language processing', 'computer vision', 'llm', 'gpt',
+  'openai', 'langchain', 'llamaindex', 'chatgpt',
+  'git', 'github', 'gitlab', 'jira', 'agile', 'scrum', 'rest api', 'graphql', 'microservices', 'linux', 'unix',
+  'rest', 'grpc', 'websocket', 'oauth', 'jwt', 'json', 'xml', 'yaml'
+];
+const TECH_SKILL_SET = new Set(TECH_SKILL_KEYWORDS.map(s => s.toLowerCase()));
+
+function extractSkillsFromText(text: string): string[] {
+  if (!text) return [];
+  const found = new Set<string>();
+  const lower = text.toLowerCase();
+  for (const skill of TECH_SKILL_SET) {
+    const pattern = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (pattern.test(lower)) {
+      const cap = skill.split(' ').map(w => 
+        w === 'aws' ? 'AWS' : w === 'gcp' ? 'GCP' : w === 'k8s' ? 'Kubernetes' :
+        w === 'ai' ? 'AI' : w === 'ml' ? 'ML' : w.charAt(0).toUpperCase() + w.slice(1)
+      ).join(' ');
+      found.add(cap);
+    }
+  }
+  return Array.from(found);
+}
+
 /**
  * Storage Interface Definition
  * 
@@ -867,8 +898,14 @@ export class DatabaseStorage implements IStorage {
 
     const recommendations = jobsWithSource
       .map(job => {
+        // Fallback: extract skills from description if skills array is empty
+        let jobSkills = job.skills || [];
+        if (jobSkills.length === 0 && job.description) {
+          jobSkills = extractSkillsFromText(job.description);
+        }
+        
         // Normalize job skills at comparison time to handle legacy un-normalized entries
-        const normalizedJobSkills = normalizeSkills(job.skills || []).map(s => s.toLowerCase());
+        const normalizedJobSkills = normalizeSkills(jobSkills).map(s => s.toLowerCase());
 
         // Exact skill matches (full credit)
         const matchingSkills = candidateSkills.filter(skill =>

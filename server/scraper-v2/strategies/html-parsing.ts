@@ -140,7 +140,7 @@ function extractWithCustomSelectors($: ReturnType<typeof cheerio.load>, company:
           description: description || `${title} position at ${company.name}`,
           requirements: [],
           responsibilities: [],
-          skills: [],
+          skills: extractSkillsFromDescription(description || `${title} position at ${company.name}`),
           skillCategories: [],
           workType: 'hybrid',
           employmentType: 'full-time',
@@ -225,7 +225,7 @@ function extractWithGenericSelectors($: ReturnType<typeof cheerio.load>, company
             description: description || `${title} position at ${company.name}`,
             requirements: [],
             responsibilities: [],
-            skills: [],
+            skills: extractSkillsFromDescription(description || `${title} position at ${company.name}`),
             skillCategories: [],
             workType: jobLocation.isRemote ? 'remote' : 'hybrid',
             employmentType: 'full-time',
@@ -300,7 +300,7 @@ function extractWithPatterns(html: string, company: CompanyConfig): ScrapedJob[]
       description: `${title} position at ${company.name}`,
       requirements: [],
       responsibilities: [],
-      skills: [],
+      skills: extractSkillsFromDescription(`${title} position at ${company.name}`),
       skillCategories: [],
       workType: 'hybrid',
       employmentType: 'full-time',
@@ -325,4 +325,36 @@ function extractWithPatterns(html: string, company: CompanyConfig): ScrapedJob[]
   }
   
   return jobs;
+}
+
+const TECH_SKILLS = [
+  'javascript', 'typescript', 'python', 'java', 'go', 'golang', 'rust', 'c++', 'c#', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r',
+  'react', 'vue', 'angular', 'svelte', 'next.js', 'nextjs', 'html', 'css', 'sass', 'less', 'tailwind', 'bootstrap',
+  'node.js', 'nodejs', 'express', 'django', 'flask', 'fastapi', 'spring', 'rails', '.net', 'asp.net',
+  'sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'dynamodb', 'cassandra', 'oracle',
+  'aws', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes', 'k8s', 'terraform', 'ansible', 'jenkins', 'ci/cd', 'devops',
+  'tensorflow', 'pytorch', 'keras', 'pandas', 'numpy', 'scikit-learn', 'spark', 'hadoop', 'tableau', 'power bi',
+  'machine learning', 'deep learning', 'nlp', 'natural language processing', 'computer vision', 'llm', 'gpt',
+  'openai', 'langchain', 'llamaindex',
+  'git', 'github', 'gitlab', 'jira', 'agile', 'scrum', 'rest api', 'graphql', 'microservices', 'linux', 'unix',
+  'rest', 'grpc', 'websocket', 'oauth', 'jwt', 'json', 'xml', 'yaml'
+];
+const TECH_SKILL_SET = new Set(TECH_SKILLS.map(s => s.toLowerCase()));
+
+function extractSkillsFromDescription(description: string | undefined): string[] {
+  if (!description) return [];
+  const foundSkills = new Set<string>();
+  const lowerDesc = description.toLowerCase();
+  for (const skill of TECH_SKILL_SET) {
+    const pattern = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (pattern.test(lowerDesc)) {
+      const capitalized = skill.split(' ').map(word => 
+        word === 'aws' ? 'AWS' : word === 'gcp' ? 'GCP' : word === 'k8s' ? 'Kubernetes' :
+        word === 'ai' ? 'AI' : word === 'ml' ? 'ML' : word === 'nlp' ? 'NLP' :
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+      foundSkills.add(capitalized);
+    }
+  }
+  return Array.from(foundSkills);
 }
