@@ -21,6 +21,7 @@ interface ApplicationStatus {
   interviewDate?: string;
   autoFilled?: boolean;
   metadata?: { agentApply?: boolean; queuedAt?: string };
+  chatRoomId?: number | null;
   job: {
     id: number;
     title: string;
@@ -354,11 +355,11 @@ export default function ApplicationTracker() {
                             Take Exam
                           </Button>
                         )}
-                        {/* Message button: only for internal jobs at screening+ stage */}
-                        {!application.job?.externalUrl && ['screening', 'interview_scheduled', 'interview_completed', 'offer'].includes(application.status) && (
-                          <Button variant="outline" size="sm" onClick={() => setLocation('/chat')}>
+                        {/* Message button: show whenever a chat room exists for this application */}
+                        {application.chatRoomId && (
+                          <Button variant="outline" size="sm" onClick={() => setLocation(`/chat/${application.chatRoomId}`)}>
                             <MessageSquare className="h-4 w-4 mr-1" />
-                            Message
+                            Open Chat
                           </Button>
                         )}
                         <Button

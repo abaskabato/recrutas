@@ -1426,29 +1426,49 @@ export class DatabaseStorage implements IStorage {
   // Application operations
   async getApplicationsWithStatus(candidateId: string): Promise<any[]> {
     try {
-      return await db
-        .select({
-          id: jobApplications.id,
-          jobId: jobApplications.jobId,
-          status: jobApplications.status,
-          appliedAt: jobApplications.appliedAt,
-          autoFilled: jobApplications.autoFilled,
-          metadata: jobApplications.metadata,
-          createdAt: jobApplications.createdAt,
-          job: {
-            id: jobPostings.id,
-            title: jobPostings.title,
-            company: jobPostings.company,
-            location: jobPostings.location,
-            workType: jobPostings.workType,
-            externalUrl: jobPostings.externalUrl,
-            hasExam: jobPostings.hasExam,
-          }
-        })
-        .from(jobApplications)
-        .innerJoin(jobPostings, eq(jobApplications.jobId, jobPostings.id))
-        .where(eq(jobApplications.candidateId, candidateId))
-        .orderBy(desc(jobApplications.createdAt));
+      const rows = await db.execute(sql`
+        SELECT
+          ja.id,
+          ja.job_id AS "jobId",
+          ja.status,
+          ja.applied_at AS "appliedAt",
+          ja.auto_filled AS "autoFilled",
+          ja.metadata,
+          ja.created_at AS "createdAt",
+          jp.id AS "jobPostingId",
+          jp.title AS "jobTitle",
+          jp.company AS "jobCompany",
+          jp.location AS "jobLocation",
+          jp.work_type AS "jobWorkType",
+          jp.external_url AS "jobExternalUrl",
+          jp.has_exam AS "jobHasExam",
+          cr.id AS "chatRoomId"
+        FROM job_applications ja
+        INNER JOIN job_postings jp ON ja.job_id = jp.id
+        LEFT JOIN chat_rooms cr ON cr.job_id = ja.job_id AND cr.candidate_id = ja.candidate_id
+        WHERE ja.candidate_id = ${candidateId}
+        ORDER BY ja.created_at DESC
+      `);
+
+      return Array.from(rows).map((r: any) => ({
+        id: r.id,
+        jobId: r.jobId,
+        status: r.status,
+        appliedAt: r.appliedAt,
+        autoFilled: r.autoFilled,
+        metadata: r.metadata,
+        createdAt: r.createdAt,
+        chatRoomId: r.chatRoomId ?? null,
+        job: {
+          id: r.jobPostingId,
+          title: r.jobTitle,
+          company: r.jobCompany,
+          location: r.jobLocation,
+          workType: r.jobWorkType,
+          externalUrl: r.jobExternalUrl,
+          hasExam: r.jobHasExam,
+        },
+      }));
     } catch (error) {
       console.error('Error fetching applications with status:', error);
       throw error;
