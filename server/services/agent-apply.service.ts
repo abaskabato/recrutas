@@ -53,7 +53,33 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
 ];
+
+// Proxy rotation - can be configured via environment variables
+// Format: PROXY_LIST = "ip:port:username:password,ip:port:username:password"
+// Or use residential proxy services like Bright Data, SmartProxy
+const PROXY_LIST = (process.env.PROXY_LIST || '').split(',').filter(Boolean);
+let proxyIndex = 0;
+
+function getNextProxy(): { server: string; username?: string; password?: string } | null {
+  if (PROXY_LIST.length === 0) return null;
+  
+  const proxy = PROXY_LIST[proxyIndex % PROXY_LIST.length];
+  proxyIndex++;
+  
+  const parts = proxy.split(':');
+  if (parts.length >= 2) {
+    return {
+      server: `http://${parts[0]}:${parts[1]}`,
+      username: parts[2],
+      password: parts[3],
+    };
+  }
+  return null;
+}
 
 /** Pattern dictionary: regex → candidate data field */
 const FIELD_PATTERNS: Array<{ pattern: RegExp; field: keyof CandidateData | 'fullName' | 'resume' | 'coverLetter' }> = [
@@ -92,6 +118,18 @@ const ATS_SELECTORS = {
   workday: {
     iframeSelector: 'iframe[src*="myworkday"], iframe[src*="workday"]',
   },
+  linkedin: {
+    // LinkedIn Easy Apply selectors
+    firstName: '#first-name, input[name="firstName"]',
+    lastName: '#last-name, input[name="lastName"]',
+    email: '#email, input[name="emailAddress"]',
+    phone: '#phone-number, input[name="phoneNumber"]',
+    resume: 'input[type="file"][name*="resume"], input[type="file"][id*="resume"]',
+    linkedin: 'input[name="linkedinUrl"], input[id="linkedin"]',
+    submitBtn: 'button[aria-label="Submit application"], button[data-control-name="submit_unnamed"]',
+    easyApplyBtn: 'button[aria-label="Easy Apply to this job"], button[data-control-name="EasyApply"]',
+    nextBtn: 'button[aria-label="Continue to next step"], button[data-control-name="continue"]',
+  },
 };
 
 // ==========================================
@@ -110,19 +148,35 @@ export class AgentApplyService {
       log.push({ timestamp: new Date().toISOString(), action, result, screenshot });
     };
 
+    // Try to use proxy with fallback to no proxy
+    const proxy = getNextProxy();
+    const launchOptions: any = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--window-size=1920,1080',
+      ],
+    };
+
+    // Add proxy if available
+    if (proxy) {
+      launchOptions.proxy = {
+        server: proxy.server,
+        username: proxy.username,
+        password: proxy.password,
+      };
+      addLog('proxy', `Using proxy: ${proxy.server}`);
+    } else {
+      addLog('proxy', 'No proxy configured, using direct connection');
+    }
+
     try {
       addLog('launch_browser', 'Starting Playwright chromium (stealth mode)');
-      browser = await chromium.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-blink-features=AutomationControlled', // hide automation flag
-          '--disable-features=IsolateOrigins,site-per-process',
-          '--window-size=1920,1080',
-        ],
-      });
+      browser = await chromium.launch(launchOptions);
 
       const context = await browser.newContext({
         userAgent: USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
@@ -166,6 +220,20 @@ export class AgentApplyService {
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
       await page.waitForSelector('input, textarea, select, button', { timeout: 8000 }).catch(() => {});
       await this.randomDelay(800, 1500);
+
+      // Check for CAPTCHA after initial load
+      const captcha = await this.detectCaptcha(page);
+      if (captcha.detected) {
+        addLog('captcha_detected', `CAPTCHA detected: ${captcha.type}`);
+        // Try to wait and retry - full CAPTCHA solving would require external service
+        await this.randomDelay(3000, 5000);
+        const captchaRetry = await this.detectCaptcha(page);
+        if (captchaRetry.detected) {
+          const screenshot = await this.takeScreenshot(page);
+          addLog('captcha_blocked', `Blocked by ${captcha.type} - requires manual intervention`, screenshot);
+          return { success: false, log, error: `captcha_blocked_${captcha.type}` };
+        }
+      }
 
       // Fix 5: Dismiss cookie banners/consent overlays before interacting
       await this.dismissCookieBanners(page);
@@ -259,6 +327,9 @@ export class AgentApplyService {
           addLog(`step_${stepCount}_resume`, 'Uploading resume');
           await this.handleResumeUpload(activePage, fieldMap.fileUploadSelector, resumeUrl);
         }
+
+        // Handle screening questions (knockout questions)
+        await this.handleScreeningQuestions(activePage, addLog);
 
         // Click Next or Submit
         addLog(`step_${stepCount}_advance`, 'Advancing form (Next/Submit)');
@@ -383,6 +454,52 @@ export class AgentApplyService {
   }
 
   // ==========================================
+  // CAPTCHA DETECTION
+  // ==========================================
+
+  private async detectCaptcha(page: Page): Promise<{ type: string; detected: boolean }> {
+    const html = await page.content();
+    
+    // Check for various CAPTCHA types
+    const captchaChecks = [
+      { type: 'hcaptcha', pattern: /hcaptcha|data-sitekey.*hcaptcha|h-captcha/i },
+      { type: 'recaptcha', pattern: /google\.com\/recaptcha|recaptcha|v2.*invisible|data-sitekey.*recaptcha/i },
+      { type: 'cloudflare', pattern: /cloudflare|challenge|checking your browser before accessing/i },
+      { type: 'akamai', pattern: /akamai|bot detection|security check/i },
+      { type: 'perimeterx', pattern: /perimeterx|px-auth|/i },
+      { type: 'cf_challenge', pattern: /cf_challenge|__cf_challenge_js|Cloudflare/i },
+    ];
+
+    for (const check of captchaChecks) {
+      if (check.pattern.test(html)) {
+        return { type: check.type, detected: true };
+      }
+    }
+
+    // Also check for specific elements
+    const captchaSelectors = [
+      '[data-sitekey]',
+      '.g-recaptcha',
+      '#recaptcha',
+      'iframe[src*="recaptcha"]',
+      'iframe[src*="hcaptcha"]',
+      '.hcaptcha',
+      '[id*="captcha"]',
+      '[class*="captcha"]',
+    ];
+
+    for (const selector of captchaSelectors) {
+      const el = await page.$(selector);
+      if (el && await el.isVisible()) {
+        const type = selector.includes('hcaptcha') ? 'hcaptcha' : 'recaptcha';
+        return { type, detected: true };
+      }
+    }
+
+    return { type: 'none', detected: false };
+  }
+
+  // ==========================================
   // FORM DETECTION
   // ==========================================
 
@@ -440,13 +557,102 @@ export class AgentApplyService {
   }
 
   // ==========================================
+  // SCREENING QUESTIONS HANDLING
+  // ==========================================
+
+  /**
+   * Handle screening questions / knockout questions
+   * These are typically yes/no or multiple choice questions that can disqualify you
+   */
+  private async handleScreeningQuestions(
+    page: Page,
+    addLog: (action: string, result: string, screenshot?: string) => void
+  ): Promise<boolean> {
+    // Look for common screening question patterns
+    const questionSelectors = [
+      'label:has(input[type="radio"])',
+      'label:has(input[type="checkbox"])',
+      '.screening-question',
+      '[data-screening]',
+      '.knockout-question',
+    ];
+
+    const radioGroups = await page.$$('fieldset, .question-group, [role="group"]');
+    
+    for (const group of radioGroups) {
+      try {
+        // Get question text
+        const questionText = await group.textContent();
+        if (!questionText) continue;
+
+        // Check if it's a knockout question
+        const isRequired = await group.$('input[required], input[aria-required="true"]');
+        
+        // Look for radio buttons or checkboxes
+        const options = await group.$$('input[type="radio"], input[type="checkbox"]');
+        
+        if (options.length > 0 && questionText.length < 500) {
+          // Try to find the "safe" answer
+          const lowerText = questionText.toLowerCase();
+          
+          // Common screening questions - try to answer yes/true where it helps
+          const preferredAnswers: Array<[RegExp, number]> = [
+            // Work authorization - say yes
+            [/authorized|work.*(to )?(work)|legally.*(to )?(work)/i, 0], // First option usually "Yes"
+            // Require sponsorship - say no
+            [/sponsorship|require.*sponsor/i, 1], // Second option usually "No"
+            // Remote - say yes
+            [/remote|work.*from.*home/i, 0],
+            // Relocation - say yes
+            [/relocat/i, 0],
+            // Background check - say yes
+            [/background|check.*(criminal|background)/i, 0],
+            // Drug test - say yes
+            [/drug.*test/i, 0],
+          ];
+
+          let selected = false;
+          for (const [pattern, preferredIndex] of preferredAnswers) {
+            if (pattern.test(lowerText)) {
+              // Try to click the preferred option
+              const inputs = await group.$$('input[type="radio"], input[type="checkbox"]');
+              if (inputs[preferredIndex]) {
+                await inputs[preferredIndex].click();
+                addLog('screening_question', `Answered: ${questionText.substring(0, 50)}...`);
+                selected = true;
+                break;
+              }
+            }
+          }
+
+          // If no preferred answer found, select first option (usually "Yes"/"I agree")
+          if (!selected && isRequired) {
+            const inputs = await group.$$('input[type="radio"], input[type="checkbox"]');
+            if (inputs[0]) {
+              await inputs[0].click();
+              addLog('screening_question', `Default answered: ${questionText.substring(0, 50)}...`);
+            }
+          }
+        }
+      } catch (e) {
+        // Continue to next question
+      }
+    }
+
+    return true;
+  }
+
+  // ==========================================
   // ATS DETECTION
   // ==========================================
 
-  private async detectATS(page: Page): Promise<'greenhouse' | 'lever' | 'workday' | null> {
+  private async detectATS(page: Page): Promise<'greenhouse' | 'lever' | 'workday' | 'linkedin' | null> {
     const url = page.url();
     const html = await page.content();
 
+    if (url.includes('linkedin.com') || html.includes('linkedin') || html.includes('nav-nav-')) {
+      return 'linkedin';
+    }
     if (url.includes('greenhouse.io') || url.includes('boards.greenhouse') || html.includes('greenhouse')) {
       return 'greenhouse';
     }
@@ -487,6 +693,19 @@ export class AgentApplyService {
     if (atsType === 'lever') {
       const ats = ATS_SELECTORS.lever;
       matched[ats.firstName] = `${candidateData.firstName} ${candidateData.lastName}`;
+      matched[ats.email] = candidateData.email;
+      if (candidateData.phone) matched[ats.phone] = candidateData.phone;
+      if (candidateData.linkedinUrl) matched[ats.linkedin] = candidateData.linkedinUrl;
+      fileUploadSelector = ats.resume;
+      return { matched, unmatched, fileUploadSelector };
+    }
+
+    // LinkedIn Easy Apply
+    if (atsType === 'linkedin') {
+      const ats = ATS_SELECTORS.linkedin;
+      // LinkedIn combines first/last name
+      matched[ats.firstName] = candidateData.firstName;
+      matched[ats.lastName] = candidateData.lastName;
       matched[ats.email] = candidateData.email;
       if (candidateData.phone) matched[ats.phone] = candidateData.phone;
       if (candidateData.linkedinUrl) matched[ats.linkedin] = candidateData.linkedinUrl;
@@ -681,31 +900,56 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
   // ==========================================
 
   private async handleResumeUpload(page: Page | any, selector: string, resumeUrl: string): Promise<void> {
+    if (!resumeUrl) return;
+    
     try {
+      // Determine file type from URL or default to PDF
+      const isPdf = resumeUrl.toLowerCase().endsWith('.pdf');
+      const isDocx = resumeUrl.toLowerCase().includes('.docx') || resumeUrl.toLowerCase().includes('.doc');
+      const extension = isPdf ? '.pdf' : isDocx ? '.docx' : '.pdf';
+      const mimeType = isPdf ? 'application/pdf' : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf';
+
       // Download resume to temp location
       const response = await fetch(resumeUrl, { signal: AbortSignal.timeout(10000) });
-      if (!response.ok) return;
+      if (!response.ok) {
+        console.log('[AgentApply] Failed to fetch resume:', response.status);
+        return;
+      }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      const tmpPath = `/tmp/resume-${Date.now()}.pdf`;
+      const tmpPath = `/tmp/resume-${Date.now()}${extension}`;
       const fs = await import('fs/promises');
       await fs.writeFile(tmpPath, buffer);
 
-      // Upload via file input
-      for (const s of selector.split(',').map(s => s.trim())) {
+      // Try multiple selectors for file input
+      const selectors = [
+        selector,
+        'input[type="file"]',
+        'input[name*="resume"]',
+        'input[name*="cv"]',
+        'input[id*="resume"]',
+        'input[class*="resume"]',
+        'input[accept*="pdf"]',
+        'input[accept*="doc"]',
+      ].filter(Boolean);
+
+      for (const s of selectors) {
         try {
           const fileInput = await page.$(s);
           if (fileInput) {
             await fileInput.setInputFiles(tmpPath);
+            console.log(`[AgentApply] Uploaded resume to: ${s}`);
             break;
           }
-        } catch { /* try next */ }
+        } catch (e) {
+          console.log(`[AgentApply] Selector ${s} failed:`, e);
+        }
       }
 
       // Cleanup
       await fs.unlink(tmpPath).catch(() => {});
-    } catch {
-      // Resume upload failed — not fatal for all ATS
+    } catch (e) {
+      console.log('[AgentApply] Resume upload error:', e);
     }
   }
 
