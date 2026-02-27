@@ -421,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       },
       isVerifiedActive: job.isVerifiedActive ?? (job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90),
       isDirectFromCompany: job.isDirectFromCompany ?? ((job.trustScore ?? 0) >= 85),
-      matchScore: `${job.matchScore}%`,
+      matchScore: job.matchScore !== undefined ? `${job.matchScore}%` : 'N/A',
       matchTier: job.matchTier ?? (job.matchScore >= 75 ? 'great' : job.matchScore >= 50 ? 'good' : 'worth-a-look'),
       confidenceLevel: job.confidenceLevel ?? (job.matchScore > 80 ? 90 : (job.matchScore > 60 ? 70 : 50)),
       skillMatches: job.skillMatches || [],
