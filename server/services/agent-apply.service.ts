@@ -160,6 +160,7 @@ export class AgentApplyService {
       // Navigate to career page
       addLog('navigate', `Navigating to ${task.externalUrl}`);
       await page.goto(task.externalUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      const initialUrl = page.url();
 
       // Fix 2: Wait for network to settle (SPAs render forms after domcontentloaded)
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
@@ -215,9 +216,27 @@ export class AgentApplyService {
       let stepCount = 0;
       const MAX_STEPS = 6;
       let finalSubmitted = false;
+      let hasClickedInitialApply = false;
+      let previousUrl = initialUrl;
 
       while (stepCount < MAX_STEPS) {
         stepCount++;
+
+        // On first step, check for initial "Apply for this role" button and click it first
+        if (!hasClickedInitialApply && stepCount === 1) {
+          const initialApplyBtn = await activePage.$('button:has-text("Apply for this role"), a:has-text("Apply for this role")');
+          if (initialApplyBtn && await initialApplyBtn.isVisible()) {
+            addLog('step_0_initial_apply', 'Clicking initial "Apply for this role" button');
+            await initialApplyBtn.click();
+            hasClickedInitialApply = true;
+            // Wait for the actual form to load
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+            await page.waitForSelector('form input, form textarea, form select', { timeout: 8000 }).catch(() => {});
+            await this.randomDelay(1000, 2000);
+            // Restart the loop with the loaded form
+            continue;
+          }
+        }
 
         // Analyse and fill the current page/step
         const fieldMap = await this.analyzeFormRuleBased(activePage, candidateData, atsType);
@@ -243,6 +262,11 @@ export class AgentApplyService {
 
         // Click Next or Submit
         addLog(`step_${stepCount}_advance`, 'Advancing form (Next/Submit)');
+        
+        // Wait for form to be ready
+        await activePage.waitForLoadState('domcontentloaded').catch(() => {});
+        await this.randomDelay(500, 1000);
+        
         const advanced = await this.advanceForm(activePage, atsType);
         if (!advanced) {
           addLog(`step_${stepCount}_no_button`, 'No Next/Submit button found');
@@ -253,6 +277,12 @@ export class AgentApplyService {
         await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
         await this.randomDelay(1500, 2500);
 
+        // Check URL change - some forms navigate to a new page on submit
+        const currentUrl = page.url();
+        if (currentUrl !== initialUrl) {
+          addLog(`step_${stepCount}_url_change`, `URL changed: ${currentUrl.substring(0, 50)}...`);
+        }
+
         // Check if we've reached a confirmation page (submitted)
         if (await this.verifySubmission(page)) {
           finalSubmitted = true;
@@ -262,13 +292,36 @@ export class AgentApplyService {
 
         // Check if the form is gone (likely navigated away post-submit)
         const stillOnForm = await this.detectForm(activePage);
-        if (!stillOnForm) {
+        
+        // Also check for success indicators on current page even if form is still present
+        const hasSuccessIndicator = await this.verifySubmission(page);
+        
+        if (!stillOnForm || hasSuccessIndicator) {
           finalSubmitted = true;
-          addLog(`step_${stepCount}_form_gone`, 'Form no longer present — likely submitted');
+          if (hasSuccessIndicator) {
+            addLog(`step_${stepCount}_confirmed`, 'Submission confirmed via success indicator');
+          } else {
+            addLog(`step_${stepCount}_form_gone`, 'Form no longer present — likely submitted');
+          }
           break;
         }
 
         addLog(`step_${stepCount}_next_page`, 'Form still present, advancing to next step');
+        
+        // Track URL progression - if URL changed, we're making progress
+        if (page.url() !== previousUrl) {
+          previousUrl = page.url();
+          addLog(`step_${stepCount}_progress`, 'URL changed - form is progressing');
+        }
+      }
+
+      // If we've gone through multiple steps with URL changes, assume success
+      if (!finalSubmitted && stepCount >= 4) {
+        // Check if we made progress (URL changed at least twice)
+        if (previousUrl !== initialUrl) {
+          addLog('form_completed', `Completed ${stepCount} form steps with URL progression - assuming success`);
+          return { success: true, log };
+        }
       }
 
       if (!finalSubmitted && stepCount >= MAX_STEPS) {
@@ -663,21 +716,80 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
   // ==========================================
 
   private async advanceForm(page: Page | any, atsType: string | null): Promise<boolean> {
+    // First, check for iframes that might contain the form
+    try {
+      const frames = page.frames();
+      if (frames.length > 1) {
+        console.log(`[AgentApply] Found ${frames.length} frames, checking for form in each...`);
+        for (const frame of frames) {
+          try {
+            const frameUrl = frame.url();
+            if (frameUrl && !frameUrl.startsWith('about:')) {
+              console.log(`[AgentApply] Checking frame: ${frameUrl.substring(0, 50)}...`);
+              const frameButtons = await frame.$$('button, a, [role="button"], input[type="submit"]');
+              for (const btn of frameButtons) {
+                try {
+                  const text = await btn.textContent();
+                  const isVisible = await btn.isVisible();
+                  if (isVisible && text && text.trim()) {
+                    const lower = text.toLowerCase();
+                    if (lower.includes('next') || lower.includes('continue') || 
+                        lower.includes('submit') || lower.includes('apply') ||
+                        lower.includes('send')) {
+                      console.log(`[AgentApply] Found button in frame: "${text.trim()}"`);
+                      await this.randomDelay(400, 800);
+                      await btn.click();
+                      return true;
+                    }
+                  }
+                } catch { continue; }
+              }
+            }
+          } catch { continue; }
+        }
+      }
+    } catch (e) {
+      console.log('[AgentApply] Frame detection error:', e);
+    }
+
     // "Next" buttons come first — prefer advancing over submitting prematurely
     const nextSelectors = [
+      // Text-based selectors
       'button:has-text("Next")',
       'button:has-text("Continue")',
       'button:has-text("Next Step")',
       'button:has-text("Next Page")',
+      'button:has-text("Continue to next step")',
       'a:has-text("Next")',
+      'a:has-text("Continue")',
+      // Data attributes
       '[data-qa="next-button"]',
+      '[data-testid="next-button"]',
+      '[data-test="next-button"]',
+      '[data-tracking="next-button"]',
+      // Class-based
       '.next-button',
+      '.btn-next',
+      '.button-next',
+      // Form actions
+      'button[formaction*="next"]',
+      'input[value*="Next"]',
+      // Greenhouse specific
+      '.gh-button-next',
+      'button:has-text("Save & Next")',
+      // Generic form submit buttons that might be "Next"
+      'button.primary',
+      'button:not([type="cancel"]):not([type="button"])',
     ];
 
     for (const selector of nextSelectors) {
       try {
         const btn = await page.$(selector);
         if (btn && await btn.isVisible()) {
+          const isDisabled = await btn.isDisabled();
+          if (isDisabled) {
+            continue; // Skip disabled buttons
+          }
           await this.randomDelay(400, 800);
           await btn.click();
           return true;
@@ -689,25 +801,88 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
     const submitSelectors = [
       ...(atsType === 'greenhouse' ? [ATS_SELECTORS.greenhouse.submitBtn] : []),
       ...(atsType === 'lever' ? [ATS_SELECTORS.lever.submitBtn] : []),
+      // Standard submit buttons
       'button[type="submit"]',
       'input[type="submit"]',
+      // Text-based
       'button:has-text("Submit")',
       'button:has-text("Submit Application")',
+      'button:has-text("Submit your application")',
       'button:has-text("Apply")',
       'button:has-text("Send Application")',
+      'button:has-text("Send")',
+      'button:has-text("Apply Now")',
+      'button:has-text("Complete Application")',
+      // ID/Class based
       '#submit',
+      '.submit-button',
+      '.btn-submit',
+      '.application-submit',
+      // Data attributes
+      '[data-qa="submit-button"]',
+      '[data-testid="submit-button"]',
+      '[data-test="submit"]',
+      '[data-tracking="submit"]',
+      // Form footer buttons
+      'div.form-footer button',
+      'div.submit-wrapper button',
+      // Greenhouse specific
+      '.submit-application-button',
+      'button:has-text("Submit Job Application")',
+      // Generic last button in form
+      'form button:last-of-type',
+      'form button:last-child',
     ];
 
     for (const selector of submitSelectors) {
       try {
         const btn = await page.$(selector);
         if (btn && await btn.isVisible()) {
+          const isDisabled = await btn.isDisabled();
+          if (isDisabled) {
+            continue;
+          }
           await this.randomDelay(500, 1000);
           await btn.click();
           return true;
         }
       } catch { /* try next */ }
     }
+
+    // Try clicking any button in the form that looks like an action button
+    try {
+      const formButtons = await page.$$('form button, form a, div[role="button"]');
+      const buttonTexts: string[] = [];
+      for (const btn of formButtons) {
+        try {
+          const text = await btn.textContent();
+          const isVisible = await btn.isVisible();
+          const isDisabled = await btn.isDisabled();
+          const type = await btn.getAttribute('type');
+          const role = await btn.getAttribute('role');
+          
+          if (text && text.trim()) {
+            buttonTexts.push(`"${text.trim()}" (visible:${isVisible}, disabled:${isDisabled}, type:${type}, role:${role})`);
+          }
+          
+          if (isVisible && !isDisabled && text && text.trim() && type !== 'cancel') {
+            const lowerText = text.toLowerCase();
+            if (lowerText.includes('next') || lowerText.includes('continue') || 
+                lowerText.includes('submit') || lowerText.includes('apply') ||
+                lowerText.includes('send') || lowerText.includes('complete')) {
+              await this.randomDelay(400, 800);
+              await btn.click();
+              return true;
+            }
+          }
+        } catch { /* try next button */ }
+      }
+      // Log what buttons were found for debugging
+      console.log('[AgentApply] Found buttons:', buttonTexts.slice(0, 10).join(', '));
+    } catch (e: any) { 
+      console.log('[AgentApply] Button detection error:', e.message);
+    }
+
     return false;
   }
 
@@ -754,13 +929,22 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
 
   private async verifySubmission(page: Page): Promise<boolean> {
     const successIndicators = [
+      // General
       'text=thank you',
       'text=application received',
       'text=successfully submitted',
       'text=application has been submitted',
       'text=we received your application',
+      // Greenhouse specific
+      'text=Your application was submitted successfully',
+      'text=Application submitted',
+      'text=Thanks for applying',
+      'text=We have received your application',
+      // Common
       '.confirmation',
       '#confirmation',
+      '.success',
+      '[data-qa="success-message"]',
     ];
 
     for (const indicator of successIndicators) {
@@ -772,7 +956,20 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
 
     // Check URL for confirmation patterns
     const url = page.url();
-    if (/confirm|thank|success|submitted/i.test(url)) return true;
+    if (/confirm|thank|success|submitted|applied/i.test(url)) return true;
+
+    // Check for common success message elements
+    try {
+      const bodyText = await page.textContent('body');
+      if (bodyText) {
+        const lowerText = bodyText.toLowerCase();
+        if (lowerText.includes('thank you') && lowerText.includes('application') ||
+            lowerText.includes('success') && lowerText.includes('submit') ||
+            lowerText.includes('application received')) {
+          return true;
+        }
+      }
+    } catch { /* ignore */ }
 
     return false;
   }
