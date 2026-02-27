@@ -65,9 +65,34 @@ export async function fetchProfileWithCache(): Promise<any> {
   return safeProfile;
 }
 
+// Default query function: uses queryKey[0] as the URL, includes Supabase Bearer token
+const getQueryFn: <T>(options: { on401: 'returnNull' | 'throw' }) => QueryFunction<T> =
+  ({ on401 }) =>
+  async ({ queryKey }) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const res = await fetch(queryKey[0] as string, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+    });
+
+    if (on401 === 'returnNull' && res.status === 401) {
+      return null;
+    }
+
+    if (!res.ok) {
+      const text = (await res.text()) || res.statusText;
+      throw new Error(`${res.status}: ${text}`);
+    }
+
+    return await res.json();
+  };
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      queryFn: getQueryFn({ on401: 'returnNull' }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       retry: (failureCount, error) => {
