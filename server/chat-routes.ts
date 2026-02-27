@@ -12,27 +12,14 @@ function parseIntParam(value: string | undefined): number | null {
 // Maximum message length (5000 characters)
 const MAX_MESSAGE_LENGTH = 5000;
 
-// Simple HTML sanitizer - strips all HTML tags to prevent XSS
+// Strip HTML tags from messages — React's JSX renderer handles display escaping.
+// Do NOT decode then re-encode entities: that pattern is lossy and leaves
+// characters like &, ", ' unencoded if they came from decoded entities.
 function sanitizeMessage(message: string): string {
   if (!message) return '';
-
-  // Remove HTML tags
-  let sanitized = message.replace(/<[^>]*>/g, '');
-
-  // Decode HTML entities to prevent double-encoding
-  sanitized = sanitized
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'");
-
-  // Re-escape potentially dangerous characters
-  sanitized = sanitized
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  return sanitized.trim();
+  // Remove any HTML/script tags so raw content can never be injected into
+  // contexts that render HTML (emails, future server-side templates, etc.)
+  return message.replace(/<[^>]*>/g, '').trim();
 }
 
 /**
