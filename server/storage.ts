@@ -1909,14 +1909,24 @@ export class DatabaseStorage implements IStorage {
 
       const enrichedRooms = [];
       for (const room of rooms) {
-        const job = await this.getJobPosting(room.jobId);
-        const hiringManager = await this.getUser(room.hiringManagerId);
+        const [job, hiringManager, candidate] = await Promise.all([
+          this.getJobPosting(room.jobId),
+          this.getUser(room.hiringManagerId),
+          this.getUser(room.candidateId),
+        ]);
 
         if (job && hiringManager) {
           enrichedRooms.push({
             ...room,
             job,
-            hiringManager
+            hiringManager,
+            candidate,
+            // match shape expected by ChatInterface
+            match: {
+              job,
+              recruiter: hiringManager,
+              candidate,
+            },
           });
         }
       }

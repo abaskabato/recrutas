@@ -12,8 +12,8 @@ import { ArrowLeft, User } from "lucide-react";
 import ChatInterface from "@/components/chat-interface";
 
 export default function Chat() {
-  const params = useParams<{ roomId?: string }>();
-  const roomId = params.roomId;
+  const params = useParams<{ id?: string }>();
+  const roomId = params.id;
   const [, setLocation] = useLocation();
   const session = useSession();
   const supabase = useSupabaseClient();

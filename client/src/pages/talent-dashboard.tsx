@@ -1148,6 +1148,48 @@ export default function TalentDashboard() {
                                 )}
                               </div>
                             </div>
+                            {/* Primary actions — always visible */}
+                            <div className="flex gap-2 flex-wrap mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                              {(!selectedJob?.hasExam || applicant.qualifiedForChat) ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => selectedJob && startChatMutation.mutate({ jobId: selectedJob.id, candidateId: applicant.candidate?.id })}
+                                  disabled={startChatMutation.isPending}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Start Chat
+                                </Button>
+                              ) : (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span>
+                                        <Button size="sm" variant="outline" disabled>
+                                          <MessageSquare className="h-4 w-4 mr-2" />
+                                          Chat Locked
+                                        </Button>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Top {maxChat} candidates unlock chat.</p>
+                                      <p>This candidate ranked #{applicant.examRanking ?? '?'} of {totalRanked}.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                onClick={() => {
+                                  setScheduleApplicant({ applicationId: applicant.applicationId, candidateId: applicant.candidate?.id, name: `${applicant.candidate?.firstName || ''} ${applicant.candidate?.lastName || ''}`.trim() });
+                                  setScheduleInterviewOpen(true);
+                                }}
+                              >
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Schedule Interview
+                              </Button>
+                            </div>
                             {isExpanded && (
                               <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                                 {applicant.match?.aiExplanation && (
@@ -1164,45 +1206,6 @@ export default function TalentDashboard() {
                                     disabled={generateQuestionsMutation.isPending || !selectedJob}
                                   >
                                     Generate AI Screening Questions
-                                  </Button>
-                                  {(!selectedJob?.hasExam || applicant.qualifiedForChat) ? (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => selectedJob && startChatMutation.mutate({ jobId: selectedJob.id, candidateId: applicant.candidate?.id })}
-                                      disabled={startChatMutation.isPending}
-                                    >
-                                      <MessageSquare className="h-4 w-4 mr-2" />
-                                      Start Chat
-                                    </Button>
-                                  ) : (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span>
-                                            <Button size="sm" variant="outline" disabled>
-                                              <MessageSquare className="h-4 w-4 mr-2" />
-                                              Chat Locked
-                                            </Button>
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Top {maxChat} candidates unlock chat.</p>
-                                          <p>This candidate ranked #{applicant.examRanking ?? '?'} of {totalRanked}.</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                                    onClick={() => {
-                                      setScheduleApplicant({ applicationId: applicant.applicationId, candidateId: applicant.candidate?.id, name: `${applicant.candidate?.firstName || ''} ${applicant.candidate?.lastName || ''}`.trim() });
-                                      setScheduleInterviewOpen(true);
-                                    }}
-                                  >
-                                    <Calendar className="h-4 w-4 mr-2" />
-                                    Schedule Interview
                                   </Button>
                                 </div>
                                 {questions && (

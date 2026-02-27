@@ -24,7 +24,17 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
     queryKey: ["/api/chat/rooms", roomId, "messages"],
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/chat/rooms/${roomId}/messages`);
-      return response.json();
+      const msgs = await response.json();
+      // API returns flat senderFirstName/senderEmail fields — normalize to sender object
+      return msgs.map((msg: any) => ({
+        ...msg,
+        sender: msg.sender ?? {
+          profileImageUrl: null,
+          firstName: msg.senderFirstName,
+          lastName: msg.senderLastName,
+          email: msg.senderEmail,
+        },
+      }));
     },
     enabled: !!roomId,
     refetchInterval: 5000, // Poll for new messages every 5 seconds
