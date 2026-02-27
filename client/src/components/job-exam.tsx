@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Clock, CheckCircle, AlertCircle, Trophy, XCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, Trophy, XCircle, Shield, Monitor, EyeOff } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { apiRequest } from '@/lib/queryClient';
@@ -23,6 +23,10 @@ interface ExamQuestion {
 interface JobExam {
   id: number;
   jobId: number;
+  title: string;
+  jobTitle?: string;
+  company?: string;
+  maxChatCandidates?: number;
   questions: ExamQuestion[];
   timeLimit: number;
   passingScore: number;
@@ -30,7 +34,7 @@ interface JobExam {
 
 interface JobExamProps {
   jobId: number;
-  onComplete: (score: number, passed: boolean) => void;
+  onComplete: (score: number, passed: boolean, ranking?: number, totalCandidates?: number, qualifiedForChat?: boolean) => void;
   onCancel: () => void;
 }
 
@@ -40,8 +44,107 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [result, setResult] = useState<{ score: number; passed: boolean; alreadySubmitted?: boolean } | null>(null);
+  const [result, setResult] = useState<{ score: number; passed: boolean; alreadySubmitted?: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [violationCount, setViolationCount] = useState(0);
+  const [showWarning, setShowWarning] = useState(false);
+  const [examStarted, setExamStarted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Ref-based count avoids stale closure: handleViolation doesn't need violationCount
+  // in its deps, so event listeners aren't re-registered on every violation.
+  const violationCountRef = useRef(0);
+  // Stable ref ensures handleViolation and the timer always call the current submit fn.
+  const submitExamRef = useRef<() => void>(() => {});
   const { toast } = useToast();
+
+  const maxViolations = 3;
+
+  const requestFullscreen = useCallback(async () => {
+    try {
+      if (containerRef.current) {
+        await containerRef.current.requestFullscreen();
+      }
+    } catch (err) {
+      console.log('Fullscreen request failed:', err);
+    }
+  }, []);
+
+  const handleViolation = useCallback((type: string) => {
+    violationCountRef.current += 1;
+    const newCount = violationCountRef.current;
+    setViolationCount(newCount);
+    setShowWarning(true);
+
+    toast({
+      title: "Exam Violation Detected",
+      description: `${type}. This is warning ${newCount} of ${maxViolations}. Too many violations will auto-submit your exam.`,
+      variant: "destructive",
+    });
+
+    if (newCount >= maxViolations) {
+      toast({
+        title: "Exam Auto-Submitted",
+        description: "Too many violations detected. Your exam has been automatically submitted.",
+        variant: "destructive",
+      });
+      setTimeout(() => submitExamRef.current(), 1000);
+    }
+
+    setTimeout(() => setShowWarning(false), 3000);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!examStarted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleViolation("You left the exam tab");
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      if (!document.fullscreenElement && examStarted) {
+        handleViolation("You exited fullscreen mode");
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      handleViolation("Right-click is disabled during the exam");
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'u')) {
+        e.preventDefault();
+        handleViolation("Copy/Paste keyboard shortcuts are disabled");
+      }
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+        handleViolation("Screenshot key is disabled");
+      }
+      if (e.key === 'Escape' && isFullscreen) {
+        handleViolation("ESC key is disabled during the exam");
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [examStarted, isFullscreen, handleViolation]);
+
+  const startExam = async () => {
+    await requestFullscreen();
+    setExamStarted(true);
+  };
 
   // Fetch exam data
   useEffect(() => {
@@ -50,7 +153,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
         const response = await apiRequest('GET', `/api/jobs/${jobId}/exam`);
         const examData = await response.json();
         setExam(examData);
-        setTimeRemaining(examData.timeLimit * 60); // Convert minutes to seconds
+        setTimeRemaining(examData.timeLimit * 60);
       } catch (error) {
         toast({
           title: "Error",
@@ -71,7 +174,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
       setTimeRemaining(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleSubmitExam();
+          submitExamRef.current();
           return 0;
         }
         return prev - 1;
@@ -95,7 +198,13 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
       return response.json();
     },
     onSuccess: (data) => {
-      setResult({ score: data.score, passed: data.passed });
+      setResult({
+        score: data.score,
+        passed: data.passed,
+        ranking: data.ranking,
+        totalCandidates: data.totalCandidates,
+        qualifiedForChat: data.qualifiedForChat,
+      });
     },
     onError: (error: any) => {
       setIsSubmitting(false);
@@ -116,6 +225,8 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
     setIsSubmitting(true);
     submitExamMutation.mutate(answers);
   };
+  // Keep ref current so handleViolation and timer always call the latest version.
+  submitExamRef.current = handleSubmitExam;
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({
@@ -153,6 +264,9 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
         </Card>
       );
     }
+
+    const showRanking = result.ranking && result.totalCandidates;
+
     return (
       <Card className="max-w-2xl mx-auto">
         <CardContent className="p-10 text-center space-y-6">
@@ -173,8 +287,20 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
                 ? "Great work! Your application has advanced."
                 : `Passing score was ${exam?.passingScore ?? 70}%. Keep practicing!`}
             </p>
+            {showRanking && (
+              <div className="mt-4 p-4 bg-muted rounded-lg">
+                <p className="text-lg font-semibold">
+                  Your Ranking: #{result.ranking} of {result.totalCandidates} candidates
+                </p>
+                {result.qualifiedForChat && (
+                  <p className="text-green-600 mt-2">
+                    🎉 You're in the top {exam?.maxChatCandidates || 5}! You can now chat with the hiring manager.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-          <Button onClick={() => onComplete(result.score, result.passed)} className="w-full max-w-xs">
+          <Button onClick={() => onComplete(result.score, result.passed, result.ranking, result.totalCandidates, result.qualifiedForChat)} className="w-full max-w-xs">
             Back to Dashboard
           </Button>
         </CardContent>
@@ -193,12 +319,99 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
     );
   }
 
+  if (!examStarted) {
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-center space-x-2">
+            <Shield className="w-6 h-6 text-blue-500" />
+            <span>Exam Security Check</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="text-center space-y-4">
+            <Monitor className="w-16 h-16 mx-auto text-blue-500" />
+            <div>
+              <h3 className="text-xl font-semibold mb-2">Before You Begin</h3>
+              <p className="text-muted-foreground">
+                This exam requires a secure testing environment. Please ensure:
+              </p>
+            </div>
+            <ul className="text-left space-y-2 bg-muted p-4 rounded-lg">
+              <li className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>You are in a quiet, private location</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>Close all other browser tabs and applications</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>Disable any screen sharing or remote desktop</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>Do not leave the exam until you submit</span>
+              </li>
+            </ul>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>Note:</strong> The exam will run in fullscreen mode. Any attempt to exit fullscreen,
+                copy/paste, or use external resources will be recorded as a violation.
+                After 3 violations, your exam will be automatically submitted.
+              </p>
+            </div>
+          </div>
+          <Button onClick={startExam} className="w-full" size="lg">
+            <Monitor className="w-5 h-5 mr-2" />
+            Start Exam (Enter Fullscreen)
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const currentQuestion = exam.questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === exam.questions.length - 1;
   const allQuestionsAnswered = exam.questions.every(q => answers[q.id]);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div ref={containerRef} className="max-w-4xl mx-auto space-y-6">
+      {/* Warning Overlay */}
+      {showWarning && (
+        <div className="fixed inset-0 bg-red-500/90 z-50 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-red-600">
+                <EyeOff className="w-6 h-6" />
+                <span>Warning!</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg">
+                {violationCount >= maxViolations
+                  ? "Your exam has been auto-submitted due to multiple violations."
+                  : `This is warning ${violationCount} of ${maxViolations}.`}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {violationCount >= maxViolations
+                  ? "Please contact support if you believe this was a mistake."
+                  : "Return to the exam immediately to continue."}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Non-fullscreen warning */}
+      {!isFullscreen && examStarted && (
+        <div className="bg-yellow-500 text-yellow-950 px-4 py-2 rounded-lg flex items-center justify-center space-x-2">
+          <EyeOff className="w-5 h-5" />
+          <span className="font-medium">Please stay in fullscreen mode for the duration of the exam</span>
+        </div>
+      )}
+
       {/* Header */}
       <Card>
         <CardHeader>
@@ -323,8 +536,8 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
                 variant={index === currentQuestionIndex ? "default" : "outline"}
                 size="sm"
                 className={`w-8 h-8 p-0 ${
-                  answers[exam.questions[index].id] 
-                    ? "bg-green-100 border-green-300 text-green-700" 
+                  answers[exam.questions[index].id]
+                    ? "bg-green-100 border-green-300 text-green-700"
                     : ""
                 }`}
                 onClick={() => setCurrentQuestionIndex(index)}

@@ -27,14 +27,14 @@ export default function ExamPage() {
   
   const [examStarted, setExamStarted] = useState(false);
   const [examCompleted, setExamCompleted] = useState(false);
-  const [examResult, setExamResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [examResult, setExamResult] = useState<{ score: number; passed: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean } | null>(null);
 
   const handleExamStart = () => {
     setExamStarted(true);
   };
 
-  const handleExamComplete = (score: number, passed: boolean) => {
-    setExamResult({ score, passed });
+  const handleExamComplete = (score: number, passed: boolean, ranking?: number, totalCandidates?: number, qualifiedForChat?: boolean) => {
+    setExamResult({ score, passed, ranking, totalCandidates, qualifiedForChat });
     setExamCompleted(true);
     setExamStarted(false);
   };

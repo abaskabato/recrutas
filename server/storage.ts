@@ -116,6 +116,7 @@ export interface IStorage {
   updateExamAttempt(attemptId: number, data: any): Promise<any>;
   getExamAttempts(jobId: number): Promise<any[]>;
   rankCandidatesByExamScore(jobId: number): Promise<void>;
+  closeJobAndNotifyCandidates(jobId: number, talentOwnerId: string): Promise<void>;
 
   // Chat operations (controlled by exam performance)
   createChatRoom(data: any): Promise<ChatRoom>;
@@ -743,17 +744,23 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.expiresAt} IS NULL`,
             sql`${jobPostings.expiresAt} > NOW()`
           ),
+          // Platform jobs are verified by definition — skip liveness check
           or(
             eq(jobPostings.livenessStatus, 'active'),
-            eq(jobPostings.livenessStatus, 'unknown')
+            eq(jobPostings.livenessStatus, 'unknown'),
+            eq(jobPostings.source, 'platform')
           ),
-          // Filter out likely ghost jobs
+          // Platform jobs are never ghost jobs
           or(
             sql`${jobPostings.ghostJobScore} IS NULL`,
-            sql`${jobPostings.ghostJobScore} < 60`
+            sql`${jobPostings.ghostJobScore} < 60`,
+            eq(jobPostings.source, 'platform')
           ),
-          // Only recent jobs - last 90 days
-          sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
+          // Platform jobs are exempt from the 90-day cutoff
+          or(
+            eq(jobPostings.source, 'platform'),
+            sql`${jobPostings.createdAt} > ${cutoffDateStr}`
+          ),
           // Exclude ArbeitNow jobs (European job board)
           sql`${jobPostings.source} != 'ArbeitNow'`,
           // Exclude hidden and applied-to jobs
@@ -762,6 +769,8 @@ export class DatabaseStorage implements IStorage {
             : [])
         ))
         .orderBy(
+          // Platform jobs always appear first
+          sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
           sql`${jobPostings.trustScore} DESC NULLS LAST`,
           sql`${jobPostings.createdAt} DESC`
         )
@@ -816,17 +825,23 @@ export class DatabaseStorage implements IStorage {
           sql`${jobPostings.expiresAt} IS NULL`,
           sql`${jobPostings.expiresAt} > NOW()`
         ),
+        // Platform jobs are verified by definition — skip liveness check
         or(
           eq(jobPostings.livenessStatus, 'active'),
-          eq(jobPostings.livenessStatus, 'unknown')
+          eq(jobPostings.livenessStatus, 'unknown'),
+          eq(jobPostings.source, 'platform')
         ),
-        // Filter out likely ghost jobs at DB level
+        // Platform jobs are never ghost jobs
         or(
           sql`${jobPostings.ghostJobScore} IS NULL`,
-          sql`${jobPostings.ghostJobScore} < 60`
+          sql`${jobPostings.ghostJobScore} < 60`,
+          eq(jobPostings.source, 'platform')
         ),
-        // Only recent jobs - last 90 days
-        sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
+        // Platform jobs are exempt from the 90-day cutoff
+        or(
+          eq(jobPostings.source, 'platform'),
+          sql`${jobPostings.createdAt} > ${cutoffDateStr}`
+        ),
         // Exclude ArbeitNow jobs (European job board)
         sql`${jobPostings.source} != 'ArbeitNow'`,
         // Exclude hidden and applied-to jobs
@@ -835,6 +850,7 @@ export class DatabaseStorage implements IStorage {
           : [])
       ))
       .orderBy(
+        sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
         sql`${jobPostings.trustScore} DESC NULLS LAST`,
         sql`${jobPostings.createdAt} DESC`
       )
@@ -1473,13 +1489,15 @@ export class DatabaseStorage implements IStorage {
           jm.ai_explanation AS "aiExplanation",
           ea.score AS "examScore",
           ea.passed_exam AS "examPassed",
-          ea.ranking AS "examRanking"
+          ea.ranking AS "examRanking",
+          ea.qualified_for_chat AS "qualifiedForChat"
         FROM job_applications ja
         INNER JOIN users u ON ja.candidate_id = u.id
         LEFT JOIN candidate_users cp ON ja.candidate_id = cp.user_id
         LEFT JOIN job_matches jm ON jm.candidate_id = ja.candidate_id AND jm.job_id = ja.job_id
         LEFT JOIN exam_attempts ea ON ea.candidate_id = ja.candidate_id AND ea.job_id = ja.job_id
         WHERE ja.job_id = ${jobId}
+          AND ja.status != 'pending_exam'
         ORDER BY ea.score DESC NULLS LAST, ja.applied_at DESC
       `);
 
@@ -1509,6 +1527,7 @@ export class DatabaseStorage implements IStorage {
         examScore: row.examScore,
         examPassed: row.examPassed,
         examRanking: row.examRanking,
+        qualifiedForChat: row.qualifiedForChat,
       }));
     } catch (error) {
       console.error(`Error fetching applicants for job ${jobId}:`, error);
@@ -1776,12 +1795,65 @@ export class DatabaseStorage implements IStorage {
         .orderBy(asc(examAttempts.ranking));
 
       for (const attempt of attempts) {
-        if (job.hiringManagerId && attempt.ranking && attempt.ranking <= job.maxChatCandidates) {
+        if (attempt.ranking && attempt.ranking <= job.maxChatCandidates) {
           await this.grantChatAccess(jobId, attempt.candidateId, attempt.id, attempt.ranking);
         }
       }
     } catch (error) {
       console.error('Error ranking candidates by exam score:', error);
+      throw error;
+    }
+  }
+
+  async closeJobAndNotifyCandidates(jobId: number, talentOwnerId: string): Promise<void> {
+    try {
+      const job = await this.getJobPosting(jobId);
+      if (!job || job.talentOwnerId !== talentOwnerId) {
+        throw new Error('Job not found or unauthorized');
+      }
+
+      // Status is already set to 'closed' by the route before calling this method.
+      // This method is responsible only for notifications.
+      const { notificationService } = await import('./notification-service');
+      // Only notify candidates who completed their application (exam takers for hasExam jobs)
+      const applications = await db
+        .select()
+        .from(jobApplications)
+        .where(and(
+          eq(jobApplications.jobId, jobId),
+          sql`${jobApplications.status} != 'pending_exam'`
+        ));
+
+      const attempts = await this.getExamAttempts(jobId);
+      const sortedAttempts = attempts
+        .filter((a: any) => a.status === 'completed' && a.score !== null)
+        .sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
+
+      for (const application of applications) {
+        const ranking = sortedAttempts.findIndex((a: any) => a.candidateId === application.candidateId) + 1;
+        const attempt = attempts.find((a: any) => a.candidateId === application.candidateId);
+        const passedExam = attempt ? attempt.passedExam : false;
+
+        await notificationService.notifyJobExpired(
+          application.candidateId,
+          job.title,
+          job.company,
+          application.id,
+          ranking || undefined,
+          sortedAttempts.length || undefined,
+          passedExam
+        );
+      }
+
+      await notificationService.notifyJobExpiredToTalentOwner(
+        talentOwnerId,
+        job.title,
+        applications.length
+      );
+
+      console.log(`[Storage] Notified ${applications.length} candidates of job closure: ${jobId}`);
+    } catch (error) {
+      console.error('Error notifying candidates of job closure:', error);
       throw error;
     }
   }
@@ -1859,14 +1931,14 @@ export class DatabaseStorage implements IStorage {
   async grantChatAccess(jobId: number, candidateId: string, examAttemptId: number, ranking: number): Promise<ChatRoom> {
     try {
       const job = await this.getJobPosting(jobId);
-      if (!job || !job.hiringManagerId) {
-        throw new Error('Job or hiring manager not found');
+      if (!job) {
+        throw new Error('Job not found');
       }
 
       const room = await this.createChatRoom({
         jobId,
         candidateId,
-        hiringManagerId: job.hiringManagerId,
+        hiringManagerId: job.hiringManagerId || job.talentOwnerId,
         examAttemptId,
         ranking
       });

@@ -1202,7 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const application = await storage.createJobApplication({
         jobId,
         candidateId: userId,
-        status: 'submitted',
+        status: isInternalJob && job.hasExam ? 'pending_exam' : 'submitted',
         metadata: applicationMetadata
       });
       
@@ -1446,7 +1446,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
       const userId = req.user.id;
-      const { status } = req.body;
+      const { status, notifyCandidates } = req.body;
 
       if (!['active', 'paused', 'closed'].includes(status)) {
         return res.status(400).json({ message: 'Invalid status. Must be active, paused, or closed.' });
@@ -1460,6 +1460,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const updatedJob = await storage.updateJobPosting(jobId, userId, { status });
       await storage.createActivityLog(userId, "job_status_changed", `Job status changed to ${status}: ${job.title}`);
+
+      if (status === 'closed' && notifyCandidates) {
+        await storage.closeJobAndNotifyCandidates(jobId, userId);
+      }
+
       res.json(updatedJob);
     } catch (error) {
       console.error("Error updating job status:", error);
@@ -1909,6 +1914,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
         id: exam.id,
         jobId: exam.jobId,
         title: exam.title,
+        jobTitle: job.title,
+        company: job.company,
+        maxChatCandidates: job.maxChatCandidates || 5,
         questions: exam.questions.map((q: any) => ({
           id: q.id,
           question: q.question,

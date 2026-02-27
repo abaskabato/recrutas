@@ -26,7 +26,7 @@ class ExamProcessingError extends Error {
 export class ExamService {
   constructor(private storage: IStorage, private notificationService: INotificationService) {}
 
-  async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number; passed: boolean }> {
+  async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number; passed: boolean; ranking: number; totalCandidates: number; qualifiedForChat: boolean }> {
     console.log(`[ExamService] Submitting exam for job ${jobId} and user ${userId}`);
 
     try {
@@ -65,9 +65,12 @@ export class ExamService {
       
       const candidate = await this.storage.getCandidateUser(userId);
       
-      // Look up the application to get the correct applicationId
+      // Look up the application and promote it from pending_exam → submitted
       const application = await this.storage.getApplicationByJobAndCandidate(jobId, userId);
       const applicationId = application?.id ?? 0;
+      if (application?.status === 'pending_exam') {
+        await this.storage.updateApplicationStatusByCandidate(applicationId, 'submitted');
+      }
 
       await this.notificationService.notifyExamCompleted(
         job.talentOwnerId,
@@ -89,7 +92,18 @@ export class ExamService {
         applicationId
       );
 
-      return { score, passed };
+      // Compute ranking against all completed attempts for this job.
+      // storeExamResult() commits atomically, so the current attempt is included.
+      const attempts = await this.storage.getExamAttempts(jobId);
+      const sorted = attempts
+        .filter((a: any) => a.status === 'completed' && a.score !== null)
+        .sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
+
+      const ranking = sorted.findIndex((a: any) => a.candidateId === userId) + 1;
+      const totalCandidates = sorted.length;
+      const qualifiedForChat = ranking > 0 && ranking <= (job.maxChatCandidates || 5);
+
+      return { score, passed, ranking, totalCandidates, qualifiedForChat };
     } catch (error) {
       console.error("[ExamService] Error submitting exam:", error);
       if (error instanceof ExamProcessingError) {

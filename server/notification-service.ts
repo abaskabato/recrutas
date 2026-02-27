@@ -424,6 +424,45 @@ class NotificationService {
     });
   }
 
+  async notifyJobExpired(candidateId: string, jobTitle: string, companyName: string, applicationId: number, ranking?: number, totalCandidates?: number, passedExam?: boolean) {
+    let title = `Job Closed: ${jobTitle}`;
+    let message: string;
+    let priority: 'high' | 'medium' | 'low' = 'medium';
+
+    if (ranking && totalCandidates) {
+      if (passedExam) {
+        title = `Hiring Complete: ${jobTitle}`;
+        message = `The hiring process for ${jobTitle} at ${companyName} has concluded. You were ranked #${ranking} out of ${totalCandidates} candidates and passed the exam. The hiring team will be in touch with final decisions.`;
+        priority = 'high';
+      } else {
+        message = `The hiring process for ${jobTitle} at ${companyName} has concluded. You were ranked #${ranking} out of ${totalCandidates} candidates. Thank you for your interest!`;
+      }
+    } else {
+      message = `The job posting for ${jobTitle} at ${companyName} has expired and is no longer accepting applications.`;
+    }
+
+    await this.createNotification({
+      userId: candidateId,
+      type: 'job_expired',
+      title,
+      message,
+      priority,
+      relatedApplicationId: applicationId,
+      data: { jobTitle, companyName, ranking, totalCandidates, passedExam }
+    });
+  }
+
+  async notifyJobExpiredToTalentOwner(talentOwnerId: string, jobTitle: string, totalCandidates: number) {
+    await this.createNotification({
+      userId: talentOwnerId,
+      type: 'job_expired',
+      title: `Job Closed: ${jobTitle}`,
+      message: `The job posting "${jobTitle}" has been closed. ${totalCandidates} candidate${totalCandidates !== 1 ? 's' : ''} applied.`,
+      priority: 'medium',
+      data: { jobTitle, totalCandidates }
+    });
+  }
+
   async notifyInterviewScheduled(candidateId: string, companyName: string, jobTitle: string, interviewDate: string, applicationId: number) {
     await this.createNotification({
       userId: candidateId,

@@ -58,7 +58,8 @@ import {
   Linkedin,
   Github,
   Globe,
-  ExternalLink
+  ExternalLink,
+  Trophy
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import JobPostingWizard from "@/components/job-posting-wizard";
@@ -81,6 +82,8 @@ interface JobPosting {
   applicationCount: number;
   createdAt: string;
   updatedAt: string;
+  hasExam?: boolean;
+  maxChatCandidates?: number;
 }
 
 interface Candidate {
@@ -477,6 +480,17 @@ export default function TalentDashboard() {
     const matchesStatus = filterStatus === "all" || applicant.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const totalRanked = applicants.filter((a: any) => a.examRanking != null).length;
+  const maxChat = selectedJob?.maxChatCandidates || 5;
+  // For exam jobs, split at the chat cutoff and insert a separator marker
+  const applicantsWithSeparator: any[] = (() => {
+    if (!selectedJob?.hasExam) return filteredCandidates;
+    const qualified = filteredCandidates.filter((a: any) => a.qualifiedForChat);
+    const below = filteredCandidates.filter((a: any) => !a.qualifiedForChat);
+    if (below.length === 0) return qualified;
+    return [...qualified, { _separator: true }, ...below];
+  })();
 
   if (isLoading || !user) {
     return (
@@ -1016,7 +1030,19 @@ export default function TalentDashboard() {
                   </Card>
                 ) : (
                   <div className="space-y-4">
-                    {filteredCandidates.map((applicant) => {
+                    {applicantsWithSeparator.map((item: any) => {
+                      if (item._separator) {
+                        return (
+                          <div key="cutoff-separator" className="flex items-center gap-3 py-2">
+                            <div className="flex-1 border-t border-dashed border-gray-300 dark:border-gray-600" />
+                            <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                              Below top {maxChat} — chat not unlocked
+                            </span>
+                            <div className="flex-1 border-t border-dashed border-gray-300 dark:border-gray-600" />
+                          </div>
+                        );
+                      }
+                      const applicant = item;
                       const isExpanded = expandedApplicantId === applicant.applicationId;
                       const questions = screeningQuestions?.[applicant.candidate.id];
                       return (
@@ -1030,6 +1056,12 @@ export default function TalentDashboard() {
                                     <Badge variant="default" className={applicant.examScore >= 80 ? "bg-emerald-600 hover:bg-emerald-700" : applicant.examScore >= 60 ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-500 hover:bg-gray-600"}>
                                       <Target className="h-3 w-3 mr-1" />
                                       Exam: {applicant.examScore}%
+                                    </Badge>
+                                  )}
+                                  {applicant.examRanking != null && (
+                                    <Badge variant="outline" className={applicant.qualifiedForChat ? "border-amber-400 text-amber-600" : "border-gray-300 text-gray-500"}>
+                                      <Trophy className="h-3 w-3 mr-1" />
+                                      #{applicant.examRanking} of {totalRanked}
                                     </Badge>
                                   )}
                                   {applicant.match?.matchScore && (
@@ -1133,14 +1165,33 @@ export default function TalentDashboard() {
                                   >
                                     Generate AI Screening Questions
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => selectedJob && startChatMutation.mutate({ jobId: selectedJob.id, candidateId: applicant.candidate?.id })}
-                                    disabled={startChatMutation.isPending}
-                                  >
-                                    <MessageSquare className="h-4 w-4 mr-2" />
-                                    Start Chat
-                                  </Button>
+                                  {(!selectedJob?.hasExam || applicant.qualifiedForChat) ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => selectedJob && startChatMutation.mutate({ jobId: selectedJob.id, candidateId: applicant.candidate?.id })}
+                                      disabled={startChatMutation.isPending}
+                                    >
+                                      <MessageSquare className="h-4 w-4 mr-2" />
+                                      Start Chat
+                                    </Button>
+                                  ) : (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span>
+                                            <Button size="sm" variant="outline" disabled>
+                                              <MessageSquare className="h-4 w-4 mr-2" />
+                                              Chat Locked
+                                            </Button>
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Top {maxChat} candidates unlock chat.</p>
+                                          <p>This candidate ranked #{applicant.examRanking ?? '?'} of {totalRanked}.</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="outline"
