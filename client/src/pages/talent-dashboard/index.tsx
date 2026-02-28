@@ -133,7 +133,8 @@ export default function TalentDashboard() {
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/jobs/${selectedJob!.id}/applicants`);
       if (!res.ok) throw new Error('Failed to fetch applicants');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
@@ -143,7 +144,8 @@ export default function TalentDashboard() {
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/talent-owner/all-applicants');
       if (!res.ok) throw new Error('Failed to fetch all applicants');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 

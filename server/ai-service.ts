@@ -2,7 +2,8 @@
 
 import { type CandidateProfile, type JobPosting } from '@shared/schema';
 import Groq from 'groq-sdk';
-import { throttledGroqRequest, getCachedSummary, setCachedSummary, summaryKey } from './lib/groq-limiter';
+import { getCachedSummary, setCachedSummary, summaryKey } from './lib/groq-limiter';
+import { callAI } from './lib/ai-client';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -403,8 +404,8 @@ export async function generateScreeningQuestions(candidate: CandidateProfile, jo
  */
 export async function summarizeJobDescription(description: string, title?: string, company?: string): Promise<JobSummary> {
   const groqClient = getGroqClient();
-  // If no Groq client, use rule-based summarization
-  if (!groqClient) {
+  // If no AI provider available, use rule-based summarization
+  if (!process.env.GEMINI_API_KEY && !groqClient) {
     return generateRuleBasedSummary(description, title, company);
   }
 
@@ -440,28 +441,11 @@ Return ONLY a valid JSON object with these exact fields (no markdown, no code bl
   "techStack": ["specific technologies/tools mentioned"]
 }`;
 
-    const completion = await throttledGroqRequest(
-      () => groqClient.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a job posting analyzer. Extract structured information from job descriptions and return valid JSON only.'
-          },
-          { role: 'user', content: prompt }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 1500
-      }),
-      'medium',
-      2000
+    const content = await callAI(
+      'You are a job posting analyzer. Extract structured information from job descriptions and return valid JSON only.',
+      prompt,
+      { priority: 'medium', estimatedTokens: 2000, temperature: 0.1, maxOutputTokens: 1500 }
     );
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from AI');
-    }
 
     const parsed = JSON.parse(content);
 

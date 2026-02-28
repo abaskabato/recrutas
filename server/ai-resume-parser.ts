@@ -4,7 +4,7 @@ import mammoth from 'mammoth';
 import { generateJobMatch } from './ai-service';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
-import { throttledGroqRequest } from './lib/groq-limiter';
+import { callAI } from './lib/ai-client';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -253,14 +253,14 @@ English (Native), Spanish (Conversational)`;
 
     const errors: string[] = [];
 
-    // Priority 2: Groq (only when rule-based confidence is low)
-    if (getGroqClient()) {
+    // Priority 2: Cloud AI — Gemini (preferred) or Groq fallback
+    if (process.env.GEMINI_API_KEY || getGroqClient()) {
       try {
-        console.log('[AIResumeParser] Trying Groq API...');
+        console.log('[AIResumeParser] Trying Cloud AI (Gemini/Groq)...');
         return await this.extractWithGroq(text);
-      } catch (groqError: any) {
-        console.error('[AIResumeParser] Groq failed:', groqError.message);
-        errors.push(`Groq: ${groqError.message}`);
+      } catch (aiError: any) {
+        console.error('[AIResumeParser] Cloud AI failed:', aiError.message);
+        errors.push(`CloudAI: ${aiError.message}`);
       }
     }
 
@@ -471,36 +471,22 @@ Return JSON with this exact structure:
   }
 
   private async extractWithGroq(text: string): Promise<AIExtractedData> {
-    const groqClient = getGroqClient();
-    if (!groqClient) {
-      throw new Error('Groq client not initialized');
-    }
-
     // Truncate large resumes to keep prompt size manageable (~4000 chars covers all relevant info)
     const truncatedText = text.length > 4000 ? text.substring(0, 4000) : text;
     if (text.length > 4000) {
-      console.log(`[AIResumeParser] Truncated resume text from ${text.length} to 4000 chars for Groq`);
+      console.log(`[AIResumeParser] Truncated resume text from ${text.length} to 4000 chars`);
     }
 
-    console.log('[AIResumeParser] Calling Groq API with llama-3.3-70b-versatile...');
+    console.log('[AIResumeParser] Calling AI provider (Gemini/Groq)...');
 
-    // Add timeout to prevent hanging
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Groq API timeout (30s)')), 30000)
+      setTimeout(() => reject(new Error('AI API timeout (30s)')), 30000)
     );
 
-    const completion = await Promise.race([
-      throttledGroqRequest(
-        () => groqClient.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.'
-            },
-            {
-              role: 'user',
-              content: `Extract the following information from this resume text and return as JSON:
+    const content = await Promise.race([
+      callAI(
+        'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.',
+        `Extract the following information from this resume text and return as JSON:
 
 {
   "personalInfo": {
@@ -550,31 +536,23 @@ Return JSON with this exact structure:
 }
 
 Resume text:
-${truncatedText}`
-            }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-          max_tokens: 2000
-        }),
-        'high',
-        2500
+${truncatedText}`,
+        { priority: 'high', estimatedTokens: 2500, temperature: 0.1, maxOutputTokens: 2000 }
       ),
       timeoutPromise
     ]);
 
-    const content = completion.choices?.[0]?.message?.content || '{}';
-    console.log('[AIResumeParser] Groq API response received, parsing JSON...');
+    console.log('[AIResumeParser] AI response received, parsing JSON...');
 
     let extractedData;
     try {
-      extractedData = JSON.parse(content);
+      extractedData = JSON.parse(content || '{}');
     } catch (parseError: unknown) {
-      console.warn('[AIResumeParser] Failed to parse Groq response:', (parseError as Error).message);
-      throw new Error('Failed to parse Groq JSON response');
+      console.warn('[AIResumeParser] Failed to parse AI response:', (parseError as Error).message);
+      throw new Error('Failed to parse AI JSON response');
     }
 
-    console.log('[AIResumeParser] Successfully extracted data via Groq');
+    console.log('[AIResumeParser] Successfully extracted data via AI');
 
     // Ensure all required fields are present with defaults
     return {

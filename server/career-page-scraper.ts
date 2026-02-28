@@ -11,7 +11,7 @@
  */
 
 import Groq from 'groq-sdk';
-import { throttledGroqRequest } from './lib/groq-limiter';
+import { callAI } from './lib/ai-client';
 
 interface ScrapedJob {
   id: string;
@@ -399,8 +399,8 @@ class CareerPageScraper {
    * This is the HiringCafe-style approach for companies without APIs
    */
   private async scrapeWithAI(company: CompanyCareerPage): Promise<ScrapedJob[]> {
-    if (!this.groq) {
-      console.log(`[CareerScraper] Skipping AI scraping for ${company.name} - no Groq API key`);
+    if (!this.groq && !process.env.GEMINI_API_KEY) {
+      console.log(`[CareerScraper] Skipping AI scraping for ${company.name} - no AI provider configured`);
       return [];
     }
 
@@ -434,42 +434,26 @@ class CareerPageScraper {
    * Use Groq AI to extract job listings from HTML content
    */
   private async extractJobsWithAI(html: string, company: CompanyCareerPage): Promise<ScrapedJob[]> {
-    if (!this.groq) {return [];}
+    if (!this.groq && !process.env.GEMINI_API_KEY) {return [];}
 
     // Truncate HTML to fit in context window
     const truncatedHtml = html.slice(0, 30000);
 
     try {
-      const completion = await throttledGroqRequest(
-        () => this.groq!.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a job listing extractor. Extract job postings from HTML content and return them as JSON.
-            Return a JSON object with a "jobs" array containing objects with these fields:
-            - title (string): Job title
-            - location (string): Job location
-            - description (string): Brief job description (1-2 sentences)
-            - skills (array): Relevant skills/technologies mentioned
-            - workType (string): "remote", "hybrid", or "onsite"
-            Only include actual job postings, not navigation links or other content.
-            Return maximum 15 jobs. If no jobs found, return {"jobs": []}.`
-            },
-            {
-              role: 'user',
-              content: `Extract job listings from this ${company.name} careers page HTML:\n\n${truncatedHtml}`
-            }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-          max_tokens: 4000
-        }),
-        'low',
-        5000
+      const content = await callAI(
+        `You are a job listing extractor. Extract job postings from HTML content and return them as JSON.
+Return a JSON object with a "jobs" array containing objects with these fields:
+- title (string): Job title
+- location (string): Job location
+- description (string): Brief job description (1-2 sentences)
+- skills (array): Relevant skills/technologies mentioned
+- workType (string): "remote", "hybrid", or "onsite"
+Only include actual job postings, not navigation links or other content.
+Return maximum 15 jobs. If no jobs found, return {"jobs": []}.`,
+        `Extract job listings from this ${company.name} careers page HTML:\n\n${truncatedHtml}`,
+        { priority: 'low', estimatedTokens: 5000, temperature: 0.1, maxOutputTokens: 4000 }
       );
 
-      const content = completion.choices[0]?.message?.content;
       if (!content) {return [];}
 
       const parsed = JSON.parse(content);

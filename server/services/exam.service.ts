@@ -1,20 +1,10 @@
 import { IStorage } from "../storage";
-import Groq from "groq-sdk";
-import { throttledGroqRequest } from "../lib/groq-limiter";
+import { callAI, isAIAvailable } from "../lib/ai-client";
 
 // Interface for notification service to avoid circular dependency
 interface INotificationService {
   notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number): Promise<void>;
   notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number): Promise<void>;
-}
-
-function getGroqClient(): Groq | null {
-  const apiKey = process.env.GROQ_API_KEY || process.env.GROQ_KEY;
-  if (!apiKey) {
-    console.warn('[ExamService] GROQ_API_KEY not set - AI scoring disabled');
-    return null;
-  }
-  return new Groq({ apiKey });
 }
 
 class ExamProcessingError extends Error {
@@ -175,8 +165,7 @@ export class ExamService {
     jobContext: { title: string; description?: string },
     onScore: (normalizedScore: number, maxPoints: number) => void
   ): Promise<void> {
-    const groqClient = getGroqClient();
-    if (!groqClient) {
+    if (!isAIAvailable()) {
       // Fallback: give full credit
       for (const { question } of shortAnswerQuestions) {
         onScore(1, question.points || 10);
@@ -202,22 +191,15 @@ ${shortAnswerQuestions.map((q, i) => `${i + 1}. ${q.question.text || q.question.
 Answers:
 ${shortAnswerQuestions.map((q, i) => `${i + 1}. ${q.answer}`).join('\n')}`;
 
-      const completion = await Promise.race([
-        throttledGroqRequest(
-          () => groqClient.chat.completions.create({
-            model: 'llama-3.3-70b-versatile',
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' },
-            max_tokens: 2000,
-            temperature: 0.1,
-          }),
-          'critical',
-          2500
+      const content = await Promise.race([
+        callAI(
+          'You are an expert technical interviewer scoring candidate answers.',
+          prompt,
+          { priority: 'critical', estimatedTokens: 2500, temperature: 0.1, maxOutputTokens: 2000 }
         ),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('AI scoring timeout')), 30000))
-      ]) as any;
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('AI scoring timeout')), 30000))
+      ]);
 
-      const content = completion.choices?.[0]?.message?.content;
       if (content) {
         const results = JSON.parse(content);
         const scores = Array.isArray(results) ? results : results.scores || [];

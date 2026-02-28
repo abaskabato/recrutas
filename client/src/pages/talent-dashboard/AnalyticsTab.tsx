@@ -8,7 +8,8 @@ interface AnalyticsTabProps {
   allApplicants: any[];
 }
 
-export default function AnalyticsTab({ jobs, allApplicants }: AnalyticsTabProps) {
+export default function AnalyticsTab({ jobs, allApplicants: rawApplicants }: AnalyticsTabProps) {
+  const allApplicants = Array.isArray(rawApplicants) ? rawApplicants : [];
   const now = new Date();
   const getWeekStart = (weeksAgo: number) => {
     const date = new Date(now);

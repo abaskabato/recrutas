@@ -144,9 +144,10 @@ export default function RealTimeNotifications({ onNavigate }: RealTimeNotificati
   }, [user?.id]);
 
   // Merge: server notifications are canonical; ws extras are deduped
-  const serverIds = new Set(serverNotifications.map(n => n.id));
+  const safeServerNotifications = Array.isArray(serverNotifications) ? serverNotifications : [];
+  const serverIds = new Set(safeServerNotifications.map(n => n.id));
   const allNotifications: ServerNotification[] = [
-    ...serverNotifications,
+    ...safeServerNotifications,
     ...wsNotifications.filter(n => !serverIds.has(n.id)),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
