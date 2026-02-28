@@ -365,18 +365,19 @@ export class DatabaseStorage implements IStorage {
 
   async upsertCandidateUser(profile: InsertCandidateProfile): Promise<CandidateProfile> {
     try {
+      const normalizedSkills = profile.skills ? normalizeSkills(profile.skills) : [];
       const [result] = await db
         .insert(candidateProfiles)
         .values({
           ...profile,
-          skills: profile.skills || [],
+          skills: normalizedSkills,
           updatedAt: new Date()
         } as any)
         .onConflictDoUpdate({
           target: candidateProfiles.userId,
           set: {
             ...profile,
-            ...(profile.skills !== undefined && { skills: profile.skills }),
+            ...(profile.skills !== undefined && { skills: normalizedSkills }),
             updatedAt: new Date(),
           },
         })
