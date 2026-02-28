@@ -30,7 +30,7 @@ test.describe('Authentication', () => {
     await page.locator('input[type="password"]').fill('wrongpassword');
     await page.getByRole('button', { name: /sign in|login/i }).click();
     
-    await expect(page.getByText(/invalid|incorrect|failed/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/invalid|incorrect|failed/i).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('should redirect to dashboard after successful login', async ({ page }) => {

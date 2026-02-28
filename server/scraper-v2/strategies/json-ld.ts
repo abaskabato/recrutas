@@ -144,7 +144,10 @@ function parseJobPosting(posting: JsonLdJobPosting, company: CompanyConfig): Scr
         scrapeMethod: 'json_ld'
       },
       postedDate: new Date(posting.datePosted || Date.now()),
-      expiresAt: posting.validThrough ? new Date(posting.validThrough) : undefined,
+      expiresAt: posting.validThrough ? (() => {
+        const d = new Date(posting.validThrough);
+        return isNaN(d.getTime()) ? undefined : d;
+      })() : undefined,
       scrapedAt: new Date(),
       updatedAt: new Date(),
       status: 'active',
