@@ -64,6 +64,7 @@ interface JobPreferences {
   commitmentTypes?: string[];
   experienceLevels?: string[];
   industries?: string[];
+  workTypes?: string[];
   companySizes?: string[];
   preferredLocations?: string[];
   maxTravelDays?: number;
@@ -86,10 +87,12 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     commitmentTypes: [],
     experienceLevels: [],
     industries: [],
+    workTypes: [],
     companySizes: [],
     preferredLocations: [],
     maxTravelDays: 0
   });
+  const [salaryError, setSalaryError] = useState<string | null>(null);
   const [parsedResumeData, setParsedResumeData] = useState<ExtractedInfo | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadElapsed, setUploadElapsed] = useState(0);
@@ -118,13 +121,23 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       });
 
       const prefs = (profile as any).jobPreferences || {};
+      // Backward compat: old data stored work types (Remote/Hybrid/Onsite) inside companySizes.
+      // Split them out into the dedicated workTypes field.
+      const WORK_TYPE_VALUES = ['Remote', 'Hybrid', 'Onsite'];
+      const legacyCompanySizes: string[] = prefs.companySizes || [];
+      const migratedWorkTypes: string[] = prefs.workTypes
+        || legacyCompanySizes.filter((v: string) => WORK_TYPE_VALUES.includes(v));
+      const cleanedCompanySizes: string[] = legacyCompanySizes.filter(
+        (v: string) => !WORK_TYPE_VALUES.includes(v)
+      );
       setJobPreferences({
         salaryMin: prefs.salaryMin || undefined,
         salaryMax: prefs.salaryMax || undefined,
         commitmentTypes: prefs.commitmentTypes || [],
         experienceLevels: prefs.experienceLevels || [],
         industries: prefs.industries || [],
-        companySizes: prefs.companySizes || [],
+        workTypes: migratedWorkTypes,
+        companySizes: cleanedCompanySizes,
         preferredLocations: prefs.preferredLocations || [],
         maxTravelDays: prefs.maxTravelDays || 0
       });
@@ -274,6 +287,12 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   };
 
   const handleSavePreferences = () => {
+    const { salaryMin, salaryMax } = jobPreferences;
+    if (salaryMin && salaryMax && salaryMax < salaryMin) {
+      setSalaryError('Maximum salary must be greater than minimum salary.');
+      return;
+    }
+    setSalaryError(null);
     preferencesMutation.mutate(jobPreferences);
   };
 
@@ -626,13 +645,14 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label htmlFor="salaryMin" className="text-sm text-gray-600">Minimum ($)</Label>
-                <Input id="salaryMin" type="number" placeholder="50000" value={jobPreferences.salaryMin || ''} onChange={(e) => setJobPreferences({...jobPreferences, salaryMin: e.target.value ? parseInt(e.target.value) : undefined})} />
+                <Input id="salaryMin" type="number" placeholder="50000" value={jobPreferences.salaryMin || ''} onChange={(e) => { setSalaryError(null); setJobPreferences({...jobPreferences, salaryMin: e.target.value ? parseInt(e.target.value) : undefined}); }} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="salaryMax" className="text-sm text-gray-600">Maximum ($)</Label>
-                <Input id="salaryMax" type="number" placeholder="200000" value={jobPreferences.salaryMax || ''} onChange={(e) => setJobPreferences({...jobPreferences, salaryMax: e.target.value ? parseInt(e.target.value) : undefined})} />
+                <Input id="salaryMax" type="number" placeholder="200000" value={jobPreferences.salaryMax || ''} onChange={(e) => { setSalaryError(null); setJobPreferences({...jobPreferences, salaryMax: e.target.value ? parseInt(e.target.value) : undefined}); }} />
               </div>
             </div>
+            {salaryError && <p className="text-sm text-red-500">{salaryError}</p>}
           </div>
 
           <Separator />
@@ -665,12 +685,12 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
 
           <Separator />
 
-          {/* Work Type / Location */}
+          {/* Work Arrangement */}
           <div className="space-y-2">
             <Label className="font-semibold">Work Arrangement</Label>
             <div className="flex flex-wrap gap-2">
               {['Remote', 'Hybrid', 'Onsite'].map(type => (
-                <Badge key={type} variant={jobPreferences.companySizes?.includes(type) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('companySizes', type)}>
+                <Badge key={type} variant={jobPreferences.workTypes?.includes(type) ? "default" : "outline"} className="cursor-pointer" onClick={() => toggleArrayPreference('workTypes', type)}>
                   {type}
                 </Badge>
               ))}

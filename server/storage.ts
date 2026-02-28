@@ -967,13 +967,18 @@ export class DatabaseStorage implements IStorage {
             if (prefMax && jobSalaryMin > prefMax) {return false;}
           }
         }
-        if (jobPreferences.companySizes && jobPreferences.companySizes.length > 0) {
-          // companySizes may contain work-type values (Remote/Onsite/Hybrid) mixed with company
-          // sizes (Enterprise/Startup). Only apply work-type filtering for recognized values.
+        {
+          // Prefer the dedicated workTypes field; fall back to work-type values stored inside
+          // companySizes for backward compatibility with data saved before the form was fixed.
           const WORK_TYPES = ['remote', 'hybrid', 'onsite'];
-          const preferredWorkTypes = (jobPreferences.companySizes as string[])
-            .map((t: string) => t.toLowerCase())
-            .filter((t: string) => WORK_TYPES.includes(t));
+          let preferredWorkTypes: string[] = [];
+          if (jobPreferences.workTypes && (jobPreferences.workTypes as string[]).length > 0) {
+            preferredWorkTypes = (jobPreferences.workTypes as string[]).map((t: string) => t.toLowerCase());
+          } else if (jobPreferences.companySizes && (jobPreferences.companySizes as string[]).length > 0) {
+            preferredWorkTypes = (jobPreferences.companySizes as string[])
+              .map((t: string) => t.toLowerCase())
+              .filter((t: string) => WORK_TYPES.includes(t));
+          }
           if (preferredWorkTypes.length > 0) {
             const jobWorkType = job.workType?.toLowerCase();
             if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {return false;}
