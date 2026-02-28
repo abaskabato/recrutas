@@ -547,6 +547,51 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Only use ML if the model is already loaded — avoids blocking the response
       // on the 10-30s first-load delay. The warmup timer handles background preloading.
       const useML = mlScoringEnabled && isModelLoaded();
+      
+      // Re-score internal DB jobs with ML matching for semantic title matching
+      let mlScoredRecommendations = recommendations;
+      if (useML && recommendations.length > 0 && candidateSkills.length > 0) {
+        console.log(`[ML] Re-scoring ${recommendations.length} internal jobs with ML for semantic matching`);
+        try {
+          const batchSize = 5;
+          const scored: any[] = [];
+          for (let i = 0; i < recommendations.length; i += batchSize) {
+            if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
+              console.log('[ML] Timeout - stopping internal job scoring');
+              break;
+            }
+            const batch = recommendations.slice(i, i + batchSize);
+            const batchResults = await Promise.allSettled(
+              batch.map(async (job) => {
+                const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
+                return {
+                  ...job,
+                  matchScore: mlScore.matchScore,
+                  skillMatches: mlScore.skillMatches,
+                  aiExplanation: mlScore.aiExplanation,
+                  confidenceLevel: mlScore.confidenceLevel,
+                };
+              })
+            );
+            scored.push(...batchResults
+              .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+              .map(r => r.value));
+          }
+          mlScoredRecommendations = scored;
+          const mlPassingCount = mlScoredRecommendations.filter(j => j.matchScore >= 20).length;
+          const originalPassingCount = recommendations.filter(j => j.matchScore >= 20).length;
+          console.log(`[ML] Re-scored internal jobs: ${mlPassingCount} pass 20% threshold (vs ${originalPassingCount} original)`);
+          
+          // Fallback: if ML scored fewer jobs than original matching, keep original results
+          if (mlPassingCount < originalPassingCount) {
+            console.log('[ML] Using original matching results (ML scored fewer jobs)');
+            mlScoredRecommendations = recommendations;
+          }
+        } catch (err) {
+          console.warn('[ML] Failed to re-score internal jobs:', err);
+        }
+      }
+
       let candidateEmbedding: number[] | undefined;
       if (useML && candidateSkills.length > 0) {
         try {
@@ -686,7 +731,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return false;
       });
 
-      const allRecommendations = [...(recommendations || []), ...uniqueCafeJobs, ...filteredRemoteOkJobs];
+      const allRecommendations = [...(mlScoredRecommendations || []), ...uniqueCafeJobs, ...filteredRemoteOkJobs];
       
       finish();
 
