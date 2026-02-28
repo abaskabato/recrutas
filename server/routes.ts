@@ -543,14 +543,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Score hiring.cafe jobs using ML matching (open-source transformers)
       const candidateExperience = candidate?.experience || '';
 
-      // Pre-compute candidate embedding once (reused across all jobs).
       // Only use ML if the model is already loaded — avoids blocking the response
       // on the 10-30s first-load delay. The warmup timer handles background preloading.
       const useML = mlScoringEnabled && isModelLoaded();
-      
+
+      // Pre-compute candidate embedding once (reused for both internal and external job scoring).
+      let candidateEmbedding: number[] | undefined;
+      if (useML && candidateSkills.length > 0) {
+        try {
+          candidateEmbedding = await generateCandidateEmbedding(candidateSkills, candidateExperience);
+        } catch (err) {
+          console.warn('[ML Scoring] Failed to pre-compute candidate embedding:', err);
+        }
+      }
+      if (!useML) {
+        console.log('[ML Scoring] Model not yet loaded — using simple skill matching (fast path)');
+      }
+
       // Re-score internal DB jobs with ML matching for semantic title matching
       let mlScoredRecommendations = recommendations;
-      if (useML && recommendations.length > 0 && candidateSkills.length > 0) {
+      if (useML && candidateEmbedding && recommendations.length > 0 && candidateSkills.length > 0) {
         console.log(`[ML] Re-scoring ${recommendations.length} internal jobs with ML for semantic matching`);
         try {
           const batchSize = 5;
@@ -581,7 +593,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
           const mlPassingCount = mlScoredRecommendations.filter(j => j.matchScore >= 20).length;
           const originalPassingCount = recommendations.filter(j => j.matchScore >= 20).length;
           console.log(`[ML] Re-scored internal jobs: ${mlPassingCount} pass 20% threshold (vs ${originalPassingCount} original)`);
-          
+
           // Fallback: if ML scored fewer jobs than original matching, keep original results
           if (mlPassingCount < originalPassingCount) {
             console.log('[ML] Using original matching results (ML scored fewer jobs)');
@@ -590,18 +602,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         } catch (err) {
           console.warn('[ML] Failed to re-score internal jobs:', err);
         }
-      }
-
-      let candidateEmbedding: number[] | undefined;
-      if (useML && candidateSkills.length > 0) {
-        try {
-          candidateEmbedding = await generateCandidateEmbedding(candidateSkills, candidateExperience);
-        } catch (err) {
-          console.warn('[ML Scoring] Failed to pre-compute candidate embedding:', err);
-        }
-      }
-      if (!useML) {
-        console.log('[ML Scoring] Model not yet loaded — using simple skill matching (fast path)');
       }
 
       let scoredCafeJobs: any[] = [];

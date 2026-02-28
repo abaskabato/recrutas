@@ -3,6 +3,7 @@
  * Persists external jobs to database with deduplication
  */
 
+import { createHash } from 'crypto';
 import { db } from '../db';
 import { jobPostings, users } from '@shared/schema';
 import { eq, and, or } from 'drizzle-orm';
@@ -101,6 +102,13 @@ export class JobIngestionService {
         continue;
       }
       try {
+        // Deterministic fallback ID so jobs without an externalId dedup correctly
+        // across scrape runs instead of inserting a duplicate on every run.
+        const effectiveExternalId = job.externalId || createHash('sha1')
+          .update(`${job.title ?? ''}:${job.company ?? ''}:${job.location ?? ''}`)
+          .digest('hex')
+          .slice(0, 16);
+
         // Use transaction to ensure atomic check-and-insert (prevent race conditions)
         const result = await db.transaction(async (tx) => {
           // Check if job already exists (by externalId + source) within transaction
@@ -109,8 +117,8 @@ export class JobIngestionService {
             .from(jobPostings)
             .where(
               and(
-                eq(jobPostings.externalId, job.externalId),
-                eq(jobPostings.source, job.source)
+                eq(jobPostings.externalId, effectiveExternalId),
+                eq(jobPostings.source, job.source ?? 'unknown')
               )
             )
             .limit(1)
@@ -189,7 +197,7 @@ export class JobIngestionService {
             salaryMin: job.salaryMin ?? null,
             salaryMax: job.salaryMax ?? null,
             source: job.source ?? 'unknown',
-            externalId: job.externalId ?? `generated-${Date.now()}`,
+            externalId: effectiveExternalId,
             externalUrl: job.externalUrl ?? null,
             trustScore: trustScore,
             livenessStatus: 'unknown',

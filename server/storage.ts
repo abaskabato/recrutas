@@ -63,7 +63,7 @@ import { eq, desc, asc, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
-import { normalizeSkills, getRelatedSkills } from "./skill-normalizer";
+import { normalizeSkills, parseSkillsInput, getRelatedSkills } from "./skill-normalizer";
 import { isUSLocation } from "./location-filter";
 import { extractSkillsFromText } from "./utils/skill-extractor";
 
@@ -801,7 +801,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const jobPreferences = (candidate as any)?.jobPreferences || {};
-    const candidateSkills = normalizeSkills(candidate.skills);
+    const candidateSkills = parseSkillsInput(candidate.skills);
     console.log(`Candidate skills (normalized): ${candidateSkills.join(', ')}`);
 
     // Safety guard: if skills array is empty after normalization, return null to trigger discovery feed
@@ -876,7 +876,7 @@ export class DatabaseStorage implements IStorage {
         }
         
         // Normalize job skills at comparison time to handle legacy un-normalized entries
-        const normalizedJobSkills = normalizeSkills(jobSkills).map(s => s.toLowerCase());
+        const normalizedJobSkills = parseSkillsInput(jobSkills).map(s => s.toLowerCase());
 
         // Exact skill matches (full credit)
         const matchingSkills = candidateSkills.filter(skill =>
@@ -931,11 +931,8 @@ export class DatabaseStorage implements IStorage {
         };
       });
 
-      // Debug: log scores for first few jobs
-      const filtered = recommendations
-        .filter(job => job.matchScore >= 20); // 20% minimum
-      
-      const finalJobs = filtered
+      const finalJobs = recommendations
+        .filter(job => job.matchScore >= 20) // 20% minimum
         .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           const jobSalaryMin = job.salaryMin || 0;
@@ -969,8 +966,8 @@ export class DatabaseStorage implements IStorage {
         return scoreB - scoreA;
       });
 
-    console.log(`After filtering (20%+ match): ${recommendations.length} recommendations`);
-    return recommendations;
+    console.log(`After filtering (20%+ match): ${finalJobs.length} recommendations`);
+    return finalJobs;
   }
 
   /**

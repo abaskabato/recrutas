@@ -477,24 +477,13 @@ export function normalizeSkill(skill: string): string {
 /**
  * Normalize an array of skills: apply alias mapping + deduplicate.
  */
-export function normalizeSkills(skills: unknown): string[] {
-  // Handle case where skills might be a string instead of array (legacy data)
-  if (typeof skills === 'string') {
-    // Split on commas, semicolons, newlines, and colons (e.g., "JavaScript: ReactJS, AngularJS")
-    skills = skills.split(/[,;:\n]/).map(s => s.trim()).filter(Boolean);
-  }
-  
-  if (!Array.isArray(skills)) {
-    return [];
-  }
-  
+export function normalizeSkills(skills: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
 
   for (const skill of skills) {
-    // Also handle strings with colons inside (e.g., "JavaScript: ReactJS")
-    const parts = typeof skill === 'string' ? skill.split(/[,;:\n]/).map(s => s.trim()).filter(Boolean) : [skill];
-    
+    // Handle strings with embedded delimiters (e.g., "JavaScript: ReactJS, AngularJS")
+    const parts = skill.split(/[,;:\n]/).map(s => s.trim()).filter(Boolean);
     for (const part of parts) {
       const normalized = normalizeSkill(part);
       if (!normalized) {continue;}
@@ -507,6 +496,21 @@ export function normalizeSkills(skills: unknown): string[] {
   }
 
   return result;
+}
+
+/**
+ * Parse and normalize skills from an unknown DB value.
+ * Handles legacy data stored as a plain string, a JSON array, or null/undefined.
+ */
+export function parseSkillsInput(raw: unknown): string[] {
+  if (!raw) {return [];}
+  if (typeof raw === 'string') {
+    return normalizeSkills(raw.split(/[,;:\n]/).map(s => s.trim()).filter(Boolean));
+  }
+  if (Array.isArray(raw)) {
+    return normalizeSkills(raw.filter((s): s is string => typeof s === 'string'));
+  }
+  return [];
 }
 
 /**
