@@ -477,17 +477,32 @@ export function normalizeSkill(skill: string): string {
 /**
  * Normalize an array of skills: apply alias mapping + deduplicate.
  */
-export function normalizeSkills(skills: string[]): string[] {
+export function normalizeSkills(skills: unknown): string[] {
+  // Handle case where skills might be a string instead of array (legacy data)
+  if (typeof skills === 'string') {
+    // Split on commas, semicolons, newlines, and colons (e.g., "JavaScript: ReactJS, AngularJS")
+    skills = skills.split(/[,;:\n]/).map(s => s.trim()).filter(Boolean);
+  }
+  
+  if (!Array.isArray(skills)) {
+    return [];
+  }
+  
   const seen = new Set<string>();
   const result: string[] = [];
 
   for (const skill of skills) {
-    const normalized = normalizeSkill(skill);
-    if (!normalized) {continue;}
-    const key = normalized.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(normalized);
+    // Also handle strings with colons inside (e.g., "JavaScript: ReactJS")
+    const parts = typeof skill === 'string' ? skill.split(/[,;:\n]/).map(s => s.trim()).filter(Boolean) : [skill];
+    
+    for (const part of parts) {
+      const normalized = normalizeSkill(part);
+      if (!normalized) {continue;}
+      const key = normalized.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(normalized);
+      }
     }
   }
 

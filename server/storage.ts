@@ -896,11 +896,11 @@ export class DatabaseStorage implements IStorage {
         }
 
         // Score: exact matches count 1.0, related matches count 0.5, divided by job skill count
-        // Floor of 3 prevents a 1-skill job from always scoring 100%
-        const jobSkillsCount = Math.max(job.skills?.length || 0, 3);
+        // Use normalized job skills count to handle legacy badly-formatted skill strings
+        const normalizedJobSkillsCount = Math.max(normalizedJobSkills.length || 0, 3);
         const effectiveMatches = matchingSkills.length + 0.5 * partialMatchSkills.length;
         const skillMatchPercentage = effectiveMatches > 0
-          ? Math.round((effectiveMatches / jobSkillsCount) * 100)
+          ? Math.round((effectiveMatches / normalizedJobSkillsCount) * 100)
           : 0;
 
         const expMultiplier = candidate.experienceLevel
@@ -929,9 +929,14 @@ export class DatabaseStorage implements IStorage {
           ghostJobReasons: job.ghostJobReasons || [],
           companyVerified: job.companyVerified || false,
         };
-      })
-      .filter(job => job.matchScore >= 20) // 20% minimum — requires at least 1/5 skills to match
-      .filter(job => {
+      });
+
+      // Debug: log scores for first few jobs
+      const filtered = recommendations
+        .filter(job => job.matchScore >= 20); // 20% minimum
+      
+      const finalJobs = filtered
+        .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           const jobSalaryMin = job.salaryMin || 0;
           const jobSalaryMax = job.salaryMax || 999999;
