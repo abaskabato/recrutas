@@ -555,9 +555,20 @@ export class DatabaseStorage implements IStorage {
         sql`${jobPostings.createdAt} > ${cutoffDateStr}`
       ];
 
-      // Filter by job title (ILIKE on title column)
+      // Filter by job title: split into tokens and require ALL to appear in title.
+      // e.g. "Python Developer" → LIKE '%python%' AND LIKE '%developer%'
+      // so "Senior Fullstack Developer (Python)" is matched even though the exact
+      // phrase "Python Developer" doesn't appear verbatim.
       if (filters.jobTitle?.trim()) {
-        conditions.push(sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + filters.jobTitle.trim() + '%'})`);
+        const words = filters.jobTitle.trim().split(/\s+/).filter(w => w.length > 0);
+        if (words.length === 1) {
+          conditions.push(sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + words[0] + '%'})`);
+        } else {
+          const wordConditions = words.map(word =>
+            sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + word + '%'})`
+          );
+          conditions.push(and(...wordConditions)!);
+        }
       }
 
       // Filter by work type
