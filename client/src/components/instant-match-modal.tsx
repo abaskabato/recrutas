@@ -184,16 +184,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['/api/external-jobs', skills, jobTitle, location, workType, salaryType, minSalary],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        skills: skills.trim() || jobTitle.trim(),
-        limit: '8'
-      });
+      const params = new URLSearchParams({ limit: '8' });
+      if (skills.trim()) {params.append('skills', skills.trim());}
       if (jobTitle.trim()) {params.append('jobTitle', jobTitle.trim());}
       if (location.trim()) {params.append('location', location.trim());}
       if (workType !== 'any') {params.append('workType', workType);}
       if (minSalary.trim()) {params.append('minSalary', minSalary.trim());}
       if (salaryType) {params.append('salaryType', salaryType);}
-      
+
       const response = await fetch(`/api/external-jobs?${params}`);
       if (!response.ok) {throw new Error('Failed to fetch jobs');}
       return response.json();

@@ -565,13 +565,28 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(jobPostings.workType, filters.workType));
       }
 
+      // Location SQL filter: when user specifies a city/region, fetch jobs in that location
+      // OR remote jobs (remote is always relevant regardless of location).
+      // This ensures the 200-row pool isn't exclusively remote jobs when a city is searched.
+      if (filters.location?.trim()) {
+        const locPattern = '%' + filters.location.trim() + '%';
+        conditions.push(
+          or(
+            sql`LOWER(${jobPostings.location}) LIKE LOWER(${locPattern})`,
+            sql`LOWER(${jobPostings.location}) LIKE '%remote%'`,
+            sql`${jobPostings.location} IS NULL`,
+            sql`${jobPostings.location} = ''`
+          )
+        );
+      }
+
       // Query external jobs (source = 'external' or externalUrl is set)
       const query = db
         .select()
         .from(jobPostings)
         .where(and(...conditions))
         .orderBy(sql`${jobPostings.createdAt} DESC`)
-        .limit(100);
+        .limit(200);
 
       const jobs = await query;
 
@@ -581,9 +596,15 @@ export class DatabaseStorage implements IStorage {
       // Additional location filter from user input
       if (filters.location?.trim()) {
         const loc = filters.location.trim().toLowerCase();
+        const searchingRemote = loc.includes('remote');
         filteredJobs = filteredJobs.filter((job: any) => {
           const jobLoc = (job.location || '').toLowerCase();
-          return jobLoc.includes(loc) || loc.includes('remote') && jobLoc.includes('remote');
+          // Remote jobs are always shown — they're accessible from any location
+          if (!searchingRemote && (jobLoc.includes('remote') || jobLoc === '')) return true;
+          // For remote searches, only return remote/no-location jobs
+          if (searchingRemote) return jobLoc.includes('remote') || jobLoc === '';
+          // City/region match
+          return jobLoc.includes(loc);
         });
       }
 
