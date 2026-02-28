@@ -21,6 +21,7 @@ import TermsOfService from "@/pages/terms";
 import { TopRightButtons } from '@/components/TopRightButtons';
 import { RoleGuard } from '@/components/role-guard';
 import { AuthGuard } from '@/components/auth-guard';
+import AdminDashboard from "@/pages/admin-dashboard";
 
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
           <Route path="/chat">
             <RoleGuard allowedRoles={['candidate', 'talent_owner', 'recruiter']}><Chat /></RoleGuard>
           </Route>
+          <Route path="/admin" component={AdminDashboard} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfService} />

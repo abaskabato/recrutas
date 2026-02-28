@@ -1,5 +1,6 @@
 import { IStorage } from "../storage";
 import Groq from "groq-sdk";
+import { throttledGroqRequest } from "../lib/groq-limiter";
 
 // Interface for notification service to avoid circular dependency
 interface INotificationService {
@@ -202,14 +203,18 @@ Answers:
 ${shortAnswerQuestions.map((q, i) => `${i + 1}. ${q.answer}`).join('\n')}`;
 
       const completion = await Promise.race([
-        groqClient.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-          max_tokens: 2000,
-          temperature: 0.1,
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('AI scoring timeout')), 10000))
+        throttledGroqRequest(
+          () => groqClient.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+            max_tokens: 2000,
+            temperature: 0.1,
+          }),
+          'critical',
+          2500
+        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('AI scoring timeout')), 30000))
       ]) as any;
 
       const content = completion.choices?.[0]?.message?.content;

@@ -11,6 +11,7 @@
  */
 
 import Groq from 'groq-sdk';
+import { throttledGroqRequest } from './lib/groq-limiter';
 
 interface ScrapedJob {
   id: string;
@@ -439,12 +440,13 @@ class CareerPageScraper {
     const truncatedHtml = html.slice(0, 30000);
 
     try {
-      const completion = await this.groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a job listing extractor. Extract job postings from HTML content and return them as JSON.
+      const completion = await throttledGroqRequest(
+        () => this.groq!.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a job listing extractor. Extract job postings from HTML content and return them as JSON.
             Return a JSON object with a "jobs" array containing objects with these fields:
             - title (string): Job title
             - location (string): Job location
@@ -453,16 +455,19 @@ class CareerPageScraper {
             - workType (string): "remote", "hybrid", or "onsite"
             Only include actual job postings, not navigation links or other content.
             Return maximum 15 jobs. If no jobs found, return {"jobs": []}.`
-          },
-          {
-            role: 'user',
-            content: `Extract job listings from this ${company.name} careers page HTML:\n\n${truncatedHtml}`
-          }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 4000
-      });
+            },
+            {
+              role: 'user',
+              content: `Extract job listings from this ${company.name} careers page HTML:\n\n${truncatedHtml}`
+            }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 4000
+        }),
+        'low',
+        5000
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {return [];}

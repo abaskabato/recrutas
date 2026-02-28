@@ -2,6 +2,7 @@
 
 import { type CandidateProfile, type JobPosting } from '@shared/schema';
 import Groq from 'groq-sdk';
+import { throttledGroqRequest, getCachedSummary, setCachedSummary, summaryKey } from './lib/groq-limiter';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -407,6 +408,17 @@ export async function summarizeJobDescription(description: string, title?: strin
     return generateRuleBasedSummary(description, title, company);
   }
 
+  // Check LRU cache before making an API call
+  const cacheKey = summaryKey(description);
+  const cachedSummaryJson = getCachedSummary(cacheKey);
+  if (cachedSummaryJson) {
+    try {
+      return JSON.parse(cachedSummaryJson) as JobSummary;
+    } catch {
+      // Cache entry malformed — fall through to API call
+    }
+  }
+
   try {
     const prompt = `Analyze this job posting and extract structured information. Return a JSON object.
 
@@ -428,19 +440,23 @@ Return ONLY a valid JSON object with these exact fields (no markdown, no code bl
   "techStack": ["specific technologies/tools mentioned"]
 }`;
 
-    const completion = await groqClient.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a job posting analyzer. Extract structured information from job descriptions and return valid JSON only.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 1500
-    });
+    const completion = await throttledGroqRequest(
+      () => groqClient.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a job posting analyzer. Extract structured information from job descriptions and return valid JSON only.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 1500
+      }),
+      'medium',
+      2000
+    );
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -449,7 +465,7 @@ Return ONLY a valid JSON object with these exact fields (no markdown, no code bl
 
     const parsed = JSON.parse(content);
 
-    return {
+    const result: JobSummary = {
       summary: parsed.summary || generateFallbackSummary(title, company, description),
       keyResponsibilities: Array.isArray(parsed.keyResponsibilities) ? parsed.keyResponsibilities.slice(0, 5) : [],
       mustHaveSkills: Array.isArray(parsed.mustHaveSkills) ? parsed.mustHaveSkills : [],
@@ -459,6 +475,11 @@ Return ONLY a valid JSON object with these exact fields (no markdown, no code bl
       teamSize: parsed.teamSize || undefined,
       techStack: Array.isArray(parsed.techStack) ? parsed.techStack : []
     };
+
+    // Store in cache to avoid re-summarizing the same job description
+    setCachedSummary(cacheKey, JSON.stringify(result));
+
+    return result;
 
   } catch (error: any) {
     console.error('[AI Service] Job summarization error:', error.message);

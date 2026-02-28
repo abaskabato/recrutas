@@ -4,6 +4,7 @@ import mammoth from 'mammoth';
 import { generateJobMatch } from './ai-service';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
+import { throttledGroqRequest } from './lib/groq-limiter';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -489,16 +490,17 @@ Return JSON with this exact structure:
     );
 
     const completion = await Promise.race([
-      groqClient.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.'
-          },
-          {
-            role: 'user',
-            content: `Extract the following information from this resume text and return as JSON:
+      throttledGroqRequest(
+        () => groqClient.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.'
+            },
+            {
+              role: 'user',
+              content: `Extract the following information from this resume text and return as JSON:
 
 {
   "personalInfo": {
@@ -549,12 +551,15 @@ Return JSON with this exact structure:
 
 Resume text:
 ${truncatedText}`
-          }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-        max_tokens: 2000
-      }),
+            }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 2000
+        }),
+        'high',
+        2500
+      ),
       timeoutPromise
     ]);
 
