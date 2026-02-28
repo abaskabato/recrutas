@@ -1,6 +1,5 @@
 import Groq from 'groq-sdk';
-import { throttledGroqRequest } from './groq-limiter';
-import type { GroqPriority } from './groq-limiter';
+import { throttledGroqRequest, type GroqPriority } from './groq-limiter';
 
 export type { GroqPriority };
 
