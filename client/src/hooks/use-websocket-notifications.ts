@@ -132,13 +132,6 @@ export function useWebSocketNotifications(userId?: string) {
     };
   }, [userId, connect, disconnect]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnect();
-    };
-  }, [disconnect]);
-
   return {
     isConnected: wsRef.current?.readyState === WebSocket.OPEN,
     sendMessage,

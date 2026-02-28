@@ -246,6 +246,7 @@ export const jobApplications = pgTable("job_applications", {
   jobCandidateUnique: unique('job_candidate_unique').on(table.jobId, table.candidateId),
   idxApplicationCandidate: index("idx_application_candidate").on(table.candidateId),
   idxApplicationStatus: index("idx_application_status").on(table.status),
+  idxApplicationJobId: index("idx_application_job_id").on(table.jobId),
 }));
 
 export const applicationUpdates = pgTable("application_updates", {
@@ -320,6 +321,7 @@ export const activityLogs = pgTable("activity_logs", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+
   type: varchar("type", {
     enum: [
       "application_viewed",
@@ -349,7 +351,9 @@ export const notifications = pgTable("notifications", {
   relatedMatchId: integer("related_match_id").references(() => jobMatches.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
   readAt: timestamp("read_at"),
-});
+}, (table: any) => ({
+  idxNotificationUser: index("idx_notification_user").on(table.userId),
+}));
 
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),

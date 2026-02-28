@@ -257,7 +257,7 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
                       {!isOwn && (
                         <Avatar className="h-6 w-6">
                           <AvatarFallback className="bg-slate-100 text-slate-600 text-xs">
-                            {message.sender.firstName?.[0] || message.sender.email[0].toUpperCase()}
+                            {message.sender.firstName?.[0] || message.sender.email?.[0]?.toUpperCase() || '?'}
                           </AvatarFallback>
                         </Avatar>
                       )}

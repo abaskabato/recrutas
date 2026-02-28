@@ -468,7 +468,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const dbPromise = Promise.race([
         storage.getJobRecommendations(userId),
         dbTimeoutPromise
-      ]);
+      ]).catch((err: Error) => {
+        console.warn('[Matching] DB recommendations failed:', err?.message);
+        return [] as any[];
+      });
 
       // Limit hiring.cafe jobs to reduce processing time
       const hiringCafePromise = candidateSkills.length > 0
@@ -831,10 +834,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Universal job scraper with database persistence
   app.get('/api/external-jobs', async (req, res) => {
     try {
-      const skills = req.query.skills ? (req.query.skills as string).split(',') : [];
-      const jobTitle = req.query.jobTitle as string | undefined;
-      const location = req.query.location as string | undefined;
-      const workType = req.query.workType as string | undefined;
+      const skills = req.query.skills ? String(req.query.skills).split(',').filter(Boolean) : [];
+      const jobTitle = req.query.jobTitle ? String(req.query.jobTitle) : undefined;
+      const location = req.query.location ? String(req.query.location) : undefined;
+      const rawWorkType = req.query.workType ? String(req.query.workType) : undefined;
+      const VALID_WORK_TYPES = ['remote', 'hybrid', 'onsite'] as const;
+      const workType = rawWorkType && (VALID_WORK_TYPES as readonly string[]).includes(rawWorkType)
+        ? rawWorkType
+        : undefined;
 
       // Return cached external jobs from database (instant, no scraping)
       // External jobs are kept up-to-date by background scheduler
@@ -854,8 +861,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       });
     } catch (error) {
       console.error('Error fetching cached external jobs:', error);
-      // Return empty array instead of error - better UX
-      res.json({ jobs: [], cached: true, message: 'External jobs unavailable' });
+      res.status(503).json({ jobs: [], cached: false, message: 'External jobs unavailable' });
     }
   });
 
@@ -1682,6 +1688,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const { status } = req.body;
       if (!status) {return res.status(400).json({ message: "Status is required." });}
+      const VALID_APPLICATION_STATUSES = [
+        'pending_exam', 'submitted', 'viewed', 'screening',
+        'interview_scheduled', 'interview_completed', 'offer', 'rejected', 'withdrawn'
+      ] as const;
+      if (!(VALID_APPLICATION_STATUSES as readonly string[]).includes(status)) {
+        return res.status(400).json({ message: `Invalid status. Must be one of: ${VALID_APPLICATION_STATUSES.join(', ')}` });
+      }
       const applicationId = parseIntParam(req.params.applicationId);
       if (!applicationId) {return res.status(400).json({ message: "Invalid applicationId" });}
       const updatedApplication = await storage.updateApplicationStatus(applicationId, status, req.user.id);
