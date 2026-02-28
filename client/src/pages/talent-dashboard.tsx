@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -110,9 +110,8 @@ interface DashboardStats {
 }
 
 export default function TalentDashboard() {
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const user = session?.user;
-  const isLoading = !session;
   const isAuthenticated = !!user;
   const { toast } = useToast();
   const supabase = useSupabaseClient();
@@ -200,18 +199,11 @@ export default function TalentDashboard() {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Session Expired",
-        description: "Please sign in to continue",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        setLocation("/auth");
-      }, 1000);
-      return;
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      setLocation("/auth");
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isAuthenticated, isLoading, setLocation]);
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({

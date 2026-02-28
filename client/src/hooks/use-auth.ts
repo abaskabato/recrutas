@@ -7,9 +7,13 @@ export function useAuth() {
   const { session, isLoading: isSessionLoading } = useSessionContext();
   const supabaseUser = session?.user;
 
-  const { data: profile, isLoading: isProfileLoading } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ['/api/auth/user'],
-    queryFn: () => apiRequest('GET', '/api/auth/user'),
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/auth/user');
+      if (!res.ok) return null;
+      return res.json();
+    },
     enabled: !!supabaseUser,
     retry: false,
   });
@@ -20,6 +24,6 @@ export function useAuth() {
     session,
     user,
     isAuthenticated: !!supabaseUser,
-    isLoading: isSessionLoading || (!!supabaseUser && isProfileLoading),
+    isLoading: isSessionLoading,
   };
 }

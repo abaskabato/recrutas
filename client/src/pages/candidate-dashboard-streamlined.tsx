@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
@@ -89,11 +89,10 @@ interface Application {
 
 export default function CandidateStreamlinedDashboard() {
   const [, setLocation] = useLocation();
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const user = session?.user;
   const supabase = useSupabaseClient();
   const isAuthenticated = !!user;
-  const isLoading = !session;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'jobs' | 'saved' | 'applications' | 'profile' | 'agent'>('jobs');
@@ -107,18 +106,11 @@ export default function CandidateStreamlinedDashboard() {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Session Expired",
-        description: "Please sign in to continue",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        setLocation("/auth");
-      }, 1000);
-      return;
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      setLocation("/auth");
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isAuthenticated, isLoading, setLocation]);
 
   // Fetch candidate stats
   const { data: stats } = useQuery<DashboardStats>({
@@ -127,6 +119,7 @@ export default function CandidateStreamlinedDashboard() {
       const response = await apiRequest("GET", '/api/candidate/stats');
       return response.json();
     },
+    enabled: !!user,
     retry: false,
     meta: {
       onError: (error: Error) => {
@@ -154,6 +147,7 @@ export default function CandidateStreamlinedDashboard() {
       const response = await apiRequest("GET", '/api/candidate/activity');
       return response.json();
     },
+    enabled: !!user,
     retry: false,
   });
 
@@ -164,6 +158,7 @@ export default function CandidateStreamlinedDashboard() {
       const response = await apiRequest("GET", '/api/candidate/applications');
       return response.json();
     },
+    enabled: !!user,
     retry: false,
   });
 
