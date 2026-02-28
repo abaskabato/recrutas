@@ -127,9 +127,19 @@ export class ExamService {
 
       const userAnswer = answers[question.id];
       if (userAnswer !== undefined && userAnswer !== null) {
-        // For multiple choice, check if the answer matches correctAnswer
+        // For multiple choice, score by comparing to correctAnswer.
+        // If correctAnswer is a number, treat it as the minimum acceptable option index
+        // (i.e., any option at or above that index earns full credit).
+        // If correctAnswer is a string, require an exact match.
         if (question.type === 'multiple-choice') {
-          if (userAnswer === question.correctAnswer) {
+          let isCorrect = false;
+          if (typeof question.correctAnswer === 'number' && Array.isArray(question.options)) {
+            const selectedIndex = question.options.indexOf(userAnswer);
+            isCorrect = selectedIndex !== -1 && selectedIndex >= question.correctAnswer;
+          } else {
+            isCorrect = userAnswer === question.correctAnswer;
+          }
+          if (isCorrect) {
             earnedPoints += questionPoints;
             correctAnswers++;
           }

@@ -281,7 +281,7 @@ async function generateExamQuestions(job: any) {
         'Advanced (4-5 years)',
         'Expert (5+ years)'
       ],
-      correctAnswer: 2, // Intermediate or higher
+      correctAnswer: 1, // Intermediate or higher (index into options array)
       points: 20
     });
   }
