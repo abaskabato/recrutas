@@ -956,15 +956,28 @@ export class DatabaseStorage implements IStorage {
         .filter(job => job.matchScore >= 20) // 20% minimum
         .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
-          const jobSalaryMin = job.salaryMin || 0;
-          const jobSalaryMax = job.salaryMax || 999999;
-          if (jobPreferences.salaryMin && jobSalaryMax < jobPreferences.salaryMin) {return false;}
-          if (jobPreferences.salaryMax && jobSalaryMin > jobPreferences.salaryMax) {return false;}
+          // Guard against inverted min/max stored by the frontend
+          const prefMin = jobPreferences.salaryMin || 0;
+          const prefMax = jobPreferences.salaryMax || 0;
+          const salaryRangeValid = prefMax === 0 || prefMax >= prefMin;
+          if (salaryRangeValid) {
+            const jobSalaryMin = job.salaryMin || 0;
+            const jobSalaryMax = job.salaryMax || 999999;
+            if (prefMin && jobSalaryMax < prefMin) {return false;}
+            if (prefMax && jobSalaryMin > prefMax) {return false;}
+          }
         }
         if (jobPreferences.companySizes && jobPreferences.companySizes.length > 0) {
-          const jobWorkType = job.workType?.toLowerCase();
-          const preferredWorkTypes = jobPreferences.companySizes.map((t: string) => t.toLowerCase());
-          if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {return false;}
+          // companySizes may contain work-type values (Remote/Onsite/Hybrid) mixed with company
+          // sizes (Enterprise/Startup). Only apply work-type filtering for recognized values.
+          const WORK_TYPES = ['remote', 'hybrid', 'onsite'];
+          const preferredWorkTypes = (jobPreferences.companySizes as string[])
+            .map((t: string) => t.toLowerCase())
+            .filter((t: string) => WORK_TYPES.includes(t));
+          if (preferredWorkTypes.length > 0) {
+            const jobWorkType = job.workType?.toLowerCase();
+            if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {return false;}
+          }
         }
         if (jobPreferences.industries && jobPreferences.industries.length > 0) {
           const jobIndustry = job.industry?.toLowerCase();
@@ -974,7 +987,9 @@ export class DatabaseStorage implements IStorage {
         if (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0) {
           const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
           const inferred = LEVELS[this.inferJobLevel(job.title)];
-          if (!jobPreferences.experienceLevels.includes(inferred)) {return false;}
+          // Compare case-insensitively: stored values may be "Senior" while LEVELS uses "senior"
+          const preferredLevels = (jobPreferences.experienceLevels as string[]).map((l: string) => l.toLowerCase());
+          if (!preferredLevels.includes(inferred)) {return false;}
         }
         return true;
       })
