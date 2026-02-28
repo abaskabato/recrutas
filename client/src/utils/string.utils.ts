@@ -98,7 +98,7 @@ export function slugify(str: string): string {
  * Pluralize word based on count
  */
 export function pluralize(word: string, count: number): string {
-  if (count === 1) return word;
+  if (count === 1) {return word;}
   
   // Simple pluralization rules
   if (word.endsWith('y')) {
@@ -114,7 +114,7 @@ export function pluralize(word: string, count: number): string {
  * Highlight search terms in text
  */
 export function highlightText(text: string, searchTerm: string): string {
-  if (!searchTerm) return text;
+  if (!searchTerm) {return text;}
   
   const regex = new RegExp(`(${searchTerm})`, 'gi');
   return text.replace(regex, '<mark>$1</mark>');
@@ -151,7 +151,7 @@ export function extractDomain(email: string): string {
  */
 export function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
-  if (!local || !domain) return email;
+  if (!local || !domain) {return email;}
   
   const maskedLocal = local.charAt(0) + '*'.repeat(local.length - 2) + local.charAt(local.length - 1);
   return `${maskedLocal}@${domain}`;

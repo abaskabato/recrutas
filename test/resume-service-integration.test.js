@@ -63,7 +63,7 @@ async function testResumeUploadCompletesQuickly() {
     assert.strictEqual(res.body.parsed, false, 'Should mark as not yet parsed');
     assert.strictEqual(res.body.aiParsing, true, 'Should indicate AI parsing in progress');
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -95,7 +95,7 @@ async function testResumeUrlSavedToDatabase() {
       'Database should have saved resume URL'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -134,7 +134,7 @@ async function testBackgroundParsingCompletion() {
       'Profile should have extracted skills'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -168,7 +168,7 @@ async function testActivityLogRecordsParsingCompletion() {
     assert(event, 'Should have resume_parsing_complete event');
     assert(event.action === 'resume_parsing_complete', 'Should be correct event type');
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -216,7 +216,7 @@ async function testSkillsExtractedCorrectly() {
       `Should have one of expected skills: ${expectedSkills.join(', ')}`
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -251,7 +251,7 @@ async function testExperienceLevelExtraction() {
       'Experience should be valid level'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -293,7 +293,7 @@ async function testConcurrentUploadsHandled() {
     // Should have one resume URL (the last one)
     assert(profile.resumeUrl, 'Should have resume URL');
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -334,7 +334,7 @@ async function testMinimalResumeProcessing() {
       'Should have skills array'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -370,7 +370,7 @@ async function testMalformedPdfHandling() {
       'Should log parsing completion or failure'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -408,7 +408,7 @@ async function testParsingFailureHandling() {
       );
     }
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -444,7 +444,7 @@ async function testResumeTextExtraction() {
       'Should have extracted resume text'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -467,7 +467,7 @@ async function testFileSizeValidation() {
       `Should reject files >5MB, got status ${uploadRes.status}`
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -511,6 +511,11 @@ async function runAllTests() {
   if (testsFailed > 0) {
     process.exit(1);
   }
+}
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  console.warn('⚠️  Skipping integration tests: SUPABASE_URL / SUPABASE_ANON_KEY not configured');
+  process.exit(0);
 }
 
 runAllTests().catch((err) => {

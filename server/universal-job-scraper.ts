@@ -237,7 +237,7 @@ export class UniversalJobScraper {
     const titleArray = Array.from(titles);
     
     for (const title of titleArray) {
-      if (index >= 15) break; // Increased limit for better coverage
+      if (index >= 15) {break;} // Increased limit for better coverage
       
       // Skip generic or invalid titles
       if (title.length < 5 || title.includes('Apply') || title.includes('Login') || title.includes('Search')) {
@@ -354,13 +354,13 @@ export class UniversalJobScraper {
   private inferWorkTypeFromHtml(html: string, title: string): string {
     const combined = (html + ' ' + title).toLowerCase();
     
-    if (combined.includes('remote')) return 'remote';
-    if (combined.includes('onsite') || combined.includes('office')) return 'onsite';
+    if (combined.includes('remote')) {return 'remote';}
+    if (combined.includes('onsite') || combined.includes('office')) {return 'onsite';}
     return 'hybrid';
   }
 
   private isJobObject(obj: any): boolean {
-    if (typeof obj !== 'object' || obj === null) return false;
+    if (typeof obj !== 'object' || obj === null) {return false;}
     
     const jobFields = ['title', 'position', 'role', 'job_title', 'name'];
     const hasJobField = jobFields.some(field => obj[field]);
@@ -426,18 +426,18 @@ export class UniversalJobScraper {
   }
 
   private parseLocation(location: any): string {
-    if (typeof location === 'string') return location;
-    if (location?.address?.addressLocality) return location.address.addressLocality;
-    if (location?.name) return location.name;
+    if (typeof location === 'string') {return location;}
+    if (location?.address?.addressLocality) {return location.address.addressLocality;}
+    if (location?.name) {return location.name;}
     return 'Remote';
   }
 
   private parseWorkType(employmentType: any): string {
-    if (!employmentType) return 'hybrid';
+    if (!employmentType) {return 'hybrid';}
     const type = employmentType.toString().toLowerCase();
     
-    if (type.includes('remote')) return 'remote';
-    if (type.includes('onsite') || type.includes('office')) return 'onsite';
+    if (type.includes('remote')) {return 'remote';}
+    if (type.includes('onsite') || type.includes('office')) {return 'onsite';}
     return 'hybrid';
   }
 
@@ -450,7 +450,7 @@ export class UniversalJobScraper {
     const seen = new Set<string>();
     return jobs.filter(job => {
       const key = `${job.title}_${job.company}`.toLowerCase();
-      if (seen.has(key)) return false;
+      if (seen.has(key)) {return false;}
       seen.add(key);
       return true;
     });

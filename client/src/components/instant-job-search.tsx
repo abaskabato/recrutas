@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,10 +99,10 @@ export default function InstantJobSearch() {
 
     try {
       const params = new URLSearchParams();
-      if (skills) params.append('skills', skills);
-      if (jobTitle) params.append('jobTitle', jobTitle);
-      if (location) params.append('location', location);
-      if (workType) params.append('workType', workType);
+      if (skills) {params.append('skills', skills);}
+      if (jobTitle) {params.append('jobTitle', jobTitle);}
+      if (location) {params.append('location', location);}
+      if (workType) {params.append('workType', workType);}
 
       const response = await fetch(`/api/live-jobs?${params}`);
       const data = await response.json();
@@ -138,8 +138,8 @@ export default function InstantJobSearch() {
   };
 
   const getMatchScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
+    if (score >= 80) {return 'text-green-600';}
+    if (score >= 60) {return 'text-yellow-600';}
     return 'text-gray-600';
   };
 
@@ -155,7 +155,10 @@ export default function InstantJobSearch() {
 
     // If authenticated, check if it's an internal or external job
     if (job.source === 'platform') {
-      applyMutation.mutate(job.job?.id!);
+      const jobId = job.job?.id;
+      if (jobId) {
+        applyMutation.mutate(String(jobId));
+      }
     } else {
       // For external jobs, open the link in a new tab
       window.open(job.externalUrl, '_blank');

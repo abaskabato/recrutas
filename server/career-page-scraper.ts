@@ -433,7 +433,7 @@ class CareerPageScraper {
    * Use Groq AI to extract job listings from HTML content
    */
   private async extractJobsWithAI(html: string, company: CompanyCareerPage): Promise<ScrapedJob[]> {
-    if (!this.groq) return [];
+    if (!this.groq) {return [];}
 
     // Truncate HTML to fit in context window
     const truncatedHtml = html.slice(0, 30000);
@@ -465,7 +465,7 @@ class CareerPageScraper {
       });
 
       const content = completion.choices[0]?.message?.content;
-      if (!content) return [];
+      if (!content) {return [];}
 
       const parsed = JSON.parse(content);
       const jobs: ScrapedJob[] = (parsed.jobs || []).map((job: any, index: number) => ({
@@ -496,7 +496,7 @@ class CareerPageScraper {
     const seen = new Set<string>();
     return jobs.filter(job => {
       const key = `${job.title.toLowerCase()}-${job.company.toLowerCase()}`.replace(/\s+/g, '');
-      if (seen.has(key)) return false;
+      if (seen.has(key)) {return false;}
       seen.add(key);
       return true;
     });
@@ -554,8 +554,8 @@ class CareerPageScraper {
    */
   private determineWorkType(location: string): 'remote' | 'hybrid' | 'onsite' {
     const lower = location.toLowerCase();
-    if (lower.includes('remote')) return 'remote';
-    if (lower.includes('hybrid')) return 'hybrid';
+    if (lower.includes('remote')) {return 'remote';}
+    if (lower.includes('hybrid')) {return 'hybrid';}
     return 'onsite';
   }
 

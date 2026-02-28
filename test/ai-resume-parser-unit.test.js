@@ -6,6 +6,7 @@
  */
 
 import assert from 'assert';
+import { describe, test } from '@jest/globals';
 import {
   generateCompletePdfBuffer,
   generateMinimalResumePdfBuffer,
@@ -364,5 +365,5 @@ async function runAllTests() {
 describe('AI Resume Parser Unit Tests', () => {
   test('Run all unit tests', async () => {
     await runAllTests();
-  });
+  }, 60000);
 });

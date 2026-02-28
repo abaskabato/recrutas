@@ -33,7 +33,7 @@ async function getAuthToken(page: Page): Promise<string> {
             val?.access_token ||
             val?.currentSession?.access_token ||
             val?.session?.access_token;
-          if (token) return token;
+          if (token) {return token;}
         } catch {}
       }
     }
@@ -121,7 +121,7 @@ test.describe('1. Exam End-to-End Flow', () => {
   });
 
   test('exam is auto-generated within 10s of job creation', async ({ page }) => {
-    if (!examJobId) return test.skip();
+    if (!examJobId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -144,7 +144,7 @@ test.describe('1. Exam End-to-End Flow', () => {
   });
 
   test('candidate can apply to job with exam', async ({ page }) => {
-    if (!examJobId) return test.skip();
+    if (!examJobId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -154,7 +154,7 @@ test.describe('1. Exam End-to-End Flow', () => {
   });
 
   test('candidate fetches exam questions (no correct answers exposed)', async ({ page }) => {
-    if (!examJobId) return test.skip();
+    if (!examJobId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -171,7 +171,7 @@ test.describe('1. Exam End-to-End Flow', () => {
   });
 
   test('candidate submits exam answers and receives a score', async ({ page }) => {
-    if (!examJobId || !examQuestions?.length) return test.skip();
+    if (!examJobId || !examQuestions?.length) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -195,7 +195,7 @@ test.describe('1. Exam End-to-End Flow', () => {
   });
 
   test('talent owner can see exam score in applicants list', async ({ page }) => {
-    if (!examJobId) return test.skip();
+    if (!examJobId) {return test.skip();}
     await loginAs(page, 'rainierit@proton.me', 'rainierit08');
     await expect(page).toHaveURL(/\/talent-dashboard/, { timeout: 20000 });
 
@@ -232,7 +232,7 @@ test.describe('2. Chat End-to-End Flow', () => {
               val?.user?.id ||
               val?.currentSession?.user?.id ||
               val?.session?.user?.id;
-            if (uid) return uid;
+            if (uid) {return uid;}
           } catch {}
         }
       }
@@ -255,7 +255,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('talent owner creates chat room for candidate', async ({ page }) => {
-    if (!chatJobId || !candidateUserId) return test.skip();
+    if (!chatJobId || !candidateUserId) {return test.skip();}
     await loginAs(page, 'rainierit@proton.me', 'rainierit08');
     await expect(page).toHaveURL(/\/talent-dashboard/, { timeout: 20000 });
     // Allow session to fully stabilize before making auth-sensitive API calls
@@ -273,7 +273,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('talent owner sends first message', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'rainierit@proton.me', 'rainierit08');
     await expect(page).toHaveURL(/\/talent-dashboard/, { timeout: 20000 });
 
@@ -290,7 +290,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('candidate sees the chat room in their rooms list', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -302,7 +302,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('candidate reads messages and sees talent owner message', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -318,7 +318,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('candidate replies in chat', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -332,7 +332,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('talent owner sees candidate reply', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'rainierit@proton.me', 'rainierit08');
     await expect(page).toHaveURL(/\/talent-dashboard/, { timeout: 20000 });
 
@@ -348,7 +348,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('chat message sanitizes HTML (XSS prevention)', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 
@@ -366,7 +366,7 @@ test.describe('2. Chat End-to-End Flow', () => {
   });
 
   test('chat enforces message length limit (>5000 chars rejected)', async ({ page }) => {
-    if (!chatRoomId) return test.skip();
+    if (!chatRoomId) {return test.skip();}
     await loginAs(page, 'abaskabato@gmail.com', '123456');
     await expect(page).toHaveURL(/\/candidate-dashboard/, { timeout: 20000 });
 

@@ -25,12 +25,12 @@ async function createNewUserAndGetToken() {
 
   const { data, error } = await supabase.auth.signUp({ email, password });
 
-  if (error) throw new Error(`Supabase sign-up failed: ${error.message}`);
+  if (error) {throw new Error(`Supabase sign-up failed: ${error.message}`);}
   
   if (!data.session) {
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) throw new Error(`Supabase sign-in failed: ${signInError.message}`);
-    if (!signInData.session) throw new Error('Could not get a session.');
+    if (signInError) {throw new Error(`Supabase sign-in failed: ${signInError.message}`);}
+    if (!signInData.session) {throw new Error('Could not get a session.');}
     return { token: signInData.session.access_token, userId: signInData.user.id, email };
   }
 
@@ -68,7 +68,7 @@ async function runTest() {
         console.log('User created in public schema.');
 
         const resumePath = path.resolve(__dirname, '../test-resume.pdf');
-        if (!fs.existsSync(resumePath)) throw new Error(`Test resume not found at ${resumePath}`);
+        if (!fs.existsSync(resumePath)) {throw new Error(`Test resume not found at ${resumePath}`);}
 
         // --- Run The Test ---
         console.log('\n--- Running Test ---');
@@ -79,7 +79,7 @@ async function runTest() {
             .attach('resume', resumePath);
 
         // Assertions
-        if (response.status !== 200) throw new Error(`Expected status 200 but got ${response.status}`);
+        if (response.status !== 200) {throw new Error(`Expected status 200 but got ${response.status}`);}
         
         console.log('Response Body:', JSON.stringify(response.body, null, 2));
 

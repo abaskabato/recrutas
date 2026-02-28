@@ -16,7 +16,7 @@ export default function PricingPlanStep() {
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [isYearly, setIsYearly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { setStep } = useGuidedSetup();
+  const { setStep: _setStep } = useGuidedSetup();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 

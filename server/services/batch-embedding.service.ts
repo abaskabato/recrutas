@@ -86,7 +86,7 @@ export async function batchComputeEmbeddings(
             if (!needsUpdate) {
               const lastUpdate = job.embeddingUpdatedAt ? new Date(job.embeddingUpdatedAt).getTime() : 0;
               const daysSinceUpdate = (Date.now() - lastUpdate) / (1000 * 60 * 60 * 24);
-              if (daysSinceUpdate < 7) return;
+              if (daysSinceUpdate < 7) {return;}
             }
 
             await updateJobEmbedding(job.id);
@@ -127,7 +127,7 @@ export async function findSimilarJobs(
   const similarities: Array<{ jobId: number; score: number; title: string; company: string }> = [];
 
   for (const otherJob of allJobs) {
-    if (otherJob.id === jobId || !otherJob.vectorEmbedding) continue;
+    if (otherJob.id === jobId || !otherJob.vectorEmbedding) {continue;}
     
     try {
       const otherEmbedding = JSON.parse(otherJob.vectorEmbedding);

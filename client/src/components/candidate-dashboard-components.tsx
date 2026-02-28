@@ -232,7 +232,7 @@ function InternalJobActions({ match, onTakeExam, onApply, onStartChat }: { match
 function ExternalJobActions({ match, onMarkApplied }: { match: any; onMarkApplied: (matchId: number) => void }) {
   // Check localStorage for applied status
   const getAppliedJobs = () => {
-    if (typeof window === 'undefined') return new Set();
+    if (typeof window === 'undefined') {return new Set();}
     const stored = localStorage.getItem(`appliedJobs_${match.candidateId}`);
     return new Set(stored ? JSON.parse(stored) : []);
   };

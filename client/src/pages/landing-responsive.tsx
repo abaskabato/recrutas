@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Brain, Zap, Target, ArrowRight, Sparkles, Users, TrendingUp, Star, CheckCircle, UserCheck, Building2, Menu, X, Search, Filter, Globe, Clock, Briefcase, DollarSign } from "lucide-react";
+import { Brain, Zap, Target, Sparkles, Users, DollarSign, Menu, X } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import { RecrutasLogoSimple } from "@/components/recrutas-logo";
 import RecrutasLogoBW from "@/components/recrutas-logo-bw";

@@ -19,9 +19,9 @@ function getPasswordStrength(password: string): { score: number; label: string; 
 
   const score = requirements.filter(r => r.met).length;
 
-  if (score <= 1) return { score, label: "Weak", color: "bg-red-500", requirements };
-  if (score === 2) return { score, label: "Fair", color: "bg-orange-500", requirements };
-  if (score === 3) return { score, label: "Good", color: "bg-yellow-500", requirements };
+  if (score <= 1) {return { score, label: "Weak", color: "bg-red-500", requirements };}
+  if (score === 2) {return { score, label: "Fair", color: "bg-orange-500", requirements };}
+  if (score === 3) {return { score, label: "Good", color: "bg-yellow-500", requirements };}
   return { score, label: "Strong", color: "bg-green-500", requirements };
 }
 
@@ -49,7 +49,7 @@ export default function SignUpForm({ role }: SignUpFormProps) {
           emailRedirectTo: `${window.location.origin}/`,
         },
       });
-      if (error) throw error;
+      if (error) {throw error;}
       // Bootstrap user record in local DB so role assignment works after email verification
       if (data.session?.access_token) {
         await fetch('/api/auth/sync', {

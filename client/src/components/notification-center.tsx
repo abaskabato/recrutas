@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, BellRing, Check, X, Clock, Users, Briefcase, MessageCircle, Calendar, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,7 @@ export function NotificationCenter() {
   });
 
   const unreadCount = countData?.count || 0;
-  const unreadNotifications = notifications.filter(n => !n.read);
+  const _unreadNotifications = notifications.filter(n => !n.read);
 
   const handleMarkAsRead = (notificationId: number) => {
     markAsReadMutation.mutate(notificationId);
@@ -103,9 +103,9 @@ export function NotificationCenter() {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     
-    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 60) {return `${diffInSeconds}s ago`;}
+    if (diffInSeconds < 3600) {return `${Math.floor(diffInSeconds / 60)}m ago`;}
+    if (diffInSeconds < 86400) {return `${Math.floor(diffInSeconds / 3600)}h ago`;}
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 

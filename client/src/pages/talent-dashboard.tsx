@@ -2,9 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 
 import {
   getStatusColor,
@@ -234,7 +233,7 @@ export default function TalentDashboard() {
     enabled: !!selectedJob,
     queryFn: async () => {
       const res = await apiRequest('GET', `/api/jobs/${selectedJob!.id}/applicants`);
-      if (!res.ok) throw new Error('Failed to fetch applicants');
+      if (!res.ok) {throw new Error('Failed to fetch applicants');}
       return res.json();
     },
   });
@@ -245,7 +244,7 @@ export default function TalentDashboard() {
     enabled: !!user,
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/talent-owner/all-applicants');
-      if (!res.ok) throw new Error('Failed to fetch all applicants');
+      if (!res.ok) {throw new Error('Failed to fetch all applicants');}
       return res.json();
     },
   });
@@ -485,10 +484,10 @@ export default function TalentDashboard() {
   const maxChat = selectedJob?.maxChatCandidates || 5;
   // For exam jobs, split at the chat cutoff and insert a separator marker
   const applicantsWithSeparator: any[] = (() => {
-    if (!selectedJob?.hasExam) return filteredCandidates;
+    if (!selectedJob?.hasExam) {return filteredCandidates;}
     const qualified = filteredCandidates.filter((a: any) => a.qualifiedForChat);
     const below = filteredCandidates.filter((a: any) => !a.qualifiedForChat);
-    if (below.length === 0) return qualified;
+    if (below.length === 0) {return qualified;}
     return [...qualified, { _separator: true }, ...below];
   })();
 
@@ -1313,7 +1312,7 @@ export default function TalentDashboard() {
 
                       const maxApps = Math.max(...periods.map(period => {
                         return allApplicants.filter(app => {
-                          if (!app.appliedAt) return false;
+                          if (!app.appliedAt) {return false;}
                           const appliedDate = new Date(app.appliedAt);
                           return appliedDate >= period.start && appliedDate < period.end;
                         }).length;
@@ -1321,7 +1320,7 @@ export default function TalentDashboard() {
 
                       return periods.map((period) => {
                         const applications = allApplicants.filter(app => {
-                          if (!app.appliedAt) return false;
+                          if (!app.appliedAt) {return false;}
                           const appliedDate = new Date(app.appliedAt);
                           return appliedDate >= period.start && appliedDate < period.end;
                         }).length;
@@ -1395,8 +1394,8 @@ export default function TalentDashboard() {
                       // Calculate real response times from applicant data with defensive checks
                       const responseTimes = allApplicants
                         .filter(app => {
-                          if (app.status === 'submitted') return false;
-                          if (!app.updatedAt || !app.appliedAt) return false;
+                          if (app.status === 'submitted') {return false;}
+                          if (!app.updatedAt || !app.appliedAt) {return false;}
                           // Validate dates are parseable
                           try {
                             const applied = new Date(app.appliedAt).getTime();
@@ -1419,8 +1418,8 @@ export default function TalentDashboard() {
                         : 0;
 
                       const formatTime = (hours: number) => {
-                        if (hours < 1) return `${Math.round(hours * 60)} min`;
-                        if (hours < 24) return `${hours.toFixed(1)} hrs`;
+                        if (hours < 1) {return `${Math.round(hours * 60)} min`;}
+                        if (hours < 24) {return `${hours.toFixed(1)} hrs`;}
                         return `${(hours / 24).toFixed(1)} days`;
                       };
 
@@ -1842,7 +1841,7 @@ export default function TalentDashboard() {
                 className="flex-1"
                 disabled={!interviewForm.scheduledAt || scheduleInterviewMutation.isPending || !selectedJob || !scheduleApplicant}
                 onClick={() => {
-                  if (!selectedJob || !scheduleApplicant) return;
+                  if (!selectedJob || !scheduleApplicant) {return;}
                   scheduleInterviewMutation.mutate({
                     candidateId: scheduleApplicant.candidateId,
                     jobId: selectedJob.id,

@@ -16,7 +16,7 @@ function copyDirectory(src, dest) {
 
   const entries = fs.readdirSync(src, { withFileTypes: true });
   
-  for (let entry of entries) {
+  for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     

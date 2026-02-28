@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Clock, CheckCircle, AlertCircle, Trophy, XCircle, Shield, Monitor, EyeOff } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
-import { queryClient } from '@/lib/queryClient';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -94,7 +93,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   }, [toast]);
 
   useEffect(() => {
-    if (!examStarted) return;
+    if (!examStarted) {return;}
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -154,7 +153,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
         const examData = await response.json();
         setExam(examData);
         setTimeRemaining(examData.timeLimit * 60);
-      } catch (error) {
+      } catch (_error) {
         toast({
           title: "Error",
           description: "Failed to load exam",
@@ -168,7 +167,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
 
   // Timer countdown
   useEffect(() => {
-    if (!exam || timeRemaining <= 0) return;
+    if (!exam || timeRemaining <= 0) {return;}
 
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
@@ -221,7 +220,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   });
 
   const handleSubmitExam = () => {
-    if (isSubmitting) return;
+    if (isSubmitting) {return;}
     setIsSubmitting(true);
     submitExamMutation.mutate(answers);
   };
@@ -242,7 +241,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   };
 
   const getProgress = () => {
-    if (!exam) return 0;
+    if (!exam) {return 0;}
     const answered = Object.keys(answers).length;
     return (answered / exam.questions.length) * 100;
   };

@@ -75,7 +75,7 @@ export class AntiDetection {
    * Get next proxy in rotation
    */
   getNextProxy(): ProxyConfig | undefined {
-    if (this.proxies.length === 0) return undefined;
+    if (this.proxies.length === 0) {return undefined;}
     
     const proxy = this.proxies[this.proxyIndex];
     this.proxyIndex = (this.proxyIndex + 1) % this.proxies.length;

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLink, Newspaper } from "lucide-react";
+import { Newspaper } from "lucide-react";
 
 interface Article {
   title: string;

@@ -309,7 +309,7 @@ export class JobService {
       .from(jobPostings)
       .where(eq(jobPostings.id, jobId));
 
-    if (!targetJob) return [];
+    if (!targetJob) {return [];}
 
     return await db
       .select()

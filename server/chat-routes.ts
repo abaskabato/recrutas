@@ -4,7 +4,7 @@ import { isAuthenticated } from "./middleware/auth";
 
 // Helper function to safely parse integer params
 function parseIntParam(value: string | undefined): number | null {
-  if (!value) return null;
+  if (!value) {return null;}
   const parsed = parseInt(value, 10);
   return isNaN(parsed) ? null : parsed;
 }
@@ -16,7 +16,7 @@ const MAX_MESSAGE_LENGTH = 5000;
 // Do NOT decode then re-encode entities: that pattern is lossy and leaves
 // characters like &, ", ' unencoded if they came from decoded entities.
 function sanitizeMessage(message: string): string {
-  if (!message) return '';
+  if (!message) {return '';}
   // Remove any HTML/script tags so raw content can never be injected into
   // contexts that render HTML (emails, future server-side templates, etc.)
   return message.replace(/<[^>]*>/g, '').trim();

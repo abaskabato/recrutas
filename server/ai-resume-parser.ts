@@ -641,28 +641,28 @@ ${truncatedText}`
     const info: AIExtractedData['personalInfo'] = {};
 
     // Extract email (search whole doc)
-    const emailMatch = text.match(/[\w\.-]+@[\w\.-]+\.\w+/);
-    if (emailMatch) info.email = emailMatch[0];
+    const emailMatch = text.match(/[\w.-]+@[\w.-]+\.\w+/);
+    if (emailMatch) {info.email = emailMatch[0];}
 
     // Extract phone (search whole doc)
     const phoneMatch = text.match(/(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/);
-    if (phoneMatch) info.phone = phoneMatch[0];
+    if (phoneMatch) {info.phone = phoneMatch[0];}
 
     // Extract LinkedIn URL
     const linkedinMatch = text.match(/linkedin\.com\/in\/[\w-]+/i);
-    if (linkedinMatch) info.linkedin = `https://${linkedinMatch[0]}`;
+    if (linkedinMatch) {info.linkedin = `https://${linkedinMatch[0]}`;}
 
     // Extract GitHub URL
     const githubMatch = text.match(/github\.com\/[\w-]+/i);
-    if (githubMatch) info.github = `https://${githubMatch[0]}`;
+    if (githubMatch) {info.github = `https://${githubMatch[0]}`;}
 
     // Extract name: scan first 8 non-empty lines; skip lines that look like
     // job titles, contact info, URLs, or section headers.
     const JOB_TITLE_WORDS = /\b(engineer|developer|manager|analyst|designer|consultant|director|officer|specialist|coordinator|architect|intern|associate|lead|senior|junior|staff|president|chief|head|vp|cto|ceo|coo|resume|curriculum|vitae)\b/i;
     const headerLines = text.split('\n').slice(0, 12).map(l => l.trim()).filter(Boolean);
     for (const line of headerLines) {
-      if (/[@\d|()•\\/]|linkedin|github|http|\.com|\.edu|\.org/i.test(line)) continue;
-      if (JOB_TITLE_WORDS.test(line)) continue;
+      if (/[@\d|()•\\/]|linkedin|github|http|\.com|\.edu|\.org/i.test(line)) {continue;}
+      if (JOB_TITLE_WORDS.test(line)) {continue;}
       // 2–4 words, each starting with a capital letter, no punctuation
       if (/^([A-Z][a-zA-Z'-]{1,20}\s){1,3}[A-Z][a-zA-Z'-]{1,20}$/.test(line)) {
         info.name = line;
@@ -763,9 +763,9 @@ ${truncatedText}`
     const totalYears = this.calculateTotalExperience(text, positions);
 
     let level: 'entry' | 'mid' | 'senior' | 'executive' = 'entry';
-    if (totalYears >= 10) level = 'executive';
-    else if (totalYears >= 5) level = 'senior';
-    else if (totalYears >= 2) level = 'mid';
+    if (totalYears >= 10) {level = 'executive';}
+    else if (totalYears >= 5) {level = 'senior';}
+    else if (totalYears >= 2) {level = 'mid';}
 
     return {
       totalYears,
@@ -822,9 +822,9 @@ ${truncatedText}`
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (!degreePattern.test(line)) continue;
+        if (!degreePattern.test(line)) {continue;}
         // Skip lines that are clearly sentence fragments from experience bullets
-        if (line.split(' ').length > 12) continue;
+        if (line.split(' ').length > 12) {continue;}
 
         const yearMatch = line.match(/\b(19|20)\d{2}\b/);
         const gpaMatch = line.match(/GPA:?\s*(\d\.\d+)/i);
@@ -973,11 +973,11 @@ ${truncatedText}`
           .replace(/:$/, '')          // strip trailing colon (e.g. "Tools:")
         )
         .filter(s => {
-          if (s.length < 2 || s.length > 40) return false;
-          if (/^\d+$/.test(s)) return false;           // pure numbers
-          if (NOISE.has(s.toLowerCase())) return false;
+          if (s.length < 2 || s.length > 40) {return false;}
+          if (/^\d+$/.test(s)) {return false;}           // pure numbers
+          if (NOISE.has(s.toLowerCase())) {return false;}
           // Drop tokens where every slash-part is a noise word
-          if (s.includes('/') && s.split('/').every(p => NOISE.has(p.toLowerCase()) || p.length < 2)) return false;
+          if (s.includes('/') && s.split('/').every(p => NOISE.has(p.toLowerCase()) || p.length < 2)) {return false;}
           return true;
         });
 
@@ -1025,8 +1025,8 @@ ${truncatedText}`
     const monthMatch = duration.match(/(\d+)\s*months?/i);
 
     let months = 0;
-    if (yearMatch) months += parseInt(yearMatch[1]) * 12;
-    if (monthMatch) months += parseInt(monthMatch[1]);
+    if (yearMatch) {months += parseInt(yearMatch[1]) * 12;}
+    if (monthMatch) {months += parseInt(monthMatch[1]);}
 
     return months || 12; // Default to 1 year if no duration found
   }
@@ -1092,12 +1092,12 @@ ${truncatedText}`
 
     // Personal info (20 points max)
     maxScore += 20;
-    if (data.personalInfo.name) score += 5;
-    if (data.personalInfo.email) score += 5;
-    if (data.personalInfo.phone) score += 3;
-    if (data.personalInfo.location) score += 3;
-    if (data.personalInfo.linkedin) score += 2;
-    if (data.personalInfo.github) score += 2;
+    if (data.personalInfo.name) {score += 5;}
+    if (data.personalInfo.email) {score += 5;}
+    if (data.personalInfo.phone) {score += 3;}
+    if (data.personalInfo.location) {score += 3;}
+    if (data.personalInfo.linkedin) {score += 2;}
+    if (data.personalInfo.github) {score += 2;}
 
     // Skills (25 points max)
     maxScore += 25;
@@ -1107,7 +1107,7 @@ ${truncatedText}`
     // Experience (25 points max)
     maxScore += 25;
     score += Math.min(data.experience.positions.length * 5, 20);
-    if (data.experience.totalYears > 0) score += 5;
+    if (data.experience.totalYears > 0) {score += 5;}
 
     // Education (15 points max)
     maxScore += 15;
@@ -1115,7 +1115,7 @@ ${truncatedText}`
 
     // Other (15 points max)
     maxScore += 15;
-    if (data.summary) score += 5;
+    if (data.summary) {score += 5;}
     score += Math.min(data.certifications.length * 2, 5);
     score += Math.min(data.projects.length * 1, 5);
 

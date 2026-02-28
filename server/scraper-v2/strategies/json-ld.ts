@@ -167,7 +167,7 @@ function parseJobPosting(posting: JsonLdJobPosting, company: CompanyConfig): Scr
  * Map country name to ISO 3166-1 alpha-2 country code
  */
 function mapCountryToCode(countryName?: string): string {
-  if (!countryName) return 'US';
+  if (!countryName) {return 'US';}
   
   const countryMap: Record<string, string> = {
     'United States': 'US',
@@ -310,10 +310,10 @@ function parseSalary(baseSalary?: JsonLdJobPosting['baseSalary']): SalaryInfo {
  */
 function parsePeriod(unitText: string): 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' {
   const lower = unitText.toLowerCase();
-  if (lower.includes('hour')) return 'hourly';
-  if (lower.includes('day')) return 'daily';
-  if (lower.includes('week')) return 'weekly';
-  if (lower.includes('month')) return 'monthly';
+  if (lower.includes('hour')) {return 'hourly';}
+  if (lower.includes('day')) {return 'daily';}
+  if (lower.includes('week')) {return 'weekly';}
+  if (lower.includes('month')) {return 'monthly';}
   return 'yearly';
 }
 
@@ -354,11 +354,11 @@ function parseRequirements(posting: JsonLdJobPosting): any[] {
  * Parse responsibilities
  */
 function parseResponsibilities(responsibilities?: string): string[] {
-  if (!responsibilities) return [];
+  if (!responsibilities) {return [];}
   
   // Split by common delimiters
   return responsibilities
-    .split(/[.\n•\-]+/)
+    .split(/[.\n•-]+/)
     .map(r => r.trim())
     .filter(r => r.length > 10);
 }
@@ -367,7 +367,7 @@ function parseResponsibilities(responsibilities?: string): string[] {
  * Parse skills from comma-separated string
  */
 function parseSkills(skills?: string): string[] {
-  if (!skills) return [];
+  if (!skills) {return [];}
   
   return skills
     .split(/[,;]+/)

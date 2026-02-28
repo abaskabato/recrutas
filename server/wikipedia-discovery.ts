@@ -42,7 +42,7 @@ export class WikipediaDiscovery {
       // The table structure has company names in a column (usually 2nd after rank)
       $('table.wikitable tbody tr').each((i, row) => {
         // Skip header rows
-        if (i === 0) return;
+        if (i === 0) {return;}
 
         // Get all cells in the row
         const cells = $(row).find('td');

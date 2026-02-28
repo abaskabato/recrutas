@@ -460,7 +460,7 @@ class StripeService {
    * Handle payment failure
    */
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-    if (!invoice.parent?.subscription_details?.subscription) return;
+    if (!invoice.parent?.subscription_details?.subscription) {return;}
 
     const customerId = invoice.customer as string;
 
@@ -478,7 +478,7 @@ class StripeService {
    * Handle payment success
    */
   private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
-    if (!invoice.parent?.subscription_details?.subscription) return;
+    if (!invoice.parent?.subscription_details?.subscription) {return;}
 
     const customerId = invoice.customer as string;
 

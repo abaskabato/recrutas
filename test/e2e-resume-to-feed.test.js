@@ -162,8 +162,8 @@ async function testCompleteE2EFlow() {
 
     console.log('✅ Complete E2E flow successful');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -235,8 +235,8 @@ async function testE2EWithMultipleJobs() {
 
     console.log(`✅ Matched ${matchedJobs.length} jobs`);
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -296,8 +296,8 @@ async function testE2EWithMinimalResume() {
 
     console.log('✅ Minimal resume E2E flow successful');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -347,8 +347,8 @@ async function testE2EManualProfileUpdate() {
 
     console.log('✅ Manual profile update E2E flow successful');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -419,8 +419,8 @@ async function testE2EJobFiltering() {
 
     console.log('✅ Job filtering E2E flow successful');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -476,8 +476,8 @@ async function testE2EConcurrentApplications() {
 
     console.log('✅ Concurrent applications E2E flow successful');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 

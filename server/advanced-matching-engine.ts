@@ -107,7 +107,7 @@ export class AdvancedMatchingEngine {
       // Cache results with size limit to prevent unbounded growth
       if (this.matchCache.size >= AdvancedMatchingEngine.MAX_CACHE_SIZE) {
         const oldestKey = this.matchCache.keys().next().value;
-        if (oldestKey !== undefined) this.matchCache.delete(oldestKey);
+        if (oldestKey !== undefined) {this.matchCache.delete(oldestKey);}
       }
       const topMatches = matches.slice(0, 50); // Top 50 matches
       this.matchCache.set(cacheKey, topMatches);
@@ -196,7 +196,7 @@ export class AdvancedMatchingEngine {
    * Jobs posted recently get higher scores
    */
   private calculateRecencyScore(job: any): number {
-    if (!job.createdAt && !job.postedDate) return 0.5;
+    if (!job.createdAt && !job.postedDate) {return 0.5;}
 
     const postedDate = new Date(job.postedDate || job.createdAt);
     const daysSincePosted = (Date.now() - postedDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -208,11 +208,11 @@ export class AdvancedMatchingEngine {
     // 7-14 days: 0.6
     // 14-30 days: 0.4
     // > 30 days: 0.2
-    if (daysSincePosted < 1) return 1.0;
-    if (daysSincePosted < 3) return 0.9;
-    if (daysSincePosted < 7) return 0.8;
-    if (daysSincePosted < 14) return 0.6;
-    if (daysSincePosted < 30) return 0.4;
+    if (daysSincePosted < 1) {return 1.0;}
+    if (daysSincePosted < 3) {return 0.9;}
+    if (daysSincePosted < 7) {return 0.8;}
+    if (daysSincePosted < 14) {return 0.6;}
+    if (daysSincePosted < 30) {return 0.4;}
     return 0.2;
   }
 
@@ -240,7 +240,7 @@ export class AdvancedMatchingEngine {
     // Boost for recently verified active jobs
     if (livenessStatus === 'active' && job.lastLivenessCheck) {
       const hoursSinceCheck = (Date.now() - new Date(job.lastLivenessCheck).getTime()) / (1000 * 60 * 60);
-      if (hoursSinceCheck < 24) livenessScore = Math.min(1.0, livenessScore + 0.1);
+      if (hoursSinceCheck < 24) {livenessScore = Math.min(1.0, livenessScore + 0.1);}
     }
 
     // Time-decay: downgrade jobs that haven't been re-verified recently
@@ -355,9 +355,9 @@ export class AdvancedMatchingEngine {
     // Time-based urgency
     if (job.postedDate) {
       const daysSincePosted = (Date.now() - new Date(job.postedDate).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSincePosted < 1) urgency += 0.3; // Very fresh
-      else if (daysSincePosted < 3) urgency += 0.2; // Fresh
-      else if (daysSincePosted > 30) urgency -= 0.2; // Old
+      if (daysSincePosted < 1) {urgency += 0.3;} // Very fresh
+      else if (daysSincePosted < 3) {urgency += 0.2;} // Fresh
+      else if (daysSincePosted > 30) {urgency -= 0.2;} // Old
     }
 
     // Company priority (Fortune 500, unicorns, etc.)
@@ -368,8 +368,8 @@ export class AdvancedMatchingEngine {
 
     // Application count (fewer applications = higher urgency)
     if (job.applicationCount !== undefined) {
-      if (job.applicationCount < 10) urgency += 0.2;
-      else if (job.applicationCount > 100) urgency -= 0.1;
+      if (job.applicationCount < 10) {urgency += 0.2;}
+      else if (job.applicationCount > 100) {urgency -= 0.1;}
     }
 
     // Remote work bonus
@@ -396,7 +396,7 @@ export class AdvancedMatchingEngine {
     const city1 = majorCities[loc1.toLowerCase()];
     const city2 = majorCities[loc2.toLowerCase()];
 
-    if (!city1 || !city2) return 50; // Default distance for unknown cities
+    if (!city1 || !city2) {return 50;} // Default distance for unknown cities
 
     // Haversine formula for distance calculation
     const R = 3959; // Earth's radius in miles
@@ -452,7 +452,7 @@ export class AdvancedMatchingEngine {
     try {
       // Get candidate profile
       const profile = await storage.getCandidateUser(candidateId);
-      if (!profile) return [];
+      if (!profile) {return [];}
 
       const criteria: AdvancedMatchCriteria = {
         candidateId,
@@ -585,7 +585,7 @@ export class AdvancedMatchingEngine {
   }
 
   private calculateSimpleSkillMatch(candidateSkills: string[], jobSkills: string[]): number {
-    if (!candidateSkills?.length || !jobSkills?.length) return 0;
+    if (!candidateSkills?.length || !jobSkills?.length) {return 0;}
 
     const normalizedCand   = normalizeSkills(candidateSkills).map(s => s.toLowerCase());
     const normalizedJobSet = new Set(normalizeSkills(jobSkills).map(s => s.toLowerCase()));
@@ -644,7 +644,7 @@ export class AdvancedMatchingEngine {
       const matches: EnhancedJobMatch[] = [];
 
       for (const job of jobsWithEmbeddings) {
-        if (!job.vectorEmbedding) continue;
+        if (!job.vectorEmbedding) {continue;}
 
         try {
           const jobEmbedding = JSON.parse(job.vectorEmbedding);

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Phone, CheckCircle, Upload, FileText, Briefcase, MapPin, DollarSign, X } from "lucide-react";
+import { Phone, CheckCircle, Upload, FileText, Briefcase, MapPin, DollarSign, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -125,8 +125,8 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
 
     // Optional phone number validation (only if provided)
     if (phoneNumber.trim()) {
-      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-      if (!phoneRegex.test(phoneNumber.replace(/[\s\-\(\)]/g, ''))) {
+      const phoneRegex = /^[+]?[1-9][\d]{0,15}$/;
+      if (!phoneRegex.test(phoneNumber.replace(/[\s\-()]/g, ''))) {
         toast({
           title: "Invalid Phone Number",
           description: "Please enter a valid phone number.",
@@ -289,7 +289,7 @@ export default function EnhancedProfileCompletion({ user, onComplete, onCancel }
                 accept=".pdf,.doc,.docx"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleResumeUpload(file);
+                  if (file) {handleResumeUpload(file);}
                 }}
                 className="hidden"
                 id="resume-upload"

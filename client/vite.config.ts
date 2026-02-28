@@ -24,6 +24,16 @@ export default defineConfig({
   build: {
     outDir: '../dist/public',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs', '@radix-ui/react-select', '@radix-ui/react-slot'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-utils': ['date-fns', 'zod'],
+        },
+      },
+    },
   },
   envPrefix: 'VITE_',
   // Add the 'test' configuration block here

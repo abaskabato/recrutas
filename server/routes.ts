@@ -20,6 +20,10 @@ import {
   updateJobPostingSchema,
   scheduleInterviewSchema,
   completeTalentOwnerProfileSchema,
+  users,
+  jobPostings,
+  jobApplications,
+  JobPosting,
 } from "@shared/schema";
 import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
 import { db, testDbConnection } from "./db";
@@ -30,7 +34,6 @@ import { ExamService } from './services/exam.service';
 import { aiResumeParser } from './ai-resume-parser';
 import { applicationIntelligence } from "./application-intelligence";
 import { supabaseAdmin } from "./lib/supabase-admin";
-import { users, jobPostings, jobApplications, JobPosting } from "@shared/schema";
 import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { hiringCafeService } from './services/hiring-cafe.service';
@@ -152,7 +155,7 @@ const examService = new ExamService(storage, notificationService);
 
 // Helper function to safely parse integer params
 function parseIntParam(value: string | undefined): number | null {
-  if (!value) return null;
+  if (!value) {return null;}
   const parsed = parseInt(value, 10);
   return isNaN(parsed) ? null : parsed;
 }
@@ -227,12 +230,12 @@ const FILE_SIGNATURES = {
 };
 
 function validateFileSignature(buffer: Buffer, extension: string): boolean {
-  if (buffer.length < 4) return false;
+  if (buffer.length < 4) {return false;}
 
   const ext = extension.toLowerCase().replace('.', '');
   const signature = FILE_SIGNATURES[ext as keyof typeof FILE_SIGNATURES];
 
-  if (!signature) return false;
+  if (!signature) {return false;}
 
   // Check if the file starts with the expected magic bytes
   for (let i = 0; i < signature.length; i++) {
@@ -485,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const remoteOkCacheKey = topTechSkills.join(',');
 
       const remoteOkPromise = (async () => {
-        if (candidateSkills.length === 0) return [];
+        if (candidateSkills.length === 0) {return [];}
         // Return cached data if fresh and for the same skill key
         if (remoteOkCache && remoteOkCache.key === remoteOkCacheKey && Date.now() - remoteOkCache.timestamp < REMOTEOK_CACHE_TTL) {
           console.log(`[RemoteOK] Cache hit (${remoteOkCache.data.length} jobs, key: ${remoteOkCacheKey})`);
@@ -835,9 +838,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const user = await storage.getUser(req.user.id);
-      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user) {return res.status(404).json({ message: "User not found" });}
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -848,7 +851,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Sync Supabase auth user into local DB (called after signup/login)
   app.post('/api/auth/sync', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const user = await storage.upsertUser({
         id: req.user.id,
         email: req.user.email || '',
@@ -864,9 +867,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/auth/role', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const { role } = req.body;
-      if (!['candidate', 'talent_owner'].includes(role)) return res.status(400).json({ message: "Invalid role" });
+      if (!['candidate', 'talent_owner'].includes(role)) {return res.status(400).json({ message: "Invalid role" });}
       // Ensure user exists in local DB before updating role (Supabase Auth doesn't auto-sync)
       await storage.upsertUser({
         id: req.user.id,
@@ -1097,7 +1100,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.delete('/api/candidate/saved-jobs/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       await storage.unsaveJob(req.user.id, jobId);
       res.status(200).json({ message: "Job unsaved successfully" });
     } catch (error) {
@@ -1142,7 +1145,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.put('/api/candidate/application/:applicationId/status', isAuthenticated, async (req: any, res) => {
     try {
       const { status } = req.body;
-      if (!status) return res.status(400).json({ message: "Status is required" });
+      if (!status) {return res.status(400).json({ message: "Status is required" });}
 
       const VALID_CANDIDATE_STATUSES = ['submitted', 'screening', 'interview_scheduled', 'offer', 'rejected', 'withdrawn'];
       if (!VALID_CANDIDATE_STATUSES.includes(status)) {
@@ -1150,7 +1153,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       
       const applicationId = parseIntParam(req.params.applicationId);
-      if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
+      if (!applicationId) {return res.status(400).json({ message: "Invalid applicationId" });}
       
       // Verify the application belongs to this candidate
       const application = await storage.getApplicationById(applicationId);
@@ -1175,9 +1178,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
-      if (existingApplication) return res.status(400).json({ message: "Already applied to this job" });
+      if (existingApplication) {return res.status(400).json({ message: "Already applied to this job" });}
 
       const job = await storage.getJobPosting(jobId);
       if (!job) {
@@ -1391,7 +1394,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.put('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const userId = req.user.id;
 
       // Verify ownership
@@ -1422,7 +1425,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.delete('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const userId = req.user.id;
 
       // Verify ownership
@@ -1444,7 +1447,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.patch('/api/jobs/:jobId/status', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const userId = req.user.id;
       const { status, notifyCandidates } = req.body;
 
@@ -1534,7 +1537,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/jobs/:jobId/applicants', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const applicants = await storage.getApplicantsForJob(jobId, req.user.id);
       res.json(applicants);
     } catch (error) {
@@ -1548,7 +1551,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const questions = await storage.getScreeningQuestions(jobId);
       res.json(questions);
     } catch (error) {
@@ -1561,7 +1564,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const userId = req.user.id;
 
       // Verify ownership
@@ -1587,7 +1590,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/applications/:applicationId/screening-answers', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseIntParam(req.params.applicationId);
-      if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
+      if (!applicationId) {return res.status(400).json({ message: "Invalid applicationId" });}
 
       const [application] = await db.select({ candidateId: jobApplications.candidateId })
         .from(jobApplications).where(eq(jobApplications.id, applicationId));
@@ -1612,7 +1615,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/jobs/:jobId/discovery', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const job = await storage.getJobPosting(jobId);
 
       if (!job || job.talentOwnerId !== req.user.id) {
@@ -1630,9 +1633,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.put('/api/applications/:applicationId/status', isAuthenticated, async (req: any, res) => {
     try {
       const { status } = req.body;
-      if (!status) return res.status(400).json({ message: "Status is required." });
+      if (!status) {return res.status(400).json({ message: "Status is required." });}
       const applicationId = parseIntParam(req.params.applicationId);
-      if (!applicationId) return res.status(400).json({ message: "Invalid applicationId" });
+      if (!applicationId) {return res.status(400).json({ message: "Invalid applicationId" });}
       const updatedApplication = await storage.updateApplicationStatus(applicationId, status, req.user.id);
 
       // Track AI event for status change
@@ -1722,7 +1725,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
     try {
       const notificationId = parseIntParam(req.params.id);
-      if (!notificationId) return res.status(400).json({ message: "Invalid notification id" });
+      if (!notificationId) {return res.status(400).json({ message: "Invalid notification id" });}
       await notificationService.markAsRead(notificationId, req.user.id);
       res.json({ success: true });
     } catch (error) {
@@ -1893,7 +1896,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/jobs/:jobId/exam', isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
       const job = await storage.getJobPosting(jobId);
 
       if (!job) {
@@ -2220,7 +2223,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
-      if (!jobId) return res.status(400).json({ message: "Invalid jobId" });
+      if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
 
       // Duplicate check
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
@@ -2230,7 +2233,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Validate job is external
       const job = await storage.getJobPosting(jobId);
-      if (!job) return res.status(404).json({ message: "Job not found" });
+      if (!job) {return res.status(404).json({ message: "Job not found" });}
       if (!job.externalUrl) {
         return res.status(400).json({ message: "Agent apply is only available for external jobs" });
       }
@@ -2318,11 +2321,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.delete('/api/candidate/agent-tasks/:taskId', isAuthenticated, async (req: any, res) => {
     try {
       const taskId = parseIntParam(req.params.taskId);
-      if (!taskId) return res.status(400).json({ message: "Invalid task id" });
+      if (!taskId) {return res.status(400).json({ message: "Invalid task id" });}
       // Verify task belongs to this candidate and is still cancellable
       const tasks = await storage.getAgentTasksForCandidate(req.user.id);
       const task = tasks.find((t: any) => t.id === taskId);
-      if (!task) return res.status(404).json({ message: "Task not found" });
+      if (!task) {return res.status(404).json({ message: "Task not found" });}
       if (!['queued', 'processing'].includes(task.status)) {
         return res.status(409).json({ message: "Task cannot be cancelled in its current state" });
       }

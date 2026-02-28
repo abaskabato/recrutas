@@ -463,7 +463,7 @@ export const SKILL_ALIASES: Record<string, string> = {
  */
 export function normalizeSkill(skill: string): string {
   const trimmed = skill.trim();
-  if (!trimmed) return trimmed;
+  if (!trimmed) {return trimmed;}
 
   const lower = trimmed.toLowerCase();
   if (SKILL_ALIASES[lower]) {
@@ -483,7 +483,7 @@ export function normalizeSkills(skills: string[]): string[] {
 
   for (const skill of skills) {
     const normalized = normalizeSkill(skill);
-    if (!normalized) continue;
+    if (!normalized) {continue;}
     const key = normalized.toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);

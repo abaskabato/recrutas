@@ -97,7 +97,7 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: (failureCount, error) => {
         // Don't retry 401 errors
-        if (error.message.includes('401')) return false;
+        if (error.message.includes('401')) {return false;}
         return failureCount < 3;
       },
     },

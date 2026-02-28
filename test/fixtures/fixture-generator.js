@@ -69,7 +69,7 @@ export function generateLargePdfBuffer() {
   const baseContent = generateCompletePdfBuffer();
 
   // Repeat content to make it larger
-  let largeBuffer = Buffer.alloc(baseContent.length * 20);
+  const largeBuffer = Buffer.alloc(baseContent.length * 20);
   for (let i = 0; i < 20; i++) {
     baseContent.copy(largeBuffer, i * baseContent.length);
   }

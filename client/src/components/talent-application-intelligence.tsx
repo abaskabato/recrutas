@@ -576,7 +576,7 @@ function FeedbackForm({
   const [nextSteps, setNextSteps] = useState('');
 
   const handleSubmit = () => {
-    if (!feedback.trim()) return;
+    if (!feedback.trim()) {return;}
     onSubmit({ feedback, rating, nextSteps });
   };
 

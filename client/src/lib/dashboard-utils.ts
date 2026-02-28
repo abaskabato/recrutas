@@ -26,9 +26,9 @@ export const getStatusColor = (status: string) => {
 
 // Format salary consistently across dashboards
 export const formatSalary = (min?: number, max?: number) => {
-  if (!min && !max) return 'Salary not specified';
-  if (min && max) return `$${(min/1000).toFixed(0)}k - $${(max/1000).toFixed(0)}k`;
-  if (min) return `$${(min/1000).toFixed(0)}k+`;
+  if (!min && !max) {return 'Salary not specified';}
+  if (min && max) {return `$${(min/1000).toFixed(0)}k - $${(max/1000).toFixed(0)}k`;}
+  if (min) {return `$${(min/1000).toFixed(0)}k+`;}
   return `Up to $${(max!/1000).toFixed(0)}k`;
 };
 
@@ -82,10 +82,10 @@ export const timeAgo = (date: string | Date) => {
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-  if (diffInMinutes < 1) return 'Just now';
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-  if (diffInHours < 24) return `${diffInHours}h ago`;
-  if (diffInDays < 7) return `${diffInDays}d ago`;
+  if (diffInMinutes < 1) {return 'Just now';}
+  if (diffInMinutes < 60) {return `${diffInMinutes}m ago`;}
+  if (diffInHours < 24) {return `${diffInHours}h ago`;}
+  if (diffInDays < 7) {return `${diffInDays}d ago`;}
   return formatDate(date);
 };
 
@@ -97,7 +97,7 @@ export const validateFileType = (file: File, allowedTypes: string[]) => {
 };
 
 export const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {return '0 Bytes';}
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -106,24 +106,24 @@ export const formatFileSize = (bytes: number) => {
 
 // Match score utilities
 export const getMatchScoreColor = (score: number) => {
-  if (score >= 90) return 'text-green-600 bg-green-100';
-  if (score >= 75) return 'text-blue-600 bg-blue-100';
-  if (score >= 60) return 'text-yellow-600 bg-yellow-100';
+  if (score >= 90) {return 'text-green-600 bg-green-100';}
+  if (score >= 75) {return 'text-blue-600 bg-blue-100';}
+  if (score >= 60) {return 'text-yellow-600 bg-yellow-100';}
   return 'text-red-600 bg-red-100';
 };
 
 export const getMatchScoreLabel = (score: number) => {
-  if (score >= 90) return 'Excellent';
-  if (score >= 75) return 'Good';
-  if (score >= 60) return 'Fair';
+  if (score >= 90) {return 'Excellent';}
+  if (score >= 75) {return 'Good';}
+  if (score >= 60) {return 'Fair';}
   return 'Poor';
 };
 
 // Error handling utilities
 export const getErrorMessage = (error: any): string => {
-  if (typeof error === 'string') return error;
-  if (error?.message) return error.message;
-  if (error?.response?.data?.message) return error.response.data.message;
+  if (typeof error === 'string') {return error;}
+  if (error?.message) {return error.message;}
+  if (error?.response?.data?.message) {return error.response.data.message;}
   return 'An unexpected error occurred';
 };
 
@@ -133,7 +133,7 @@ export const createLoadingArray = (length: number) =>
 
 // Skills utilities
 export const formatSkills = (skills: string[] | null | undefined) => {
-  if (!skills || skills.length === 0) return [];
+  if (!skills || skills.length === 0) {return [];}
   return skills.filter(skill => skill && skill.trim().length > 0);
 };
 

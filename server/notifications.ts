@@ -34,7 +34,7 @@ export function initializeNotifications(server: any) {
 }
 
 export function sendNotification(userId: string, notification: any) {
-  if (!wss) return;
+  if (!wss) {return;}
   
   wss.clients.forEach((client: ExtendedWebSocket) => {
     if (client.readyState === WebSocket.OPEN && client.userId === userId) {
@@ -79,7 +79,7 @@ export function sendApplicationStatusUpdate(userId: string, application: any) {
 }
 
 export function sendRoomMessage(roomId: number, message: any) {
-  if (!wss) return;
+  if (!wss) {return;}
   
   wss.clients.forEach((client: ExtendedWebSocket) => {
     if (client.readyState === WebSocket.OPEN && client.roomId === roomId) {

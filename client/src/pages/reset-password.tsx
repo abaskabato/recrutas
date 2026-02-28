@@ -20,7 +20,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     // Check if we're already in a recovery session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setIsRecoveryMode(true)
+      if (session) {setIsRecoveryMode(true)}
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
   const updatePasswordMutation = useMutation({
     mutationFn: async (newPassword: string) => {
       const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
+      if (error) {throw error}
     },
     onSuccess: () => {
       setIsComplete(true)

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, Filter, Bell, User, Briefcase, MessageCircle, 
-  Calendar, TrendingUp, MapPin, Clock, Star, ChevronRight,
+  Calendar, MapPin, Clock, Star, ChevronRight,
   Phone, Video, Mail, Plus, Settings
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -39,7 +39,7 @@ export default function MobileOptimizedDashboard() {
   const [activeTab, setActiveTab] = useState("jobs");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [notifications, setNotifications] = useState<MobileNotification[]>([]);
+  const [notifications, _setNotifications] = useState<MobileNotification[]>([]);
 
   // Install PWA prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);

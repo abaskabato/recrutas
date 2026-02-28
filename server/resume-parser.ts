@@ -311,7 +311,7 @@ export class ResumeParser {
               nextLine.toLowerCase().includes(name.toLowerCase()) && nextLine.length < 50
             ) || nextLine.match(/^[A-Z\s]{2,}$/);
             
-            if (isNextSection) break;
+            if (isNextSection) {break;}
             
             if (nextLine.length > 0) {
               sectionContent.push(nextLine);
@@ -353,8 +353,8 @@ export class ResumeParser {
     const months = duration.match(/(\d+)\s*months?/i);
     
     let totalMonths = 0;
-    if (years) totalMonths += parseInt(years[1]) * 12;
-    if (months) totalMonths += parseInt(months[1]);
+    if (years) {totalMonths += parseInt(years[1]) * 12;}
+    if (months) {totalMonths += parseInt(months[1]);}
     
     // If no explicit duration, try to calculate from date range
     const dateMatches = duration.match(/(19|20)\d{2}/g);

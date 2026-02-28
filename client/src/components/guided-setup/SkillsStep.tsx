@@ -13,7 +13,7 @@ export default function SkillsStep() {
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const { toast } = useToast();
-  const { setStep } = useGuidedSetup();
+  const { setStep: _setStep } = useGuidedSetup();
   const [, setLocation] = useLocation();
 
   const mutation = useMutation({

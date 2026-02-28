@@ -104,10 +104,10 @@ export async function configureApp() {
   app.use(cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (!origin) {return callback(null, true);}
+      if (allowedOrigins.includes(origin)) {return callback(null, true);}
       // Allow any *.vercel.app deployment (preview + production)
-      if (/\.vercel\.app$/.test(new URL(origin).hostname)) return callback(null, true);
+      if (/\.vercel\.app$/.test(new URL(origin).hostname)) {return callback(null, true);}
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true
@@ -137,9 +137,9 @@ export async function configureApp() {
     legacyHeaders: false,
     skip: (req) => {
       // Health endpoint is always accessible for monitoring
-      if (req.path === '/api/health') return true;
+      if (req.path === '/api/health') {return true;}
       // In dev/test, skip rate limiting for localhost to allow full test suites to run
-      if (isDevOrTest && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) return true;
+      if (isDevOrTest && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) {return true;}
       return false;
     },
     handler: (req, res) => {
@@ -156,7 +156,7 @@ export async function configureApp() {
     legacyHeaders: false,
     skip: (req) => {
       // In dev/test, skip rate limiting for localhost
-      if (isDevOrTest && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) return true;
+      if (isDevOrTest && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) {return true;}
       return false;
     },
     handler: (req, res) => {

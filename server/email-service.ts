@@ -26,7 +26,7 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { error } = await resend.emails.send({
       to: params.to,
       from: params.from,
@@ -232,7 +232,7 @@ export async function sendApplicationStatusEmail(
   };
 
   const config = statusConfig[status];
-  if (!config) return false;
+  if (!config) {return false;}
 
   const frontendUrl = FRONTEND_URL;
 

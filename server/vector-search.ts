@@ -181,7 +181,7 @@ class VectorStore {
     const results: SearchResult[] = [];
 
     for (const [id, doc] of this.documents) {
-      if (filter && !filter(doc)) continue;
+      if (filter && !filter(doc)) {continue;}
 
       const score = cosineSimilarity(queryEmbedding.embedding, doc.embedding || []);
       
@@ -242,7 +242,7 @@ class VectorStore {
 
   private calculateKeywordScore(query: string, text: string): number {
     const queryTerms = query.split(/\s+/).filter(t => t.length > 2);
-    if (queryTerms.length === 0) return 0;
+    if (queryTerms.length === 0) {return 0;}
 
     let matches = 0;
     for (const term of queryTerms) {

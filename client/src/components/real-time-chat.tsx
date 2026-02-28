@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -108,7 +108,7 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
 
   // WebSocket connection for real-time updates
   useEffect(() => {
-    if (!roomId || !user) return;
+    if (!roomId || !user) {return;}
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -157,13 +157,13 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !roomId) return;
+    if (!newMessage.trim() || !roomId) {return;}
     
     sendMessageMutation.mutate(newMessage.trim());
   };
 
   const getOtherParticipant = () => {
-    if (!chatRoom || !user) return null;
+    if (!chatRoom || !user) {return null;}
     
     const isCandidate = user.role === 'candidate';
     return isCandidate ? chatRoom.match.recruiter : chatRoom.match.candidate;

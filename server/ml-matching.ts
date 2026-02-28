@@ -45,7 +45,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, operationName: string):
 
 // Singleton pipeline — all concurrent callers await the same loading promise
 async function getEmbeddingPipeline() {
-  if (embeddingPipeline) return embeddingPipeline;
+  if (embeddingPipeline) {return embeddingPipeline;}
 
   if (!pipelineLoadingPromise) {
     console.log('[ML Matching] Loading embedding model (first request may take 10-30 seconds)...');
@@ -145,7 +145,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
     normB += b[i] * b[i];
   }
   
-  if (normA === 0 || normB === 0) return 0;
+  if (normA === 0 || normB === 0) {return 0;}
   
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
@@ -227,7 +227,7 @@ export async function calculateMLMatchScore(
     let finalScore = Math.min((baseSimilarity * 0.7) + explicitMatchBonus, 1.0);
     // Semantic similarity alone shouldn't rank unrelated jobs highly —
     // cap at 25% when there is no explicit skill overlap
-    if (explicitMatches.length === 0) finalScore = Math.min(finalScore, 0.25);
+    if (explicitMatches.length === 0) {finalScore = Math.min(finalScore, 0.25);}
     
     // Confidence based on text quality
     const candidateTextLength = candidateSkills.join(' ').length + (candidateExperience || '').length;

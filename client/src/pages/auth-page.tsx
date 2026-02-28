@@ -37,7 +37,7 @@ export default function AuthPage() {
         email,
         password,
       });
-      if (error) throw error;
+      if (error) {throw error;}
     } catch (error: unknown) {
       console.error("Sign-in error:", error);
       toast({

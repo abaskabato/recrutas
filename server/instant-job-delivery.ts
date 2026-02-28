@@ -171,16 +171,16 @@ export class InstantJobDelivery {
   private calculateUrgency(job: any, request: InstantJobRequest): 'low' | 'medium' | 'high' {
     const matchScore = this.calculateMatchScore(job, request);
     
-    if (matchScore >= 80) return 'high';
-    if (matchScore >= 60) return 'medium';
+    if (matchScore >= 80) {return 'high';}
+    if (matchScore >= 60) {return 'medium';}
     return 'low';
   }
 
   private formatSalaryRange(min?: number, max?: number): string | undefined {
-    if (!min && !max) return undefined;
-    if (min && max) return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
-    if (min) return `$${min.toLocaleString()}+`;
-    if (max) return `Up to $${max.toLocaleString()}`;
+    if (!min && !max) {return undefined;}
+    if (min && max) {return `$${min.toLocaleString()} - $${max.toLocaleString()}`;}
+    if (min) {return `$${min.toLocaleString()}+`;}
+    if (max) {return `Up to $${max.toLocaleString()}`;}
     return undefined;
   }
 
@@ -312,7 +312,7 @@ export class InstantJobDelivery {
 
     for (const pattern of locationPatterns) {
       const match = description.match(pattern);
-      if (match) return match[1].trim();
+      if (match) {return match[1].trim();}
     }
 
     return 'Not specified';
@@ -336,8 +336,8 @@ export class InstantJobDelivery {
 
   private extractWorkTypeFromText(text: string): string {
     const textLower = text.toLowerCase();
-    if (textLower.includes('remote') || textLower.includes('work from home')) return 'remote';
-    if (textLower.includes('hybrid')) return 'hybrid';
+    if (textLower.includes('remote') || textLower.includes('work from home')) {return 'remote';}
+    if (textLower.includes('hybrid')) {return 'hybrid';}
     return 'onsite';
   }
 }

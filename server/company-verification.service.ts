@@ -199,7 +199,7 @@ export class CompanyVerificationService {
    * Returns "companyname.com" — only used for comparing against recruiter email domain.
    */
   private extractDomainFromCompany(companyName: string): string | undefined {
-    if (!companyName) return undefined;
+    if (!companyName) {return undefined;}
 
     const clean = companyName
       .toLowerCase()
@@ -208,7 +208,7 @@ export class CompanyVerificationService {
       .trim()
       .replace(/\s+/g, '');
 
-    if (!clean) return undefined;
+    if (!clean) {return undefined;}
 
     return clean + '.com';
   }
@@ -231,10 +231,10 @@ export class CompanyVerificationService {
     const d1 = domain1.toLowerCase().replace(/^www\./, '');
     const d2 = domain2.toLowerCase().replace(/^www\./, '');
 
-    if (d1 === d2) return true;
+    if (d1 === d2) {return true;}
 
     // Check if one is a subdomain of the other
-    if (d1.endsWith('.' + d2) || d2.endsWith('.' + d1)) return true;
+    if (d1.endsWith('.' + d2) || d2.endsWith('.' + d1)) {return true;}
 
     return false;
   }
@@ -312,9 +312,9 @@ export class CompanyVerificationService {
     for (const job of jobs) {
       try {
         const result = await this.verifyJob(job.id);
-        if (result.isVerified) verified++;
-        if (result.isThirdPartyRecruiter) thirdParty++;
-        if (result.issues.length > 0) issues++;
+        if (result.isVerified) {verified++;}
+        if (result.isThirdPartyRecruiter) {thirdParty++;}
+        if (result.issues.length > 0) {issues++;}
       } catch (error) {
         console.error(`[CompanyVerification] Error verifying job ${job.id}:`, error);
       }

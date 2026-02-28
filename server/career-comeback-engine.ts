@@ -341,10 +341,10 @@ export class CareerComebackEngine {
   // Helper methods
   private categorizeGapReason(reason: string): 'health' | 'family' | 'education' | 'career_change' | 'other' {
     const lowerReason = reason.toLowerCase();
-    if (lowerReason.includes('health') || lowerReason.includes('depression') || lowerReason.includes('mental')) return 'health';
-    if (lowerReason.includes('family') || lowerReason.includes('child') || lowerReason.includes('parent')) return 'family';
-    if (lowerReason.includes('education') || lowerReason.includes('study') || lowerReason.includes('degree')) return 'education';
-    if (lowerReason.includes('career') || lowerReason.includes('transition') || lowerReason.includes('change')) return 'career_change';
+    if (lowerReason.includes('health') || lowerReason.includes('depression') || lowerReason.includes('mental')) {return 'health';}
+    if (lowerReason.includes('family') || lowerReason.includes('child') || lowerReason.includes('parent')) {return 'family';}
+    if (lowerReason.includes('education') || lowerReason.includes('study') || lowerReason.includes('degree')) {return 'education';}
+    if (lowerReason.includes('career') || lowerReason.includes('transition') || lowerReason.includes('change')) {return 'career_change';}
     return 'other';
   }
 
@@ -356,14 +356,14 @@ export class CareerComebackEngine {
   }
 
   private getRefreshStrategies(skill: string, decayLevel: number): string[] {
-    if (decayLevel < 30) return ['Light refresher course', 'Industry news reading'];
-    if (decayLevel < 60) return ['Intensive course', 'Practice projects', 'Peer learning'];
+    if (decayLevel < 30) {return ['Light refresher course', 'Industry news reading'];}
+    if (decayLevel < 60) {return ['Intensive course', 'Practice projects', 'Peer learning'];}
     return ['Comprehensive retraining', 'Certification program', 'Mentorship', 'Portfolio projects'];
   }
 
   private estimateRefreshTime(skill: string, decayLevel: number): string {
-    if (decayLevel < 30) return '2-4 weeks';
-    if (decayLevel < 60) return '2-3 months';
+    if (decayLevel < 30) {return '2-4 weeks';}
+    if (decayLevel < 60) {return '2-3 months';}
     return '4-6 months';
   }
 

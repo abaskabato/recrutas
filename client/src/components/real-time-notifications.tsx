@@ -115,7 +115,7 @@ export default function RealTimeNotifications({ onNavigate }: RealTimeNotificati
 
   // WebSocket for real-time pushes
   useEffect(() => {
-    if (!user) return;
+    if (!user) {return;}
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -128,7 +128,7 @@ export default function RealTimeNotifications({ onNavigate }: RealTimeNotificati
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (!data.type || data.type === 'connected') return;
+        if (!data.type || data.type === 'connected') {return;}
 
         // Refresh server notifications so DB-persisted ones appear
         queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -137,7 +137,7 @@ export default function RealTimeNotifications({ onNavigate }: RealTimeNotificati
         const message = data.message || data.match?.job?.title || '';
 
         toast({ title, description: message });
-      } catch {}
+      } catch { /* intentional */ }
     };
 
     return () => socket.close();

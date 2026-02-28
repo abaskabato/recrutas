@@ -17,7 +17,7 @@ class JobCache {
     const key = this.generateKey(skills, limit);
     const cached = this.cache.get(key);
     
-    if (!cached) return null;
+    if (!cached) {return null;}
     
     const isExpired = Date.now() - cached.timestamp > this.CACHE_DURATION;
     if (isExpired) {

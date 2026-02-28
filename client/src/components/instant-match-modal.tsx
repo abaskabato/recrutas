@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  Brain, Briefcase, MapPin, DollarSign, Clock, ArrowRight, Sparkles,
-  MessageCircle, Eye, Heart, Zap, TrendingUp, Users, Star, CheckCircle2,
-  Send, Building,
+  Brain, Briefcase, MapPin, DollarSign, ArrowRight, Sparkles,
+  MessageCircle, Heart, Zap, TrendingUp, Users, Star,
+  Building,
   Rocket, Award, ChevronRight, ArrowLeft
 } from "lucide-react";
 import SmartLogo from '@/components/smart-logo';
-import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/components/theme-provider";
@@ -175,9 +173,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const [minSalary, setMinSalary] = useState("");
   const [workType, setWorkType] = useState<'remote' | 'hybrid' | 'onsite' | 'any'>('any');
   const [showTyping, setShowTyping] = useState(false);
-  const [appliedJobs, setAppliedJobs] = useState<number[]>([]);
+  const [appliedJobs, _setAppliedJobs] = useState<number[]>([]);
   const [likedJobs, setLikedJobs] = useState<number[]>([]);
-  const [activeChat, setActiveChat] = useState<number | null>(null);
+  const [activeChat, _setActiveChat] = useState<number | null>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<Record<number, Array<{sender: string, message: string}>>>({});
   const [newMessage, setNewMessage] = useState("");
@@ -190,14 +188,14 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
         skills: skills.trim() || jobTitle.trim(),
         limit: '8'
       });
-      if (jobTitle.trim()) params.append('jobTitle', jobTitle.trim());
-      if (location.trim()) params.append('location', location.trim());
-      if (workType !== 'any') params.append('workType', workType);
-      if (minSalary.trim()) params.append('minSalary', minSalary.trim());
-      if (salaryType) params.append('salaryType', salaryType);
+      if (jobTitle.trim()) {params.append('jobTitle', jobTitle.trim());}
+      if (location.trim()) {params.append('location', location.trim());}
+      if (workType !== 'any') {params.append('workType', workType);}
+      if (minSalary.trim()) {params.append('minSalary', minSalary.trim());}
+      if (salaryType) {params.append('salaryType', salaryType);}
       
       const response = await fetch(`/api/external-jobs?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch jobs');
+      if (!response.ok) {throw new Error('Failed to fetch jobs');}
       return response.json();
     },
     enabled: step === 'results' && (!!skills.trim() || !!jobTitle.trim()),
@@ -253,7 +251,7 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
     );
   };
 
-  const handleStartChat = (jobId: number) => {
+  const handleStartChat = (_jobId: number) => {
     onStartMatching();
     onClose();
   };
@@ -293,9 +291,9 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   };
 
   const handleBack = () => {
-    if (step === 'skills') setStep('intro');
-    else if (step === 'results') setStep('skills');
-    else if (step === 'features') setStep('results');
+    if (step === 'skills') {setStep('intro');}
+    else if (step === 'results') {setStep('skills');}
+    else if (step === 'features') {setStep('results');}
   };
 
   return (

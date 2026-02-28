@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Edit, Pause, Eye, MessageCircle, Users } from "lucide-react";
+import { Edit, Pause, Users } from "lucide-react";
 
 interface JobCardProps {
   job: any;
@@ -38,7 +36,7 @@ export default function JobCard({ job, onEdit, onViewMatches }: JobCardProps) {
     },
   });
 
-  const getStatusColor = (status: string) => {
+  const _getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-secondary text-white';
       case 'paused': return 'bg-yellow-500 text-white';

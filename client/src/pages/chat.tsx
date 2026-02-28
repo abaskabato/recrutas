@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSession } from "@supabase/auth-helpers-react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,7 +16,6 @@ export default function Chat() {
   const roomId = params.id;
   const [, setLocation] = useLocation();
   const session = useSession();
-  const supabase = useSupabaseClient();
   const { toast } = useToast();
 
   // Redirect to login if not authenticated
@@ -100,7 +99,7 @@ export default function Chat() {
                     const otherUser = session.user?.user_metadata?.role === 'candidate' ? room.match?.recruiter : room.match?.candidate;
                     const jobTitle = room.match?.job?.title || 'Job';
 
-                    if (!otherUser) return null;
+                    if (!otherUser) {return null;}
 
                     return (
                       <Button

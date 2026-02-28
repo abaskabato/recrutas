@@ -90,7 +90,7 @@ const mockHiringCafeResponse: HiringCafeJob[] = [
  * Strip HTML tags and entities from text
  */
 function stripHtml(html: string): string {
-  if (!html) return '';
+  if (!html) {return '';}
   
   // Remove HTML tags
   let text = html.replace(/<[^>]*>/g, ' ');
@@ -225,9 +225,9 @@ function transformToExternalJobInput(job: HiringCafeJob): ExternalJobInput {
  * Get match tier based on score
  */
 function getMatchTier(score: number): 'great' | 'good' | 'worth-a-look' | 'poor' {
-  if (score >= 75) return 'great';
-  if (score >= 50) return 'good';
-  if (score >= 40) return 'worth-a-look';
+  if (score >= 75) {return 'great';}
+  if (score >= 50) {return 'good';}
+  if (score >= 40) {return 'worth-a-look';}
   return 'poor';
 }
 
@@ -235,9 +235,9 @@ function getMatchTier(score: number): 'great' | 'good' | 'worth-a-look' | 'poor'
  * Get freshness label based on days old
  */
 function getFreshnessLabel(daysOld: number): 'just-posted' | 'this-week' | 'recent' | 'stale' {
-  if (daysOld <= 3) return 'just-posted';
-  if (daysOld <= 7) return 'this-week';
-  if (daysOld <= 15) return 'recent';
+  if (daysOld <= 3) {return 'just-posted';}
+  if (daysOld <= 7) {return 'this-week';}
+  if (daysOld <= 15) {return 'recent';}
   return 'stale';
 }
 

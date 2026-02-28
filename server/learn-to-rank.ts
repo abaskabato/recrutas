@@ -177,7 +177,7 @@ class LearnToRankModel {
   }
 
   private calculateSkillMatch(jobSkills: string[], candidateSkills: string[]): number {
-    if (!jobSkills?.length || !candidateSkills?.length) return 0.5;
+    if (!jobSkills?.length || !candidateSkills?.length) {return 0.5;}
 
     const normalizedJobSkills = jobSkills.map(s => s.toLowerCase());
     const normalizedCandidateSkills = candidateSkills.map(s => s.toLowerCase());
@@ -194,7 +194,7 @@ class LearnToRankModel {
   }
 
   private calculateExperienceAlignment(jobLevel?: string, candidateExp?: string): number {
-    if (!jobLevel || !candidateExp) return 0.5;
+    if (!jobLevel || !candidateExp) {return 0.5;}
 
     const levelMap: Record<string, number> = {
       'intern': 1, 'entry': 2, 'junior': 2, 'mid': 3, 'senior': 4,
@@ -209,32 +209,32 @@ class LearnToRankModel {
   }
 
   private calculateLocationFit(jobLocation?: string, candidateLocation?: string): number {
-    if (!jobLocation || !candidateLocation) return 0.5;
+    if (!jobLocation || !candidateLocation) {return 0.5;}
 
     const jobLoc = jobLocation.toLowerCase();
     const candidateLoc = candidateLocation.toLowerCase();
 
-    if (jobLoc.includes('remote') || candidateLoc.includes('remote')) return 1;
+    if (jobLoc.includes('remote') || candidateLoc.includes('remote')) {return 1;}
 
     const majorCities = ['san francisco', 'new york', 'seattle', 'austin', 'boston', 'los angeles', 'chicago'];
     const jobCity = majorCities.find(c => jobLoc.includes(c));
     const candidateCity = majorCities.find(c => candidateLoc.includes(c));
 
-    if (jobCity && candidateCity && jobCity === candidateCity) return 1;
-    if (jobCity || candidateCity) return 0.6;
+    if (jobCity && candidateCity && jobCity === candidateCity) {return 1;}
+    if (jobCity || candidateCity) {return 0.6;}
 
     return 0.3;
   }
 
   private calculateWorkTypeFit(jobWorkType?: string, candidateWorkType?: string): number {
-    if (!jobWorkType || !candidateWorkType) return 0.7;
+    if (!jobWorkType || !candidateWorkType) {return 0.7;}
 
     const j = jobWorkType.toLowerCase();
     const c = candidateWorkType.toLowerCase();
 
-    if (j === c) return 1;
-    if (j === 'hybrid' || c === 'hybrid') return 0.8;
-    if (j === 'remote') return 0.9;
+    if (j === c) {return 1;}
+    if (j === 'hybrid' || c === 'hybrid') {return 0.8;}
+    if (j === 'remote') {return 0.9;}
 
     return 0.4;
   }
@@ -245,14 +245,14 @@ class LearnToRankModel {
     candidateMin?: number,
     candidateMax?: number
   ): number {
-    if (!jobMin && !jobMax) return 0.5;
-    if (!candidateMin && !candidateMax) return 0.5;
+    if (!jobMin && !jobMax) {return 0.5;}
+    if (!candidateMin && !candidateMax) {return 0.5;}
 
     const jobMid = ((jobMin || 0) + (jobMax || 0)) / 2;
     const candidateMid = ((candidateMin || 0) + (candidateMax || 0)) / 2;
 
-    if (jobMid >= (candidateMin || 0) && jobMid <= (candidateMax || Infinity)) return 1;
-    if (jobMid < candidateMid) return Math.max(0, 1 - (candidateMid - jobMid) / candidateMid);
+    if (jobMid >= (candidateMin || 0) && jobMid <= (candidateMax || Infinity)) {return 1;}
+    if (jobMid < candidateMid) {return Math.max(0, 1 - (candidateMid - jobMid) / candidateMid);}
 
     return 0.6;
   }
@@ -261,34 +261,34 @@ class LearnToRankModel {
     const priorityCompanies = ['google', 'apple', 'microsoft', 'amazon', 'meta', 'netflix', 'stripe', 'airbnb', 'uber', 'salesforce'];
     const company = (job.company || '').toLowerCase();
 
-    if (priorityCompanies.some(c => company.includes(c))) return 1;
-    if (job.trustScore) return job.trustScore / 100;
-    if (job.source === 'platform' || job.source === 'internal') return 0.9;
+    if (priorityCompanies.some(c => company.includes(c))) {return 1;}
+    if (job.trustScore) {return job.trustScore / 100;}
+    if (job.source === 'platform' || job.source === 'internal') {return 0.9;}
 
     return 0.5;
   }
 
   private calculateRecencyScore(createdAt?: Date | string): number {
-    if (!createdAt) return 0.5;
+    if (!createdAt) {return 0.5;}
 
     const created = new Date(createdAt);
     const days = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
 
-    if (days < 1) return 1;
-    if (days < 3) return 0.9;
-    if (days < 7) return 0.8;
-    if (days < 14) return 0.6;
-    if (days < 30) return 0.4;
+    if (days < 1) {return 1;}
+    if (days < 3) {return 0.9;}
+    if (days < 7) {return 0.8;}
+    if (days < 14) {return 0.6;}
+    if (days < 30) {return 0.4;}
     return 0.2;
   }
 
   private calculateEngagementScore(job: RankableJob): number {
     const appCount = job.applicationCount || 0;
 
-    if (appCount < 10) return 1;
-    if (appCount < 50) return 0.8;
-    if (appCount < 100) return 0.6;
-    if (appCount < 500) return 0.4;
+    if (appCount < 10) {return 1;}
+    if (appCount < 50) {return 0.8;}
+    if (appCount < 100) {return 0.6;}
+    if (appCount < 500) {return 0.4;}
     return 0.2;
   }
 

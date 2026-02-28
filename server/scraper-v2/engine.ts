@@ -79,7 +79,7 @@ export class ScraperEngine {
       let successfulMethod: ScrapeMethod | undefined;
 
       for (const method of strategies) {
-        if (signal?.aborted) break;
+        if (signal?.aborted) {break;}
 
         try {
           jobs = await this.executeStrategy(method, company, signal);
@@ -242,7 +242,7 @@ export class ScraperEngine {
     const results: ScrapingResult[] = [];
 
     for (let i = 0; i < companies.length; i += this.config.batchSize) {
-      if (signal?.aborted) break;
+      if (signal?.aborted) {break;}
 
       const batch = companies.slice(i, i + this.config.batchSize);
 

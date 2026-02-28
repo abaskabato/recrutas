@@ -3,13 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { 
   Calendar, 
   Clock, 
   Eye, 
   MessageSquare, 
-  ExternalLink, 
   ChevronRight,
   TrendingUp,
   Users,
@@ -88,7 +86,7 @@ export default function ApplicationIntelligenceTracker() {
     queryKey: ["/api/applications/status"],
   });
 
-  const getStatusBadge = (status: string, intelligence?: ApplicationIntelligence['intelligence']) => {
+  const getStatusBadge = (status: string, _intelligence?: ApplicationIntelligence['intelligence']) => {
     const config = statusConfig[status] || statusConfig.submitted;
     const IconComponent = config.icon;
     

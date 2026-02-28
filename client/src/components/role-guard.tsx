@@ -17,7 +17,7 @@ export function RoleGuard({ allowedRoles, children, fallbackPath = '/' }: RoleGu
   const userRole = user?.user_metadata?.role || user?.app_metadata?.role;
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {return;}
 
     if (!isAuthenticated) {
       setLocation('/auth');

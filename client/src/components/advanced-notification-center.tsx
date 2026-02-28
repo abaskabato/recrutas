@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useRoleBasedAuth as useAuth } from "@/hooks/useRoleBasedAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Bell, 
   BellRing,
@@ -18,10 +18,8 @@ import {
   Settings,
   Check,
   X,
-  Eye,
   Clock,
-  Building,
-  User
+  Building
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -53,7 +51,7 @@ interface NotificationPreferences {
 
 export default function AdvancedNotificationCenter() {
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -66,7 +64,7 @@ export default function AdvancedNotificationCenter() {
   });
 
   // Fetch notification preferences
-  const { data: preferences } = useQuery<NotificationPreferences>({
+  const { data: _preferences } = useQuery<NotificationPreferences>({
     queryKey: ['/api/notifications/preferences'],
   });
 
@@ -91,7 +89,7 @@ export default function AdvancedNotificationCenter() {
   });
 
   // Update preferences mutation
-  const updatePreferencesMutation = useMutation({
+  const _updatePreferencesMutation = useMutation({
     mutationFn: async (newPreferences: Partial<NotificationPreferences>) => {
       return apiRequest("PUT", "/api/notifications/preferences", newPreferences);
     },
@@ -107,7 +105,7 @@ export default function AdvancedNotificationCenter() {
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
   const filteredNotifications = notifications?.filter(notification => {
-    if (activeTab === 'all') return true;
+    if (activeTab === 'all') {return true;}
     return notification.type === activeTab;
   }) || [];
 
@@ -126,9 +124,9 @@ export default function AdvancedNotificationCenter() {
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    if (diffInHours < 1) {return 'Just now';}
+    if (diffInHours < 24) {return `${diffInHours}h ago`;}
+    if (diffInHours < 168) {return `${Math.floor(diffInHours / 24)}d ago`;}
     return date.toLocaleDateString();
   };
 

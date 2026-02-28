@@ -118,8 +118,8 @@ async function testAutomaticMatchingAfterResumeUpload() {
       'Should have AI explanation'
     );
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -160,8 +160,8 @@ async function testProfileUpdateTriggersReMatching() {
     const jobMatch = recsRes.body.find((m) => m.jobId === job.id);
     assert(jobMatch, 'Updated profile should match the job');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -224,8 +224,8 @@ async function testRankingByHybridFormula() {
       );
     }
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -270,8 +270,8 @@ async function testSkillMatchHighlighting() {
       'Should highlight matching skills'
     );
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -314,8 +314,8 @@ async function testVerifiedActiveBadgeDisplay() {
       );
     }
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -357,8 +357,8 @@ async function testDirectFromCompanyBadgeDisplay() {
       );
     }
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -388,8 +388,8 @@ async function testEmptyMatchesWhenNoSkills() {
     // May be empty or have low scores
     assert(Array.isArray(recsRes.body), 'Should return array');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -426,8 +426,8 @@ async function testLargeSkillSetHandling() {
 
     assert.strictEqual(recsRes.status, 200, 'Should handle large skill sets');
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -462,8 +462,8 @@ async function testEdgeCaseNoCommonSkills() {
     assert.strictEqual(recsRes.status, 200, 'Should return 200');
     // May be empty or have very low scores
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -505,8 +505,8 @@ async function testRecommendationsIncludeJobDetails() {
       assert.strictEqual(match.job.company, 'Tech Corp', 'Should have company');
     }
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -550,8 +550,8 @@ async function testRecommendationsPaginated() {
     );
     // Should respect limit
   } finally {
-    if (candidateId) await deleteUser(candidateId);
-    if (talentId) await deleteUser(talentId);
+    if (candidateId) {await deleteUser(candidateId);}
+    if (talentId) {await deleteUser(talentId);}
   }
 }
 
@@ -585,6 +585,11 @@ async function runAllTests() {
   if (testsFailed > 0) {
     process.exit(1);
   }
+}
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  console.warn('⚠️  Skipping integration tests: SUPABASE_URL / SUPABASE_ANON_KEY not configured');
+  process.exit(0);
 }
 
 runAllTests().catch((err) => {

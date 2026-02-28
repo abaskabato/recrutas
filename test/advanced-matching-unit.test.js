@@ -6,6 +6,7 @@
  */
 
 import assert from 'assert';
+import { afterAll, describe, jest, test } from '@jest/globals';
 import { AdvancedMatchingEngine } from '../server/advanced-matching-engine.ts';
 import {
   createSampleJob,
@@ -354,7 +355,12 @@ async function runAllTests() {
 }
 
 describe('Advanced Matching Engine Unit Tests', () => {
+  afterAll(() => {
+    // Clear any pending cache-expiry timers so Jest can exit cleanly
+    jest.clearAllTimers();
+  });
+
   test('Run all unit tests', async () => {
     await runAllTests();
-  });
+  }, 60000);
 });

@@ -40,9 +40,9 @@ export default function MatchCard({ match }: MatchCardProps) {
   });
 
   const getMatchBadgeColor = (score: number) => {
-    if (score >= 90) return "bg-secondary/10 text-secondary";
-    if (score >= 80) return "bg-green-100 text-green-800";
-    if (score >= 70) return "bg-yellow-100 text-yellow-800";
+    if (score >= 90) {return "bg-secondary/10 text-secondary";}
+    if (score >= 80) {return "bg-green-100 text-green-800";}
+    if (score >= 70) {return "bg-yellow-100 text-yellow-800";}
     return "bg-gray-100 text-gray-800";
   };
 

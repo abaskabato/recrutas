@@ -1,26 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   MessageCircle, 
   Calendar, 
   Send, 
   Phone, 
-  Video, 
-  Clock,
-  CheckCircle,
-  User,
-  Building,
   Zap,
-  Star,
   ExternalLink,
   Paperclip,
   MoreVertical,
@@ -84,7 +77,7 @@ interface SchedulingRequest {
 
 export default function DirectConnectionHub({ 
   hiringManagerId, 
-  onConnectionUpdate 
+  onConnectionUpdate: _onConnectionUpdate 
 }: {
   hiringManagerId: string;
   onConnectionUpdate?: (connection: DirectConnection) => void;
@@ -106,7 +99,7 @@ export default function DirectConnectionHub({
 
   // Handle incoming real-time messages
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {return;}
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
@@ -143,7 +136,7 @@ export default function DirectConnectionHub({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, type, metadata }),
       });
-      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.ok) {throw new Error('Failed to send message');}
       return response.json();
     },
     onSuccess: (newMessage) => {
@@ -172,7 +165,7 @@ export default function DirectConnectionHub({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
       });
-      if (!response.ok) throw new Error('Failed to schedule interview');
+      if (!response.ok) {throw new Error('Failed to schedule interview');}
       return response.json();
     },
     onSuccess: () => {
@@ -182,14 +175,14 @@ export default function DirectConnectionHub({
   });
 
   // Update connection status
-  const updateConnectionStatus = useMutation({
+  const _updateConnectionStatus = useMutation({
     mutationFn: async ({ connectionId, status }: { connectionId: string; status: string }) => {
       const response = await fetch(`/api/connections/${connectionId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-      if (!response.ok) throw new Error('Failed to update status');
+      if (!response.ok) {throw new Error('Failed to update status');}
       return response.json();
     },
     onSuccess: () => refetch(),
@@ -201,7 +194,7 @@ export default function DirectConnectionHub({
   }, [selectedConnection?.messages]);
 
   const handleSendMessage = () => {
-    if (!messageInput.trim() || !selectedConnection) return;
+    if (!messageInput.trim() || !selectedConnection) {return;}
     
     sendMessageMutation.mutate({
       connectionId: selectedConnection.id,
@@ -210,7 +203,7 @@ export default function DirectConnectionHub({
   };
 
   const handleScheduleInterview = () => {
-    if (!selectedConnection) return;
+    if (!selectedConnection) {return;}
     
     scheduleInterviewMutation.mutate({
       ...schedulingRequest,
@@ -219,7 +212,7 @@ export default function DirectConnectionHub({
   };
 
   const sendQuickMessage = (template: string) => {
-    if (!selectedConnection) return;
+    if (!selectedConnection) {return;}
     
     sendMessageMutation.mutate({
       connectionId: selectedConnection.id,

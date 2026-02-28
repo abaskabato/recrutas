@@ -35,14 +35,14 @@ export default function MatchBreakdown({ match, job }: MatchBreakdownProps) {
   const overallScore = parseInt(match.matchScore.replace('%', ''));
   
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-yellow-600";
+    if (score >= 80) {return "text-green-600";}
+    if (score >= 60) {return "text-yellow-600";}
     return "text-red-600";
   };
 
   const getScoreIcon = (score: number) => {
-    if (score >= 80) return <CheckCircle className="h-4 w-4 text-green-600" />;
-    if (score >= 60) return <AlertCircle className="h-4 w-4 text-yellow-600" />;
+    if (score >= 80) {return <CheckCircle className="h-4 w-4 text-green-600" />;}
+    if (score >= 60) {return <AlertCircle className="h-4 w-4 text-yellow-600" />;}
     return <XCircle className="h-4 w-4 text-red-600" />;
   };
 

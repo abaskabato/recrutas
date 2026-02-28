@@ -471,7 +471,7 @@ function parseSmartRecruitersResponse(data: any, company: CompanyConfig): Scrape
 
 // Helper functions
 function stripHtml(html: string | undefined): string {
-  if (!html) return '';
+  if (!html) {return '';}
   return html
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')
@@ -505,9 +505,9 @@ function extractRequirementsFromHtml(html: string): any[] {
 }
 
 function determineWorkType(location: string): 'remote' | 'onsite' | 'hybrid' {
-  if (!location) return 'hybrid';
+  if (!location) {return 'hybrid';}
   const lower = location.toLowerCase();
-  if (lower.includes('remote')) return 'remote';
-  if (lower.includes('hybrid')) return 'hybrid';
+  if (lower.includes('remote')) {return 'remote';}
+  if (lower.includes('hybrid')) {return 'hybrid';}
   return 'hybrid';
 }

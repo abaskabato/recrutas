@@ -70,14 +70,14 @@ function stripHtml(html: string): string {
  * Identical approach to job-ingestion.service.ts for consistency.
  */
 function extractSkillsFromText(text: string): string[] {
-  if (!text) return [];
-  const words = text.split(/[\s,;|•·()\[\]{}<>]+/).filter(w => w.length > 0);
+  if (!text) {return [];}
+  const words = text.split(/[\s,;|•·()[\]{}<>]+/).filter(w => w.length > 0);
   const found = new Set<string>();
   for (let i = 0; i < words.length; i++) {
     for (let n = 1; n <= 4 && i + n <= words.length; n++) {
       const phrase = words.slice(i, i + n).join(' ').toLowerCase();
       const canonical = SKILL_ALIASES[phrase];
-      if (canonical) found.add(canonical);
+      if (canonical) {found.add(canonical);}
     }
   }
   return Array.from(found).slice(0, 15);
@@ -88,10 +88,10 @@ function extractSkillsFromText(text: string): string[] {
  */
 function detectWorkType(text: string): 'remote' | 'hybrid' | 'onsite' {
   const lower = text.toLowerCase();
-  if (lower.includes('remote') && lower.includes('hybrid')) return 'hybrid';
-  if (lower.includes('fully remote') || lower.includes('100% remote')) return 'remote';
-  if (lower.includes('remote')) return 'remote';
-  if (lower.includes('hybrid')) return 'hybrid';
+  if (lower.includes('remote') && lower.includes('hybrid')) {return 'hybrid';}
+  if (lower.includes('fully remote') || lower.includes('100% remote')) {return 'remote';}
+  if (lower.includes('remote')) {return 'remote';}
+  if (lower.includes('hybrid')) {return 'hybrid';}
   return 'onsite';
 }
 
@@ -139,12 +139,12 @@ export class HiringCafeService {
     try {
       for (let page = 0; page < maxPages; page++) {
         const pageJobs = await this.fetchPageWithRetry(keywords, page, controller.signal);
-        if (pageJobs.length === 0) break;
+        if (pageJobs.length === 0) {break;}
         
         allJobs.push(...pageJobs);
         console.log(`[HiringCafe] Page ${page}: ${pageJobs.length} jobs`);
 
-        if (pageJobs.length < PAGE_SIZE) break;
+        if (pageJobs.length < PAGE_SIZE) {break;}
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -223,8 +223,8 @@ export class HiringCafeService {
           .map(r => this.transformToExternalJobInput(r));
 
       } catch (error: any) {
-        if (signal.aborted) throw error;
-        if (attempt === MAX_RETRIES - 1) throw error;
+        if (signal.aborted) {throw error;}
+        if (attempt === MAX_RETRIES - 1) {throw error;}
         const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
         console.warn(`[HiringCafe] Error on attempt ${attempt + 1}, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));

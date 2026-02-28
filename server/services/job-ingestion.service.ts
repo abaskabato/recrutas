@@ -12,14 +12,14 @@ import { normalizeSkills, SKILL_ALIASES } from '../skill-normalizer';
 
 /** Extract canonical skills from free-form text using the full alias taxonomy. */
 function extractSkillsFromText(text: string): string[] {
-  if (!text) return [];
-  const words = text.split(/[\s,;|•·()\[\]{}<>]+/).filter(w => w.length > 0);
+  if (!text) {return [];}
+  const words = text.split(/[\s,;|•·()[\]{}<>]+/).filter(w => w.length > 0);
   const found = new Set<string>();
   for (let i = 0; i < words.length; i++) {
     for (let n = 1; n <= 4 && i + n <= words.length; n++) {
       const phrase = words.slice(i, i + n).join(' ').toLowerCase();
       const canonical = SKILL_ALIASES[phrase];
-      if (canonical) found.add(canonical);
+      if (canonical) {found.add(canonical);}
     }
   }
   return Array.from(found).slice(0, 20);

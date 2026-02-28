@@ -12,10 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus,
   X,
-  Code,
   FileText,
   CheckCircle,
-  Clock,
   Users,
   Brain,
   Target,
@@ -199,14 +197,14 @@ export default function JobPostingWizard({
     const errors: string[] = [];
     switch (currentStep) {
       case 1:
-        if (!jobData.title?.trim()) errors.push('Job Title');
-        if (!jobData.company?.trim()) errors.push('Company');
-        if (!jobData.description?.trim()) errors.push('Description');
-        if (!jobData.location?.trim()) errors.push('Location');
+        if (!jobData.title?.trim()) {errors.push('Job Title');}
+        if (!jobData.company?.trim()) {errors.push('Company');}
+        if (!jobData.description?.trim()) {errors.push('Description');}
+        if (!jobData.location?.trim()) {errors.push('Location');}
         break;
       case 2:
-        if (jobData.requirements.length === 0) errors.push('At least one requirement');
-        if (jobData.skills.length === 0) errors.push('At least one skill');
+        if (jobData.requirements.length === 0) {errors.push('At least one requirement');}
+        if (jobData.skills.length === 0) {errors.push('At least one skill');}
         break;
     }
     return errors;

@@ -23,7 +23,7 @@ export class SafeStorage {
   }
 
   static setItem(key: string, value: any): boolean {
-    if (!this.isAvailable()) return false;
+    if (!this.isAvailable()) {return false;}
     
     try {
       localStorage.setItem(key, JSON.stringify(value));
@@ -34,7 +34,7 @@ export class SafeStorage {
   }
 
   static getItem<T>(key: string, defaultValue: T): T {
-    if (!this.isAvailable()) return defaultValue;
+    if (!this.isAvailable()) {return defaultValue;}
     
     try {
       const item = localStorage.getItem(key);
@@ -45,7 +45,7 @@ export class SafeStorage {
   }
 
   static removeItem(key: string): boolean {
-    if (!this.isAvailable()) return false;
+    if (!this.isAvailable()) {return false;}
     
     try {
       localStorage.removeItem(key);
@@ -56,7 +56,7 @@ export class SafeStorage {
   }
 
   static clear(): boolean {
-    if (!this.isAvailable()) return false;
+    if (!this.isAvailable()) {return false;}
     
     try {
       localStorage.clear();
@@ -102,11 +102,11 @@ export interface CachedProfile {
 
 export function getCachedProfile(): any | null {
   const cached = SafeStorage.getItem<CachedProfile | null>(STORAGE_KEYS.candidateProfile, null);
-  if (!cached) return null;
+  if (!cached) {return null;}
 
   // Cache valid for 30 minutes
   const MAX_AGE = 1000 * 60 * 30;
-  if (Date.now() - cached.cachedAt > MAX_AGE) return null;
+  if (Date.now() - cached.cachedAt > MAX_AGE) {return null;}
 
   return cached.data;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,50 +9,10 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, TrendingDown, Users, Clock, Target, 
-  CalendarDays, DollarSign, Star, Filter, Download
+  CalendarDays, DollarSign, Star, Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-
-interface AnalyticsData {
-  overview: {
-    totalApplications: number;
-    activeJobs: number;
-    avgTimeToHire: number;
-    offerAcceptanceRate: number;
-    topSkills: string[];
-    sourceEffectiveness: Array<{
-      source: string;
-      applications: number;
-      hires: number;
-      conversionRate: number;
-    }>;
-  };
-  pipeline: Array<{
-    stage: string;
-    count: number;
-    percentage: number;
-  }>;
-  timeToHire: Array<{
-    month: string;
-    avgDays: number;
-    target: number;
-  }>;
-  skillsDemand: Array<{
-    skill: string;
-    demand: number;
-    avgSalary: number;
-    applications: number;
-  }>;
-  performanceMetrics: {
-    interviewToOfferRate: number;
-    candidateExperience: number;
-    diversityMetrics: {
-      gender: Array<{ name: string; value: number; color: string }>;
-      experience: Array<{ level: string; count: number }>;
-    };
-  };
-}
 
 export default function AdvancedAnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("30d");

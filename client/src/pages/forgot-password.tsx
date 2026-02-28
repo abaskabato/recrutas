@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
-      if (error) throw error
+      if (error) {throw error}
     },
     onSuccess: () => {
       setIsSubmitted(true)
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!email) return
+    if (!email) {return}
     resetPasswordMutation.mutate(email)
   }
 

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Briefcase, MapPin, DollarSign, Search, Sparkles, X,
   Building, ExternalLink, Filter, ChevronDown, ChevronUp,
-  Heart, Bookmark, Send, Lock
+  Bookmark, Send, Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -144,9 +144,9 @@ export default function JobMatchesModal({ isOpen, onClose }: JobMatchesModalProp
   };
 
   const formatSalary = (min?: number, max?: number) => {
-    if (!min && !max) return "Competitive";
-    if (!max) return `$${(min! / 1000).toFixed(0)}k+`;
-    if (!min) return `Up to $${(max / 1000).toFixed(0)}k`;
+    if (!min && !max) {return "Competitive";}
+    if (!max) {return `$${(min! / 1000).toFixed(0)}k+`;}
+    if (!min) {return `Up to $${(max / 1000).toFixed(0)}k`;}
     return `$${(min / 1000).toFixed(0)}k - $${(max / 1000).toFixed(0)}k`;
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   Briefcase, 
   MapPin, 
-  DollarSign, 
   Clock, 
   TrendingUp,
   Star,
@@ -46,7 +45,7 @@ interface AdvancedMatchesResponse {
 
 export default function AdvancedJobMatches({ candidateId }: { candidateId: string }) {
   const { toast } = useToast();
-  const [selectedMatch, setSelectedMatch] = useState<EnhancedJobMatch | null>(null);
+  const [_selectedMatch, setSelectedMatch] = useState<EnhancedJobMatch | null>(null);
   const [matchPreferences, setMatchPreferences] = useState({
     workType: 'hybrid',
     industry: '',
@@ -67,7 +66,7 @@ export default function AdvancedJobMatches({ candidateId }: { candidateId: strin
         title: 'Preferences Updated',
         description: 'Your job matching preferences have been saved successfully.',
       });
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Update Failed',
         description: 'Failed to update your preferences. Please try again.',
@@ -77,15 +76,15 @@ export default function AdvancedJobMatches({ candidateId }: { candidateId: strin
   };
 
   const getMatchScoreColor = (score: number) => {
-    if (score >= 0.9) return 'text-emerald-600 bg-emerald-50';
-    if (score >= 0.8) return 'text-blue-600 bg-blue-50';
-    if (score >= 0.7) return 'text-yellow-600 bg-yellow-50';
+    if (score >= 0.9) {return 'text-emerald-600 bg-emerald-50';}
+    if (score >= 0.8) {return 'text-blue-600 bg-blue-50';}
+    if (score >= 0.7) {return 'text-yellow-600 bg-yellow-50';}
     return 'text-slate-600 bg-slate-50';
   };
 
   const getUrgencyBadge = (urgency: number) => {
-    if (urgency >= 0.8) return <Badge variant="destructive" className="text-xs">High Priority</Badge>;
-    if (urgency >= 0.6) return <Badge variant="default" className="text-xs">Medium Priority</Badge>;
+    if (urgency >= 0.8) {return <Badge variant="destructive" className="text-xs">High Priority</Badge>;}
+    if (urgency >= 0.6) {return <Badge variant="default" className="text-xs">Medium Priority</Badge>;}
     return <Badge variant="secondary" className="text-xs">Standard</Badge>;
   };
 
@@ -184,7 +183,7 @@ export default function AdvancedJobMatches({ candidateId }: { candidateId: strin
             </Card>
           ) : (
             <div className="grid gap-6">
-              {matches.map((match, index) => (
+              {matches.map((match, _index) => (
                 <Card key={match.jobId} className="hover:shadow-lg transition-shadow duration-200">
                   <CardHeader className="pb-4">
                     <div className="flex items-start justify-between">

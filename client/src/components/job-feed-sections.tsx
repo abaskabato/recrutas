@@ -4,12 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
-  Clock,
   MapPin,
   Building,
   Briefcase,
   BadgeCheck,
-  Shield,
   ChevronRight,
   Star
 } from "lucide-react";
@@ -40,7 +38,7 @@ export default function JobFeedSections({
   appliedJobIds
 }: JobFeedSectionsProps) {
   const sections = useMemo<JobSection[]>(() => {
-    if (!matches || matches.length === 0) return [];
+    if (!matches || matches.length === 0) {return [];}
 
     // Section 1: Top 5 AI Matches (highest match scores)
     const topMatches = [...matches]
@@ -176,7 +174,7 @@ export default function JobFeedSections({
                           variant={isApplied ? "secondary" : "default"}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isApplied) onApply(match);
+                            if (!isApplied) {onApply(match);}
                           }}
                           disabled={isApplied}
                           className={isApplied ? "" : "bg-blue-600 hover:bg-blue-700 text-white"}

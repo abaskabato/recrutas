@@ -174,7 +174,7 @@ class CompanyDiscoveryPipeline {
 
       for (const comp of jobCompanies) {
         const normalizedName = this.normalizeCompanyName(comp.company);
-        if (KNOWN_COMPANIES.has(normalizedName)) continue;
+        if (KNOWN_COMPANIES.has(normalizedName)) {continue;}
 
         const atsType = comp.careerPageUrl ? this.detectAtsType(comp.careerPageUrl) : undefined;
 
@@ -195,7 +195,7 @@ class CompanyDiscoveryPipeline {
 
         for (const comp of wikiCompanies) {
           const normalizedName = this.normalizeCompanyName(comp.name);
-          if (KNOWN_COMPANIES.has(normalizedName)) continue;
+          if (KNOWN_COMPANIES.has(normalizedName)) {continue;}
 
           // Try to find career page URL
           const careerUrl = await this.timeout(5000, this.findCareerPageUrl(comp.name)).catch(() => null);
@@ -234,7 +234,7 @@ class CompanyDiscoveryPipeline {
   }
 
   private extractAtsId(url: string, atsType?: string): string | undefined {
-    if (!atsType || !url) return undefined;
+    if (!atsType || !url) {return undefined;}
 
     if (atsType === 'greenhouse') {
       return this.extractGreenhouseId(url) || undefined;

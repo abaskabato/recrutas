@@ -11,7 +11,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {return;}
     if (!isAuthenticated) {
       setLocation('/auth');
     }

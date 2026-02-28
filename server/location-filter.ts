@@ -64,21 +64,21 @@ const NON_US_KEYWORDS = [
  * Returns false for clearly non-US locations.
  */
 export function isUSLocation(location: string | null | undefined): boolean {
-  if (!location || location.trim() === '') return true;
+  if (!location || location.trim() === '') {return true;}
 
   const lower = location.toLowerCase().trim();
 
   // Check for explicit non-US keywords first
   for (const keyword of NON_US_KEYWORDS) {
-    if (lower.includes(keyword)) return false;
+    if (lower.includes(keyword)) {return false;}
   }
 
   // "Remote" without non-US qualifier is US
-  if (lower === 'remote' || lower === 'remote, us' || lower === 'remote, usa') return true;
-  if (lower.startsWith('remote')) return true; // "Remote - US", "Remote (US)", etc. (non-US already filtered)
+  if (lower === 'remote' || lower === 'remote, us' || lower === 'remote, usa') {return true;}
+  if (lower.startsWith('remote')) {return true;} // "Remote - US", "Remote (US)", etc. (non-US already filtered)
 
   // Explicit US references
-  if (lower.includes('united states') || lower.includes('usa') || lower.includes('u.s.')) return true;
+  if (lower.includes('united states') || lower.includes('usa') || lower.includes('u.s.')) {return true;}
 
   // "City, ST" pattern — 2-letter state code after last comma
   const commaIdx = lower.lastIndexOf(',');
@@ -86,12 +86,12 @@ export function isUSLocation(location: string | null | undefined): boolean {
     const afterComma = location.slice(commaIdx + 1).trim();
     // Could be "CA", "CA 94105", "New York" etc.
     const stateCandidate = afterComma.split(/\s+/)[0].toUpperCase();
-    if (stateCandidate.length === 2 && US_STATE_CODES.has(stateCandidate)) return true;
+    if (stateCandidate.length === 2 && US_STATE_CODES.has(stateCandidate)) {return true;}
   }
 
   // Check for full US state names anywhere in the string
   for (const state of US_STATE_NAMES) {
-    if (lower.includes(state)) return true;
+    if (lower.includes(state)) {return true;}
   }
 
   // If we can't determine, assume US (better to show a borderline job than miss it)

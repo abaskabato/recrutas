@@ -17,26 +17,21 @@ import {
   Upload,
   Search,
   Briefcase,
-  MapPin,
-  Building,
-  DollarSign,
   TrendingUp,
-  Clock,
   Star,
   CheckCircle,
   AlertCircle,
   FileText,
-  BarChart3,
-  Calendar,
   Target,
   Zap,
   MessageCircle,
   Eye,
   ExternalLink,
-  Filter,
   Settings,
   LogOut,
-  Bookmark
+  Bookmark,
+  Shield,
+  Palette,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import AIJobFeed from "@/components/ai-job-feed";
@@ -64,7 +59,6 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Mail, Shield, Palette, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 
 interface DashboardStats {
@@ -176,17 +170,17 @@ export default function CandidateStreamlinedDashboard() {
 
 
   const profileCompletion = useMemo(() => {
-    if (!profile) return 0;
+    if (!profile) {return 0;}
     let completed = 0;
     const total = 6;
 
     // Resume counts as 1 factor (most important)
-    if ((profile as any).resumeUrl) completed++;
-    if ((profile as any).skills && (profile as any).skills.length > 0) completed++;
-    if ((profile as any).experience) completed++;
-    if ((profile as any).location) completed++;
-    if ((profile as any).workType) completed++;
-    if ((profile as any).salaryMin && (profile as any).salaryMax) completed++;
+    if ((profile as any).resumeUrl) {completed++;}
+    if ((profile as any).skills && (profile as any).skills.length > 0) {completed++;}
+    if ((profile as any).experience) {completed++;}
+    if ((profile as any).location) {completed++;}
+    if ((profile as any).workType) {completed++;}
+    if ((profile as any).salaryMin && (profile as any).salaryMax) {completed++;}
 
     return Math.round((completed / total) * 100);
   }, [profile]);
@@ -247,8 +241,8 @@ export default function CandidateStreamlinedDashboard() {
             <div className="flex items-center space-x-4">
               <ThemeToggleButton />
               <RealTimeNotifications onNavigate={(tab, path) => {
-                if (path) setLocation(path);
-                else if (tab) setActiveTab(tab as any);
+                if (path) {setLocation(path);}
+                else if (tab) {setActiveTab(tab as any);}
               }} />
 
               <DropdownMenu>
@@ -779,7 +773,7 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         inAppNotifications: jobAlerts,
         applicationUpdates,
       });
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) {throw new Error('Failed to save');}
       return res.json();
     },
     onSuccess: () => {
@@ -934,7 +928,7 @@ function SavedJobsList() {
       return { prev };
     },
     onError: (_err, _jobId, context) => {
-      if (context?.prev) queryClient.setQueryData(['/api/candidate/saved-jobs'], context.prev);
+      if (context?.prev) {queryClient.setQueryData(['/api/candidate/saved-jobs'], context.prev);}
       toast({ title: "Error", description: "Failed to unsave job.", variant: "destructive" });
     },
     onSettled: () => {

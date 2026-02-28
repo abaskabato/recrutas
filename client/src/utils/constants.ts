@@ -160,8 +160,8 @@ export const ACCEPTED_FILE_TYPES = {
 
 export const REGEX_PATTERNS = {
   email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-  phone: /^\+?[\d\s\-\(\)]+$/,
-  url: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/,
+  phone: /^\+?[\d\s\-()]+$/,
+  url: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/,
   linkedin: /^https:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/,
   github: /^https:\/\/(www\.)?github\.com\/[a-zA-Z0-9-]+\/?$/,
   salary: /^\d+(\.\d{2})?$/,

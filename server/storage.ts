@@ -663,8 +663,8 @@ export class DatabaseStorage implements IStorage {
    * Compute match tier label from a percentage score.
    */
   private getMatchTier(score: number): 'great' | 'good' | 'worth-a-look' {
-    if (score >= 75) return 'great';
-    if (score >= 50) return 'good';
+    if (score >= 75) {return 'great';}
+    if (score >= 50) {return 'good';}
     return 'worth-a-look';
   }
 
@@ -672,10 +672,10 @@ export class DatabaseStorage implements IStorage {
    * Compute freshness label from a job's creation date.
    */
   private getFreshnessLabel(createdAt: Date | null): { freshness: 'just-posted' | 'this-week' | 'recent'; daysOld: number } {
-    if (!createdAt) return { freshness: 'recent', daysOld: 15 };
+    if (!createdAt) {return { freshness: 'recent', daysOld: 15 };}
     const daysOld = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysOld <= 3) return { freshness: 'just-posted', daysOld };
-    if (daysOld <= 7) return { freshness: 'this-week', daysOld };
+    if (daysOld <= 3) {return { freshness: 'just-posted', daysOld };}
+    if (daysOld <= 7) {return { freshness: 'this-week', daysOld };}
     return { freshness: 'recent', daysOld };
   }
 
@@ -683,23 +683,23 @@ export class DatabaseStorage implements IStorage {
    * Recency score for composite sort: < 1 day = 1.0, tapering to 0.2 for > 30 days.
    */
   private computeRecencyScore(createdAt: Date | null | undefined): number {
-    if (!createdAt) return 0.5;
+    if (!createdAt) {return 0.5;}
     const daysOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
-    if (daysOld < 1) return 1.0;
-    if (daysOld < 3) return 0.9;
-    if (daysOld < 7) return 0.8;
-    if (daysOld < 14) return 0.6;
-    if (daysOld < 30) return 0.4;
+    if (daysOld < 1) {return 1.0;}
+    if (daysOld < 3) {return 0.9;}
+    if (daysOld < 7) {return 0.8;}
+    if (daysOld < 14) {return 0.6;}
+    if (daysOld < 30) {return 0.4;}
     return 0.2;
   }
 
   /** Infer job seniority level (0=entry … 4=executive) from the job title. */
   private inferJobLevel(title: string): number {
     const t = title.toLowerCase();
-    if (/\b(junior|jr\.?|entry[\s-]level|associate|trainee|intern|graduate)\b/.test(t)) return 0;
-    if (/\b(senior|sr\.?)\b/.test(t)) return 2;
-    if (/\b(staff|lead|principal|manager)\b/.test(t)) return 3;
-    if (/\b(director|vp|vice[\s-]president|head of|chief|cto|ceo)\b/.test(t)) return 4;
+    if (/\b(junior|jr\.?|entry[\s-]level|associate|trainee|intern|graduate)\b/.test(t)) {return 0;}
+    if (/\b(senior|sr\.?)\b/.test(t)) {return 2;}
+    if (/\b(staff|lead|principal|manager)\b/.test(t)) {return 3;}
+    if (/\b(director|vp|vice[\s-]president|head of|chief|cto|ceo)\b/.test(t)) {return 4;}
     return 1; // mid is the default for unlabelled roles
   }
 
@@ -707,9 +707,9 @@ export class DatabaseStorage implements IStorage {
   private experienceLevelMultiplier(candidateLevel: string, jobTitle: string): number {
     const idx: Record<string, number> = { entry: 0, mid: 1, senior: 2, lead: 3, executive: 4 };
     const diff = Math.abs((idx[candidateLevel] ?? 1) - this.inferJobLevel(jobTitle));
-    if (diff === 0) return 1.00;
-    if (diff === 1) return 0.85;
-    if (diff === 2) return 0.65;
+    if (diff === 0) {return 1.00;}
+    if (diff === 1) {return 0.85;}
+    if (diff === 2) {return 0.65;}
     return 0.45; // 3+ levels off
   }
 
@@ -934,23 +934,23 @@ export class DatabaseStorage implements IStorage {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           const jobSalaryMin = job.salaryMin || 0;
           const jobSalaryMax = job.salaryMax || 999999;
-          if (jobPreferences.salaryMin && jobSalaryMax < jobPreferences.salaryMin) return false;
-          if (jobPreferences.salaryMax && jobSalaryMin > jobPreferences.salaryMax) return false;
+          if (jobPreferences.salaryMin && jobSalaryMax < jobPreferences.salaryMin) {return false;}
+          if (jobPreferences.salaryMax && jobSalaryMin > jobPreferences.salaryMax) {return false;}
         }
         if (jobPreferences.companySizes && jobPreferences.companySizes.length > 0) {
           const jobWorkType = job.workType?.toLowerCase();
           const preferredWorkTypes = jobPreferences.companySizes.map((t: string) => t.toLowerCase());
-          if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) return false;
+          if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {return false;}
         }
         if (jobPreferences.industries && jobPreferences.industries.length > 0) {
           const jobIndustry = job.industry?.toLowerCase();
           const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
-          if (jobIndustry && !preferredIndustries.some((ind: string) => jobIndustry.includes(ind))) return false;
+          if (jobIndustry && !preferredIndustries.some((ind: string) => jobIndustry.includes(ind))) {return false;}
         }
         if (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0) {
           const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
           const inferred = LEVELS[this.inferJobLevel(job.title)];
-          if (!jobPreferences.experienceLevels.includes(inferred)) return false;
+          if (!jobPreferences.experienceLevels.includes(inferred)) {return false;}
         }
         return true;
       })
@@ -973,7 +973,7 @@ export class DatabaseStorage implements IStorage {
   async getJobRecommendations(candidateId: string): Promise<any[]> {
     try {
       const recommendations = await this.fetchScoredJobs(candidateId);
-      if (!recommendations) return [];
+      if (!recommendations) {return [];}
       console.log(`Returning ${Math.min(recommendations.length, 20)} job recommendations`);
       return recommendations.slice(0, 20);
     } catch (error) {
@@ -995,7 +995,7 @@ export class DatabaseStorage implements IStorage {
   }> {
     try {
       const recommendations = await this.fetchScoredJobs(candidateId);
-      if (!recommendations) return { applyAndKnowToday: [], matchedForYou: [] };
+      if (!recommendations) {return { applyAndKnowToday: [], matchedForYou: [] };}
 
       const applyAndKnowToday = recommendations
         .filter(job => job.source === 'platform' || !job.externalUrl);
@@ -1771,7 +1771,7 @@ export class DatabaseStorage implements IStorage {
   async rankCandidatesByExamScore(jobId: number): Promise<void> {
     try {
       const job = await this.getJobPosting(jobId);
-      if (!job || !job.maxChatCandidates) return;
+      if (!job || !job.maxChatCandidates) {return;}
 
       // Use a transaction to ensure atomic ranking updates
       await db.transaction(async (tx) => {
@@ -2288,7 +2288,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(screeningQuestions).where(eq(screeningQuestions.jobId, jobId));
 
       // Insert new questions
-      if (questions.length === 0) return [];
+      if (questions.length === 0) {return [];}
 
       const toInsert = questions.map((q, index) => ({
         jobId,
@@ -2373,7 +2373,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask> {
     const existing = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1);
-    if (!existing[0]) throw new Error(`Agent task ${taskId} not found`);
+    if (!existing[0]) {throw new Error(`Agent task ${taskId} not found`);}
 
     const currentLog = (existing[0].agentLog as any[]) || [];
     const updatedLog = logEntry ? [...currentLog, logEntry] : currentLog;
@@ -2383,9 +2383,9 @@ export class DatabaseStorage implements IStorage {
       agentLog: updatedLog,
       updatedAt: new Date(),
     };
-    if (error) updates.lastError = error;
-    if (status === "processing") updates.startedAt = new Date();
-    if (status === "submitted" || status === "failed") updates.completedAt = new Date();
+    if (error) {updates.lastError = error;}
+    if (status === "processing") {updates.startedAt = new Date();}
+    if (status === "submitted" || status === "failed") {updates.completedAt = new Date();}
     if (status === "queued" || status === "processing") {
       updates.attempts = existing[0].attempts + 1;
     }

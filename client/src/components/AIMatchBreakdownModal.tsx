@@ -21,7 +21,7 @@ import { AIJobMatch } from "./ai-job-feed";
 
 // Strip HTML tags from requirement strings
 function stripHtml(html: string): string {
-  if (!html) return "";
+  if (!html) {return "";}
   return html
     .replace(/<[^>]*>/g, "")
     .replace(/&nbsp;/g, " ")
@@ -68,18 +68,18 @@ function ScoreRing({ score }: { score: number }) {
 
 function VerdictBadge({ score }: { score: number }) {
   if (score >= 75)
-    return (
+    {return (
       <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 text-xs font-semibold px-3 py-1">
         <Zap className="h-3 w-3 mr-1" />
         Strong Match
       </Badge>
-    );
+    );}
   if (score >= 50)
-    return (
+    {return (
       <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 text-xs font-semibold px-3 py-1">
         Good Fit
       </Badge>
-    );
+    );}
   return (
     <Badge className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 text-xs font-semibold px-3 py-1">
       Worth Exploring
@@ -98,7 +98,7 @@ export default function AIMatchBreakdownModal({
   isOpen,
   onOpenChange,
 }: AIMatchBreakdownModalProps) {
-  if (!match) return null;
+  if (!match) {return null;}
 
   const score = parseInt(match.matchScore) || 0;
   const jobSkills: string[] = match.job.skills || [];

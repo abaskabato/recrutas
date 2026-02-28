@@ -28,7 +28,7 @@ let sentryModule: any = null;
 let sentryInitialized = false;
 
 async function initSentry(): Promise<boolean> {
-  if (!SENTRY_ENABLED || sentryInitialized) return sentryModule !== null;
+  if (!SENTRY_ENABLED || sentryInitialized) {return sentryModule !== null;}
 
   sentryInitialized = true;
 

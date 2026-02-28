@@ -119,9 +119,9 @@ export async function copyToClipboard(text: string): Promise<boolean> {
  * Format match score for display with color
  */
 export function getMatchScoreColor(score: number): string {
-  if (score >= 0.8) return 'text-green-600';
-  if (score >= 0.6) return 'text-yellow-600';
-  if (score >= 0.4) return 'text-orange-600';
+  if (score >= 0.8) {return 'text-green-600';}
+  if (score >= 0.6) {return 'text-yellow-600';}
+  if (score >= 0.4) {return 'text-orange-600';}
   return 'text-red-600';
 }
 
@@ -170,7 +170,7 @@ export function getSkeletonClasses(variant: 'text' | 'avatar' | 'card' = 'text')
  */
 function formatFileSizeInternal(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) {return '0 B';}
   
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   const size = (bytes / Math.pow(1024, i)).toFixed(1);

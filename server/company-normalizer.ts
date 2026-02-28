@@ -408,12 +408,12 @@ class CompanyNormalizer {
 
     // Direct lookup
     let match = aliasToCompanyIndex.get(normalized);
-    if (match) return match;
+    if (match) {return match;}
 
     // Try removing common suffixes
     const withoutSuffix = this.removeCommonSuffixes(normalized);
     match = aliasToCompanyIndex.get(withoutSuffix);
-    if (match) return match;
+    if (match) {return match;}
 
     // Try partial matching for longer names
     for (const [alias, company] of aliasToCompanyIndex.entries()) {
@@ -524,8 +524,8 @@ class CompanyNormalizer {
 
     return COMPANY_DATABASE
       .filter(company => {
-        if (company.canonicalName.toLowerCase().includes(lowerQuery)) return true;
-        if (company.aliases.some(a => a.includes(lowerQuery))) return true;
+        if (company.canonicalName.toLowerCase().includes(lowerQuery)) {return true;}
+        if (company.aliases.some(a => a.includes(lowerQuery))) {return true;}
         return false;
       })
       .slice(0, limit);
@@ -556,7 +556,7 @@ class CompanyNormalizer {
    */
   getSubsidiaries(companyName: string): CanonicalCompany[] {
     const canonical = this.getCanonicalCompany(companyName);
-    if (!canonical?.subsidiaries) return [];
+    if (!canonical?.subsidiaries) {return [];}
 
     return canonical.subsidiaries
       .map(name => this.getCanonicalCompany(name))

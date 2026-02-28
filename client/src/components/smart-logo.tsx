@@ -1,7 +1,6 @@
 import { useSession } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
-import RecrutasLogo from "./recrutas-logo";
-import { RecrutasLogoCompact } from "./recrutas-logo";
+import RecrutasLogo, { RecrutasLogoCompact } from "./recrutas-logo";
 
 interface SmartLogoProps {
   size?: number;

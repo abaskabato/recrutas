@@ -9,10 +9,10 @@
  * Format date for display
  */
 export function formatDate(date: Date | string | null): string {
-  if (!date) return 'Date not available';
+  if (!date) {return 'Date not available';}
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return 'Invalid date';
+  if (isNaN(dateObj.getTime())) {return 'Invalid date';}
   
   return dateObj.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -25,10 +25,10 @@ export function formatDate(date: Date | string | null): string {
  * Format date and time for display
  */
 export function formatDateTime(date: Date | string | null): string {
-  if (!date) return 'Date not available';
+  if (!date) {return 'Date not available';}
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return 'Invalid date';
+  if (isNaN(dateObj.getTime())) {return 'Invalid date';}
   
   return dateObj.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -43,19 +43,19 @@ export function formatDateTime(date: Date | string | null): string {
  * Get relative time (e.g., "2 hours ago", "3 days ago")
  */
 export function getRelativeTime(date: Date | string | null): string {
-  if (!date) return 'Date not available';
+  if (!date) {return 'Date not available';}
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) return 'Invalid date';
+  if (isNaN(dateObj.getTime())) {return 'Invalid date';}
   
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
   
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)} weeks ago`;
+  if (diffInSeconds < 60) {return 'Just now';}
+  if (diffInSeconds < 3600) {return `${Math.floor(diffInSeconds / 60)} minutes ago`;}
+  if (diffInSeconds < 86400) {return `${Math.floor(diffInSeconds / 3600)} hours ago`;}
+  if (diffInSeconds < 604800) {return `${Math.floor(diffInSeconds / 86400)} days ago`;}
+  if (diffInSeconds < 2592000) {return `${Math.floor(diffInSeconds / 604800)} weeks ago`;}
   
   return formatDate(dateObj);
 }
@@ -115,11 +115,11 @@ export function isFuture(date: Date | string): boolean {
  * Format duration (e.g., "2h 30m")
  */
 export function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) {return `${minutes}m`;}
   
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   
-  if (remainingMinutes === 0) return `${hours}h`;
+  if (remainingMinutes === 0) {return `${hours}h`;}
   return `${hours}h ${remainingMinutes}m`;
 }

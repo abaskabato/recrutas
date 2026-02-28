@@ -23,7 +23,7 @@ export default function JobPostStep() {
     salaryMax: '',
   });
   const { toast } = useToast();
-  const { setStep } = useGuidedSetup();
+  const { setStep: _setStep } = useGuidedSetup();
   const [, setLocation] = useLocation();
 
   // Fetch talent owner profile to auto-populate company name
@@ -100,7 +100,7 @@ export default function JobPostStep() {
         } else if (error?.message) {
           errorDescription = error.message;
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore parsing errors
       }
 
@@ -122,9 +122,9 @@ export default function JobPostStep() {
 
     // Validate required fields
     const errors: string[] = [];
-    if (!formData.title.trim()) errors.push('Job Title');
-    if (!formData.company.trim()) errors.push('Company Name');
-    if (!formData.description.trim()) errors.push('Job Description');
+    if (!formData.title.trim()) {errors.push('Job Title');}
+    if (!formData.company.trim()) {errors.push('Company Name');}
+    if (!formData.description.trim()) {errors.push('Job Description');}
 
     if (errors.length > 0) {
       toast({

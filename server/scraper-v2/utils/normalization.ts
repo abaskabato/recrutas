@@ -187,10 +187,10 @@ function detectWorkType(job: ScrapedJob): WorkType {
 function detectEmploymentType(job: ScrapedJob): EmploymentType {
   const text = `${job.title} ${job.description}`.toLowerCase();
   
-  if (/contract|contractor|freelance/i.test(text)) return 'contract';
-  if (/part[\s-]time/i.test(text)) return 'part-time';
-  if (/intern|internship/i.test(text)) return 'internship';
-  if (/full[\s-]time/i.test(text)) return 'full-time';
+  if (/contract|contractor|freelance/i.test(text)) {return 'contract';}
+  if (/part[\s-]time/i.test(text)) {return 'part-time';}
+  if (/intern|internship/i.test(text)) {return 'internship';}
+  if (/full[\s-]time/i.test(text)) {return 'full-time';}
   
   return 'full-time'; // Default
 }

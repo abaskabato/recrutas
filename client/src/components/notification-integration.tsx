@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useWebSocketNotifications } from "@/hooks/use-websocket-notifications";
 import { NotificationCenter } from "./notification-center";
 

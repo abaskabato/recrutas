@@ -214,18 +214,18 @@ export class JobAggregator {
       if (userSkills && userSkills.length > 0) {
         const skill = userSkills[0].toLowerCase();
         // Map skills to appropriate job search terms
-        if (skill.includes('sales')) query = 'sales representative';
-        else if (skill.includes('design')) query = 'designer';
-        else if (skill.includes('marketing')) query = 'marketing specialist';
-        else if (skill.includes('finance')) query = 'financial analyst';
-        else if (skill.includes('hr')) query = 'human resources';
-        else if (skill.includes('healthcare')) query = 'healthcare worker';
-        else if (skill.includes('education')) query = 'teacher';
-        else if (skill.includes('customer')) query = 'customer service';
-        else if (skill.includes('management')) query = 'manager';
-        else if (skill.includes('data')) query = 'data analyst';
-        else if (skill.includes('writing')) query = 'content writer';
-        else query = userSkills.join(' ') + ' jobs';
+        if (skill.includes('sales')) {query = 'sales representative';}
+        else if (skill.includes('design')) {query = 'designer';}
+        else if (skill.includes('marketing')) {query = 'marketing specialist';}
+        else if (skill.includes('finance')) {query = 'financial analyst';}
+        else if (skill.includes('hr')) {query = 'human resources';}
+        else if (skill.includes('healthcare')) {query = 'healthcare worker';}
+        else if (skill.includes('education')) {query = 'teacher';}
+        else if (skill.includes('customer')) {query = 'customer service';}
+        else if (skill.includes('management')) {query = 'manager';}
+        else if (skill.includes('data')) {query = 'data analyst';}
+        else if (skill.includes('writing')) {query = 'content writer';}
+        else {query = userSkills.join(' ') + ' jobs';}
       }
 
       const params = new URLSearchParams({
@@ -514,7 +514,7 @@ export class JobAggregator {
   }
 
   private extractRequirements(text: string): string[] {
-    if (!text) return [];
+    if (!text) {return [];}
 
     const requirements: string[] = [];
     const lines = text.split('\n').map(line => line.trim());
@@ -535,8 +535,8 @@ export class JobAggregator {
       for (const item of skillsData) {
         const key = String(item).toLowerCase().trim();
         const canonical = SKILL_ALIASES[key];
-        if (canonical) normalized.add(canonical);
-        else if (key.length > 1) normalized.add(item); // keep raw if not in aliases
+        if (canonical) {normalized.add(canonical);}
+        else if (key.length > 1) {normalized.add(item);} // keep raw if not in aliases
       }
       return Array.from(normalized).slice(0, 15);
     }
@@ -544,14 +544,14 @@ export class JobAggregator {
     if (typeof skillsData === 'string' && skillsData.length > 0) {
       // N-gram scan against full SKILL_ALIASES (same approach as Skill Intelligence Engine)
       const text = skillsData.toLowerCase();
-      const words = skillsData.split(/[\s,;|•·()\[\]{}<>]+/).filter(w => w.length > 0);
+      const words = skillsData.split(/[\s,;|•·()[\]{}<>]+/).filter(w => w.length > 0);
       const found = new Set<string>();
 
       for (let i = 0; i < words.length; i++) {
         for (let n = 1; n <= 4 && i + n <= words.length; n++) {
           const phrase = words.slice(i, i + n).join(' ').toLowerCase();
           const canonical = SKILL_ALIASES[phrase];
-          if (canonical) found.add(canonical);
+          if (canonical) {found.add(canonical);}
         }
       }
 
@@ -1046,7 +1046,7 @@ export class JobAggregator {
       const filteredJobs = allJobs.filter(job => {
         const url = job.externalUrl.toLowerCase();
         const isBlocked = blockedDomains.some(domain => url.includes(domain));
-        if (isBlocked) blockedCount++;
+        if (isBlocked) {blockedCount++;}
         return !isBlocked;
       });
       if (blockedCount > 0) {

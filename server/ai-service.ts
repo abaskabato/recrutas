@@ -72,13 +72,13 @@ const SKILL_EMBEDDINGS: Record<string, number[]> = {
 };
 
 function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
+  if (a.length !== b.length) {return 0;}
 
   const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
   const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
   const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
 
-  if (magnitudeA === 0 || magnitudeB === 0) return 0;
+  if (magnitudeA === 0 || magnitudeB === 0) {return 0;}
   return dotProduct / (magnitudeA * magnitudeB);
 }
 
@@ -128,7 +128,7 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
   const jobReqEmbeddings = jobRequirements.map((req: string) => getSkillEmbedding(req));
 
   let totalSimilarity = 0;
-  let maxSimilarities: Array<{ skill: string; similarity: number; matchedWith: string }> = [];
+  const maxSimilarities: Array<{ skill: string; similarity: number; matchedWith: string }> = [];
 
   // Calculate semantic similarities between candidate skills and job requirements
   for (let i = 0; i < candidateSkillEmbeddings.length; i++) {
@@ -174,7 +174,7 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
 
   // Calculate final score with weights
   // Skill: 40%, Experience: 30%, Context (Salary/Loc): 30%
-  let finalScore = (skillScore * 0.4) + (experienceScore * 0.3) + (contextScore * 0.3);
+  const finalScore = (skillScore * 0.4) + (experienceScore * 0.3) + (contextScore * 0.3);
 
   // Confidence is based on how much data we had to work with
   const confidence = calculateConfidenceLevel(maxSimilarities.length, job.skills?.length || 0, experienceScore);
@@ -191,7 +191,7 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
 }
 
 function analyzeExperienceSemantics(experience: string, jobDescription: string, jobTitle: string): number {
-  if (!experience || !jobDescription) return 0.5;
+  if (!experience || !jobDescription) {return 0.5;}
 
   const expWords = experience.toLowerCase().split(/\s+/);
   const jobWords = jobDescription.toLowerCase().split(/\s+/);
@@ -298,9 +298,9 @@ function calculateConfidenceLevel(matches: number, totalSkills: number, experien
   const skillCoverage = matches / Math.max(totalSkills, 1);
   const confidence = (skillCoverage * 0.6 + experienceScore * 0.4);
 
-  if (confidence >= 0.8) return 0.9;
-  if (confidence >= 0.6) return 0.8;
-  if (confidence >= 0.4) return 0.7;
+  if (confidence >= 0.8) {return 0.9;}
+  if (confidence >= 0.6) {return 0.8;}
+  if (confidence >= 0.4) {return 0.7;}
   return 0.6;
 }
 
@@ -579,12 +579,12 @@ function extractResponsibilities(description: string): string[] {
 function inferSeniorityLevel(text: string): string {
   const lowerText = text.toLowerCase();
 
-  if (lowerText.includes('intern') || lowerText.includes('internship')) return 'intern';
-  if (lowerText.includes('junior') || lowerText.includes('entry level') || lowerText.includes('entry-level')) return 'junior';
-  if (lowerText.includes('principal') || lowerText.includes('staff')) return 'principal';
-  if (lowerText.includes('director') || lowerText.includes('vp ') || lowerText.includes('vice president')) return 'director';
-  if (lowerText.includes('lead') || lowerText.includes('manager')) return 'lead';
-  if (lowerText.includes('senior') || lowerText.includes('sr.') || lowerText.includes('sr ')) return 'senior';
+  if (lowerText.includes('intern') || lowerText.includes('internship')) {return 'intern';}
+  if (lowerText.includes('junior') || lowerText.includes('entry level') || lowerText.includes('entry-level')) {return 'junior';}
+  if (lowerText.includes('principal') || lowerText.includes('staff')) {return 'principal';}
+  if (lowerText.includes('director') || lowerText.includes('vp ') || lowerText.includes('vice president')) {return 'director';}
+  if (lowerText.includes('lead') || lowerText.includes('manager')) {return 'lead';}
+  if (lowerText.includes('senior') || lowerText.includes('sr.') || lowerText.includes('sr ')) {return 'senior';}
 
   // Default to mid if can't determine
   return 'mid';

@@ -65,7 +65,7 @@ const PROXY_LIST = (process.env.PROXY_LIST || '').split(',').filter(Boolean);
 let proxyIndex = 0;
 
 function getNextProxy(): { server: string; username?: string; password?: string } | null {
-  if (PROXY_LIST.length === 0) return null;
+  if (PROXY_LIST.length === 0) {return null;}
   
   const proxy = PROXY_LIST[proxyIndex % PROXY_LIST.length];
   proxyIndex++;
@@ -407,13 +407,13 @@ export class AgentApplyService {
    * The stored URL may have an expired token (signed URLs have short TTLs).
    */
   private async getFreshResumeUrl(storedUrl: string | null | undefined): Promise<string | null> {
-    if (!storedUrl) return null;
+    if (!storedUrl) {return null;}
 
     try {
       // Extract storage path from the URL
       // Format: .../storage/v1/object/(sign|public)/resumes/<path>
       const match = storedUrl.match(/\/object\/(?:sign|public)\/([^?]+)/);
-      if (!match) return storedUrl; // Can't parse — use as-is
+      if (!match) {return storedUrl;} // Can't parse — use as-is
 
       const fullPath = match[1]; // e.g. "resumes/user-id/resume.pdf"
       const [bucket, ...pathParts] = fullPath.split('/');
@@ -500,14 +500,14 @@ export class AgentApplyService {
 
     for (const selector of formSelectors) {
       const el = await page.$(selector);
-      if (el) return true;
+      if (el) {return true;}
     }
 
     // Fallback: look for a form with multiple inputs
     const forms = await page.$$('form');
     for (const form of forms) {
       const inputs = await form.$$('input, textarea, select');
-      if (inputs.length >= 3) return true;
+      if (inputs.length >= 3) {return true;}
     }
     return false;
   }
@@ -564,7 +564,7 @@ export class AgentApplyService {
       try {
         // Get question text
         const questionText = await group.textContent();
-        if (!questionText) continue;
+        if (!questionText) {continue;}
 
         // Check if it's a knockout question
         const isRequired = await group.$('input[required], input[aria-required="true"]');
@@ -665,8 +665,8 @@ export class AgentApplyService {
       matched[ats.firstName] = candidateData.firstName;
       matched[ats.lastName] = candidateData.lastName;
       matched[ats.email] = candidateData.email;
-      if (candidateData.phone) matched[ats.phone] = candidateData.phone;
-      if (candidateData.linkedinUrl) matched[ats.linkedin] = candidateData.linkedinUrl;
+      if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
+      if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
       fileUploadSelector = ats.resume;
       return { matched, unmatched, fileUploadSelector };
     }
@@ -675,8 +675,8 @@ export class AgentApplyService {
       const ats = ATS_SELECTORS.lever;
       matched[ats.firstName] = `${candidateData.firstName} ${candidateData.lastName}`;
       matched[ats.email] = candidateData.email;
-      if (candidateData.phone) matched[ats.phone] = candidateData.phone;
-      if (candidateData.linkedinUrl) matched[ats.linkedin] = candidateData.linkedinUrl;
+      if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
+      if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
       fileUploadSelector = ats.resume;
       return { matched, unmatched, fileUploadSelector };
     }
@@ -688,8 +688,8 @@ export class AgentApplyService {
       matched[ats.firstName] = candidateData.firstName;
       matched[ats.lastName] = candidateData.lastName;
       matched[ats.email] = candidateData.email;
-      if (candidateData.phone) matched[ats.phone] = candidateData.phone;
-      if (candidateData.linkedinUrl) matched[ats.linkedin] = candidateData.linkedinUrl;
+      if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
+      if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
       fileUploadSelector = ats.resume;
       return { matched, unmatched, fileUploadSelector };
     }
@@ -709,7 +709,7 @@ export class AgentApplyService {
       if (id) {
         try {
           const label = await page.$(`label[for="${id}"]`);
-          if (label) labelText = (await label.textContent()) || '';
+          if (label) {labelText = (await label.textContent()) || '';}
         } catch { /* no label */ }
       }
 
@@ -778,7 +778,7 @@ export class AgentApplyService {
       for (const selector of unmatchedSelectors) {
         try {
           const el = await page.$(selector);
-          if (!el) continue;
+          if (!el) {continue;}
           const name = (await el.getAttribute('name')) || '';
           const placeholder = (await el.getAttribute('placeholder')) || '';
           const id = (await el.getAttribute('id')) || '';
@@ -786,7 +786,7 @@ export class AgentApplyService {
         } catch { /* skip */ }
       }
 
-      if (fieldDescriptions.length === 0) return result;
+      if (fieldDescriptions.length === 0) {return result;}
 
       const prompt = `You are a form-filling assistant. Map form fields to candidate data.
 
@@ -836,7 +836,7 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
 
   async fillForm(page: Page | any, fieldMap: Record<string, string>): Promise<void> {
     for (const [selector, value] of Object.entries(fieldMap)) {
-      if (!value) continue;
+      if (!value) {continue;}
 
       try {
         // Try multiple selector formats
@@ -845,10 +845,10 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
           // Try comma-separated selectors individually
           for (const s of selector.split(',').map(s => s.trim())) {
             el = await page.$(s);
-            if (el) break;
+            if (el) {break;}
           }
         }
-        if (!el) continue;
+        if (!el) {continue;}
 
         const tagName = await el.evaluate((e: unknown) => (e as { tagName: string }).tagName.toLowerCase());
 
@@ -861,7 +861,7 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
           const inputType = (await el.getAttribute('type')) || 'text';
           if (inputType === 'checkbox') {
             const checked = await el.isChecked();
-            if (!checked) await el.check();
+            if (!checked) {await el.check();}
           } else {
             await el.click();
             await this.randomDelay(50, 150);
@@ -881,7 +881,7 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
   // ==========================================
 
   private async handleResumeUpload(page: Page | any, selector: string, resumeUrl: string): Promise<void> {
-    if (!resumeUrl) return;
+    if (!resumeUrl) {return;}
     
     try {
       // Determine file type from URL or default to PDF
@@ -1175,13 +1175,13 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
     for (const indicator of successIndicators) {
       try {
         const el = await page.$(indicator);
-        if (el && await el.isVisible()) return true;
+        if (el && await el.isVisible()) {return true;}
       } catch { /* continue */ }
     }
 
     // Check URL for confirmation patterns
     const url = page.url();
-    if (/confirm|thank|success|submitted|applied/i.test(url)) return true;
+    if (/confirm|thank|success|submitted|applied/i.test(url)) {return true;}
 
     // Check for common success message elements
     try {

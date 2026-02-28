@@ -154,7 +154,7 @@ export class ExamService {
     if (shortAnswerQuestions.length > 0 && jobContext) {
       await this.scoreShortAnswersWithAI(shortAnswerQuestions, jobContext, (aiScore, questionPoints) => {
         earnedPoints += aiScore * questionPoints;
-        if (aiScore >= 0.6) correctAnswers++;
+        if (aiScore >= 0.6) {correctAnswers++;}
       });
     } else {
       // Fallback: give full credit for any answer

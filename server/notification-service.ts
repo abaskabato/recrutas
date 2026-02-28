@@ -167,7 +167,7 @@ class NotificationService {
   }
 
   private shouldSendNotification(data: NotificationData, preferences: NotificationPreferences | null): boolean {
-    if (!preferences) return true; // Default to sending if no preferences set
+    if (!preferences) {return true;} // Default to sending if no preferences set
 
     // Check if in quiet hours
     if (this.isInQuietHours(preferences)) {
@@ -198,7 +198,7 @@ class NotificationService {
   }
 
   private isInQuietHours(preferences: NotificationPreferences): boolean {
-    if (!preferences.quietHours) return false;
+    if (!preferences.quietHours) {return false;}
 
     const now = new Date();
     const currentHour = now.getHours();
@@ -625,7 +625,7 @@ class NotificationService {
 
     try {
       // Get new notifications since last poll
-      let query = db
+      const query = db
         .select()
         .from(notifications)
         .where(eq(notifications.userId, userId))

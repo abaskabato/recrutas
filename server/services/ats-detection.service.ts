@@ -71,7 +71,7 @@ export class AtsDetectionService {
 
     // Check for known ATS domains
     for (const [atsType, signature] of Object.entries(ATS_SIGNATURES)) {
-      if (atsType === 'custom' || atsType === 'unknown') continue;
+      if (atsType === 'custom' || atsType === 'unknown') {continue;}
 
       for (const domain of signature.domain) {
         if (hostname.includes(domain)) {
@@ -120,7 +120,7 @@ export class AtsDetectionService {
     let highestConfidence = 0;
 
     for (const [atsType, signature] of Object.entries(ATS_SIGNATURES)) {
-      if (atsType === 'custom' || atsType === 'unknown') continue;
+      if (atsType === 'custom' || atsType === 'unknown') {continue;}
 
       let matches = 0;
 
@@ -197,11 +197,11 @@ export class AtsDetectionService {
           }
           return undefined;
 
-        case 'workday':
+        case 'workday': {
           // Pattern: https://{company}.wd5.myworkdayjobs.com/{company}
           const wdMatch = urlObj.hostname.match(/^([^.]+)\.wd\d+\.myworkdayjobs\.com/);
           return wdMatch?.[1];
-          
+        }
         default:
           return undefined;
       }

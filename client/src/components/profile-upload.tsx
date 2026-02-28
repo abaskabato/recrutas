@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Globe, Github, Linkedin, User, Camera, BarChart3, Edit3, Sparkles, X, Check, Briefcase, AlertCircle } from "lucide-react";
+import { Upload, FileText, Globe, Github, Linkedin, User, Sparkles, X, Check, Briefcase, AlertCircle } from "lucide-react";
 import { Badge } from "./ui/badge";
-import { fetchProfileWithCache } from "@/lib/queryClient";
 
 interface ExtractedInfo {
   skills: {
@@ -98,7 +97,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading, isError, error } = useQuery({
+  const { data: profile, isLoading, isError, error: _error } = useQuery({
     queryKey: ['/api/candidate/profile'],
     queryFn: fetchProfileWithCache,
     retry: 3,
@@ -224,7 +223,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       }
       setPendingFile(file);
       // Reset the input so re-selecting same file triggers onChange
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) {fileInputRef.current.value = '';}
     }
   };
 

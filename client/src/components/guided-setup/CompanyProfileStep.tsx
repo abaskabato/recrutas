@@ -15,7 +15,7 @@ export default function CompanyProfileStep() {
   });
   const { toast } = useToast();
   const { setStep } = useGuidedSetup();
-  const [, setLocation] = useLocation();
+  const [, _setLocation] = useLocation();
 
   const mutation = useMutation({
     mutationFn: async () => {

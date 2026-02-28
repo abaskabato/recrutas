@@ -1,5 +1,5 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building } from 'lucide-react';
 import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import { useMutation } from '@tanstack/react-query';
@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
 
 export default function RoleSelectionStep() {
-  const [, setLocation] = useLocation();
+  const [_location, _setLocation] = useLocation();
   const { setRole, setStep } = useGuidedSetup();
   const { toast } = useToast();
 
@@ -17,7 +17,7 @@ export default function RoleSelectionStep() {
       await apiRequest('POST', '/api/auth/role', { role });
       return role;
     },
-    onSuccess: (role) => {
+    onSuccess: (_role) => {
       toast({
         title: 'Role selected!',
         description: 'Your profile has been updated.',

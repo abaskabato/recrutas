@@ -7,7 +7,7 @@ export function useRoleBasedAuth() {
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {return;}
 
     // If not authenticated, redirect to landing page unless on auth pages
     if (!isAuthenticated && !['/auth', '/forgot-password'].includes(location)) {

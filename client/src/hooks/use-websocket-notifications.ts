@@ -166,7 +166,7 @@ function playNotificationSound() {
     
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.3);
-  } catch (error) {
+  } catch (_error) {
     // Notification sound not supported in this browser
   }
 }

@@ -21,12 +21,12 @@ async function createNewUserAndGetToken() {
 
   const { data, error } = await supabase.auth.signUp({ email, password });
 
-  if (error) throw new Error(`Supabase sign-up failed: ${error.message}`);
+  if (error) {throw new Error(`Supabase sign-up failed: ${error.message}`);}
   
   if (!data.session) {
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) throw new Error(`Supabase sign-in failed: ${signInError.message}`);
-    if (!signInData.session) throw new Error('Could not get a session.');
+    if (signInError) {throw new Error(`Supabase sign-in failed: ${signInError.message}`);}
+    if (!signInData.session) {throw new Error('Could not get a session.');}
     return { token: signInData.session.access_token, userId: signInData.user.id, email };
   }
 

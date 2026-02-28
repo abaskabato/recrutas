@@ -125,7 +125,7 @@ export class ApplicationIntelligenceEngine {
 
       case 'shortlisted':
         return {
-          humanReadableUpdate: `Congratulations! You're in the top ${Math.ceil((latestEvent.details.competitorInfo?.yourRanking! / latestEvent.details.competitorInfo?.totalApplicants!) * 100)}% of candidates. Next step: ${latestEvent.details.nextSteps}`,
+          humanReadableUpdate: `Congratulations! You're in the top ${Math.ceil(((latestEvent.details.competitorInfo?.yourRanking ?? 0) / (latestEvent.details.competitorInfo?.totalApplicants ?? 1)) * 100)}% of candidates. Next step: ${latestEvent.details.nextSteps}`,
           actionable: true,
           emotionalTone: 'positive'
         };
@@ -206,15 +206,15 @@ export class ApplicationIntelligenceEngine {
     const averageViewTime = 45; // seconds
     const percentage = Math.round(((duration - averageViewTime) / averageViewTime) * 100);
 
-    if (percentage > 20) return `${percentage}% longer`;
-    if (percentage < -20) return `${Math.abs(percentage)}% shorter`;
+    if (percentage > 20) {return `${percentage}% longer`;}
+    if (percentage < -20) {return `${Math.abs(percentage)}% shorter`;}
     return 'about average';
   }
 
   private determineStatus(events: ApplicationEvent[]): ApplicationIntelligence['status'] {
     const latestEvent = events[events.length - 1];
-    if (latestEvent.eventType === 'hired') return 'hired';
-    if (latestEvent.eventType === 'rejected') return 'rejected';
+    if (latestEvent.eventType === 'hired') {return 'hired';}
+    if (latestEvent.eventType === 'rejected') {return 'rejected';}
     return 'active';
   }
 
@@ -286,7 +286,7 @@ export class ApplicationIntelligenceEngine {
 
   private async notifyCandidate(event: ApplicationEvent): Promise<void> {
     const application = await storage.getApplicationById(parseInt(event.applicationId));
-    if (!application) return;
+    if (!application) {return;}
 
     await notificationService.createNotification({
       userId: application.candidateId,
@@ -303,7 +303,7 @@ export class ApplicationIntelligenceEngine {
 
   private async updateIntelligence(applicationId: string): Promise<void> {
     const application = await storage.getApplicationById(parseInt(applicationId));
-    if (!application) return;
+    if (!application) {return;}
 
     const events = await this.getApplicationEvents(applicationId);
     const insights = await this.generateInsights(application, events);

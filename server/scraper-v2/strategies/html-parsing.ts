@@ -100,7 +100,7 @@ function extractWithCustomSelectors($: ReturnType<typeof cheerio.load>, company:
   const jobs: ScrapedJob[] = [];
   const selectors = company.scrapeConfig.selectors;
   
-  if (!selectors?.jobContainer) return jobs;
+  if (!selectors?.jobContainer) {return jobs;}
   
   $(selectors.jobContainer).each((_, element) => {
     try {
@@ -191,8 +191,8 @@ function extractWithGenericSelectors($: ReturnType<typeof cheerio.load>, company
             || $el.find('a').first().text().trim();
           
           // Validate title looks like a job
-          if (!title || title.length < 5) return;
-          if (!JOB_TITLE_PATTERNS.some(pattern => pattern.test(title))) return;
+          if (!title || title.length < 5) {return;}
+          if (!JOB_TITLE_PATTERNS.some(pattern => pattern.test(title))) {return;}
           
           // Extract location
           const location = $el.find('[class*="location"], [class*="place"], [class*="city"]').first().text().trim()
@@ -252,7 +252,7 @@ function extractWithGenericSelectors($: ReturnType<typeof cheerio.load>, company
       });
       
       // If we found jobs with this selector, stop
-      if (jobs.length > 0) break;
+      if (jobs.length > 0) {break;}
     }
   }
   
@@ -280,10 +280,10 @@ function extractWithPatterns(html: string, company: CompanyConfig): ScrapedJob[]
   // Create job objects from titles
   let index = 0;
   for (const title of titles) {
-    if (index >= 20) break; // Limit to avoid false positives
+    if (index >= 20) {break;} // Limit to avoid false positives
     
     // Skip common non-job titles
-    if (/apply|login|search|menu|home|about/i.test(title)) continue;
+    if (/apply|login|search|menu|home|about/i.test(title)) {continue;}
     
     jobs.push({
       id: `pattern_${company.id}_${index}`,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,18 +8,11 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Trophy, 
-  Star, 
   MessageCircle, 
-  Calendar, 
-  Brain, 
-  Target, 
-  Clock,
   CheckCircle,
-  XCircle,
   Eye,
   TrendingUp,
   Users,
-  BarChart3,
   Filter,
   ArrowUp,
   ArrowDown,
@@ -84,7 +77,7 @@ export default function CandidateRankingEngine({
 }) {
   const [sortBy, setSortBy] = useState<'totalScore' | 'examScore' | 'appliedAt'>('totalScore');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filters, setFilters] = useState<RankingFilters>({
+  const [filters, _setFilters] = useState<RankingFilters>({
     minScore: 0,
     maxScore: 100,
     status: [],
@@ -104,18 +97,18 @@ export default function CandidateRankingEngine({
   });
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 80) return 'text-blue-600';
-    if (score >= 70) return 'text-yellow-600';
-    if (score >= 60) return 'text-orange-600';
+    if (score >= 90) {return 'text-green-600';}
+    if (score >= 80) {return 'text-blue-600';}
+    if (score >= 70) {return 'text-yellow-600';}
+    if (score >= 60) {return 'text-orange-600';}
     return 'text-red-600';
   };
 
-  const getScoreBadgeColor = (score: number) => {
-    if (score >= 90) return 'bg-green-100 text-green-800';
-    if (score >= 80) return 'bg-blue-100 text-blue-800';
-    if (score >= 70) return 'bg-yellow-100 text-yellow-800';
-    if (score >= 60) return 'bg-orange-100 text-orange-800';
+  const _getScoreBadgeColor = (score: number) => {
+    if (score >= 90) {return 'bg-green-100 text-green-800';}
+    if (score >= 80) {return 'bg-blue-100 text-blue-800';}
+    if (score >= 70) {return 'bg-yellow-100 text-yellow-800';}
+    if (score >= 60) {return 'bg-orange-100 text-orange-800';}
     return 'bg-red-100 text-red-800';
   };
 
@@ -132,16 +125,16 @@ export default function CandidateRankingEngine({
 
   const filteredAndSortedCandidates = rankedCandidates
     .filter(candidate => {
-      if (candidate.totalScore < filters.minScore || candidate.totalScore > filters.maxScore) return false;
-      if (filters.status.length > 0 && !filters.status.includes(candidate.status)) return false;
-      if (filters.autoQualifiedOnly && !candidate.autoQualified) return false;
+      if (candidate.totalScore < filters.minScore || candidate.totalScore > filters.maxScore) {return false;}
+      if (filters.status.length > 0 && !filters.status.includes(candidate.status)) {return false;}
+      if (filters.autoQualifiedOnly && !candidate.autoQualified) {return false;}
       if (filters.skillMatch.length > 0) {
         const hasSkillMatch = filters.skillMatch.some(skill =>
           (candidate.candidate.skills || []).some(candidateSkill =>
             candidateSkill.toLowerCase().includes(skill.toLowerCase())
           )
         );
-        if (!hasSkillMatch) return false;
+        if (!hasSkillMatch) {return false;}
       }
       return true;
     })
@@ -161,7 +154,7 @@ export default function CandidateRankingEngine({
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
-  const topCandidates = filteredAndSortedCandidates.slice(0, 10);
+  const _topCandidates = filteredAndSortedCandidates.slice(0, 10);
   const averageScore = rankedCandidates.length > 0 
     ? rankedCandidates.reduce((sum, c) => sum + c.totalScore, 0) / rankedCandidates.length 
     : 0;
@@ -449,7 +442,7 @@ export default function CandidateRankingEngine({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {['90-100', '80-89', '70-79', '60-69', '< 60'].map((range, index) => {
+                  {['90-100', '80-89', '70-79', '60-69', '< 60'].map((range, _index) => {
                     const [min, max] = range.includes('<') ? [0, 59] : range.split('-').map(Number);
                     const count = rankedCandidates.filter(c => 
                       range.includes('<') ? c.totalScore < 60 : (c.totalScore >= min && c.totalScore <= max)

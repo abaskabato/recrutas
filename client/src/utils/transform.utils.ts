@@ -87,7 +87,7 @@ export function flattenObject(obj: any, prefix = ''): Record<string, any> {
   const flattened: Record<string, any> = {};
   
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const newKey = prefix ? `${prefix}.${key}` : key;
       
       if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
@@ -131,8 +131,8 @@ export function sortBy<T>(array: T[], ...criteria: Array<keyof T | ((item: T) =>
         bVal = b[criterion];
       }
       
-      if (aVal < bVal) return -1;
-      if (aVal > bVal) return 1;
+      if (aVal < bVal) {return -1;}
+      if (aVal > bVal) {return 1;}
     }
     return 0;
   });
@@ -152,7 +152,7 @@ export function deepMerge(target: any, source: any): any {
   const result = { ...target };
   
   for (const key in source) {
-    if (source.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
       if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
         result[key] = deepMerge(result[key] || {}, source[key]);
       } else {

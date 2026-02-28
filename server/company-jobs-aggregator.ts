@@ -530,10 +530,10 @@ export class CompanyJobsAggregator {
   }
 
   private formatLocation(locations: any[]): string {
-    if (!locations || locations.length === 0) return 'Multiple Locations';
+    if (!locations || locations.length === 0) {return 'Multiple Locations';}
     return locations.map(loc => {
-      if (loc.address) return loc.address;
-      if (loc.city && loc.state) return `${loc.city}, ${loc.state}`;
+      if (loc.address) {return loc.address;}
+      if (loc.city && loc.state) {return `${loc.city}, ${loc.state}`;}
       return loc.display_name || 'Location Available';
     }).join(', ');
   }
@@ -739,9 +739,9 @@ export class CompanyJobsAggregator {
       ]);
 
       // Add successful results
-      if (appleJobs.status === 'fulfilled') allJobs.push(...appleJobs.value);
-      if (metaJobs.status === 'fulfilled') allJobs.push(...metaJobs.value);
-      if (jobAggregatorJobs.status === 'fulfilled') allJobs.push(...jobAggregatorJobs.value);
+      if (appleJobs.status === 'fulfilled') {allJobs.push(...appleJobs.value);}
+      if (metaJobs.status === 'fulfilled') {allJobs.push(...metaJobs.value);}
+      if (jobAggregatorJobs.status === 'fulfilled') {allJobs.push(...jobAggregatorJobs.value);}
 
       console.log(`Available authentic jobs: ${allJobs.length} from verified API sources`);
     } catch (error) {
@@ -753,7 +753,7 @@ export class CompanyJobsAggregator {
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
     const recentJobs = allJobs.filter(job => {
-      if (!job.postedDate) return true; // Keep jobs without a posted date for now
+      if (!job.postedDate) {return true;} // Keep jobs without a posted date for now
       try {
         const postedDate = new Date(job.postedDate);
         return postedDate > threeMonthsAgo;
@@ -792,7 +792,7 @@ export class CompanyJobsAggregator {
     const seen = new Set();
     return jobs.filter(job => {
       const key = `${job.company}-${job.title}`.toLowerCase();
-      if (seen.has(key)) return false;
+      if (seen.has(key)) {return false;}
       seen.add(key);
       return true;
     });

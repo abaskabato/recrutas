@@ -207,9 +207,9 @@ export class SOTAScraperService {
     const verified = companyDiscoveryService.getVerifiedCompanies();
 
     for (const dc of verified) {
-      if (existingNames.has(dc.name.toLowerCase())) continue;
-      if (dc.atsType === 'unknown' || dc.atsType === 'custom') continue;
-      if (!dc.atsId) continue;
+      if (existingNames.has(dc.name.toLowerCase())) {continue;}
+      if (dc.atsType === 'unknown' || dc.atsType === 'custom') {continue;}
+      if (!dc.atsId) {continue;}
 
       const legacy = this.discoveredToLegacy(dc);
       const config = convertToSOTAConfig(legacy);
@@ -223,9 +223,9 @@ export class SOTAScraperService {
    */
   private discoveredToLegacy(dc: DiscoveredCompany): any {
     const base: any = { name: dc.name, careerUrl: dc.careerUrl };
-    if (dc.atsType === 'greenhouse') base.greenhouseId = dc.atsId;
-    else if (dc.atsType === 'lever') base.leverId = dc.atsId;
-    else if (dc.atsType === 'workday') base.workdayId = dc.atsId;
+    if (dc.atsType === 'greenhouse') {base.greenhouseId = dc.atsId;}
+    else if (dc.atsType === 'lever') {base.leverId = dc.atsId;}
+    else if (dc.atsType === 'workday') {base.workdayId = dc.atsId;}
     return base;
   }
 
@@ -308,10 +308,10 @@ export class SOTAScraperService {
 
     // Filter companies by tier based on ATS type
     const tierCompanies = this.companies.filter(c => {
-      if (tier === 1) return c.ats?.type === 'greenhouse';
-      if (tier === 2) return c.ats?.type === 'lever' || (LEGACY_COMPANIES.find(
+      if (tier === 1) {return c.ats?.type === 'greenhouse';}
+      if (tier === 2) {return c.ats?.type === 'lever' || (LEGACY_COMPANIES.find(
         l => l.name === c.name
-      ) as any)?.workdayId;
+      ) as any)?.workdayId;}
       // Tier 3: no ATS (custom career pages)
       return !c.ats;
     });

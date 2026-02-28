@@ -260,12 +260,12 @@ function segmentIntoSections(lines: string[]): TextSegment[] {
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
-    if (!line) continue;
+    if (!line) {continue;}
 
     let matched = false;
     for (const [section, pattern] of Object.entries(SECTION_PATTERNS)) {
       if (pattern.test(line)) {
-        if (current.lines.length > 0) segments.push(current);
+        if (current.lines.length > 0) {segments.push(current);}
         current = {
           section,
           lines: [],
@@ -279,14 +279,14 @@ function segmentIntoSections(lines: string[]): TextSegment[] {
     // ALL-CAPS short lines are often section headers we don't recognise —
     // treat them as section boundaries with default weight
     if (!matched && /^[A-Z][A-Z\s&/]{2,30}$/.test(line) && line.length < 35) {
-      if (current.lines.length > 0) segments.push(current);
+      if (current.lines.length > 0) {segments.push(current);}
       current = { section: 'unknown', lines: [], weight: SECTION_WEIGHTS.unknown };
     } else if (!matched) {
       current.lines.push(rawLine);
     }
   }
 
-  if (current.lines.length > 0) segments.push(current);
+  if (current.lines.length > 0) {segments.push(current);}
   return segments;
 }
 
@@ -306,7 +306,7 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
     const segTextLower = segText.toLowerCase();
     // Tokenise: split on whitespace and most punctuation, preserve hyphens
     // We'll do n-gram matching (1 to 4 words)
-    const words = segText.split(/[\s,;|•·▪▫‣()\[\]{}<>]+/).filter(w => w.length > 0);
+    const words = segText.split(/[\s,;|•·▪▫‣()[\]{}<>]+/).filter(w => w.length > 0);
 
     for (let i = 0; i < words.length; i++) {
       for (let n = 1; n <= 4 && i + n <= words.length; n++) {
@@ -314,11 +314,11 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
         const phraseLower = phrase.toLowerCase().trim();
 
         // Skip phrases that are clearly not skills (too short, pure numbers, etc.)
-        if (phraseLower.length < 1) continue;
-        if (/^\d+$/.test(phraseLower)) continue;
+        if (phraseLower.length < 1) {continue;}
+        if (/^\d+$/.test(phraseLower)) {continue;}
 
         const canonical = ALIAS_LOOKUP.get(phraseLower);
-        if (!canonical) continue;
+        if (!canonical) {continue;}
 
         // Ambiguous short skills need tech context validation
         if (AMBIGUOUS_SKILLS.has(phraseLower)) {
@@ -326,7 +326,7 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
             Math.max(0, segText.toLowerCase().indexOf(phraseLower) - 100),
             Math.min(segText.length, segText.toLowerCase().indexOf(phraseLower) + 100)
           );
-          if (!TECH_CONTEXT_SIGNALS.test(context)) continue;
+          if (!TECH_CONTEXT_SIGNALS.test(context)) {continue;}
         }
 
         // Negation check — look at the line the phrase appears in
@@ -335,7 +335,7 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
           const lineStart = segTextLower.lastIndexOf('\n', lineIdx) + 1;
           const lineEnd = segTextLower.indexOf('\n', lineIdx);
           const surroundingLine = segTextLower.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
-          if (isNegated(surroundingLine, phraseLower.length)) continue;
+          if (isNegated(surroundingLine, phraseLower.length)) {continue;}
         }
 
         const existing = candidates.get(canonical);
@@ -438,7 +438,7 @@ function inferParentSkills(candidates: Map<string, SkillCandidate>): void {
 
   for (const [canonical] of candidates) {
     const parents = CHILD_TO_PARENTS[canonical];
-    if (!parents) continue;
+    if (!parents) {continue;}
     for (const parent of parents) {
       if (!candidates.has(parent)) {
         toAdd.push({ canonical: parent, weight: 0.8, count: 1, inferred: true });
@@ -477,7 +477,7 @@ function classifySkills(candidates: Map<string, SkillCandidate>): {
 } {
   // Sort by: explicit > inferred, then by weight × count
   const sorted = Array.from(candidates.values()).sort((a, b) => {
-    if (a.inferred !== b.inferred) return a.inferred ? 1 : -1;
+    if (a.inferred !== b.inferred) {return a.inferred ? 1 : -1;}
     return (b.weight * b.count) - (a.weight * a.count);
   });
 
@@ -500,7 +500,7 @@ function classifySkills(candidates: Map<string, SkillCandidate>): {
 function extractSoftSkills(text: string): string[] {
   const found = new Set<string>();
   for (const [pattern, label] of SOFT_SKILL_PATTERNS) {
-    if (pattern.test(text)) found.add(label);
+    if (pattern.test(text)) {found.add(label);}
     pattern.lastIndex = 0; // reset stateful regex
   }
   return Array.from(found);
@@ -534,10 +534,10 @@ function extractExperience(text: string, segments: TextSegment[]): ExperienceRes
   }
   if (yearsMatch && level === 'mid') {
     const y = parseInt(yearsMatch[1]);
-    if (y >= 10)      level = 'senior';
-    else if (y >= 5)  level = 'senior';
-    else if (y >= 2)  level = 'mid';
-    else              level = 'entry';
+    if (y >= 10)      {level = 'senior';}
+    else if (y >= 5)  {level = 'senior';}
+    else if (y >= 2)  {level = 'mid';}
+    else              {level = 'entry';}
     totalYears = y;
   }
 
@@ -550,7 +550,7 @@ function extractExperience(text: string, segments: TextSegment[]): ExperienceRes
 
 function estimateYearsFromDates(text: string): number {
   const yearMatches = text.match(/\b(20\d{2}|19\d{2})\b/g);
-  if (!yearMatches || yearMatches.length < 2) return 0;
+  if (!yearMatches || yearMatches.length < 2) {return 0;}
   const years = yearMatches.map(Number);
   const minYear = Math.min(...years);
   const maxYear = Math.max(...years, new Date().getFullYear());
@@ -589,7 +589,7 @@ function parsePositions(text: string): ExperienceResult['positions'] {
 
 function extractEducation(segments: TextSegment[]): SkillIntelligenceResult['education'] {
   const eduSegment = segments.find(s => s.section === 'education');
-  if (!eduSegment) return [];
+  if (!eduSegment) {return [];}
 
   const DEGREE_RE = /\b(ph\.?d\.?|doctor(ate)?|master'?s?|m\.?s\.?|m\.?a\.?|mba|msc|bachelor'?s?|b\.?s\.?|b\.?a\.?|bsc|associate|diploma|certificate)\b/i;
   const YEAR_RE = /\b(19|20)\d{2}\b/;
@@ -642,30 +642,30 @@ function extractPersonalInfo(text: string): SkillIntelligenceResult['personalInf
   const info: SkillIntelligenceResult['personalInfo'] = {};
 
   const emailMatch = text.match(/[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}/);
-  if (emailMatch) info.email = emailMatch[0];
+  if (emailMatch) {info.email = emailMatch[0];}
 
   const phoneMatch = text.match(/(\+?1[-.\s]?)?\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})/);
-  if (phoneMatch) info.phone = phoneMatch[0].trim();
+  if (phoneMatch) {info.phone = phoneMatch[0].trim();}
 
   const linkedinMatch = text.match(/linkedin\.com\/in\/([\w-]+)/i);
-  if (linkedinMatch) info.linkedin = `https://linkedin.com/in/${linkedinMatch[1]}`;
+  if (linkedinMatch) {info.linkedin = `https://linkedin.com/in/${linkedinMatch[1]}`;}
 
   const githubMatch = text.match(/github\.com\/([\w-]+)/i);
-  if (githubMatch) info.github = `https://github.com/${githubMatch[1]}`;
+  if (githubMatch) {info.github = `https://github.com/${githubMatch[1]}`;}
 
   const portfolioMatch = text.match(/https?:\/\/(?!linkedin|github)[\w.-]+\.(io|com|dev|me|co|net)(\/[\w.-]*)*/i);
-  if (portfolioMatch) info.website = portfolioMatch[0];
+  if (portfolioMatch) {info.website = portfolioMatch[0];}
 
   // Location: "City, ST" or "City, State" pattern in the first 20 lines
   const headerText = text.split('\n').slice(0, 20).join('\n');
   const locationMatch = headerText.match(/\b([A-Z][a-zA-Z\s]+),\s*([A-Z]{2})\b/);
-  if (locationMatch) info.location = locationMatch[0];
+  if (locationMatch) {info.location = locationMatch[0];}
 
   // Name: first 10 non-empty lines, find a "Firstname Lastname" pattern
   const JOB_TITLE_WORDS = /\b(engineer|developer|manager|analyst|designer|consultant|director|architect|intern|associate|lead|senior|junior|staff|resume|cv)\b/i;
   for (const line of text.split('\n').slice(0, 10).map(l => l.trim()).filter(Boolean)) {
-    if (/[@\d|()•\\]|linkedin|github|http|\.com|\.edu|\.org/i.test(line)) continue;
-    if (JOB_TITLE_WORDS.test(line)) continue;
+    if (/[@\d|()•\\]|linkedin|github|http|\.com|\.edu|\.org/i.test(line)) {continue;}
+    if (JOB_TITLE_WORDS.test(line)) {continue;}
     if (/^([A-Z][a-zA-Z'-]{1,20}\s){1,3}[A-Z][a-zA-Z'-]{1,20}$/.test(line)) {
       info.name = line;
       break;
@@ -679,12 +679,12 @@ function extractPersonalInfo(text: string): SkillIntelligenceResult['personalInf
 
 function computeConfidence(technical: string[], totalYears: number, personalInfo: SkillIntelligenceResult['personalInfo']): number {
   let score = 0;
-  if (technical.length >= 5)           score += 40;
-  else if (technical.length >= 2)      score += 20;
-  else if (technical.length >= 1)      score += 10;
-  if (totalYears > 0)                  score += 15;
-  if (personalInfo.email)              score += 15;
-  if (personalInfo.name)               score += 15;
-  if (personalInfo.linkedin || personalInfo.github) score += 15;
+  if (technical.length >= 5)           {score += 40;}
+  else if (technical.length >= 2)      {score += 20;}
+  else if (technical.length >= 1)      {score += 10;}
+  if (totalYears > 0)                  {score += 15;}
+  if (personalInfo.email)              {score += 15;}
+  if (personalInfo.name)               {score += 15;}
+  if (personalInfo.linkedin || personalInfo.github) {score += 15;}
   return Math.min(score, 95); // never claim 100% — we're not AI
 }

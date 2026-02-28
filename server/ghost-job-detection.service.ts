@@ -63,7 +63,7 @@ export class GhostJobDetectionService {
       .where(eq(jobPostings.id, jobId))
       .limit(1);
 
-    if (!job[0]) return null;
+    if (!job[0]) {return null;}
 
     const jobData = job[0];
     const daysSincePosted = Math.floor(
@@ -243,9 +243,9 @@ export class GhostJobDetectionService {
     let confidence = 0;
 
     // Base confidence on number of data points
-    if (indicators.metrics.totalApplications > 0) confidence += 20;
-    if (indicators.metrics.totalViews > 50) confidence += 15;
-    if (indicators.metrics.daysSincePosted > 14) confidence += 15;
+    if (indicators.metrics.totalApplications > 0) {confidence += 20;}
+    if (indicators.metrics.totalViews > 50) {confidence += 15;}
+    if (indicators.metrics.daysSincePosted > 14) {confidence += 15;}
 
     // Increase based on risk level
     switch (indicators.riskLevel) {
@@ -271,7 +271,7 @@ export class GhostJobDetectionService {
    */
   async updateJobGhostScore(jobId: number): Promise<GhostJobIndicators | null> {
     const analysis = await this.analyzeJob(jobId);
-    if (!analysis) return null;
+    if (!analysis) {return null;}
 
     await db
       .update(jobPostings)

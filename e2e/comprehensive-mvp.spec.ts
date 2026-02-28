@@ -36,7 +36,7 @@ async function getAuthToken(page: Page): Promise<string> {
             val?.access_token ||
             val?.currentSession?.access_token ||
             val?.session?.access_token;
-          if (token) return token;
+          if (token) {return token;}
         } catch {}
       }
     }
@@ -486,37 +486,37 @@ test.describe('7. Talent Owner Dashboard', () => {
   test('GET /api/talent-owner/jobs returns jobs array', async ({ page }) => {
     const { status, body } = await apiGet(page, '/api/talent-owner/jobs');
     expect([200, 429]).toContain(status);
-    if (status === 200) expect(Array.isArray(body)).toBe(true);
+    if (status === 200) {expect(Array.isArray(body)).toBe(true);}
   });
 
   test('GET /api/talent-owner/all-applicants returns applicants', async ({ page }) => {
     const { status, body } = await apiGet(page, '/api/talent-owner/all-applicants');
     expect([200, 429]).toContain(status);
-    if (status === 200) expect(Array.isArray(body)).toBe(true);
+    if (status === 200) {expect(Array.isArray(body)).toBe(true);}
   });
 
   test('GET /api/talent-owner/profile returns profile', async ({ page }) => {
     const { status, body } = await apiGet(page, '/api/talent-owner/profile');
     expect([200, 429]).toContain(status);
-    if (status === 200) expect(body).toBeDefined();
+    if (status === 200) {expect(body).toBeDefined();}
   });
 
   test('GET /api/recruiter/stats returns stats', async ({ page }) => {
     const { status, body } = await apiGet(page, '/api/recruiter/stats');
     expect([200, 429]).toContain(status);
-    if (status === 200) expect(body).toBeDefined();
+    if (status === 200) {expect(body).toBeDefined();}
   });
 
   test('GET /api/notifications returns notifications', async ({ page }) => {
     const { status, body } = await apiGet(page, '/api/notifications');
     expect([200, 429]).toContain(status);
-    if (status === 200) expect(Array.isArray(body)).toBe(true);
+    if (status === 200) {expect(Array.isArray(body)).toBe(true);}
   });
 
   test('GET /api/subscription/status returns subscription', async ({ page }) => {
     const { status, body } = await apiGet(page, '/api/subscription/status');
     expect([200, 429]).toContain(status);
-    if (status === 200) expect(body).toBeDefined();
+    if (status === 200) {expect(body).toBeDefined();}
   });
 
   test('talent owner cannot access candidate profile API', async ({ page }) => {

@@ -53,7 +53,7 @@ async function testAcceptPdfFiles() {
     assert.strictEqual(res.status, 200, `Should accept PDF, got ${res.status}`);
     assert(res.body.success, 'Should indicate success');
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -74,7 +74,7 @@ async function testAcceptDocxFiles() {
       'Should handle DOCX file (accept or reject with reason)'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -95,7 +95,7 @@ async function testRejectUnsupportedTypes() {
       `Should reject .exe files, got ${res.status}`
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -122,7 +122,7 @@ async function testRejectFilesOver5MB() {
       );
     }
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -145,7 +145,7 @@ async function testValidateMagicBytes() {
       'Should validate magic bytes'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -197,7 +197,7 @@ async function testResponseContainsResumeUrl() {
       'resumeUrl should be valid URL'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -224,7 +224,7 @@ async function testResponseContainsParsedFlag() {
       'Parsed should be false immediately (async processing)'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -251,7 +251,7 @@ async function testResponseContainsAiParsingFlag() {
       'aiParsing should be true'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -273,7 +273,7 @@ async function testResponseContainsExtractedInfoNullInitially() {
       'extractedInfo should be null initially'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -301,7 +301,7 @@ async function testResponseStructure() {
       'Should have extractedInfo (null or object)'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -327,7 +327,7 @@ async function testMultipleUploadsSucceed() {
     assert.strictEqual(res2.status, 200, 'Second upload should succeed');
     assert(res1.body.resumeUrl !== res2.body.resumeUrl, 'Should have different URLs');
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -346,7 +346,7 @@ async function testUploadWithoutFileField() {
       'Should reject request without file'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -369,7 +369,7 @@ async function testMalformedPdfDetection() {
       'Upload endpoint should accept malformed PDF (will fail in background)'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -391,7 +391,7 @@ async function testCaseInsensitiveFileExtension() {
       'Should handle uppercase file extensions'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 
@@ -414,7 +414,7 @@ async function testResponseSuccessFlag() {
       'Success flag should be true'
     );
   } finally {
-    if (userId) await deleteUser(userId);
+    if (userId) {await deleteUser(userId);}
   }
 }
 

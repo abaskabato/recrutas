@@ -7,7 +7,6 @@ import ResumeUploadStep from '@/components/guided-setup/ResumeUploadStep';
 import BasicInfoStep from '@/components/guided-setup/BasicInfoStep';
 import SkillsStep from '@/components/guided-setup/SkillsStep';
 import CompanyProfileStep from '@/components/guided-setup/CompanyProfileStep';
-import PricingPlanStep from '@/components/guided-setup/PricingPlanStep';
 
 import { ChevronLeft } from 'lucide-react';
 import { SignOutButton } from '@/components/SignOutButton';
@@ -62,7 +61,7 @@ function GuidedSetupContent() {
 
   const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep /> }];
   const clampedStep = Math.max(1, Math.min(step, steps.length));
-  if (clampedStep !== step) setStep(clampedStep);
+  if (clampedStep !== step) {setStep(clampedStep);}
   const currentStep = steps[clampedStep - 1];
   const progress = (clampedStep / steps.length) * 100;
 

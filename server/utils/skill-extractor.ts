@@ -48,7 +48,7 @@ const SKILL_PATTERNS: Map<string, RegExp> = new Map(
 );
 
 export function extractSkillsFromText(text: string | undefined): string[] {
-  if (!text) return [];
+  if (!text) {return [];}
   const found = new Set<string>();
   for (const [skill, pattern] of SKILL_PATTERNS) {
     if (pattern.test(text)) {

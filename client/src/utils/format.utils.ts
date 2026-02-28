@@ -9,10 +9,10 @@
  * Format salary range for display
  */
 export function formatSalaryRange(min?: number, max?: number): string {
-  if (!min && !max) return 'Salary not specified';
-  if (!min) return `Up to ${formatCurrency(max!)}`;
-  if (!max) return `From ${formatCurrency(min)}`;
-  if (min === max) return formatCurrency(min);
+  if (!min && !max) {return 'Salary not specified';}
+  if (!min) {return `Up to ${formatCurrency(max!)}`;}
+  if (!max) {return `From ${formatCurrency(min)}`;}
+  if (min === max) {return formatCurrency(min);}
   return `${formatCurrency(min)} - ${formatCurrency(max)}`;
 }
 
@@ -40,7 +40,7 @@ export function formatPercentage(value: number, decimals: number = 1): string {
  */
 export function formatMatchScore(score: string | number): string {
   const numScore = typeof score === 'string' ? parseFloat(score) : score;
-  if (isNaN(numScore)) return 'N/A';
+  if (isNaN(numScore)) {return 'N/A';}
   return `${Math.round(numScore * 100)}% match`;
 }
 
@@ -72,7 +72,7 @@ export function formatWorkType(workType: string): string {
  * Format location for display
  */
 export function formatLocation(location?: string): string {
-  if (!location) return 'Location not specified';
+  if (!location) {return 'Location not specified';}
   return location;
 }
 
@@ -92,7 +92,7 @@ export function formatPhoneNumber(phone: string): string {
  */
 export function formatFileSize(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) {return '0 B';}
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 }
@@ -130,7 +130,7 @@ export function formatUrgency(urgency: string): string {
  * Format industry name
  */
 export function formatIndustry(industry?: string): string {
-  if (!industry) return 'Industry not specified';
+  if (!industry) {return 'Industry not specified';}
   return industry.charAt(0).toUpperCase() + industry.slice(1);
 }
 
@@ -138,7 +138,7 @@ export function formatIndustry(industry?: string): string {
  * Truncate text with ellipsis
  */
 export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
+  if (text.length <= maxLength) {return text;}
   return text.slice(0, maxLength).trim() + '...';
 }
 

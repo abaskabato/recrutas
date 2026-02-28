@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Star, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -58,7 +58,7 @@ interface AIJobFeedProps {
   onUploadClick?: () => void;
 }
 
-export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
+export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedProps) {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
@@ -76,10 +76,10 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchTerm) params.append('q', searchTerm);
-      if (locationFilter !== 'all') params.append('location', locationFilter);
-      if (workTypeFilter !== 'all') params.append('workType', workTypeFilter);
-      if (companyFilter !== 'all') params.append('company', companyFilter);
+      if (searchTerm) {params.append('q', searchTerm);}
+      if (locationFilter !== 'all') {params.append('location', locationFilter);}
+      if (workTypeFilter !== 'all') {params.append('workType', workTypeFilter);}
+      if (companyFilter !== 'all') {params.append('company', companyFilter);}
 
       const url = `/api/ai-matches?${params.toString()}`;
       const response = await apiRequest("GET", url);
@@ -116,7 +116,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   const applyMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/apply/${jobId}`, {}),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, _variables) => {
       toast({ title: "Application Tracked!", description: "We've marked this job as applied." });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
     },
@@ -129,7 +129,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       await queryClient.cancelQueries({ queryKey: ['/api/candidate/job-actions'] });
       const previousJobActions = queryClient.getQueryData(['/api/candidate/job-actions']);
       queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
-        if (!oldData) return oldData;
+        if (!oldData) {return oldData;}
         return {
           ...oldData,
           saved: new Set(oldData.saved).add(jobId),
@@ -157,7 +157,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       await queryClient.cancelQueries({ queryKey: ['/api/candidate/job-actions'] });
       const previousJobActions = queryClient.getQueryData(['/api/candidate/job-actions']);
       queryClient.setQueryData(['/api/candidate/job-actions'], (oldData: any) => {
-        if (!oldData) return oldData;
+        if (!oldData) {return oldData;}
         const newSaved = new Set(oldData.saved);
         newSaved.delete(jobId);
         return { ...oldData, saved: newSaved };
@@ -214,7 +214,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   const handleAgentApply = (e: React.MouseEvent, match: AIJobMatch) => {
     e.stopPropagation();
-    if (appliedJobIds.has(match.job.id) || agentApplyingIds.has(match.job.id)) return;
+    if (appliedJobIds.has(match.job.id) || agentApplyingIds.has(match.job.id)) {return;}
     setAgentApplyingIds(prev => new Set(prev).add(match.job.id));
     agentApplyMutation.mutate(match.job.id, {
       onSettled: () => {
@@ -225,7 +225,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   const handleApply = (e: React.MouseEvent, match: AIJobMatch) => {
     e.stopPropagation();
-    if (appliedJobIds.has(match.job.id)) return;
+    if (appliedJobIds.has(match.job.id)) {return;}
     const isInternal = !match.job.externalUrl;
     applyMutation.mutate(match.job.id, {
       onSuccess: () => {
@@ -266,7 +266,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const rowVirtualizer = useVirtualizer({
+  const _rowVirtualizer = useVirtualizer({
     count: filteredMatches?.length ?? 0,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 150,

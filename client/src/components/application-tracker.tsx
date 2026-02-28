@@ -88,7 +88,7 @@ export default function ApplicationTracker() {
     mutationFn: async ({ applicationId, status }: { applicationId: number; status: string }) => {
       // Use candidate-specific endpoint for self-service status update
       const res = await apiRequest('PUT', `/api/candidate/application/${applicationId}/status`, { status });
-      if (!res.ok) throw new Error('Failed to update status');
+      if (!res.ok) {throw new Error('Failed to update status');}
       return res.json();
     },
     onSuccess: () => {
@@ -103,7 +103,7 @@ export default function ApplicationTracker() {
   const cancelAgentTaskMutation = useMutation({
     mutationFn: async (taskId: number) => {
       const res = await apiRequest('DELETE', `/api/candidate/agent-tasks/${taskId}`);
-      if (!res.ok) throw new Error('Failed to cancel task');
+      if (!res.ok) {throw new Error('Failed to cancel task');}
       return res.json();
     },
     onSuccess: () => {

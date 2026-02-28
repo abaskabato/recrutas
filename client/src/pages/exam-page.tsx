@@ -7,13 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Briefcase, Clock, CheckCircle } from "lucide-react";
 
-interface ExamPageProps {
-  jobId?: number;
-  jobTitle?: string;
-  onComplete?: (score: number, passed: boolean) => void;
-  onCancel?: () => void;
-}
-
 export default function ExamPage() {
   const [, setLocation] = useLocation();
   const session = useSession();
