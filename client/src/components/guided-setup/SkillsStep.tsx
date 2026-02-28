@@ -22,7 +22,7 @@ export default function SkillsStep() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       toast({
         title: 'Profile Updated',
         description: 'Your skills have been saved.',

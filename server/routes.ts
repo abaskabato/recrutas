@@ -921,6 +921,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
     try {
       const profileData = insertCandidateProfileSchema.parse({ ...req.body, userId: req.user.id });
       const profile = await storage.upsertCandidateUser(profileData);
+      
+      await storage.updateUserInfo(req.user.id, { profile_complete: true });
+      
       res.json(profile);
     } catch (error) {
       console.error("Error updating candidate profile:", error);

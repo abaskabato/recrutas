@@ -23,10 +23,10 @@ export function useRoleBasedAuth() {
       return;
     }
 
-    // If authenticated but profile is not complete, redirect to guided setup
+    // If authenticated but profile is not complete, redirect to role selection
     const extendedUser = user as { profile_complete?: boolean } | null;
-    if (isAuthenticated && extendedUser?.profile_complete === false && location !== '/guided-setup') {
-      setLocation('/guided-setup');
+    if (isAuthenticated && extendedUser?.profile_complete === false && location !== '/role-selection') {
+      setLocation('/role-selection');
       return;
     }
 
