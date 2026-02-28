@@ -47,9 +47,6 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
-      - name: Run database migrations
-        run: npm run db:push
-
       - name: Compute batch embeddings
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
