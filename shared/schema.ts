@@ -338,7 +338,8 @@ export const notifications = pgTable("notifications", {
       "new_application",
       "exam_passed",
       "exam_failed",
-      "application_submitted"
+      "application_submitted",
+      "chat_access_granted"
     ]
   }).notNull(),
   title: varchar("title").notNull(),

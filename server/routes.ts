@@ -724,10 +724,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
         });
       }
 
-      // Filter RemoteOK jobs by match score and deduplication
+      // Filter RemoteOK jobs by match score and deduplication.
+      // Must add each accepted key back to seenKeys so identical jobs in the
+      // RemoteOK list don't both pass (seenKeys is only checked, never updated here otherwise).
       const filteredRemoteOkJobs = scoredRemoteOkJobs.filter((job: any) => {
-        if (!seenKeys.has(`${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`)) {
+        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
+        if (!seenKeys.has(key)) {
           if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
+            seenKeys.add(key);
             return true;
           }
         }
