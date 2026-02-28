@@ -177,10 +177,10 @@ export class JobIngestionService {
           // postgres.js throws UNDEFINED_VALUE for undefined fields — coerce to null
           await tx.insert(jobPostings).values({
             talentOwnerId: systemUserId,
-            title: job.title,
-            company: job.company,
+            title: job.title ?? 'Untitled Position',
+            company: job.company ?? 'Unknown Company',
             location: job.location ?? null,
-            description: job.description ?? null,
+            description: job.description ?? 'No description provided',
             requirements: job.requirements ?? null,
             skills: normalizeSkills(
               job.skills?.length > 0 ? job.skills : extractSkillsFromText(job.description)
@@ -188,8 +188,8 @@ export class JobIngestionService {
             workType: job.workType ?? null,
             salaryMin: job.salaryMin ?? null,
             salaryMax: job.salaryMax ?? null,
-            source: job.source,
-            externalId: job.externalId,
+            source: job.source ?? 'unknown',
+            externalId: job.externalId ?? `generated-${Date.now()}`,
             externalUrl: job.externalUrl ?? null,
             trustScore: trustScore,
             livenessStatus: 'unknown',
