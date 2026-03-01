@@ -49,6 +49,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           USE_OLLAMA: false
           ENABLE_AI_EXTRACTION: true
         run: npx tsx scripts/scrape-tier.ts --tier=3 --timeout=300000

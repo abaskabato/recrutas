@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,6 +172,21 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
   const [workType, setWorkType] = useState<'remote' | 'hybrid' | 'onsite' | 'any'>('any');
   const [likedJobs, setLikedJobs] = useState<number[]>([]);
 
+  // Debounced values — only update after 400 ms of no typing.
+  // This prevents firing a DB query on every keystroke.
+  const [debouncedTitle, setDebouncedTitle]    = useState(jobTitle);
+  const [debouncedSkills, setDebouncedSkills]  = useState(skills);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedTitle(jobTitle);
+      setDebouncedSkills(skills);
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [jobTitle, skills]);
+
   // Reset to intro every time the modal opens so returning visitors don't land
   // on a stale results screen.
   useEffect(() => {
@@ -185,13 +200,16 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
     }
   }, [isOpen, initialSkills]);
 
-  // Fetch external jobs based on skills and filters
+  // Fetch external jobs based on skills and filters.
+  // enabled as soon as the debounced jobTitle/skills has a value — even while
+  // the user is still on the 'skills' step — so data is ready (or in-flight)
+  // the moment they hit "Find My Matches" and the results step appears.
   const { data: externalJobsData, isLoading: jobsLoading } = useQuery({
-    queryKey: ['/api/external-jobs', skills, jobTitle, location, workType],
+    queryKey: ['/api/external-jobs', debouncedSkills, debouncedTitle, location, workType],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: '8' });
-      if (skills.trim()) {params.append('skills', skills.trim());}
-      if (jobTitle.trim()) {params.append('jobTitle', jobTitle.trim());}
+      if (debouncedSkills.trim()) {params.append('skills', debouncedSkills.trim());}
+      if (debouncedTitle.trim()) {params.append('jobTitle', debouncedTitle.trim());}
       if (location.trim()) {params.append('location', location.trim());}
       if (workType !== 'any') {params.append('workType', workType);}
 
@@ -199,9 +217,8 @@ export default function InstantMatchModal({ isOpen, onClose, onStartMatching, in
       if (!response.ok) {throw new Error('Failed to fetch jobs');}
       return response.json();
     },
-    enabled: step === 'results' && (!!skills.trim() || !!jobTitle.trim()),
-    // No staleTime — always refetch when the user navigates back and tries again,
-    // so a cached empty-result doesn't get served on retry.
+    enabled: !!debouncedTitle.trim() || !!debouncedSkills.trim(),
+    staleTime: 5 * 60 * 1000, // 5 min — DB results don't change second-to-second
     retry: 2,
   });
 

@@ -151,7 +151,8 @@ export type ScrapeMethod =
   | 'api'
   | 'json_ld'
   | 'html_parsing'
-  | 'ai_extraction';
+  | 'ai_extraction'
+  | 'firecrawl';
 
 // ============================================================================
 // Company Configuration

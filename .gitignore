@@ -122,3 +122,6 @@ tasks/mvp-specs.md
 
 # SQL dumps
 supabase_schema.sql
+
+# Supabase CLI temporary files (project link metadata)
+supabase/.temp/

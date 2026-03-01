@@ -119,9 +119,10 @@ function convertToSOTAConfig(legacy: any): CompanyConfig {
     strategies = ['api', 'json_ld', 'ai_extraction'];
   } else if (legacy.workdayId) {
     // workdayId without a board URL — fall back to page-based strategies
-    strategies = ['json_ld', 'ai_extraction', 'html_parsing'];
+    strategies = ['firecrawl', 'json_ld', 'ai_extraction', 'html_parsing'];
   } else {
-    strategies = ['json_ld', 'ai_extraction', 'html_parsing'];
+    // Custom career page (no known ATS) — Firecrawl handles JS rendering first
+    strategies = ['firecrawl', 'json_ld', 'ai_extraction', 'html_parsing'];
   }
   
   return {

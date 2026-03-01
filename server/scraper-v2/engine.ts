@@ -19,6 +19,7 @@ import { extractJsonLdJobs } from './strategies/json-ld.js';
 import { extractHtmlJobs } from './strategies/html-parsing.js';
 import { extractWithAI } from './strategies/ai-extraction.js';
 import { fetchFromATS } from './strategies/ats-apis.js';
+import { extractWithFirecrawl } from './strategies/firecrawl.js';
 import { normalizeJob, calculateJobHash } from './utils/normalization.js';
 
 export interface ScraperEngineConfig {
@@ -185,6 +186,9 @@ export class ScraperEngine {
           throw new Error('AI extraction is disabled');
         }
         return await extractWithAI(company, fetchOptions);
+
+      case 'firecrawl':
+        return await extractWithFirecrawl(company, fetchOptions);
 
       default:
         throw new Error(`Unknown strategy: ${method}`);
