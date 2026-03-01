@@ -1,4 +1,3 @@
-import { hiringCafeService } from './services/hiring-cafe.service';
 import { weWorkRemotelyService } from './services/we-work-remotely.service';
 import { getProfessions, getProfession, detectProfession, ProfessionConfig } from './config/professions';
 import { SKILL_ALIASES } from './skill-normalizer';
@@ -12,7 +11,6 @@ export const SOURCE_TRUST_SCORES: Record<string, number> = {
   'WeWorkRemotely': 80,     // Curated remote jobs with direct URLs - HIGH QUALITY
   'RemoteOK': 65,           // Remote-focused jobs, generally accurate
   'ArbeitNow': 60,          // European job board aggregator
-  'hiring-cafe': 55,       // Multi-industry aggregator, less vetted
   'default': 50             // Default for unknown sources
 };
 
@@ -437,81 +435,6 @@ export class JobAggregator {
     }
   }
 
-  private getSampleJobs(): ExternalJob[] {
-    return [
-      {
-        id: 'hc_sample_1',
-        title: 'Senior Frontend Developer',
-        company: 'TechCorp',
-        location: 'San Francisco, CA',
-        description: 'We are looking for a Senior Frontend Developer to join our team and help build the next generation of web applications.',
-        requirements: ['5+ years React experience', 'TypeScript proficiency', 'Modern CSS frameworks'],
-        skills: ['React', 'TypeScript', 'JavaScript', 'CSS', 'HTML', 'Node.js'],
-        workType: 'hybrid',
-        salaryMin: 120000,
-        salaryMax: 180000,
-        source: 'hiring.cafe',
-        externalUrl: 'https://hiring.cafe/jobs/senior-frontend-developer',
-        postedDate: new Date().toISOString(),
-        trustScore: getSourceTrustScore('hiring.cafe')
-      },
-      {
-        id: 'hc_sample_2',
-        title: 'Full Stack Engineer',
-        company: 'StartupXYZ',
-        location: 'Remote',
-        description: 'Join our fast-growing startup as a Full Stack Engineer. Work with cutting-edge technologies and help shape our product.',
-        requirements: ['3+ years full stack experience', 'Python or Node.js backend', 'React frontend'],
-        skills: ['Python', 'React', 'PostgreSQL', 'AWS', 'Docker', 'REST APIs'],
-        workType: 'remote',
-        salaryMin: 90000,
-        salaryMax: 140000,
-        source: 'hiring.cafe',
-        externalUrl: 'https://hiring.cafe/jobs/full-stack-engineer',
-        postedDate: new Date().toISOString(),
-        trustScore: getSourceTrustScore('hiring.cafe')
-      },
-      {
-        id: 'hc_sample_3',
-        title: 'DevOps Engineer',
-        company: 'CloudTech Solutions',
-        location: 'Austin, TX',
-        description: 'We need a DevOps Engineer to help scale our infrastructure and improve our deployment processes.',
-        requirements: ['AWS/Azure experience', 'Kubernetes knowledge', 'CI/CD pipelines'],
-        skills: ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'Python', 'CI/CD'],
-        workType: 'onsite',
-        salaryMin: 110000,
-        salaryMax: 160000,
-        source: 'hiring.cafe',
-        externalUrl: 'https://hiring.cafe/jobs/devops-engineer',
-        postedDate: new Date().toISOString(),
-        trustScore: getSourceTrustScore('hiring.cafe')
-      }
-    ];
-  }
-
-  private transformHiringCafeJobs(jobs: any[]): ExternalJob[] {
-    return jobs
-      .filter(job => {
-        const url = job.url || job.link;
-        return url && url !== '#' && this.isValidURL(url) && !url.includes('recrutas.ai');
-      })
-      .map((job, index) => ({
-        id: `hc_${job.id || index}`,
-        title: job.title || job.position || 'Untitled Position',
-        company: job.company || job.employer || 'Company Name',
-        location: job.location || job.city || 'Remote',
-        description: job.description || job.summary || '',
-        requirements: this.extractRequirements(job.description || job.requirements || ''),
-        skills: this.extractSkills(job.skills || job.tags || job.description || ''),
-        workType: this.normalizeWorkType(job.remote || job.work_type || job.location),
-        salaryMin: job.salary_min || job.min_salary,
-        salaryMax: job.salary_max || job.max_salary,
-        source: 'hiring.cafe',
-        externalUrl: job.url || job.link,
-        postedDate: job.posted_at || job.created_at || new Date().toISOString(),
-      }));
-  }
 
   private extractRequirements(text: string): string[] {
     if (!text) {return [];}
@@ -693,172 +616,6 @@ export class JobAggregator {
       }));
   }
 
-  // async fetchFromHiringCafe(): Promise<ExternalJob[]> {
-  //   return await universalJobScraper.scrapeHiringCafe();
-  // }
-
-  private getHiringCafeFallbackJobs(): ExternalJob[] {
-    // Curated real tech jobs from hiring.cafe patterns
-    const jobs = [
-      {
-        id: `hiring_cafe_${Date.now()}_1`,
-        title: 'Senior Full Stack Engineer',
-        company: 'Vercel',
-        location: 'San Francisco, CA',
-        description: 'Build the future of web development with Next.js and edge computing infrastructure.',
-        requirements: ['React', 'Next.js', 'TypeScript', 'Node.js', 'Edge Computing'],
-        skills: ['React', 'Next.js', 'TypeScript', 'Node.js', 'Vercel'],
-        workType: 'remote' as const,
-        source: 'Hiring.cafe',
-        externalUrl: 'https://hiring.cafe/',
-        postedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: `hiring_cafe_${Date.now()}_2`,
-        title: 'Lead Product Designer',
-        company: 'Linear',
-        location: 'Remote',
-        description: 'Design intuitive interfaces for the world\'s fastest project management tool.',
-        requirements: ['Figma', 'Product Design', 'User Research', 'Prototyping'],
-        skills: ['Figma', 'Product Design', 'UI/UX', 'Prototyping'],
-        workType: 'remote' as const,
-        source: 'Hiring.cafe',
-        externalUrl: 'https://hiring.cafe/',
-        postedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: `hiring_cafe_${Date.now()}_3`,
-        title: 'AI/ML Engineer',
-        company: 'Anthropic',
-        location: 'San Francisco, CA',
-        description: 'Develop safe AI systems that understand and assist humans effectively.',
-        requirements: ['Python', 'Machine Learning', 'PyTorch', 'Transformers', 'AI Safety'],
-        skills: ['Python', 'Machine Learning', 'PyTorch', 'AI', 'NLP'],
-        workType: 'hybrid' as const,
-        source: 'Hiring.cafe',
-        externalUrl: 'https://hiring.cafe/',
-        postedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      }
-    ];
-
-    console.log(`Using ${jobs.length} curated hiring.cafe jobs`);
-    return jobs;
-  }
-
-  private parseHiringCafeHTML(html: string): ExternalJob[] {
-    const jobs: ExternalJob[] = [];
-
-    // Method 1: Extract JSON-LD structured data
-    const jsonLdMatches = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/gs);
-    if (jsonLdMatches) {
-      for (const match of jsonLdMatches) {
-        try {
-          const jsonContent = match.replace(/<script[^>]*>|<\/script>/g, '');
-          const data = JSON.parse(jsonContent);
-
-          if (data['@type'] === 'JobPosting' || (Array.isArray(data) && data.some(item => item['@type'] === 'JobPosting'))) {
-            const jobPostings = Array.isArray(data) ? data.filter(item => item['@type'] === 'JobPosting') : [data];
-
-            for (const job of jobPostings) {
-              jobs.push({
-                id: `hiring_cafe_${job.identifier || Date.now()}_${jobs.length}`,
-                title: job.title || 'Position',
-                company: job.hiringOrganization?.name || 'Company',
-                location: job.jobLocation?.address?.addressLocality || job.jobLocation || 'Remote',
-                description: job.description || job.title || '',
-                requirements: this.extractRequirements(job.responsibilities || job.description || ''),
-                skills: this.extractSkills(job.skills || job.title || ''),
-                workType: this.normalizeWorkType(job.employmentType),
-                salaryMin: job.baseSalary?.value?.minValue,
-                salaryMax: job.baseSalary?.value?.maxValue,
-                source: 'Hiring.cafe',
-                externalUrl: job.url || 'https://hiring.cafe/',
-                postedDate: job.datePosted || new Date().toISOString(),
-              });
-            }
-          }
-        } catch (e) {
-          // Skip invalid JSON
-        }
-      }
-    }
-
-    // Method 2: Extract from Next.js props or data islands
-    const dataMatches = [
-      /"jobs":\s*(\[.*?\])/s,
-      /"positions":\s*(\[.*?\])/s,
-      /"listings":\s*(\[.*?\])/s
-    ];
-
-    for (const pattern of dataMatches) {
-      const match = html.match(pattern);
-      if (match) {
-        try {
-          const jobsData = JSON.parse(match[1]);
-          for (const job of jobsData.slice(0, 15)) {
-            jobs.push({
-              id: `hiring_cafe_data_${job.id || Date.now()}_${jobs.length}`,
-              title: job.title || job.position || job.role,
-              company: job.company || job.companyName || job.employer,
-              location: job.location || job.city || 'Remote',
-              description: job.description || job.summary || '',
-              requirements: this.extractRequirements(job.requirements || job.description || ''),
-              skills: this.extractSkills(job.skills || job.technologies || job.title || ''),
-              workType: this.normalizeWorkType(job.workType || job.remote),
-              salaryMin: job.salaryMin || job.salary?.min,
-              salaryMax: job.salaryMax || job.salary?.max,
-              source: 'Hiring.cafe',
-              externalUrl: job.url || job.link || 'https://hiring.cafe/',
-              postedDate: job.postedDate || job.createdAt || new Date().toISOString(),
-            });
-          }
-        } catch (e) {
-          // Skip invalid JSON
-        }
-      }
-    }
-
-    // Method 3: Parse HTML structure for job cards/listings
-    const htmlPatterns = [
-      /<div[^>]*(?:class|id)="[^"]*(?:job|position|listing)[^"]*"[^>]*>(.*?)<\/div>/gsi,
-      /<article[^>]*>(.*?)<\/article>/gsi,
-    ];
-
-    for (const pattern of htmlPatterns) {
-      const matches = html.match(pattern);
-      if (matches) {
-        for (const match of matches.slice(0, 10)) {
-          const titleMatch = match.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>|(?:title|position)["']?[^>]*>([^<]+)/i);
-          const companyMatch = match.match(/(?:company|employer)["']?[^>]*>([^<]+)/i);
-          const locationMatch = match.match(/(?:location|city)["']?[^>]*>([^<]+)/i);
-
-          if (titleMatch && companyMatch) {
-            const title = (titleMatch[1] || titleMatch[2] || '').trim();
-            const company = companyMatch[1].trim();
-
-            if (title && company && title.length > 2 && company.length > 2) {
-              jobs.push({
-                id: `hiring_cafe_html_${Date.now()}_${jobs.length}`,
-                title,
-                company,
-                location: locationMatch ? locationMatch[1].trim() : 'Remote',
-                description: `${title} position at ${company}`,
-                requirements: this.extractRequirements(title),
-                skills: this.extractSkills(title),
-                workType: 'hybrid',
-                source: 'Hiring.cafe',
-                externalUrl: 'https://hiring.cafe/',
-                postedDate: new Date().toISOString(),
-              });
-            }
-          }
-        }
-      }
-    }
-
-    console.log(`Scraped ${jobs.length} jobs from hiring.cafe`);
-    return jobs.slice(0, 20);
-  }
 
   // Transformation methods for new job sources
 
@@ -1006,28 +763,6 @@ export class JobAggregator {
       if (needsUsajobs) {
         fetchPromises.push(this.fetchFromUSAJobs(userSkills));
       }
-
-      // Hiring.cafe for broad coverage (works across all professions)
-      const hiringCafeKeywords = userSkills && userSkills.length > 0
-        ? userSkills.slice(0, 3).join(' ')
-        : 'software engineer developer';
-      fetchPromises.push(
-        hiringCafeService.searchByKeywords(hiringCafeKeywords, { maxPages: 1 })
-          .then(results => results.map(job => ({
-            id: `cafe_${job.externalId}`,
-            title: job.title,
-            company: job.company,
-            location: job.location,
-            description: job.description,
-            requirements: job.requirements,
-            skills: job.skills,
-            workType: job.workType,
-            source: job.source,
-            externalUrl: job.externalUrl,
-            postedDate: job.postedDate,
-            trustScore: getSourceTrustScore('hiring-cafe')
-          } as ExternalJob)))
-      );
 
       // Execute all fetches with error handling
       const results = await Promise.allSettled(fetchPromises);

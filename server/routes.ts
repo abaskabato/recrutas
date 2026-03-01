@@ -36,12 +36,11 @@ import { applicationIntelligence } from "./application-intelligence";
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
-import { hiringCafeService } from './services/hiring-cafe.service';
 import { jobIngestionService } from './services/job-ingestion.service';
 import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
 
-// In-memory cache for RemoteOK jobs (15-min TTL, same pattern as hiring.cafe)
+// In-memory cache for RemoteOK jobs (15-min TTL)
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
 const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -453,7 +452,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const userId = req.user.id;
       console.log(`Fetching job recommendations for user: ${userId}`);
 
-      // Fetch candidate skills for hiring.cafe query
       const candidate = await storage.getCandidateUser(userId);
       const candidateSkills = candidate?.skills || [];
 
@@ -464,7 +462,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         setTimeout(() => reject(new Error('DB recommendations timeout')), 8000)
       );
 
-      // Run DB recommendations + hiring.cafe in parallel
       const dbPromise = Promise.race([
         storage.getJobRecommendations(userId),
         dbTimeoutPromise
@@ -472,17 +469,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         console.warn('[Matching] DB recommendations failed:', err?.message);
         return [] as any[];
       });
-
-      // Limit hiring.cafe jobs to reduce processing time
-      const hiringCafePromise = candidateSkills.length > 0
-        ? Promise.race([
-            hiringCafeService.searchByKeywords(candidateSkills.slice(0, 5).join(' '))
-              .then(jobs => jobs.slice(0, 15)), // Limit to 15 jobs max
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Hiring.cafe timeout')), 5000)
-            )
-          ])
-        : Promise.resolve([]);
 
       // Also try RemoteOK as fallback (free, no rate limits) — cached for 15 min
       const topTechSkills = (candidateSkills as string[])
@@ -515,26 +501,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       })();
 
-      const [dbResult, cafeResult, remoteOkResult] = await Promise.race([
-        Promise.allSettled([dbPromise, hiringCafePromise, remoteOkPromise]),
+      const [dbResult, remoteOkResult] = await Promise.race([
+        Promise.allSettled([dbPromise, remoteOkPromise]),
         timeoutPromise
       ]) as any;
 
       const recommendations = (dbResult?.status === 'fulfilled' ? dbResult.value : []) as any[];
-      const cafeJobs = (cafeResult?.status === 'fulfilled' ? cafeResult.value : []) as any[];
       const remoteOkJobs = (remoteOkResult?.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
-
-      if (cafeResult?.status === 'rejected') {
-        console.warn('[HiringCafe] Search failed (non-fatal):', cafeResult.reason?.message);
-      }
-
-      // Fire-and-forget: ingest hiring.cafe results for future cache hits
-      if (cafeJobs.length > 0) {
-        console.log(`[HiringCafe] Ingesting ${cafeJobs.length} jobs in background`);
-        jobIngestionService.ingestExternalJobs(cafeJobs)
-          .then(stats => console.log(`[HiringCafe] Ingestion: ${stats.inserted} new, ${stats.duplicates} dupes`))
-          .catch(err => console.error('[HiringCafe] Ingestion failed:', err?.message));
-      }
 
       // If we've exceeded the early-return threshold, return DB results only without ML scoring
       if (Date.now() - startTime > EARLY_RETURN_THRESHOLD_MS) {
@@ -543,11 +516,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.json(recommendations);
       }
 
-      // Score hiring.cafe jobs using ML matching (open-source transformers)
       const candidateExperience = candidate?.experience || '';
 
-      // Only use ML if the model is already loaded — avoids blocking the response
-      // on the 10-30s first-load delay. The warmup timer handles background preloading.
       const useML = mlScoringEnabled && isModelLoaded();
 
       // Pre-compute candidate embedding once (reused for both internal and external job scoring).
@@ -607,74 +577,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       }
 
-      let scoredCafeJobs: any[] = [];
-
-      // When ML model is loaded: process in batches to avoid memory pressure.
-      // When model is not loaded: score all jobs synchronously (simple skill match, no await needed).
       const batchSize = 3;
-      if (useML) {
-        for (let i = 0; i < cafeJobs.length; i += batchSize) {
-          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
-            console.log('[Matching] Timeout - stopping cafe job scoring');
-            break;
-          }
-          const batch = cafeJobs.slice(i, i + batchSize);
-          const batchResults = await Promise.allSettled(
-            batch.map(async (job) => {
-              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-              return {
-                ...job,
-                id: `cafe_${job.externalId}`,
-                matchScore: mlScore.matchScore,
-                skillMatches: mlScore.skillMatches,
-                aiExplanation: mlScore.aiExplanation,
-                confidenceLevel: mlScore.confidenceLevel,
-                source: 'hiring-cafe',
-                trustScore: job.trustScore ?? 50,
-                livenessStatus: job.livenessStatus ?? 'unknown',
-              };
-            })
-          );
-          scoredCafeJobs.push(...batchResults
-            .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-            .map(r => r.value));
-        }
-      } else {
-        // Fast path: synchronous simple skill matching (no model load needed)
-        scoredCafeJobs = cafeJobs.map((job) => {
-          const score = simpleSkillMatch(candidateSkills, job);
-          return {
-            ...job,
-            id: `cafe_${job.externalId}`,
-            matchScore: score.matchScore,
-            skillMatches: score.skillMatches,
-            aiExplanation: score.aiExplanation,
-            confidenceLevel: score.confidenceLevel,
-            source: 'hiring-cafe',
-            trustScore: job.trustScore ?? 50,
-            livenessStatus: job.livenessStatus ?? 'unknown',
-          };
-        });
-      }
 
-      // If DB returned matches, filter cafe jobs to 40%+ match
-      // If DB is empty, show ALL hiring.cafe jobs (no skill match required) for broader discovery
-      if (recommendations.length > 0) {
-        scoredCafeJobs = scoredCafeJobs.filter(job => job.matchScore >= 40);
-      } else {
-        console.log(`[HiringCafe] No DB matches - showing all ${scoredCafeJobs.length} hiring.cafe jobs`);
-      }
-
-      // Merge: DB results first, then hiring.cafe results, then RemoteOK (deduplicated by title+company)
+      // Deduplicate RemoteOK against DB results
       const seenKeys = new Set(
         recommendations.map((j: any) => `${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
       );
-      const uniqueCafeJobs = scoredCafeJobs.filter(
-        j => !seenKeys.has(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
-      );
-
-      // Add cafe job keys to seenKeys so RemoteOK deduplicates against them
-      uniqueCafeJobs.forEach((j: any) => seenKeys.add(`${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`));
 
       // Score and add RemoteOK jobs (ML if loaded, otherwise simple matching)
       let scoredRemoteOkJobs: any[] = [];
@@ -738,11 +646,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return false;
       });
 
-      const allRecommendations = [...(mlScoredRecommendations || []), ...uniqueCafeJobs, ...filteredRemoteOkJobs];
+      const allRecommendations = [...(mlScoredRecommendations || []), ...filteredRemoteOkJobs];
       
       finish();
 
-      console.log(`Found ${recommendations?.length || 0} DB + ${uniqueCafeJobs.length} hiring.cafe + ${filteredRemoteOkJobs.length} RemoteOK recommendations`);
+      console.log(`Found ${recommendations?.length || 0} DB + ${filteredRemoteOkJobs.length} RemoteOK recommendations`);
 
       // If still no recommendations, fetch recent jobs from DB as fallback (no skill matching)
       if (allRecommendations.length === 0 && candidateSkills.length > 0) {
