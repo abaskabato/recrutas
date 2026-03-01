@@ -22,7 +22,7 @@ async function callGemini(
   opts: CallAIOptions
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY!;
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
@@ -55,7 +55,7 @@ async function callGemini(
 }
 
 /**
- * Unified AI client. Uses Gemini 1.5 Flash when GEMINI_API_KEY is set,
+ * Unified AI client. Uses Gemini 2.0 Flash (v1beta) when GEMINI_API_KEY is set,
  * falls back to Groq (rate-limited via groq-limiter).
  * Returns the raw text/JSON string from the model.
  */

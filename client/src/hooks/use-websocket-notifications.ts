@@ -16,11 +16,33 @@ interface NotificationData {
   createdAt: string;
 }
 
+const MAX_WS_RETRIES = 3;
+const POLL_INTERVAL_MS = 30_000;
+
 export function useWebSocketNotifications(userId?: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const retryCountRef = useRef(0);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const refreshNotifications = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
+  }, [queryClient]);
+
+  const startPolling = useCallback(() => {
+    if (pollingIntervalRef.current) return;
+    pollingIntervalRef.current = setInterval(refreshNotifications, POLL_INTERVAL_MS);
+  }, [refreshNotifications]);
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }, []);
 
   const connect = useCallback(() => {
     if (!userId || wsRef.current?.readyState === WebSocket.OPEN) {
@@ -30,12 +52,13 @@ export function useWebSocketNotifications(userId?: string) {
     try {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/ws?userId=${userId}`;
-      
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Clear any reconnection timeout
+        retryCountRef.current = 0;
+        stopPolling();
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
@@ -45,14 +68,12 @@ export function useWebSocketNotifications(userId?: string) {
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          
+
           if (message.type === 'notification') {
             const notification: NotificationData = message.data;
-            
-            // Invalidate notification queries to refresh the UI
-            queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
-            
+
+            refreshNotifications();
+
             // Show toast notification for high priority items
             if (notification.priority === 'high' || notification.priority === 'urgent') {
               toast({
@@ -61,47 +82,57 @@ export function useWebSocketNotifications(userId?: string) {
                 variant: notification.priority === 'urgent' ? "destructive" : "default",
               });
             }
-            
+
             // Play notification sound for urgent notifications
             if (notification.priority === 'urgent') {
               playNotificationSound();
             }
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.debug('Error parsing WebSocket message:', error);
         }
       };
 
       ws.onclose = () => {
         wsRef.current = null;
-        
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
+        retryCountRef.current += 1;
+
+        if (retryCountRef.current <= MAX_WS_RETRIES) {
+          // Exponential backoff: 3s, 6s, 12s
+          const delay = 3000 * Math.pow(2, retryCountRef.current - 1);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, delay);
+        } else {
+          // WebSocket not available in this environment — fall back to polling
+          console.debug('[WS] Max retries reached, switching to polling fallback');
+          startPolling();
+        }
       };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.onerror = () => {
+        // onerror always fires before onclose — close will handle retry logic
+        console.debug('[WS] Connection failed (expected in serverless environments)');
         ws.close();
       };
 
     } catch (error) {
-      console.error('Failed to connect WebSocket:', error);
+      console.debug('Failed to create WebSocket:', error);
     }
-  }, [userId, queryClient, toast]);
+  }, [userId, refreshNotifications, startPolling, stopPolling, toast]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    
+    stopPolling();
+
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-  }, []);
+  }, [stopPolling]);
 
   const sendMessage = useCallback((message: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

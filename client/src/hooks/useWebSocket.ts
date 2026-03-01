@@ -20,8 +20,9 @@ export function useWebSocket() {
         setIsConnected(false);
       };
 
-      socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      socket.onerror = () => {
+        // Expected to fail in serverless environments (Vercel)
+        console.debug('[WS] Connection unavailable');
         setIsConnected(false);
       };
 
@@ -31,7 +32,7 @@ export function useWebSocket() {
         }
       };
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
+      console.debug('Failed to create WebSocket connection:', error);
     }
   }, []);
 
