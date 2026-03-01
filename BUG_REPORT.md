@@ -457,6 +457,485 @@ console.log(`[storage] Found user:`, user);
 
 ---
 
+## SENIOR ENGINEER DEEP DIVE FINDINGS (10x Engineer Review)
+
+### Architectural Issues
+
+#### A. Massive File Size - Code Smell
+**Files:** 
+- `server/storage.ts` - **2,464 lines**
+- `server/routes.ts` - **2,406 lines**
+- `client/src/pages/candidate-dashboard-streamlined.tsx` - **992 lines**
+- `client/src/pages/talent-dashboard/index.tsx` - **739 lines**
+
+**Issue:** These files violate Single Responsibility Principle. A 2,400 line file with 80+ methods is unmaintainable. On-call engineers cannot quickly locate bugs.
+
+**Impact:**
+- Longer code review times
+- Higher bug introduction rate
+- Difficult onboarding for new engineers
+- Git merge conflicts become painful
+
+**Recommendation:** Split using domain-driven boundaries:
+```
+server/
+├── storage/
+│   ├── user.storage.ts
+│   ├── job.storage.ts
+│   ├── candidate.storage.ts
+│   └── notification.storage.ts
+├── routes/
+│   ├── auth.routes.ts
+│   ├── job.routes.ts
+│   └── candidate.routes.ts
+```
+
+---
+
+### Performance Issues
+
+#### B. Sequential AI Processing in Loop (N+1 Query Pattern)
+**File:** `server/storage.ts:1093-1109`
+
+```typescript
+for (const { candidate_profiles: profile, users: user } of candidates as any) {
+  const match = await generateJobMatch(profile, job);  // SEQUENTIAL!
+  if (match.score > 0.4) {
+    matches.push({...});
+  }
+}
+```
+
+**Issue:** Processing 50 candidates sequentially with ~500ms AI call = **25 seconds** minimum. This is a classic N+1 anti-pattern.
+
+**Impact:**
+- Talent owners wait 25+ seconds for candidate matching
+- Server timeout on Vercel (10s limit)
+- Poor user experience
+
+**Recommendation:**
+```typescript
+// Parallel processing with concurrency limit
+const BATCH_SIZE = 5;
+const results = await Promise.all(
+  chunks(candidates, BATCH_SIZE).map(batch => 
+    Promise.all(batch.map(c => generateJobMatch(c.profile, job)))
+  )
+);
+```
+
+---
+
+#### C. Unbounded setInterval Without Cleanup - Memory Leak
+**Files:** Multiple locations
+
+```typescript
+// instant-job-delivery.ts:192
+setInterval(() => {
+  this.processDeliveryQueue();
+}, this.DELIVERY_INTERVAL);
+
+// notification-service.ts:575
+setInterval(() => {
+  this.connectedClients.forEach(...);
+}, 30000);
+
+// notification-service.ts:591
+setInterval(() => {
+  const now = Date.now();
+  this.pollingClients.forEach(...);
+}, 60000);
+```
+
+**Issue:** These intervals are never cleared. If the service is re-initialized or hot-reloaded, multiple intervals run simultaneously.
+
+**Impact:**
+- Memory grows over time
+- Duplicate processing
+- Server resource exhaustion
+
+**Recommendation:**
+```typescript
+private intervals: NodeJS.Timeout[] = [];
+
+startHeartbeat() {
+  this.intervals.push(setInterval(() => {...}, 30000));
+  this.intervals.push(setInterval(() => {...}, 60000));
+}
+
+cleanup() {
+  this.intervals.forEach(clearInterval);
+  this.intervals = [];
+}
+```
+
+---
+
+### Error Handling Anti-Patterns
+
+#### D. Silent Error Swallowing
+**File:** `server/services/agent-apply.service.ts`
+
+```typescript
+// Line 220
+await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
+// Line 221  
+await page.waitForSelector('input, textarea, select, button', { timeout: 8000 }).catch(() => {});
+
+// Multiple similar patterns throughout
+```
+
+**Issue:** Empty catch blocks hide failures. If the page doesn't load, the agent continues blindly.
+
+**Impact:**
+- Silent failures in production
+- Impossible to debug
+- Data corruption without visibility
+
+**Recommendation:**
+```typescript
+await page.waitForLoadState('networkidle', { timeout: 15000 })
+  .catch(err => {
+    console.error('Page load failed, retrying...', err);
+    throw new Error(`Navigation failed: ${err.message}`);
+  });
+```
+
+---
+
+#### E. Empty Catch in Promise Chains
+**File:** `server/routes.ts`
+
+```typescript
+// Line 204
+}).catch(err => console.error(`[Background] Notification failed...`, err?.message));
+
+// Missing catch handlers on lines 477, 532, 2123, 2150, 2196
+.then(jobs => jobs.slice(0, 15))
+.then(stats => console.log(...))
+```
+
+**Issue:** Unhandled promise rejections can crash the Node process.
+
+**Recommendation:** Add proper error boundaries and always handle promise rejections.
+
+---
+
+### React Performance Issues
+
+#### F. Using Index as Key
+**File:** `client/src/pages/talent-dashboard/CandidatesTab.tsx:278`
+
+```typescript
+{questions.map((q, i) => <li key={i}>{q}</li>)}
+```
+
+**Issue:** When questions are reordered or filtered, React won't properly reconcile. This causes state bugs where displayed items don't match actual data.
+
+**Recommendation:** Use stable identifiers:
+```typescript
+{questions.map((q) => <li key={q.id}>{q.text}</li>)}
+```
+
+---
+
+#### G. Missing useEffect Dependencies (Stale Closures)
+**File:** Multiple components
+
+While most useEffects have dependency arrays, there are patterns that could cause stale closures:
+
+```typescript
+// Potential stale closure pattern
+const handleAction = () => {
+  // Uses selectedJob but selectedJob isn't in dependency array
+  processJob(selectedJob.id);
+};
+
+useEffect(() => {
+  handleAction();
+}, []); // Empty - but handler changes
+```
+
+**Recommendation:** Use useCallback with proper dependencies or migrate to React Query for server state.
+
+---
+
+### Security Concerns
+
+#### H. Inconsistent Authorization Patterns
+**File:** `server/routes.ts`
+
+```typescript
+// Line 1596 - Implicit authorization (buried in storage call)
+app.get('/api/jobs/:jobId/applicants', isAuthenticated, async (req: any, res) => {
+  const applicants = await storage.getApplicantsForJob(jobId, req.user.id);
+  // Error message leaks info: "Job not found" vs "Unauthorized"
+});
+
+// Line 1773 - Check is passed to service, not visible in route
+app.post('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+  await notificationService.markAsRead(notificationId, req.user.id);
+});
+```
+
+**Issue:** Authorization logic is scattered. Some places check in routes, others in storage, others in services.
+
+**Recommendation:** Create centralized authorization middleware:
+```typescript
+function authorizeJobOwner(req: any, res: any, next: any) {
+  const job = await storage.getJobPosting(jobId);
+  if (!job || job.talentOwnerId !== req.user.id) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  next();
+}
+```
+
+---
+
+#### I. Verbose Error Messages in Production
+**File:** Multiple locations
+
+```typescript
+throw new Error(`Gemini API error ${res.status}: ${errText.slice(0, 200)}`);
+throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+throw new Error(`Company ${companyId} not found`);
+```
+
+**Issue:** Internal IDs, API responses, and system details exposed to clients.
+
+**Recommendation:** Create error translation layer:
+```typescript
+function sanitizeError(error: Error, env: string): { message: string; code?: string } {
+  if (env === 'production') {
+    return { message: 'An unexpected error occurred', code: 'INTERNAL_ERROR' };
+  }
+  return { message: error.message, code: error.name };
+}
+```
+
+---
+
+### API Design Issues
+
+#### J. Inconsistent Response Formats
+**File:** `server/routes.ts`
+
+Same API returns different structures:
+- `{ success: true }` (line 1778)
+- `{ message: '...' }` (line 1487)  
+- Just the object (line 889)
+- `{ jobs: [], cached: true }` (line 858)
+
+**Impact:** Frontend has to handle multiple response shapes. TypeScript interfaces become useless.
+
+**Recommendation:** Create response helpers:
+```typescript
+function success<T>(data: T, meta?: object) {
+  return { success: true, data, ...meta };
+}
+
+function error(message: string, code: string, details?: object) {
+  return { success: false, error: { message, code, details } };
+}
+```
+
+---
+
+#### K. Missing Pagination
+**File:** Multiple endpoints
+
+```typescript
+// Returns ALL candidates for a job
+const candidates = await db.select()
+  .from(candidateProfiles)
+  .where(...)
+  .limit(50); // Hardcoded limit but no offset/page
+```
+
+**Impact:** As data grows, these endpoints timeout.
+
+**Recommendation:** Add standardized pagination:
+```typescript
+app.get('/api/jobs/:jobId/candidates', async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  const offset = (page - 1) * limit;
+  
+  const [candidates, total] = await Promise.all([
+    db.select().from(...).limit(limit).offset(offset),
+    db.select({ count: sql`count(*)` }).from(...)
+  ]);
+  
+  res.json({ data: candidates, pagination: { page, limit, total, pages: Math.ceil(total/limit) }});
+});
+```
+
+---
+
+### Code Quality Issues
+
+#### L. Try-Catch Around Entire Route Handlers
+**File:** `server/routes.ts`
+
+```typescript
+app.get('/api/jobs/:jobId', async (req, res) => {
+  try {
+    // 200 lines of code
+    // Hard to see what throws what
+  } catch (error) {
+    res.status(500).json({ message: 'Error' });
+  }
+});
+```
+
+**Issue:** One giant try-catch makes it impossible to understand error flows. Different errors should have different responses.
+
+**Recommendation:** Granular error handling:
+```typescript
+app.get('/api/jobs/:jobId', async (req, res) => {
+  // Validate input - throws 400
+  const jobId = parseInt(req.params.jobId);
+  if (isNaN(jobId)) {
+    return res.status(400).json({ message: 'Invalid job ID' });
+  }
+  
+  // Fetch - throws 404
+  const job = await storage.getJobPosting(jobId);
+  if (!job) {
+    return res.status(404).json({ message: 'Job not found' });
+  }
+  
+  // Success
+  res.json(job);
+});
+```
+
+---
+
+#### M. Magic Numbers Throughout Codebase
+**File:** Multiple locations
+
+```typescript
+const DELIVERY_INTERVAL = 60000; // What is this?
+const MATCHING_TIMEOUT_MS = 45000;
+const BATCH_SIZE = 50;
+const MAX_RETRY = 3;
+```
+
+**Recommendation:** Create a constants file:
+```typescript
+// server/constants.ts
+export const TIMEOUTS = {
+  MATCHING_MS: 45000,
+  DB_RECOMMENDATIONS_MS: 8000,
+  HIRING_CAFE_MS: 5000,
+  AI_SCORING_MS: 30000,
+} as const;
+
+export const LIMITS = {
+  CANDIDATES_PER_JOB: 50,
+  JOBS_PER_PAGE: 20,
+  MAX_RESUME_SIZE_MB: 10,
+} as const;
+```
+
+---
+
+### Dependency Issues
+
+#### N. Duplicate Promise-Based Sleep Implementations
+**File:** Multiple files
+
+```typescript
+// job-aggregator.ts:201
+await new Promise(resolve => setTimeout(resolve, delay));
+
+// career-page-scraper.ts:570
+return new Promise(resolve => setTimeout(resolve, ms));
+
+// scraper-v2/engine.ts:298
+return new Promise(resolve => setTimeout(resolve, ms));
+```
+
+**Recommendation:** Create shared utility:
+```typescript
+// server/lib/sleep.ts
+export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Usage
+import { sleep } from '@/lib/sleep';
+await sleep(1000);
+```
+
+---
+
+#### O. Inconsistent Import Styles
+**Files:** Mixed usage
+
+```typescript
+import { db } from './db';
+import * as schema from "@shared/schema";
+import { eq, desc, asc, and, or } from "drizzle-orm";
+import { sql } from "drizzle-orm/sql";
+```
+
+**Recommendation:** Standardize imports with linting rules:
+```typescript
+// 1. Node built-ins
+// 2. External packages
+// 3. Internal absolute imports (@/)
+// 4. Relative imports
+```
+
+---
+
+### Testing Gaps (Senior View)
+
+#### P. No Performance/Load Tests
+**Current:** Only unit and integration tests exist.
+
+**Missing:**
+- API response time under load
+- Database query performance
+- Concurrent user simulation
+- Memory leak detection
+
+**Recommendation:** Add k6 or Artillery tests:
+```typescript
+// k6 script
+export default function() {
+  http.get('https://api.recrutas.com/api/jobs');
+  check(res, { 'status is 200': (r) => r.status === 200 });
+}
+```
+
+---
+
+#### Q. No Chaos Engineering
+- What happens when Redis goes down?
+- What happens when AI API times out?
+- What happens when database connection pool is exhausted?
+
+---
+
+## SUMMARY: Top 5 Critical Fixes (Senior Priority)
+
+| Priority | Issue | Impact | Effort |
+|----------|-------|--------|--------|
+| 1 | Sequential AI loop (B) | 25s+ response time | 1 day |
+| 2 | Memory leaks from setInterval (C) | Server crash | 2 days |
+| 3 | Silent error swallowing (D) | Undebuggable production issues | 3 days |
+| 4 | Split massive files (A) | Maintainability | 1 week |
+| 5 | Add pagination (K) | Scalability | 2 days |
+
+---
+
+*Senior Engineer Review: March 2026*
+*This review focused on architectural patterns, performance, and production reliability.*
+
+---
+
 *Report generated: March 2026*
 *Reviewer: AI Assistant*
 *Platform: Recrutas - AI-Powered Recruitment Platform*
