@@ -22,6 +22,6 @@ jobs:
         run: npm ci
 
       - name: Push schema to dev database
-        run: npx drizzle-kit push
+        run: npx drizzle-kit push --force
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL_DEV }}
