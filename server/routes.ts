@@ -838,9 +838,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Universal job scraper with database persistence
   app.get('/api/external-jobs', async (req, res) => {
     try {
-      const skills = req.query.skills ? String(req.query.skills).split(',').filter(Boolean) : [];
-      const jobTitle = req.query.jobTitle ? String(req.query.jobTitle) : undefined;
-      const location = req.query.location ? String(req.query.location) : undefined;
+      const skills = req.query.skills
+        ? String(req.query.skills).split(',').filter(Boolean).slice(0, 20).map(s => s.slice(0, 100))
+        : [];
+      const jobTitle = req.query.jobTitle ? String(req.query.jobTitle).slice(0, 200) : undefined;
+      const location = req.query.location ? String(req.query.location).slice(0, 200) : undefined;
       const rawWorkType = req.query.workType ? String(req.query.workType) : undefined;
       const VALID_WORK_TYPES = ['remote', 'hybrid', 'onsite'] as const;
       const workType = rawWorkType && (VALID_WORK_TYPES as readonly string[]).includes(rawWorkType)
