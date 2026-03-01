@@ -1,0 +1,27 @@
+name: Push Schema to Dev DB
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  push-schema:
+    name: Drizzle Push → recrutas-dev
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push schema to dev database
+        run: npx drizzle-kit push
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL_DEV }}
