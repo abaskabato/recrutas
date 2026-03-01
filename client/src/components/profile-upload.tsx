@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +72,7 @@ interface JobPreferences {
 }
 
 export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
+  const { session } = useSessionContext();
   const [profileLinks, setProfileLinks] = useState({
     linkedinUrl: '',
     githubUrl: '',
@@ -103,6 +105,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   const { data: profile, isLoading, isError, error: _error } = useQuery({
     queryKey: ['/api/candidate/profile'],
     queryFn: fetchProfileWithCache,
+    enabled: !!session,
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });

@@ -75,13 +75,8 @@ export class AdvancedMatchingEngine {
     }
 
     try {
-      // Fetch available jobs from multiple sources
-      const [internalJobs, externalJobs] = await Promise.all([
-        storage.getJobPostings(''),
-        this.fetchExternalJobs(criteria)
-      ]);
-
-      const allJobs = [...internalJobs, ...externalJobs];
+      // Fetch all active jobs from DB (internal + external)
+      const allJobs = await this.fetchAllActiveJobs();
 
       // Limit to 500 jobs, prioritizing most recent
       allJobs.sort((a, b) => {
@@ -409,20 +404,22 @@ export class AdvancedMatchingEngine {
     return R * c;
   }
 
-  private async fetchExternalJobs(criteria: AdvancedMatchCriteria): Promise<any[]> {
-    // Fetch real external jobs from the database
+  private async fetchAllActiveJobs(): Promise<any[]> {
+    // Fetch all active jobs from the database (internal + external)
     try {
       const { db } = await import('./db.js');
       const { jobPostings } = await import('../shared/schema.js');
-      
-      // Only fetch external jobs (have an externalUrl), excluding likely ghost jobs
-      const externalJobs = await db
+
+      if (!db) return [];
+
+      // Fetch all active jobs, excluding likely ghost jobs
+      const allJobs = await db
         .select()
         .from(jobPostings)
-        .where(sql`${jobPostings.status} = 'active' AND ${jobPostings.externalUrl} IS NOT NULL AND (${jobPostings.ghostJobScore} IS NULL OR ${jobPostings.ghostJobScore} < 60)`)
-        .limit(200);
+        .where(sql`${jobPostings.status} = 'active' AND (${jobPostings.ghostJobScore} IS NULL OR ${jobPostings.ghostJobScore} < 60)`)
+        .limit(500);
 
-      return externalJobs.map((job: any) => ({
+      return allJobs.map((job: any) => ({
         id: job.id,
         title: job.title,
         company: job.company,
@@ -438,7 +435,7 @@ export class AdvancedMatchingEngine {
         requirements: [],
       }));
     } catch (error) {
-      console.error('[AdvancedMatchingEngine] Error fetching external jobs:', error);
+      console.error('[AdvancedMatchingEngine] Error fetching active jobs:', error);
       return [];
     }
   }
@@ -489,12 +486,7 @@ export class AdvancedMatchingEngine {
     try {
       console.log('[SOTA Matching] Starting SOTA job matching...');
       
-      const [internalJobs, externalJobs] = await Promise.all([
-        storage.getJobPostings(''),
-        this.fetchExternalJobs(criteria)
-      ]);
-
-      const allJobs = [...internalJobs, ...externalJobs];
+      const allJobs = await this.fetchAllActiveJobs();
 
       const rankableJobs: RankableJob[] = allJobs.map(job => ({
         jobId: job.id,
