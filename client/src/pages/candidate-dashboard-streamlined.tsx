@@ -7,7 +7,6 @@ import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
 import { getCachedProfile } from "@/utils/storage.utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -32,6 +31,7 @@ import {
   Bookmark,
   Shield,
   Palette,
+  ArrowRight,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import AIJobFeed from "@/components/ai-job-feed";
@@ -213,28 +213,64 @@ export default function CandidateStreamlinedDashboard() {
     }
   }, [isResumeProcessing, queryClient, toast]);
 
+  const displayName = (user as any)?.firstName || user?.email?.split('@')[0] || 'there';
+  const avatarInitial = ((user as any)?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          <p className="text-gray-500 dark:text-gray-400">Loading your dashboard...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Navigation Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <SmartLogo size={32} />
+  const tabItems = [
+    { id: 'jobs' as const, label: 'Jobs', icon: Search, badge: hasResume && (stats?.newMatches ?? 0) > 0 && activeTab !== 'jobs' ? stats!.newMatches : null },
+    { id: 'saved' as const, label: 'Saved', icon: Bookmark, badge: null },
+    { id: 'applications' as const, label: 'Applications', icon: Briefcase, badge: (stats?.applicationsPending ?? 0) > 0 && activeTab !== 'applications' ? stats!.applicationsPending : null },
+    { id: 'profile' as const, label: 'Profile', icon: User, badge: null },
+  ];
 
-            {/* User Menu */}
-            <div className="flex items-center space-x-4">
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Sticky Header */}
+      <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            {/* Logo + breadcrumb */}
+            <div className="flex items-center gap-3">
+              <SmartLogo size={28} showText={false} />
+              <span className="hidden sm:block text-xs text-gray-400 dark:text-gray-500 font-medium tracking-wide uppercase">Candidate</span>
+            </div>
+
+            {/* Desktop tab nav */}
+            <nav className="hidden md:flex items-center gap-1">
+              {tabItems.map(({ id, label, icon: Icon, badge }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeTab === id
+                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                  {badge !== null && badge !== undefined && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            {/* Right controls */}
+            <div className="flex items-center gap-2">
               <ThemeToggleButton />
               <RealTimeNotifications onNavigate={(tab, path) => {
                 if (path) {setLocation(path);}
@@ -243,287 +279,245 @@ export default function CandidateStreamlinedDashboard() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {(user as any)?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
+                  <button className="focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 rounded-full">
+                    <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+                      {avatarInitial}
+                    </div>
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-52" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {(user as any)?.firstName && (user as any)?.lastName 
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {(user as any)?.firstName && (user as any)?.lastName
                           ? `${(user as any).firstName} ${(user as any).lastName}`
-                          : (user as any)?.firstName || (user as any)?.email?.split('@')[0] || 'User'}
+                          : displayName}
                       </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email || 'Candidate'}
-                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || 'Candidate'}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setActiveTab('profile')}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
+                    Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSettingsModalOpen(true)}>
                     <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
+                    Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 dark:text-red-400">
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign out</span>
+                    Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
+
+          {/* Mobile tab nav */}
+          <div className="md:hidden flex items-center gap-1 pb-2 overflow-x-auto">
+            {tabItems.map(({ id, label, icon: Icon, badge }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap shrink-0 transition-all ${
+                  activeTab === id
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+                {badge !== null && badge !== undefined && (
+                  <span className="ml-1 h-4 min-w-4 px-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, {(user as any)?.firstName || 'there'}!
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400">
-            Here's what's happening with your job search today.
-          </p>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Stats Grid — only show once user has activity */}
-        {hasResume && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">New Matches</CardTitle>
-                <Target className="h-5 w-5 text-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.newMatches || 0}</div>
-                <p className="text-xs text-muted-foreground pt-2">Jobs matched to your profile today.</p>
-                <Button className="mt-4 w-full" size="sm" onClick={() => setActiveTab('jobs')}>
-                  <Search className="h-4 w-4 mr-2" />
-                  View Jobs
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-green-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Recruiter Interest</CardTitle>
-                <Eye className="h-5 w-5 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.profileViews || 0}</div>
-                <p className="text-xs text-muted-foreground pt-2">Recruiters who viewed your profile.</p>
-                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('profile')}>
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Improve Profile
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-purple-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Chats</CardTitle>
-                <MessageCircle className="h-5 w-5 text-purple-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats?.activeChats || 0}</div>
-                <p className="text-xs text-muted-foreground pt-2">Direct conversations with hiring managers.</p>
-                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setLocation('/chat')}>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  View Chats
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-orange-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Applications</CardTitle>
-                <Briefcase className="h-5 w-5 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{applications?.length || 0}</div>
-                <p className="text-xs text-muted-foreground pt-2">Track your application statuses.</p>
-                <Button className="mt-4 w-full" size="sm" variant="outline" onClick={() => setActiveTab('applications')}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Track
-                </Button>
-              </CardContent>
-            </Card>
+        {/* Welcome + profile strip (only on jobs tab) */}
+        {activeTab === 'jobs' && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Welcome back, {displayName}
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Here's what's happening with your job search today.
+              </p>
+            </div>
+            {/* Profile completion mini-bar */}
+            {profile && (
+              <div
+                className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition-colors shrink-0"
+                onClick={() => setActiveTab('profile')}
+              >
+                <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
+                  {avatarInitial}
+                </div>
+                <div className="min-w-[120px]">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Profile</span>
+                    <span className={`text-xs font-bold ${profileCompletion === 100 ? 'text-emerald-600' : profileCompletion >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                      {profileCompletion}%
+                    </span>
+                  </div>
+                  <Progress value={profileCompletion} className="h-1.5 w-full" />
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+              </div>
+            )}
           </div>
         )}
 
-        {/* Resume Processing Status Banner */}
-        {isResumeProcessing && (
-          <Card className="mb-8 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border-amber-200 dark:border-amber-800">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-4">
-                <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-600 dark:border-amber-400"></div>
+        {/* Stats row — only when resume uploaded */}
+        {hasResume && activeTab === 'jobs' && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              {
+                label: 'New Matches',
+                value: stats?.newMatches ?? 0,
+                icon: Target,
+                iconBg: 'bg-emerald-50 dark:bg-emerald-950',
+                iconColor: 'text-emerald-600 dark:text-emerald-400',
+                action: () => {},
+                actionLabel: 'In your feed',
+              },
+              {
+                label: 'Recruiter Views',
+                value: stats?.profileViews ?? 0,
+                icon: Eye,
+                iconBg: 'bg-blue-50 dark:bg-blue-950',
+                iconColor: 'text-blue-600 dark:text-blue-400',
+                action: () => setActiveTab('profile'),
+                actionLabel: 'Improve profile',
+              },
+              {
+                label: 'Active Chats',
+                value: stats?.activeChats ?? 0,
+                icon: MessageCircle,
+                iconBg: 'bg-violet-50 dark:bg-violet-950',
+                iconColor: 'text-violet-600 dark:text-violet-400',
+                action: () => setLocation('/chat'),
+                actionLabel: 'Open chats',
+              },
+              {
+                label: 'Applications',
+                value: applications?.length ?? 0,
+                icon: Briefcase,
+                iconBg: 'bg-amber-50 dark:bg-amber-950',
+                iconColor: 'text-amber-600 dark:text-amber-400',
+                action: () => setActiveTab('applications'),
+                actionLabel: 'Track all',
+              },
+            ].map(({ label, value, icon: Icon, iconBg, iconColor, action, actionLabel }) => (
+              <div key={label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                  <Icon className={`h-4 w-4 ${iconColor}`} />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-amber-900 dark:text-amber-100">
-                    Analyzing Your Resume
-                  </h3>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    AI is extracting your skills and experience. This will improve your job matches. You'll be notified when complete.
-                  </p>
+                <div className="min-w-0">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{value}</div>
+                  <button
+                    onClick={action}
+                    className="flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mt-0.5"
+                  >
+                    {label}
+                  </button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
         )}
 
-        {/* Resume Processing Complete Banner */}
+        {/* Resume Processing Status Banners */}
+        {isResumeProcessing && (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900 flex items-center justify-center shrink-0">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-amber-600 dark:border-amber-400 border-t-transparent" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">Analyzing your resume</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">AI is extracting your skills and experience. You'll be notified when complete.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {resumeProcessingStatus === 'completed' && (profile as any)?.parsedAt && (
-          new Date((profile as any).parsedAt).getTime() > Date.now() - 60000 && ( // Show for 1 minute after completion
-            <Card className="mb-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-200 dark:border-green-800">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-4">
-                  <div className="h-10 w-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-green-900 dark:text-green-100">
-                      Resume Processed Successfully
-                    </h3>
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      Your skills have been extracted and added to your profile. Check your job feed for updated matches!
-                    </p>
-                  </div>
+          new Date((profile as any).parsedAt).getTime() > Date.now() - 60000 && (
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center shrink-0">
+                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Resume processed successfully</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">Your skills have been extracted. Check your job feed for updated matches!</p>
+                </div>
+              </div>
+            </div>
           )
         )}
 
-        {/* Resume Processing Failed Banner */}
         {resumeProcessingStatus === 'failed' && (
-          <Card className="mb-8 bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/30 dark:to-rose-900/30 border-red-200 dark:border-red-800">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-4">
-                <div className="h-10 w-10 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-red-900 dark:text-red-100">
-                    Resume Processing Failed
-                  </h3>
-                  <p className="text-sm text-red-700 dark:text-red-300">
-                    We couldn't extract information from your resume. Please try uploading a different file or add your skills manually.
-                  </p>
-                </div>
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-900 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="text-sm font-semibold text-red-900 dark:text-red-100">Resume processing failed</p>
+                <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">We couldn't extract your information. Try uploading a different file or add skills manually.</p>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Resume Upload CTA */}
-        {!hasResume && (
-          <Card className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-4">
-                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                    Let's start with your resume
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    Upload once and we'll extract your skills, experience, and match you to the right jobs automatically.
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={() => setActiveTab('profile')}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Resume
-                  </Button>
-                </div>
+        {!hasResume && activeTab === 'jobs' && (
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-5">
+            <div className="flex items-start gap-4">
+              <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  Start by uploading your resume
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Upload once and we'll extract your skills, experience, and match you to the right jobs automatically.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setActiveTab('profile')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
+                >
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  Upload Resume
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
-
-        {/* Navigation Tabs */}
-        <div className="mb-8">
-          <nav className="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setActiveTab('jobs')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'jobs'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-              <Search className="h-4 w-4" />
-              Jobs
-              {(stats?.newMatches ?? 0) > 0 && activeTab !== 'jobs' && (
-                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-blue-500 text-white text-xs font-bold">
-                  {stats!.newMatches}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'saved'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-              <Bookmark className="h-4 w-4" />
-              Saved
-            </button>
-            <button
-              onClick={() => setActiveTab('applications')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${activeTab === 'applications'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-              <Briefcase className="h-4 w-4" />
-              Applications
-              {(stats?.applicationsPending ?? 0) > 0 && activeTab !== 'applications' && (
-                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-orange-500 text-white text-xs font-bold">
-                  {stats!.applicationsPending}
-                </span>
-              )}
-            </button>
-            {/* Recrutas Agent - hidden for now, will be added as premium feature */}
-            {/* 
-            <button
-              onClick={() => setActiveTab('agent')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'agent'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-              <Zap className="h-4 w-4 mr-2 inline" />
-              Recrutas Agent
-            </button>
-            */}
-          </nav>
-        </div>
 
         {/* Tab Content */}
         {activeTab === 'jobs' && (
           <div className="relative">
             {isResumeProcessing && (
-              <div className="absolute inset-0 z-10 flex items-start justify-center pt-24 bg-white/70 dark:bg-gray-900/70 rounded-lg backdrop-blur-sm">
+              <div className="absolute inset-0 z-10 flex items-start justify-center pt-24 bg-white/70 dark:bg-gray-900/70 rounded-xl backdrop-blur-sm">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                  <p className="text-lg font-semibold text-gray-800 dark:text-white">Finding your matches...</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hang on while we scan your resume</p>
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-500 border-t-transparent mx-auto mb-4" />
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white">Finding your matches...</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hang on while we scan your resume</p>
                 </div>
               </div>
             )}
@@ -532,12 +526,11 @@ export default function CandidateStreamlinedDashboard() {
         )}
 
         {activeTab === 'saved' && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Saved Jobs</h2>
-              <p className="text-gray-500 dark:text-gray-400">Jobs you've bookmarked for later</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Saved Jobs</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Jobs you've bookmarked for later</p>
             </div>
-            {/* Simple saved jobs display - fetches from API */}
             <SavedJobsList />
           </div>
         )}
@@ -545,11 +538,13 @@ export default function CandidateStreamlinedDashboard() {
         {activeTab === 'applications' && (
           <div>
             {applications && applications.length === 0 ? (
-              <div className="text-center py-20">
-                <Briefcase className="h-14 w-14 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No applications yet</h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">Start applying to jobs and track every status here in real time.</p>
-                <Button onClick={() => setActiveTab('jobs')}>
+              <div className="text-center py-16">
+                <div className="h-14 w-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                  <Briefcase className="h-7 w-7 text-gray-400" />
+                </div>
+                <p className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">No applications yet</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Start applying to jobs and track every status here in real time.</p>
+                <Button onClick={() => setActiveTab('jobs')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                   <Search className="h-4 w-4 mr-2" />
                   Browse Jobs
                 </Button>
@@ -561,37 +556,37 @@ export default function CandidateStreamlinedDashboard() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="max-w-4xl space-y-6">
-            {/* Profile completion meter */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Profile Completion</span>
-                  <span className={`text-sm font-bold ${profileCompletion === 100 ? 'text-green-600' : profileCompletion >= 50 ? 'text-blue-600' : 'text-orange-500'}`}>
-                    {profileCompletion}%
-                  </span>
-                </div>
-                <Progress value={profileCompletion} className="h-2" />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {profileCompletion === 100
-                    ? 'Your profile is complete — great matches incoming!'
-                    : profileCompletion < 33
-                      ? 'Upload a resume to unlock AI-matched jobs'
-                      : profileCompletion < 66
-                        ? 'Add experience, location, or salary range to improve matches'
-                        : 'Almost there — fill in the remaining fields for better matches'}
-                </p>
-              </CardContent>
-            </Card>
-            {/* Resume nudge when no resume on file */}
+          <div className="max-w-3xl space-y-5">
+            {/* Profile completion card */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">Profile Completion</span>
+                <span className={`text-sm font-bold ${profileCompletion === 100 ? 'text-emerald-600' : profileCompletion >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                  {profileCompletion}%
+                </span>
+              </div>
+              <Progress value={profileCompletion} className="h-2" />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {profileCompletion === 100
+                  ? 'Your profile is complete — great matches incoming!'
+                  : profileCompletion < 33
+                    ? 'Upload a resume to unlock AI-matched jobs'
+                    : profileCompletion < 66
+                      ? 'Add experience, location, or salary range to improve matches'
+                      : 'Almost there — fill in the remaining fields for better matches'}
+              </p>
+            </div>
+
+            {/* Resume nudge */}
             {!hasResume && (
-              <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
                 <p className="text-sm text-amber-800 dark:text-amber-200">
                   No resume on file yet. Upload one below to get AI-powered job matches.
                 </p>
               </div>
             )}
+
             <ProfileUpload onProfileSaved={() => setActiveTab('jobs')} />
           </div>
         )}
@@ -599,108 +594,89 @@ export default function CandidateStreamlinedDashboard() {
         {activeTab === 'agent' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recrutas AI Agent</h2>
-              <p className="text-gray-500 dark:text-gray-400">Your personal AI-powered career assistant</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Recrutas AI Agent</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Your personal AI-powered career assistant</p>
             </div>
 
             {/* Feature Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-200 dark:border-blue-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-blue-700 dark:text-blue-400">
-                    <Target className="h-5 w-5 mr-2" />
-                    Smart Job Matching
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Our AI analyzes your skills, experience, and preferences to find jobs that match your profile perfectly.
-                  </p>
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Active
-                  </Badge>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Smart Job Matching</h3>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  AI analyzes your skills, experience, and preferences to find jobs that match your profile perfectly.
+                </p>
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400 border-0">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Active
+                </Badge>
+              </div>
 
-              <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 border-purple-200 dark:border-purple-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-purple-700 dark:text-purple-400">
-                    <Zap className="h-5 w-5 mr-2" />
-                    Resume Optimization
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Get AI-powered suggestions to improve your resume and increase your chances of getting noticed by recruiters.
-                  </p>
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Active
-                  </Badge>
-                </CardContent>
-              </Card>
+              <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Resume Optimization</h3>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Get AI-powered suggestions to improve your resume and increase your chances with recruiters.
+                </p>
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400 border-0">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Active
+                </Badge>
+              </div>
 
-              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-200 dark:border-amber-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-amber-700 dark:text-amber-400">
-                    <TrendingUp className="h-5 w-5 mr-2" />
-                    Career Insights
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Discover trending skills in your industry and get personalized learning recommendations.
-                  </p>
-                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400">
-                    Coming Soon
-                  </Badge>
-                </CardContent>
-              </Card>
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Career Insights</h3>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Discover trending skills in your industry and get personalized learning recommendations.
+                </p>
+                <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400 border-0">
+                  Coming Soon
+                </Badge>
+              </div>
             </div>
 
-            {/* AI Tips Section */}
-            <Card className="bg-white dark:bg-gray-800">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Star className="h-5 w-5 mr-2 text-yellow-500" />
-                  AI-Powered Tips for You
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Complete Your Profile</h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
+            {/* AI Tips */}
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Star className="h-4 w-4 text-amber-500" />
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">AI-Powered Tips for You</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Complete Your Profile</h4>
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mb-3">
                     Add more skills to your profile to improve your match score. Candidates with 10+ skills get 40% more job matches.
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setProfileModalOpen(true)}
-                    className="bg-white dark:bg-gray-800"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Edit Profile & Skills
+                  <Button size="sm" variant="outline" onClick={() => setProfileModalOpen(true)} className="h-7 text-xs">
+                    <Settings className="h-3.5 w-3.5 mr-1.5" />
+                    Edit Profile &amp; Skills
                   </Button>
                 </div>
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
-                  <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Apply Early</h4>
-                  <p className="text-sm text-green-700 dark:text-green-400">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                  <h4 className="text-sm font-medium text-emerald-800 dark:text-emerald-300 mb-1">Apply Early</h4>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">
                     Jobs posted in the last 24 hours have a 2x higher response rate. Check your job feed daily for new opportunities.
                   </p>
                 </div>
-                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800">
-                  <h4 className="font-medium text-purple-800 dark:text-purple-300 mb-2">Engage with Recruiters</h4>
-                  <p className="text-sm text-purple-700 dark:text-purple-400">
+                <div className="p-4 bg-violet-50 dark:bg-violet-950/30 rounded-lg border border-violet-100 dark:border-violet-800">
+                  <h4 className="text-sm font-medium text-violet-800 dark:text-violet-300 mb-1">Engage with Recruiters</h4>
+                  <p className="text-xs text-violet-700 dark:text-violet-400">
                     Respond to messages within 24 hours. Quick responses show recruiters you're actively interested.
                   </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Quick Actions */}
-            <div className="flex flex-wrap gap-4">
-              <Button onClick={() => setActiveTab('jobs')} className="bg-blue-600 hover:bg-blue-700">
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setActiveTab('jobs')} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Search className="h-4 w-4 mr-2" />
                 Find AI-Matched Jobs
               </Button>
@@ -888,7 +864,7 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saveMutation.isPending}>
+          <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             {saveMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
@@ -935,59 +911,69 @@ function SavedJobsList() {
   });
 
   if (isLoading) {
-    return <div className="text-center py-8 text-gray-500">Loading saved jobs...</div>;
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 animate-pulse">
+            <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-1/3 mb-2" />
+            <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/4" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (!savedJobs || savedJobs.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <Bookmark className="h-12 w-12 mx-auto mb-4 opacity-30" />
-        <p className="text-lg mb-2">No saved jobs yet</p>
-        <p className="text-sm">Jobs you save will appear here for easy access</p>
+      <div className="text-center py-12">
+        <div className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+          <Bookmark className="h-6 w-6 text-gray-400" />
+        </div>
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">No saved jobs yet</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Jobs you save will appear here for easy access</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {savedJobs.map((job: any) => (
-        <Card key={job.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-lg leading-tight">{job.title}</h3>
-                <p className="text-gray-600 dark:text-gray-400">{job.company}</p>
-                <p className="text-sm text-gray-500">{job.location}</p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (job.externalUrl) {
-                      window.open(job.externalUrl, '_blank');
-                    } else {
-                      setLocation(`/candidate-dashboard?tab=jobs&job=${job.id}`);
-                    }
-                  }}
-                >
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  View
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => unsaveMutation.mutate(job.id)}
-                  disabled={unsaveMutation.isPending}
-                  className="text-gray-400 hover:text-red-500"
-                  title="Remove from saved"
-                >
-                  <Bookmark className="h-4 w-4 fill-current" />
-                </Button>
-              </div>
+        <div key={job.id} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
+          <div className="flex justify-between items-start gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">{job.title}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{job.company}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{job.location}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs border-gray-200 dark:border-gray-700"
+                onClick={() => {
+                  if (job.externalUrl) {
+                    window.open(job.externalUrl, '_blank');
+                  } else {
+                    setLocation(`/candidate-dashboard?tab=jobs&job=${job.id}`);
+                  }
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                View
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                onClick={() => unsaveMutation.mutate(job.id)}
+                disabled={unsaveMutation.isPending}
+                title="Remove from saved"
+              >
+                <Bookmark className="h-3.5 w-3.5 fill-current" />
+              </Button>
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );

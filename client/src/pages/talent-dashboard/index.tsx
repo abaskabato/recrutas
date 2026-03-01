@@ -15,7 +15,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Plus, Users, Briefcase, TrendingUp, Menu, Settings, LogOut, Loader2
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Plus, Users, Briefcase, TrendingUp, Settings, LogOut, Loader2, BarChart3
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import JobPostingWizard from "@/components/job-posting-wizard";
@@ -27,6 +35,13 @@ import OverviewTab from "./OverviewTab";
 import JobsTab from "./JobsTab";
 import CandidatesTab from "./CandidatesTab";
 import AnalyticsTab from "./AnalyticsTab";
+
+const TAB_CONFIG: { id: TabName; label: string; icon: React.ElementType }[] = [
+  { id: 'overview', label: 'Overview', icon: TrendingUp },
+  { id: 'jobs', label: 'Jobs', icon: Briefcase },
+  { id: 'candidates', label: 'Candidates', icon: Users },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+];
 
 export default function TalentDashboard() {
   const { session, isLoading } = useSessionContext();
@@ -78,7 +93,6 @@ export default function TalentDashboard() {
   const [showJobWizard, setShowJobWizard] = useState(false);
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedApplicantId, setExpandedApplicantId] = useState<number | null>(null);
@@ -300,120 +314,117 @@ export default function TalentDashboard() {
     return [...qualified, { _separator: true }, ...below];
   })();
 
+  const displayName = (user as any)?.firstName || user?.email?.split('@')[0] || 'User';
+  const avatarInitial = displayName[0]?.toUpperCase() || 'U';
+
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile Header */}
-      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden">
-              <Menu className="h-5 w-5" />
-            </Button>
-            <SmartLogo size={32} showText={false} />
-          </div>
-          <div className="flex items-center space-x-2">
-            <ThemeToggleButton />
-            <RealTimeNotifications />
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-
-        {mobileMenuOpen && (
-          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="p-4 space-y-2">
-              {(['overview', 'jobs', 'candidates', 'analytics'] as TabName[]).map((tab) => (
-                <Button
-                  key={tab}
-                  variant={activeTab === tab ? "secondary" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => { setActiveTab(tab); setMobileMenuOpen(false); }}
-                >
-                  {tab === 'overview' && <TrendingUp className="h-4 w-4 mr-2" />}
-                  {tab === 'jobs' && <Briefcase className="h-4 w-4 mr-2" />}
-                  {tab === 'candidates' && <Users className="h-4 w-4 mr-2" />}
-                  {tab === 'analytics' && <TrendingUp className="h-4 w-4 mr-2" />}
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop Header */}
-      <div className="hidden lg:block bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Sticky Header */}
+      <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur border-b border-gray-200 dark:border-gray-800 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <SmartLogo size={32} showText={false} />
-              <nav className="flex space-x-8">
-                {(['overview', 'jobs', 'candidates', 'analytics'] as TabName[]).map((tab) => (
-                  <Button
-                    key={tab}
-                    variant={activeTab === tab ? "secondary" : "ghost"}
-                    onClick={() => setActiveTab(tab)}
-                    className="capitalize"
+          <div className="flex items-center justify-between h-14">
+            {/* Left: Logo + breadcrumb */}
+            <div className="flex items-center gap-3">
+              <SmartLogo size={28} showText={false} />
+              <span className="hidden sm:block text-xs text-gray-400 dark:text-gray-500 font-medium tracking-wide uppercase">Recruiter</span>
+
+              {/* Desktop tab nav */}
+              <nav className="hidden lg:flex items-center gap-1 ml-4">
+                {TAB_CONFIG.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                      activeTab === id
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                    }`}
                   >
-                    {tab === 'overview' && <TrendingUp className="h-4 w-4 mr-2" />}
-                    {tab === 'jobs' && <Briefcase className="h-4 w-4 mr-2" />}
-                    {tab === 'candidates' && <Users className="h-4 w-4 mr-2" />}
-                    {tab === 'analytics' && <TrendingUp className="h-4 w-4 mr-2" />}
-                    {tab}
-                  </Button>
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
                 ))}
               </nav>
             </div>
 
-            <div className="flex items-center space-x-4">
+            {/* Right: actions */}
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowJobWizard(true)}
+                size="sm"
+                className="hidden sm:flex bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Post Job
+              </Button>
+
               <ThemeToggleButton />
               <RealTimeNotifications />
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-primary-foreground text-sm font-medium">
-                    {(user as any)?.firstName?.[0] || user.email?.[0] || 'U'}
-                  </span>
-                </div>
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  {(user as any)?.firstName || user.email?.split('@')[0] || 'User'}
-                </span>
-              </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={() => setShowProfileSettings(true)}>
-                      <Settings className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Profile Settings</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                      <LogOut className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Sign Out</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+
+              {/* Avatar dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+                    <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+                      {avatarInitial}
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-52" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{displayName}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowProfileSettings(true)}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 dark:text-red-400">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content — delegate to tab components */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
+          {/* Mobile tab nav */}
+          <div className="lg:hidden flex items-center gap-1 pb-2 overflow-x-auto">
+            {TAB_CONFIG.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                  activeTab === id
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'overview' && (
           <OverviewTab
             user={user}
@@ -466,7 +477,7 @@ export default function TalentDashboard() {
             allApplicants={allApplicants}
           />
         )}
-      </div>
+      </main>
 
       {/* Job Posting Wizard */}
       {showJobWizard && (
@@ -614,6 +625,7 @@ export default function TalentDashboard() {
                   }
                 }}
                 disabled={updateJobMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {updateJobMutation.isPending ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
@@ -711,7 +723,7 @@ export default function TalentDashboard() {
             </div>
             <div className="flex gap-2 pt-2">
               <Button
-                className="flex-1"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                 disabled={!interviewForm.scheduledAt || scheduleInterviewMutation.isPending || !selectedJob || !scheduleApplicant}
                 onClick={() => {
                   if (!selectedJob || !scheduleApplicant) return;
