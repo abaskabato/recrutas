@@ -2,8 +2,8 @@
  * SOTA Job Scraper Types and Interfaces
  * 
  * Comprehensive type definitions for a state-of-the-art job scraping system
- * that outperforms hiring.cafe through multiple extraction strategies,
- * intelligent deduplication, and rich data enrichment.
+ * using multiple extraction strategies, intelligent deduplication, and rich
+ * data enrichment.
  */
 
 // ============================================================================

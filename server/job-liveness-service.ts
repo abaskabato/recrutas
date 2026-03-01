@@ -7,7 +7,6 @@
  * - Redirects to generic career pages
  * - "Position filled" / "No longer available" text
  *
- * Based on HiringCafe's approach to eliminate stale jobs
  */
 
 import { db } from './db';

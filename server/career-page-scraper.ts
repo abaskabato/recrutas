@@ -1,13 +1,8 @@
 /**
- * Career Page Scraper - HiringCafe-style job scraping
+ * Career Page Scraper
  *
- * This scraper fetches jobs directly from company career pages
- * and uses AI to extract structured job data from HTML content.
- *
- * Based on HiringCafe's approach:
- * - Scrape directly from employer career pages
- * - Use AI (Groq/LLM) to extract job details
- * - Keep results fresh with frequent updates
+ * Fetches jobs directly from company career pages and uses AI (Groq/LLM)
+ * to extract structured job data from HTML content.
  */
 
 import Groq from 'groq-sdk';
@@ -143,7 +138,7 @@ class CareerPageScraper {
   private _groq: Groq | null = null;
   private _groqInitialized = false;
   private cache: Map<string, { jobs: ScrapedJob[], timestamp: number }> = new Map();
-  private cacheTTL = 4 * 60 * 60 * 1000; // 4 hours cache (scrape 3x/day like HiringCafe)
+  private cacheTTL = 4 * 60 * 60 * 1000; // 4 hours cache (3x/day)
 
   // Lazy-initialize Groq to ensure env vars are loaded (ESM imports hoist before dotenv.config)
   private get groq(): Groq | null {
@@ -396,7 +391,7 @@ class CareerPageScraper {
 
   /**
    * Scrape jobs using AI extraction from HTML
-   * This is the HiringCafe-style approach for companies without APIs
+   * AI-powered scraping for companies without structured APIs
    */
   private async scrapeWithAI(company: CompanyCareerPage): Promise<ScrapedJob[]> {
     if (!this.groq && !process.env.GEMINI_API_KEY) {

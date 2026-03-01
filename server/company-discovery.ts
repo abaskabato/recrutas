@@ -6,7 +6,6 @@
  * - Detecting ATS type from career page URL patterns
  * - Queueing companies for review/scraper addition
  *
- * Based on HiringCafe's approach of continuously expanding coverage
  */
 
 import { db } from './db';

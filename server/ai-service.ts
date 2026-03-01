@@ -400,7 +400,6 @@ export async function generateScreeningQuestions(candidate: CandidateProfile, jo
 
 /**
  * GPT-powered job description summarization
- * Similar to HiringCafe's approach of providing structured job summaries
  */
 export async function summarizeJobDescription(description: string, title?: string, company?: string): Promise<JobSummary> {
   const groqClient = getGroqClient();

@@ -90,10 +90,6 @@ export class UniversalJobScraper {
     return this.deduplicateJobs(jobs).slice(0, 50);
   }
 
-  async scrapeHiringCafe(): Promise<UniversalJob[]> {
-    return this.scrapeCompanyJobs('https://hiring.cafe', 'hiring.cafe');
-  }
-
   private extractJsonLdJobs(html: string, sourceUrl: string, companyName?: string): UniversalJob[] {
     const jobs: UniversalJob[] = [];
     const jsonLdPattern = /<script[^>]*type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/g;
