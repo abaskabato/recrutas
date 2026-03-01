@@ -804,6 +804,55 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Auth routes
+
+  // Extension login — proxies email/password to Supabase, returns JWT tokens.
+  // No isAuthenticated middleware: this IS the sign-in endpoint.
+  app.post('/api/auth/extension-login', async (req, res) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ message: 'email and password are required' });
+      }
+
+      const supabaseUrl  = process.env.SUPABASE_URL;
+      const supabaseAnon = process.env.SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnon) {
+        return res.status(503).json({ message: 'Auth service not configured' });
+      }
+
+      const sbRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnon,
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const sbBody = await sbRes.json() as any;
+
+      if (!sbRes.ok) {
+        const msg = sbBody?.error_description || sbBody?.message || 'Invalid credentials';
+        return res.status(401).json({ message: msg });
+      }
+
+      return res.json({
+        accessToken:  sbBody.access_token,
+        refreshToken: sbBody.refresh_token,
+        expiresAt:    Date.now() + (sbBody.expires_in ?? 3600) * 1000,
+        user: {
+          email: sbBody.user?.email,
+          name:  sbBody.user?.user_metadata?.first_name
+                  ? `${sbBody.user.user_metadata.first_name} ${sbBody.user.user_metadata.last_name || ''}`.trim()
+                  : sbBody.user?.email,
+        },
+      });
+    } catch (error) {
+      console.error('Extension login error:', error);
+      res.status(500).json({ message: 'Login failed' });
+    }
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}

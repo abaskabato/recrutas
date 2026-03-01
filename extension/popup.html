@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recrutas Auto-Fill</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+        <span>Recrutas</span>
+      </div>
+    </header>
+
+    <!-- Signed-out state -->
+    <div id="view-login" class="view hidden">
+      <p class="subtitle">Sign in to auto-fill job applications</p>
+
+      <form id="login-form" autocomplete="on">
+        <div class="field">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            name="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+
+        <div id="login-error" class="error-msg hidden"></div>
+
+        <button type="submit" id="login-btn" class="btn btn-primary">
+          Sign in
+        </button>
+      </form>
+
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <div class="field">
+          <label for="recrutas-url">Recrutas URL</label>
+          <input
+            id="recrutas-url"
+            type="url"
+            placeholder="https://recrutas.vercel.app"
+          />
+        </div>
+        <button id="save-url-btn" class="btn btn-ghost">Save URL</button>
+      </details>
+    </div>
+
+    <!-- Signed-in state -->
+    <div id="view-profile" class="view hidden">
+      <div class="profile-card">
+        <div class="avatar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="profile-info">
+          <div id="user-name" class="user-name">Loading…</div>
+          <div id="user-email" class="user-email"></div>
+        </div>
+      </div>
+
+      <div class="status-badge">
+        <span class="dot"></span>
+        Connected — ready to auto-fill
+      </div>
+
+      <p class="hint">
+        Navigate to a job application page and click the
+        <strong>Fill with Recrutas</strong> button.
+      </p>
+
+      <button id="disconnect-btn" class="btn btn-outline">
+        Disconnect
+      </button>
+    </div>
+
+    <!-- Loading state -->
+    <div id="view-loading" class="view">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

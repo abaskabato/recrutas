@@ -1,0 +1,87 @@
+/* Recrutas Auto-Fill — Injected styles */
+
+#recrutas-fill-btn.recrutas-fill-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647; /* max z-index */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #10b981; /* emerald-500 */
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+#recrutas-fill-btn.recrutas-fill-btn:hover {
+  background: #059669; /* emerald-600 */
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.55);
+  transform: translateY(-1px);
+}
+
+#recrutas-fill-btn.recrutas-fill-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+#recrutas-fill-btn.recrutas-fill-btn:disabled {
+  background: #6ee7b7; /* emerald-300 */
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Toast banner */
+#recrutas-banner.recrutas-banner {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  z-index: 2147483647;
+  max-width: 340px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  animation: recrutas-slide-in 0.2s ease;
+}
+
+#recrutas-banner.recrutas-banner--success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+#recrutas-banner.recrutas-banner--error {
+  background: #fef2f2;
+  color: #7f1d1d;
+  border: 1px solid #fca5a5;
+}
+
+#recrutas-banner.recrutas-banner--warning {
+  background: #fffbeb;
+  color: #78350f;
+  border: 1px solid #fcd34d;
+}
+
+@keyframes recrutas-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
