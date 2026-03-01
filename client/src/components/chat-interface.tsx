@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoleBasedAuth as useAuth } from "@/hooks/useRoleBasedAuth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ interface ChatInterfaceProps {
 
 export default function ChatInterface({ roomId, room, onClose }: ChatInterfaceProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -24,7 +26,9 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
     queryKey: ["/api/chat/rooms", roomId, "messages"],
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/chat/rooms/${roomId}/messages`);
+      if (!response.ok) throw new Error(`Failed to load messages: ${response.status}`);
       const msgs = await response.json();
+      if (!Array.isArray(msgs)) return [];
       // API returns flat senderFirstName/senderEmail fields — normalize to sender object
       return msgs.map((msg: any) => ({
         ...msg,
@@ -37,17 +41,21 @@ export default function ChatInterface({ roomId, room, onClose }: ChatInterfacePr
       }));
     },
     enabled: !!roomId,
-    refetchInterval: 5000, // Poll for new messages every 5 seconds
+    refetchInterval: 5000,
   });
 
   const sendMessageMutation = useMutation({
     mutationFn: async (messageText: string) => {
       const response = await apiRequest("POST", `/api/chat/rooms/${roomId}/messages`, { message: messageText });
+      if (!response.ok) throw new Error(`Failed to send message: ${response.status}`);
       return response.json();
     },
     onSuccess: () => {
       setMessage("");
       queryClient.invalidateQueries({ queryKey: ["/api/chat/rooms", roomId, "messages"] });
+    },
+    onError: () => {
+      toast({ title: "Failed to send message", description: "Please try again.", variant: "destructive" });
     },
   });
 
