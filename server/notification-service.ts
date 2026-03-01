@@ -46,6 +46,7 @@ class NotificationService {
   private readonly POLLING_TIMEOUT = 30000; // 30 seconds for long-polling
   private readonly STALE_CONNECTION_TIMEOUT = 60000; // 1 minute
   private readonly MAX_CONNECTIONS_PER_USER = 5; // Limit connections per user
+  private heartbeatIntervals: NodeJS.Timeout[] = [];
 
   // WebSocket connection management
   addConnection(userId: string, ws: WebSocketClient) {
@@ -572,30 +573,38 @@ class NotificationService {
 
   // Heartbeat for WebSocket connections
   startHeartbeat() {
-    setInterval(() => {
-      this.connectedClients.forEach((connections, userId) => {
-        connections.forEach((ws, index) => {
-          if (!ws.isAlive) {
-            ws.terminate();
-            this.removeConnection(userId, ws);
-            return;
-          }
+    if (this.heartbeatIntervals.length > 0) return; // Guard against double-init
 
-          ws.isAlive = false;
-          ws.ping();
+    this.heartbeatIntervals.push(
+      setInterval(() => {
+        this.connectedClients.forEach((connections, userId) => {
+          connections.forEach((ws) => {
+            if (!ws.isAlive) {
+              ws.terminate();
+              this.removeConnection(userId, ws);
+              return;
+            }
+            ws.isAlive = false;
+            ws.ping();
+          });
         });
-      });
-    }, 30000); // 30 seconds
+      }, 30000), // 30 seconds
 
-    // Cleanup stale polling clients
-    setInterval(() => {
-      const now = Date.now();
-      this.pollingClients.forEach((state, userId) => {
-        if (now - state.lastPollTime.getTime() > this.STALE_CONNECTION_TIMEOUT) {
-          this.pollingClients.delete(userId);
-        }
-      });
-    }, 60000); // Every minute
+      // Cleanup stale polling clients
+      setInterval(() => {
+        const now = Date.now();
+        this.pollingClients.forEach((state, userId) => {
+          if (now - state.lastPollTime.getTime() > this.STALE_CONNECTION_TIMEOUT) {
+            this.pollingClients.delete(userId);
+          }
+        });
+      }, 60000), // Every minute
+    );
+  }
+
+  stopHeartbeat() {
+    this.heartbeatIntervals.forEach(clearInterval);
+    this.heartbeatIntervals = [];
   }
 
   // ============================================
