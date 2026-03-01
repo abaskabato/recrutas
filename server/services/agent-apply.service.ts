@@ -217,8 +217,10 @@ export class AgentApplyService {
       const initialUrl = page.url();
 
       // Fix 2: Wait for network to settle (SPAs render forms after domcontentloaded)
+      // networkidle timeout is normal for SPAs — intentionally non-fatal
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      await page.waitForSelector('input, textarea, select, button', { timeout: 8000 }).catch(() => {});
+      await page.waitForSelector('input, textarea, select, button', { timeout: 8000 })
+        .catch(() => { addLog('wait_fields', 'No interactive fields found within 8s after initial load — page may not be fully rendered'); });
       await this.randomDelay(800, 1500);
 
       // Check for CAPTCHA after initial load
@@ -245,8 +247,10 @@ export class AgentApplyService {
         const clicked = await this.clickApplyButton(page);
         if (clicked) {
           // Wait for SPA navigation to complete after clicking Apply
+          // networkidle timeout is normal for SPAs — intentionally non-fatal
           await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-          await page.waitForSelector('input, textarea', { timeout: 8000 }).catch(() => {});
+          await page.waitForSelector('input, textarea', { timeout: 8000 })
+            .catch(() => { addLog('wait_fields', 'No form fields found within 8s after clicking Apply button'); });
           await this.randomDelay(1000, 2000);
           await this.dismissCookieBanners(page);
           formFound = await this.detectForm(page);
@@ -268,11 +272,13 @@ export class AgentApplyService {
       // Handle Workday iframe — wait for it to fully load
       let activePage: Page | any = page;
       if (atsType === 'workday') {
-        await page.waitForSelector(ATS_SELECTORS.workday.iframeSelector, { timeout: 10000 }).catch(() => {});
+        await page.waitForSelector(ATS_SELECTORS.workday.iframeSelector, { timeout: 10000 })
+          .catch(() => { addLog('workday_iframe_wait', 'Workday iframe selector not found within 10s — may affect form detection'); });
         const iframe = await page.$(ATS_SELECTORS.workday.iframeSelector);
         if (iframe) {
           const frame = await iframe.contentFrame();
           if (frame) {
+            // networkidle timeout is normal for SPAs — intentionally non-fatal
             await frame.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
             activePage = frame;
             addLog('workday_iframe', 'Switched to Workday iframe context');
@@ -296,8 +302,10 @@ export class AgentApplyService {
             addLog('step_0_initial_apply', 'Clicking initial "Apply for this role" button');
             await initialApplyBtn.click();
             // Wait for the actual form to load
+            // networkidle timeout is normal for SPAs — intentionally non-fatal
             await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-            await page.waitForSelector('form input, form textarea, form select', { timeout: 8000 }).catch(() => {});
+            await page.waitForSelector('form input, form textarea, form select', { timeout: 8000 })
+              .catch(() => { addLog('wait_fields', 'No form fields found within 8s after clicking "Apply for this role"'); });
             await this.randomDelay(1000, 2000);
             // Restart the loop with the loaded form
             continue;
@@ -332,17 +340,17 @@ export class AgentApplyService {
         // Click Next or Submit
         addLog(`step_${stepCount}_advance`, 'Advancing form (Next/Submit)');
         
-        // Wait for form to be ready
+        // Wait for form to be ready — domcontentloaded is fast; timeout unlikely but non-fatal
         await activePage.waitForLoadState('domcontentloaded').catch(() => {});
         await this.randomDelay(500, 1000);
-        
+
         const advanced = await this.advanceForm(activePage, atsType);
         if (!advanced) {
           addLog(`step_${stepCount}_no_button`, 'No Next/Submit button found');
           break;
         }
 
-        // Wait for the result of the click
+        // Wait for the result of the click — networkidle timeout is normal for SPAs
         await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
         await this.randomDelay(1500, 2500);
 
@@ -529,6 +537,7 @@ export class AgentApplyService {
         const el = await page.$(selector);
         if (el && await el.isVisible()) {
           await el.click();
+          // domcontentloaded timeout is unlikely but non-fatal — page may already be loaded
           await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
           return true;
         }
@@ -853,9 +862,11 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
         const tagName = await el.evaluate((e: unknown) => (e as { tagName: string }).tagName.toLowerCase());
 
         if (tagName === 'select') {
-          // Try matching option by text
+          // Try matching option by label first, then by value; log if neither matches
           await el.selectOption({ label: value }).catch(() =>
-            el.selectOption({ value }).catch(() => {})
+            el.selectOption({ value }).catch(() => {
+              console.warn(`[AgentApply] Could not select option for value "${value}" — no matching label or value in <select>`);
+            })
           );
         } else if (tagName === 'input' || tagName === 'textarea') {
           const inputType = (await el.getAttribute('type')) || 'text';
