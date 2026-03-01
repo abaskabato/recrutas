@@ -156,6 +156,7 @@ export default function CandidateStreamlinedDashboard() {
     queryKey: ['/api/candidate/applications'],
     queryFn: async () => {
       const response = await apiRequest("GET", '/api/candidate/applications');
+      if (!response.ok) { throw new Error(`${response.status}`); }
       return response.json();
     },
     enabled: !!user,
@@ -906,6 +907,7 @@ function SavedJobsList() {
     queryKey: ['/api/candidate/saved-jobs'],
     queryFn: async () => {
       const response = await apiRequest("GET", '/api/candidate/saved-jobs');
+      if (!response.ok) { throw new Error(`${response.status}`); }
       return response.json();
     },
   });

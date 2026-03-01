@@ -115,6 +115,14 @@ export default function ApplicationTracker() {
     },
   });
 
+  // These memos MUST be declared before any conditional returns (Rules of Hooks)
+  const activeApplications = useMemo(() => (applications || []).filter(app =>
+    !['rejected', 'withdrawn'].includes(app.status)
+  ), [applications]);
+  const closedApplications = useMemo(() => (applications || []).filter(app =>
+    ['rejected', 'withdrawn'].includes(app.status)
+  ), [applications]);
+
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status] || statusConfig.submitted;
     return (
@@ -174,13 +182,6 @@ export default function ApplicationTracker() {
       </Card>
     );
   }
-
-  const activeApplications = useMemo(() => (applications || []).filter(app => 
-    !['rejected', 'withdrawn'].includes(app.status)
-  ), [applications]);
-  const closedApplications = useMemo(() => (applications || []).filter(app => 
-    ['rejected', 'withdrawn'].includes(app.status)
-  ), [applications]);
 
   return (
     <div className="space-y-6">

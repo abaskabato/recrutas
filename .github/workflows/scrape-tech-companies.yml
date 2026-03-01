@@ -35,6 +35,7 @@ jobs:
 
       - name: Scrape Tier 2 — Lever + Workday companies (22)
         id: tier2
+        continue-on-error: true  # Groq TPD can be exhausted by Tier 1; don't block Tier 3 or cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
@@ -45,6 +46,7 @@ jobs:
 
       - name: Scrape Tier 3 — Custom career pages (21)
         id: tier3
+        continue-on-error: true  # Firecrawl or Groq failures should not abort cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
@@ -56,6 +58,7 @@ jobs:
 
       - name: Cleanup stale jobs (>15 days)
         id: cleanup
+        continue-on-error: true  # Always attempt cleanup regardless of scrape results
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
