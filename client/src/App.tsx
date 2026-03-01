@@ -22,6 +22,7 @@ import { TopRightButtons } from '@/components/TopRightButtons';
 import { RoleGuard } from '@/components/role-guard';
 import { AuthGuard } from '@/components/auth-guard';
 import AdminDashboard from "@/pages/admin-dashboard";
+import PageMeta from '@/components/page-meta';
 
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
   return (
     <AppProviders>
       <SessionContextProvider supabaseClient={supabase}>
+        <PageMeta />
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/auth" component={AuthPage} />

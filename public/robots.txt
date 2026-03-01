@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /candidate-dashboard
+Disallow: /talent-dashboard
+Disallow: /exam/
+Disallow: /chat/
+Disallow: /role-selection
+
+Sitemap: https://recrutas.ai/sitemap.xml
