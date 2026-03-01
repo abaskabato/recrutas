@@ -106,7 +106,7 @@ function setMeta(meta: RouteMeta) {
     canonical.rel = 'canonical';
     document.head.appendChild(canonical);
   }
-  canonical.href = `https://recrutas.ai${location.pathname}`;
+  canonical.href = `${window.location.origin}${location.pathname}`;
 }
 
 export default function PageMeta() {
