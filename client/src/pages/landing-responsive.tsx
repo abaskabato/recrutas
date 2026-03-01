@@ -8,6 +8,7 @@ import {
   Building2, Star, ChevronRight,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { useQuery } from "@tanstack/react-query";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import InstantMatchModal from "@/components/instant-match-modal";
@@ -237,6 +238,10 @@ export default function LandingResponsive() {
             </button>
           </div>
           <nav className="flex flex-col gap-2 p-6 flex-1">
+            <div className="flex items-center justify-between py-3 border-b border-gray-800">
+              <span className="text-gray-300 text-lg font-medium">Theme</span>
+              <ThemeToggleButton />
+            </div>
             <a href="/pricing" onClick={() => setMobileMenuOpen(false)}
               className="text-gray-300 hover:text-white py-3 text-lg font-medium border-b border-gray-800">
               Pricing
@@ -288,6 +293,7 @@ export default function LandingResponsive() {
 
             {/* Desktop CTAs */}
             <div className="hidden lg:flex items-center gap-3">
+              <ThemeToggleButton />
               <Button variant="ghost" size="sm"
                 className="text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white"
                 onClick={() => setLocation('/auth')}>
