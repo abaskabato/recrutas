@@ -58,9 +58,9 @@ test.describe('Candidate Dashboard', () => {
 
     await page.waitForTimeout(2000);
 
-    // Either job cards appear or the empty / loading state is shown
-    const jobCards = page.locator('[data-testid="job-card"], [class*="job-card"], main, [role="main"]');
-    const jobText = page.getByText(/no.*job|browse|find.*job|looking for|loading/i);
+    // Either job cards appear or an empty/loading state is shown
+    const jobCards = page.locator('[data-testid="job-card"], [class*="job-card"], [class*="card"], main, [role="main"]');
+    const jobText = page.getByText(/matched for you|showing.*match|no.*job|browse|find.*job|looking for|loading/i);
     const rendered = await jobCards.or(jobText).first().isVisible({ timeout: 8000 }).catch(() => false);
     expect(rendered).toBe(true);
   });
@@ -305,7 +305,8 @@ test.describe('API health checks (candidate auth)', () => {
     token = await page.evaluate(() => {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)!;
-        if (key.includes('supabase') && key.includes('auth')) {
+        // Supabase v2 stores as "sb-{projectRef}-auth-token"; v1/helpers use "supabase.auth.token"
+        if ((key.startsWith('sb-') && key.endsWith('-auth-token')) || (key.includes('supabase') && key.includes('auth'))) {
           try {
             const data = JSON.parse(localStorage.getItem(key)!);
             return data?.access_token ?? data?.session?.access_token ?? null;
@@ -378,7 +379,7 @@ test.describe('API health checks (talent auth)', () => {
     token = await page.evaluate(() => {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)!;
-        if (key.includes('supabase') && key.includes('auth')) {
+        if ((key.startsWith('sb-') && key.endsWith('-auth-token')) || (key.includes('supabase') && key.includes('auth'))) {
           try {
             const data = JSON.parse(localStorage.getItem(key)!);
             return data?.access_token ?? data?.session?.access_token ?? null;
