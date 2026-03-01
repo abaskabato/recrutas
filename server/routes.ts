@@ -39,6 +39,7 @@ import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { jobIngestionService } from './services/job-ingestion.service';
 import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
+import { sendWelcomeEmail } from './email-service';
 
 // In-memory cache for RemoteOK jobs (15-min TTL)
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
@@ -818,12 +819,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.post('/api/auth/sync', isAuthenticated, async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
+      const isNew = !(await storage.getUser(req.user.id));
       const user = await storage.upsertUser({
         id: req.user.id,
         email: req.user.email || '',
         name: req.user.email || req.user.id,
         emailVerified: true,
       });
+      if (isNew && req.user.email) {
+        sendWelcomeEmail(req.user.email, req.user.user_metadata?.first_name).catch((err: Error) =>
+          console.error("Failed to send welcome email:", err)
+        );
+      }
       res.json({ success: true, user });
     } catch (error) {
       console.error("Error syncing user:", error);
@@ -1663,9 +1670,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/jobs/:jobId/exam/submit', isAuthenticated, async (req: any, res) => {
     try {
-      const { jobId } = req.params;
+      const jobId = parseIntParam(req.params.jobId);
+      if (!jobId) { return res.status(400).json({ message: "Invalid jobId" }); }
       const { answers } = req.body;
-      const result = await examService.submitExam(parseInt(jobId), req.user.id, answers);
+      if (!answers || typeof answers !== 'object') {
+        return res.status(400).json({ message: "Answers are required" });
+      }
+      const result = await examService.submitExam(jobId, req.user.id, answers);
       res.json(result);
     } catch (error) {
       console.error("Error submitting exam:", error);
@@ -1886,6 +1897,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const exam = await storage.getJobExam(jobId);
       if (!exam) {
         return res.status(404).json({ message: "Exam not found for this job" });
+      }
+
+      // Candidate must have applied before accessing the exam
+      const application = await storage.getApplicationByJobAndCandidate(jobId, req.user.id);
+      if (!application) {
+        return res.status(403).json({ message: "You must apply for this job before taking the exam" });
       }
 
       // Return exam without correct answers for candidates
