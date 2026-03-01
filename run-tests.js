@@ -29,7 +29,11 @@ async function runAllTestSuites() {
   let serverProcess, frontendProcess;
 
   try {
-    serverProcess = spawn('npm', ['run', 'dev:server'], { stdio: 'inherit', detached: true });
+    // Kill any stale server left from a previous run
+    try { spawn('bash', ['-c', `fuser -k ${PORT}/tcp 2>/dev/null || true`], { stdio: 'ignore' }); } catch (_) {}
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    serverProcess = spawn('npm', ['run', 'dev:server:start'], { stdio: 'inherit', detached: true });
 
     console.log('Starting frontend server for tests...');
     frontendProcess = spawn('npm', ['run', 'dev'], { stdio: 'inherit', detached: true });
