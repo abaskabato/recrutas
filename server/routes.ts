@@ -851,8 +851,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // External jobs are kept up-to-date by background scheduler
       const externalJobs = await storage.getExternalJobs(skills, { jobTitle, location, workType });
 
-      // If there's a triggerRefresh query param, trigger background scraping
-      if (req.query.triggerRefresh === 'true') {
+      // triggerRefresh is only honoured for authenticated requests to prevent
+      // unauthenticated callers from hammering the scrape pipeline (DOS risk)
+      if (req.query.triggerRefresh === 'true' && (req as any).user) {
         const { externalJobsScheduler } = await import('./services/external-jobs-scheduler');
         externalJobsScheduler.triggerScrape()
           .catch(err => console.error('Background scrape trigger failed:', err?.message));
@@ -861,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json({
         jobs: externalJobs || [],
         cached: true,
-        message: 'External jobs from cache. Use ?triggerRefresh=true to update in background'
+        message: 'External jobs from cache',
       });
     } catch (error) {
       console.error('Error fetching cached external jobs:', error);

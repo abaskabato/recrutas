@@ -1086,26 +1086,32 @@ export class DatabaseStorage implements IStorage {
         )
         .limit(50);
 
-      // 2. Score them using AI engine
+      // 2. Score them using AI engine — run in parallel batches of 10
       const { generateJobMatch } = await import("./ai-service");
       const matches = [];
+      const SCORE_BATCH = 10;
 
-      for (const { candidate_profiles: profile, users: user } of candidates as any) {
-        const match = await generateJobMatch(profile, job);
-        if (match.score > 0.4) {
-          matches.push({
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            profileImageUrl: user.profileImageUrl,
-            skills: profile.skills,
-            experience: profile.experience,
-            matchScore: Math.round(match.score * 100),
-            aiExplanation: match.aiExplanation,
-            skillMatches: match.skillMatches
-          });
-        }
+      for (let i = 0; i < candidates.length; i += SCORE_BATCH) {
+        const batch = (candidates as any[]).slice(i, i + SCORE_BATCH);
+        const results = await Promise.all(
+          batch.map(async ({ candidate_profiles: profile, users: user }) => {
+            const match = await generateJobMatch(profile, job);
+            if (match.score <= 0.4) return null;
+            return {
+              candidateId: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              profileImageUrl: user.profileImageUrl,
+              skills: profile.skills,
+              experience: profile.experience,
+              matchScore: Math.round(match.score * 100),
+              aiExplanation: match.aiExplanation,
+              skillMatches: match.skillMatches,
+            };
+          })
+        );
+        matches.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
       }
 
       // 3. Sort by score
