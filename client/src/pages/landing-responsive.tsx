@@ -327,9 +327,8 @@ export default function LandingResponsive() {
               </Badge>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black dark:text-white leading-[1.1] tracking-tight mb-6">
-                Job search,<br />
-                without the<br />
-                <span className="text-emerald-500">silence.</span>
+                Job Search,<br />
+                <span className="text-emerald-500">Reinvented.</span>
               </h1>
 
               <p className="text-lg md:text-xl text-gray-500 dark:text-gray-400 leading-relaxed mb-8 max-w-lg">
