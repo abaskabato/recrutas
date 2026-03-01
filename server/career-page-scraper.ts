@@ -34,71 +34,51 @@ interface CompanyCareerPage {
 }
 
 // Top tech companies with career pages to scrape
+// Greenhouse/Lever IDs verified against live APIs — update when companies migrate ATS
 const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   // ============================================
-  // GREENHOUSE ATS Companies (JSON API available)
+  // GREENHOUSE ATS Companies (all IDs verified 200)
   // ============================================
-  // Original companies
   { name: 'Stripe', careerUrl: 'https://stripe.com/jobs', greenhouseId: 'stripe' },
   { name: 'Airbnb', careerUrl: 'https://careers.airbnb.com/', greenhouseId: 'airbnb' },
   { name: 'Discord', careerUrl: 'https://discord.com/careers', greenhouseId: 'discord' },
   { name: 'Figma', careerUrl: 'https://www.figma.com/careers/', greenhouseId: 'figma' },
-  { name: 'Notion', careerUrl: 'https://www.notion.so/careers', greenhouseId: 'notion' },
   { name: 'Coinbase', careerUrl: 'https://www.coinbase.com/careers', greenhouseId: 'coinbase' },
   { name: 'Instacart', careerUrl: 'https://careers.instacart.com/', greenhouseId: 'instacart' },
   { name: 'Robinhood', careerUrl: 'https://robinhood.com/us/en/careers/', greenhouseId: 'robinhood' },
-  { name: 'Plaid', careerUrl: 'https://plaid.com/careers/', greenhouseId: 'plaid' },
-  { name: 'Ramp', careerUrl: 'https://ramp.com/careers', greenhouseId: 'ramp' },
-
-  // NEW Greenhouse ATS companies (Phase 2 expansion)
   { name: 'Datadog', careerUrl: 'https://careers.datadoghq.com/', greenhouseId: 'datadog' },
   { name: 'Duolingo', careerUrl: 'https://careers.duolingo.com/', greenhouseId: 'duolingo' },
-  { name: 'HashiCorp', careerUrl: 'https://www.hashicorp.com/careers', greenhouseId: 'hashicorp' },
-  { name: 'Snyk', careerUrl: 'https://snyk.io/careers/', greenhouseId: 'snyk' },
   { name: 'GitLab', careerUrl: 'https://about.gitlab.com/jobs/', greenhouseId: 'gitlab' },
   { name: 'Databricks', careerUrl: 'https://databricks.com/careers', greenhouseId: 'databricks' },
   { name: 'Carta', careerUrl: 'https://carta.com/careers/', greenhouseId: 'carta' },
   { name: 'Brex', careerUrl: 'https://www.brex.com/careers', greenhouseId: 'brex' },
   { name: 'Scale AI', careerUrl: 'https://scale.com/careers', greenhouseId: 'scaleai' },
-  { name: 'Deel', careerUrl: 'https://www.deel.com/careers', greenhouseId: 'deel' },
   { name: 'Remote.com', careerUrl: 'https://remote.com/careers', greenhouseId: 'remotecom' },
-  { name: 'Retool', careerUrl: 'https://retool.com/careers', greenhouseId: 'retool' },
-  { name: 'Benchling', careerUrl: 'https://www.benchling.com/careers/', greenhouseId: 'benchling' },
   { name: 'Mercury', careerUrl: 'https://mercury.com/careers', greenhouseId: 'mercury' },
-  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers', greenhouseId: 'rippling' },
-  { name: 'Anduril', careerUrl: 'https://www.anduril.com/careers/', greenhouseId: 'anduril' },
   { name: 'Cockroach Labs', careerUrl: 'https://www.cockroachlabs.com/careers/', greenhouseId: 'cockroachlabs' },
   { name: 'Amplitude', careerUrl: 'https://amplitude.com/careers', greenhouseId: 'amplitude' },
   { name: 'LaunchDarkly', careerUrl: 'https://launchdarkly.com/careers/', greenhouseId: 'launchdarkly' },
-  { name: 'Segment', careerUrl: 'https://segment.com/careers/', greenhouseId: 'segment' },
+  { name: 'Anduril', careerUrl: 'https://www.anduril.com/careers/', greenhouseId: 'andurilindustries' },
+  // Migrated from Lever (confirmed on Greenhouse)
+  { name: 'Cloudflare', careerUrl: 'https://www.cloudflare.com/careers/', greenhouseId: 'cloudflare' },
+  { name: 'Twilio', careerUrl: 'https://www.twilio.com/company/jobs', greenhouseId: 'twilio' },
+  { name: 'Flexport', careerUrl: 'https://www.flexport.com/careers/', greenhouseId: 'flexport' },
+  { name: 'Airtable', careerUrl: 'https://airtable.com/careers', greenhouseId: 'airtable' },
+  { name: 'Webflow', careerUrl: 'https://webflow.com/careers', greenhouseId: 'webflow' },
+  { name: 'Grammarly', careerUrl: 'https://www.grammarly.com/jobs', greenhouseId: 'grammarly' },
+  { name: 'Asana', careerUrl: 'https://asana.com/jobs', greenhouseId: 'asana' },
+  { name: 'Intercom', careerUrl: 'https://www.intercom.com/careers', greenhouseId: 'intercom' },
+  { name: 'Calendly', careerUrl: 'https://calendly.com/careers', greenhouseId: 'calendly' },
+  { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', greenhouseId: 'gusto' },
+  { name: 'Postman', careerUrl: 'https://www.postman.com/company/careers/', greenhouseId: 'postman' },
 
   // ============================================
-  // LEVER ATS Companies (JSON API available)
+  // LEVER ATS Companies (verified 200)
   // ============================================
-  // Original companies
   { name: 'Netflix', careerUrl: 'https://jobs.netflix.com/', leverId: 'netflix' },
-  { name: 'Twilio', careerUrl: 'https://www.twilio.com/company/jobs', leverId: 'twilio' },
-  { name: 'Cloudflare', careerUrl: 'https://www.cloudflare.com/careers/', leverId: 'cloudflare' },
-
-  // NEW Lever ATS companies (Phase 2 expansion)
-  { name: 'Flexport', careerUrl: 'https://www.flexport.com/careers/', leverId: 'flexport' },
-  { name: 'Airtable', careerUrl: 'https://airtable.com/careers', leverId: 'airtable' },
-  { name: 'Webflow', careerUrl: 'https://webflow.com/careers', leverId: 'webflow' },
-  { name: 'Canva', careerUrl: 'https://www.canva.com/careers/', leverId: 'canva' },
-  { name: 'Loom', careerUrl: 'https://www.loom.com/careers', leverId: 'loom' },
-  { name: 'Postman', careerUrl: 'https://www.postman.com/company/careers/', leverId: 'postman' },
-  { name: 'Grammarly', careerUrl: 'https://www.grammarly.com/jobs', leverId: 'grammarly' },
-  { name: 'Miro', careerUrl: 'https://miro.com/careers/', leverId: 'miro' },
-  { name: 'Asana', careerUrl: 'https://asana.com/jobs', leverId: 'asana' },
-  { name: 'Intercom', careerUrl: 'https://www.intercom.com/careers', leverId: 'intercom' },
-  { name: 'Calendly', careerUrl: 'https://calendly.com/careers', leverId: 'calendly' },
-  { name: 'Zapier', careerUrl: 'https://zapier.com/jobs', leverId: 'zapier' },
-  { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', leverId: 'gusto' },
-  { name: 'Notion', careerUrl: 'https://www.notion.so/careers', leverId: 'notionhq' },
-  { name: 'Dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/careers/', leverId: 'daboratory' },
 
   // ============================================
-  // WORKDAY ATS Companies (new scraping pattern)
+  // WORKDAY ATS Companies
   // ============================================
   { name: 'Salesforce', careerUrl: 'https://careers.salesforce.com/jobs', workdayId: 'salesforce' },
   { name: 'VMware', careerUrl: 'https://careers.vmware.com/main/jobs', workdayId: 'vmware' },
@@ -110,7 +90,7 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Target', careerUrl: 'https://corporate.target.com/careers', workdayId: 'target' },
 
   // ============================================
-  // Custom career pages (AI scraping)
+  // Custom career pages (AI scraping fallback)
   // ============================================
   { name: 'Google', careerUrl: 'https://careers.google.com/jobs/results/' },
   { name: 'Microsoft', careerUrl: 'https://careers.microsoft.com/us/en/search-results' },
@@ -132,6 +112,13 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Pinterest', careerUrl: 'https://www.pinterestcareers.com/' },
   { name: 'Snap', careerUrl: 'https://careers.snap.com/' },
   { name: 'Reddit', careerUrl: 'https://www.redditinc.com/careers' },
+  // No Greenhouse/Lever API — AI-scraped from career pages
+  { name: 'Notion', careerUrl: 'https://www.notion.so/careers' },
+  { name: 'Zapier', careerUrl: 'https://zapier.com/jobs' },
+  { name: 'Miro', careerUrl: 'https://miro.com/careers/' },
+  { name: 'Canva', careerUrl: 'https://www.canva.com/careers/' },
+  { name: 'Loom', careerUrl: 'https://www.loom.com/careers' },
+  { name: 'dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/careers/' },
 ];
 
 class CareerPageScraper {
