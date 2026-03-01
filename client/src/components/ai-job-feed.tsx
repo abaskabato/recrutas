@@ -396,6 +396,15 @@ export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedPr
               const isVerifiedActive = match.isVerifiedActive || (match.job.trustScore && match.job.trustScore >= 85 && match.job.livenessStatus === 'active');
               const isDirectFromCompany = match.isDirectFromCompany || match.job.externalSource === 'internal' || match.job.externalSource === 'platform';
               const isInternalJob = (match.job as any).source === 'platform' || match.job.externalSource === 'platform' || !match.job.externalUrl;
+              // Agent-apply only works reliably on standardised ATS forms (Greenhouse / Lever).
+              // Custom career pages (Google, Meta, Apple…) and aggregators (RemoteOK, The Muse…)
+              // have CAPTCHAs, account requirements, or unpredictable layouts — don't offer it there.
+              const supportsAgentApply = (() => {
+                if (!match.job.externalUrl) return false;
+                if ((match.job as any).source === 'greenhouse') return true;
+                const url = match.job.externalUrl.toLowerCase();
+                return url.includes('lever.co') || url.includes('greenhouse.io');
+              })();
 
               return (
                 <div key={match.id}>
@@ -501,14 +510,14 @@ export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedPr
                             </span>
                             <span className="sm:hidden">{isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Exam" : "Apply"}</span>
                           </Button>
-                          {match.job.externalUrl && !isApplied && (
+                          {supportsAgentApply && !isApplied && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={(e) => handleAgentApply(e, match)}
                               disabled={agentApplyingIds.has(match.job.id)}
                               className="flex-1 sm:flex-none border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20 text-xs sm:text-sm"
-                              title="Our agent will automatically fill and submit the application for you"
+                              title="Auto-fills and submits your application on the company's Greenhouse/Lever form"
                             >
                               <Bot className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                               <span className="hidden sm:inline">Apply For Me</span>
