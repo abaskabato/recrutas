@@ -40,6 +40,7 @@ import { jobIngestionService } from './services/job-ingestion.service';
 import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
 import { sendWelcomeEmail } from './email-service';
+import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
 
 // In-memory cache for RemoteOK jobs (15-min TTL)
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
@@ -2202,17 +2203,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // AGENT APPLY ENDPOINTS
   // ==========================================
 
-  // Feature flag for agent apply - disabled by default until production testing
-  const AGENT_APPLY_ENABLED = process.env.ENABLE_AGENT_APPLY === 'true';
-
   app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, async (req: any, res) => {
-    if (!AGENT_APPLY_ENABLED) {
-      return res.status(503).json({ 
-        message: "Agent Apply is currently unavailable. Please apply directly on the job posting.",
-        disabled: true 
-      });
-    }
-
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
@@ -2237,47 +2228,52 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(400).json({ message: "Please upload your resume first" });
       }
 
-      // Snapshot candidate data
-      const candidateData = {
-        firstName: candidateProfile.firstName || '',
-        lastName: candidateProfile.lastName || '',
-        email: candidateProfile.email || '',
-        phone: (candidateProfile as any).phone || '',
-        linkedinUrl: candidateProfile.linkedinUrl || '',
-        githubUrl: candidateProfile.githubUrl || '',
-        portfolioUrl: candidateProfile.portfolioUrl || '',
-        skills: candidateProfile.skills || [],
-        experience: candidateProfile.experience || '',
-        location: candidateProfile.location || '',
-      };
+      // Check if this is a Greenhouse job we can submit to directly
+      const ghParsed = parseGreenhouseUrl(job.externalUrl);
+      if (ghParsed) {
+        // Direct HTTP submission via Greenhouse Boards API (no Playwright needed)
+        const result = await submitToGreenhouse(ghParsed.boardToken, ghParsed.jobId, {
+          firstName: candidateProfile.firstName || '',
+          lastName: candidateProfile.lastName || '',
+          email: candidateProfile.email || '',
+          phone: (candidateProfile as any).phone || '',
+          linkedinUrl: candidateProfile.linkedinUrl || '',
+          portfolioUrl: candidateProfile.portfolioUrl || '',
+          resumeUrl: candidateProfile.resumeUrl,
+        });
 
-      // Create application with autoFilled flag
-      const application = await storage.createJobApplication({
-        jobId,
-        candidateId: userId,
-        status: 'submitted',
-        autoFilled: true,
-        resumeUrl: candidateProfile.resumeUrl,
-        metadata: { agentApply: true, queuedAt: new Date().toISOString() },
+        if (!result.success) {
+          console.error('[AgentApply] Greenhouse submission failed:', result.error);
+          return res.status(502).json({ message: `Application submission failed: ${result.error}` });
+        }
+
+        const application = await storage.createJobApplication({
+          jobId,
+          candidateId: userId,
+          status: 'submitted',
+          autoFilled: true,
+          resumeUrl: candidateProfile.resumeUrl,
+          metadata: {
+            agentApply: true,
+            ats: 'greenhouse',
+            greenhouseApplicationId: result.applicationId,
+            submittedAt: new Date().toISOString(),
+          },
+        });
+
+        await storage.createActivityLog(userId, "agent_apply_submitted", `Agent applied to job ID: ${jobId} via Greenhouse API`);
+        return res.json({ application, status: 'submitted', ats: 'greenhouse' });
+      }
+
+      // Unsupported ATS — this shouldn't be reached since the button is
+      // only shown for Greenhouse/Lever URLs, but handle gracefully
+      return res.status(422).json({
+        message: "Automated application is not supported for this job's platform. Please apply directly.",
+        unsupported: true,
       });
-
-      // Create agent task
-      const agentTask = await storage.createAgentTask({
-        applicationId: application.id,
-        candidateId: userId,
-        jobId,
-        externalUrl: job.externalUrl,
-        status: 'queued',
-        candidateData,
-        resumeUrl: candidateProfile.resumeUrl,
-      });
-
-      await storage.createActivityLog(userId, "agent_apply_queued", `Queued agent apply for job ID: ${jobId}`);
-
-      res.json({ application, agentTask: { id: agentTask.id, status: agentTask.status } });
     } catch (error: any) {
-      console.error("Error queuing agent apply:", error?.message);
-      res.status(500).json({ message: "Failed to queue agent apply" });
+      console.error("Error in agent apply:", error?.message);
+      res.status(500).json({ message: "Failed to submit application" });
     }
   });
 

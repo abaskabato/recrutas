@@ -205,7 +205,7 @@ export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedPr
   const agentApplyMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/agent-apply/${jobId}`, {}),
     onSuccess: () => {
-      toast({ title: "Apply For Me — Queued!", description: "Track progress in Applications." });
+      toast({ title: "Applied!", description: "Your application was submitted automatically." });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
     },
@@ -396,14 +396,14 @@ export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedPr
               const isVerifiedActive = match.isVerifiedActive || (match.job.trustScore && match.job.trustScore >= 85 && match.job.livenessStatus === 'active');
               const isDirectFromCompany = match.isDirectFromCompany || match.job.externalSource === 'internal' || match.job.externalSource === 'platform';
               const isInternalJob = (match.job as any).source === 'platform' || match.job.externalSource === 'platform' || !match.job.externalUrl;
-              // Agent-apply only works reliably on standardised ATS forms (Greenhouse / Lever).
-              // Custom career pages (Google, Meta, Apple…) and aggregators (RemoteOK, The Muse…)
-              // have CAPTCHAs, account requirements, or unpredictable layouts — don't offer it there.
+              // Agent-apply submits directly via the Greenhouse Boards API (HTTP, no browser).
+              // Only shown for jobs sourced from Greenhouse where we can parse boardToken + jobId.
+              // Google, Meta, Amazon, Lever etc. require account login or CSRF — not supported.
               const supportsAgentApply = (() => {
                 if (!match.job.externalUrl) return false;
                 if ((match.job as any).source === 'greenhouse') return true;
                 const url = match.job.externalUrl.toLowerCase();
-                return url.includes('lever.co') || url.includes('greenhouse.io');
+                return url.includes('greenhouse.io');
               })();
 
               return (
