@@ -9,7 +9,7 @@ const THRESHOLD = {
   loginPageLoad:     3000,
   loginSubmit:      10000,  // includes Supabase round-trip
   dashboardLoad:    10000,
-  apiHealth:          500,
+  apiHealth:         3000,  // first call after cold start can take ~1.5 s
   apiExternalJobs:   5000,
   apiAuthUser:       2000,
 };

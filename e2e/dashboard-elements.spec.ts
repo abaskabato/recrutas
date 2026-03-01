@@ -397,9 +397,10 @@ test.describe('API health checks (talent auth)', () => {
     });
   }
 
-  test('/api/jobs returns array for talent owner', async ({ page }) => {
+  test('/api/talent-owner/jobs returns array for talent owner', async ({ page }) => {
     if (!token) test.skip();
-    const res = await apiGet(page, '/api/jobs');
+    // The talent-owner jobs endpoint (GET /api/jobs is not a valid route; use /api/talent-owner/jobs)
+    const res = await apiGet(page, '/api/talent-owner/jobs');
     expect([200, 401]).toContain(res.status());
     if (res.status() === 200) {
       const body = await res.json();
