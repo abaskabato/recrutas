@@ -18,7 +18,7 @@ External jobs (aggregated from 94 companies across Greenhouse, Lever, Workday, a
 
 ---
 
-## Current State (February 2026)
+## Current State (March 2026)
 
 ### What's Built and Working
 
@@ -36,6 +36,11 @@ External jobs (aggregated from 94 companies across Greenhouse, Lever, Workday, a
 | Stripe subscriptions (talent owner tiers) | ✅ Production-ready |
 | Mobile responsive (375px tested) | ✅ Production-ready |
 | E2E test suite | ✅ 87/87 passing |
+| Agent Apply (Greenhouse auto-submit) | ✅ Production-ready |
+| Chrome extension (auto-fill on career pages) | ✅ Built — needs Web Store publish |
+| SEO (sitemap, OG image, JSON-LD, meta) | ✅ Live — needs Search Console setup |
+| YC-standard landing page redesign | ✅ Live |
+| Candidate + recruiter dashboard redesign | ✅ Live |
 
 ### Test Coverage
 
@@ -104,6 +109,18 @@ When candidates share "I applied to 10 jobs today, only Recrutas told me where I
 - Starter $49/mo — 3 active job postings
 - Growth $149/mo — 10 postings + candidate discovery
 - Enterprise $299/mo — unlimited + priority support
+
+---
+
+## Open Issues (your action required)
+
+These are tracked as GitHub Issues — close them as you complete each one.
+
+| # | Issue | What you need to do |
+|---|-------|---------------------|
+| [#2](https://github.com/RecrutasAI/recrutas/issues/2) | SEO: Submit sitemap to Google Search Console | Add DNS TXT record, verify domain, submit sitemap |
+| [#3](https://github.com/RecrutasAI/recrutas/issues/3) | Chrome Extension: load, test, publish | Load unpacked locally, test form fill, publish to Web Store |
+| [#4](https://github.com/RecrutasAI/recrutas/issues/4) | Growth: find first paying company | YC outreach — 20 messages, 1 company signed up |
 
 ---
 
@@ -385,8 +402,22 @@ recrutas/
 ├── client/src/
 │   ├── pages/              # Route pages (Landing, Auth, Dashboards, Exam, Chat)
 │   ├── components/         # Feature components + shadcn/ui primitives
+│   │   └── page-meta.tsx   # Per-route SEO (title, description, canonical, robots)
 │   ├── hooks/              # Custom React hooks
 │   └── lib/                # API client, auth utils
+├── extension/              # Chrome MV3 auto-fill extension
+│   ├── manifest.json       # MV3 manifest
+│   ├── background.js       # Service worker (auth, API calls)
+│   ├── content.js          # Injected script (button + form filling)
+│   ├── popup.html/js/css   # Extension popup UI
+│   └── icons/              # 16/48/128px brand PNGs
+├── public/                 # Static assets served at root
+│   ├── favicon.svg/png     # Brand favicon
+│   ├── og-image.png        # 1200×630 OG social card
+│   ├── icon-192/512.png    # PWA icons
+│   ├── robots.txt          # Crawler rules
+│   ├── sitemap.xml         # All public routes
+│   └── manifest.json       # PWA manifest
 ├── server/
 │   ├── index.ts            # Express app configuration
 │   ├── routes.ts           # All API routes
@@ -420,6 +451,7 @@ recrutas/
 |----------|--------|-------------|
 | `/api/auth/user` | GET | Current user |
 | `/api/auth/role` | POST | Set role (candidate / talent_owner) |
+| `/api/auth/extension-login` | POST | Chrome extension sign-in (returns JWT) |
 
 ### Candidate
 | Endpoint | Method | Description |
@@ -523,6 +555,38 @@ Test credentials (after seeding):
 ---
 
 ## Changelog
+
+### March 2026
+
+#### `1885f34` — fix: use window.location.origin for canonical URL
+- Prevents preview deployments from poisoning production SEO
+
+#### `e4a4c08` — redesign: YC-quality UI for candidate and talent dashboards
+- Candidate dashboard: slim header, stats strip, emerald upload CTA
+- Talent dashboard: embedded tab nav, colored stats cards, compact candidate rows
+- CandidatesTab: avatar initials, color-coded score badges, tidy AI insights panel
+- AnalyticsTab: hiring funnel with connectors, vertical bar chart, progress bars
+
+#### `d0c1fb9` — redesign: YC-standard landing page rebuild
+- 2-column hero with product mockup, stats strip, features grid
+- For Companies dark section, testimonials, multi-column footer
+- Removed 3-second auto-popup
+
+#### `5f5c3de` — feat: comprehensive SEO
+- robots.txt, sitemap.xml, og-image.png (1200×630)
+- Full meta suite: OG, Twitter Card, canonical, JSON-LD structured data
+- Per-route PageMeta component, CDN-friendly cache headers
+
+#### `b568f79` — feat: Chrome extension + favicon fix
+- MV3 extension: background SW, content script, popup UI
+- POST /api/auth/extension-login endpoint
+- Favicon wired up (was showing globe icon)
+
+#### `1b8c1ea` — feat: Greenhouse API agent-apply
+- Direct HTTP submission to Greenhouse job boards API
+- Restricted to verified Greenhouse/Lever jobs only
+
+### February 2026
 
 ### `8bd5ece` — fix: null-guard Resend client when RESEND_API_KEY missing
 - Avoids crashing when email key is not set in dev
