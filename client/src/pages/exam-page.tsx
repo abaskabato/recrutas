@@ -20,14 +20,14 @@ export default function ExamPage() {
   
   const [examStarted, setExamStarted] = useState(false);
   const [examCompleted, setExamCompleted] = useState(false);
-  const [examResult, setExamResult] = useState<{ score: number; passed: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean } | null>(null);
+  const [examResult, setExamResult] = useState<{ score: number; passed: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean; examFeedback?: string } | null>(null);
 
   const handleExamStart = () => {
     setExamStarted(true);
   };
 
-  const handleExamComplete = (score: number, passed: boolean, ranking?: number, totalCandidates?: number, qualifiedForChat?: boolean) => {
-    setExamResult({ score, passed, ranking, totalCandidates, qualifiedForChat });
+  const handleExamComplete = (score: number, passed: boolean, ranking?: number, totalCandidates?: number, qualifiedForChat?: boolean, examFeedback?: string) => {
+    setExamResult({ score, passed, ranking, totalCandidates, qualifiedForChat, examFeedback });
     setExamCompleted(true);
     setExamStarted(false);
   };
@@ -195,22 +195,28 @@ export default function ExamPage() {
                     </Badge>
                   </div>
 
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-muted-foreground">
-                      {examResult.passed ? (
-                        <>
-                          <strong>Congratulations!</strong> You've successfully passed the assessment. 
-                          You can now communicate directly with the hiring manager for this position.
-                        </>
-                      ) : (
-                        <>
-                          <strong>Thank you for completing the assessment.</strong> 
-                          While you didn't meet the passing threshold this time, your application 
-                          will still be reviewed by the hiring team.
-                        </>
+                  {examResult.passed ? (
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                      <p className="text-foreground">
+                        <strong>Congratulations!</strong> You've passed the assessment and unlocked direct chat with the hiring team. Expect a response within 24 hours.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-muted rounded-lg p-4">
+                        <p className="text-muted-foreground">
+                          <strong>Thank you for completing the assessment.</strong>{' '}
+                          You didn't meet the passing threshold this time.
+                        </p>
+                      </div>
+                      {examResult.examFeedback && (
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-left">
+                          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-1">AI Feedback</p>
+                          <p className="text-sm text-foreground">{examResult.examFeedback}</p>
+                        </div>
                       )}
-                    </p>
-                  </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-center space-x-4">
                     <Button 

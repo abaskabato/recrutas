@@ -1,0 +1,30 @@
+name: Enforce 24h Response SLA
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+jobs:
+  enforce-sla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call SLA enforcement endpoint
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/enforce-response-sla" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "Response status: $response"
+
+          if [ "$response" != "200" ]; then
+            echo "SLA enforcement returned non-200: $response"
+            exit 1
+          fi
+
+      - name: Log result
+        if: always()
+        run: echo "SLA enforcement run complete at $(date -u)"

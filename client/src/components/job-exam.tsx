@@ -33,7 +33,7 @@ interface JobExam {
 
 interface JobExamProps {
   jobId: number;
-  onComplete: (score: number, passed: boolean, ranking?: number, totalCandidates?: number, qualifiedForChat?: boolean) => void;
+  onComplete: (score: number, passed: boolean, ranking?: number, totalCandidates?: number, qualifiedForChat?: boolean, examFeedback?: string) => void;
   onCancel: () => void;
 }
 
@@ -43,7 +43,8 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [result, setResult] = useState<{ score: number; passed: boolean; alreadySubmitted?: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean } | null>(null);
+  const [result, setResult] = useState<{ score: number; passed: boolean; alreadySubmitted?: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean; examFeedback?: string } | null>(null);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
@@ -203,6 +204,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
         ranking: data.ranking,
         totalCandidates: data.totalCandidates,
         qualifiedForChat: data.qualifiedForChat,
+        examFeedback: data.examFeedback,
       });
     },
     onError: (error: any) => {
@@ -299,7 +301,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
               </div>
             )}
           </div>
-          <Button onClick={() => onComplete(result.score, result.passed, result.ranking, result.totalCandidates, result.qualifiedForChat)} className="w-full max-w-xs">
+          <Button onClick={() => onComplete(result.score, result.passed, result.ranking, result.totalCandidates, result.qualifiedForChat, result.examFeedback)} className="w-full max-w-xs">
             Back to Dashboard
           </Button>
         </CardContent>

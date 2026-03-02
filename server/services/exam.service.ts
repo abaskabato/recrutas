@@ -3,7 +3,7 @@ import { callAI, isAIAvailable } from "../lib/ai-client";
 
 // Interface for notification service to avoid circular dependency
 interface INotificationService {
-  notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number): Promise<void>;
+  notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number, passed?: boolean): Promise<void>;
   notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number): Promise<void>;
 }
 
@@ -17,7 +17,7 @@ class ExamProcessingError extends Error {
 export class ExamService {
   constructor(private storage: IStorage, private notificationService: INotificationService) {}
 
-  async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number; passed: boolean; ranking: number; totalCandidates: number; qualifiedForChat: boolean }> {
+  async submitExam(jobId: number, userId: string, answers: any): Promise<{ score: number; passed: boolean; ranking: number; totalCandidates: number; qualifiedForChat: boolean; examFeedback?: string; responseDeadlineAt?: string }> {
     console.log(`[ExamService] Submitting exam for job ${jobId} and user ${userId}`);
 
     try {
@@ -36,6 +36,28 @@ export class ExamService {
         description: job.description || undefined
       });
 
+      const passingScore = exam.passingScore || 70;
+      const passed = score >= passingScore;
+
+      // Generate AI feedback for failed candidates (non-blocking — best effort)
+      let examFeedback: string | undefined;
+      if (!passed && isAIAvailable()) {
+        try {
+          const skillList = Array.isArray(job.skills) ? (job.skills as string[]).slice(0, 6).join(', ') : '';
+          const feedbackPrompt = `A candidate scored ${score}% (passing: ${passingScore}%) on a "${job.title}" technical assessment. They answered ${correctAnswers} of ${exam.questions.length} questions correctly.${skillList ? ` Skills assessed: ${skillList}.` : ''}\n\nWrite 2–3 sentences of specific, actionable feedback: what they showed strength in, what to improve, and one concrete next step. Be direct and encouraging. Under 80 words.`;
+          examFeedback = await Promise.race([
+            callAI('You are a helpful hiring coach giving exam feedback.', feedbackPrompt, { priority: 'high', estimatedTokens: 300, temperature: 0.4, maxOutputTokens: 120 }),
+            new Promise<string>((resolve) => setTimeout(() => resolve(''), 8000)),
+          ]) || undefined;
+        } catch {
+          // Feedback is best-effort — never block exam submission
+        }
+      }
+
+      const responseDeadlineAt = passed
+        ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        : undefined;
+
       const examResult = {
         jobId,
         candidateId: userId,
@@ -43,7 +65,8 @@ export class ExamService {
         answers,
         totalQuestions: exam.questions.length,
         correctAnswers,
-        timeSpent: 0, // Will be passed from frontend later
+        timeSpent: 0,
+        examFeedback: examFeedback ?? null,
       };
 
       await this.storage.storeExamResult(examResult);
@@ -68,12 +91,10 @@ export class ExamService {
         `${candidate?.firstName} ${candidate?.lastName}`,
         job.title,
         score,
-        applicationId
+        applicationId,
+        passed
       );
 
-      // Notify the candidate of their result (core promise: know where you stand today)
-      const passingScore = exam.passingScore || 70;
-      const passed = score >= passingScore;
       await this.notificationService.notifyCandidateExamResult(
         userId,
         job.title,
@@ -94,7 +115,7 @@ export class ExamService {
       const totalCandidates = sorted.length;
       const qualifiedForChat = ranking > 0 && ranking <= (job.maxChatCandidates || 5);
 
-      return { score, passed, ranking, totalCandidates, qualifiedForChat };
+      return { score, passed, ranking, totalCandidates, qualifiedForChat, examFeedback, responseDeadlineAt };
     } catch (error) {
       console.error("[ExamService] Error submitting exam:", error);
       if (error instanceof ExamProcessingError) {

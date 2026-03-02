@@ -147,6 +147,7 @@ export interface IStorage {
   getApplicationsForTalent(talentId: string): Promise<any[]>;
   updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
   storeExamResult(result: any): Promise<any>;
+  getOverdueExamApplications(): Promise<{ applicationId: number; candidateId: string; jobTitle: string; company: string }[]>;
   getAvailableNotificationUsers(): Promise<string[]>;
 
 
@@ -1319,6 +1320,10 @@ export class DatabaseStorage implements IStorage {
           throw new Error('Exam already submitted for this job');
         }
 
+        const passed = result.score >= (exam.passingScore || 70);
+        const now = new Date();
+        const deadline = passed ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : null;
+
         await tx.insert(examAttempts).values({
           examId: exam.id,
           candidateId: result.candidateId,
@@ -1329,14 +1334,42 @@ export class DatabaseStorage implements IStorage {
           timeSpent: result.timeSpent,
           answers: result.answers,
           status: 'completed',
-          passedExam: result.score >= (exam.passingScore || 70),
+          passedExam: passed,
           qualifiedForChat: false, // Will be set during ranking
-          completedAt: new Date(),
+          completedAt: now,
+          responseDeadlineAt: deadline,
+          examFeedback: result.examFeedback ?? null,
         });
       });
     } catch (error) {
       console.error('Error storing exam result:', error);
       throw error;
+    }
+  }
+
+  // Returns applications where candidate passed the exam but recruiter has not
+  // acted (status still submitted/viewed) and the 24h deadline has passed.
+  async getOverdueExamApplications(): Promise<{ applicationId: number; candidateId: string; jobTitle: string; company: string }[]> {
+    try {
+      const rows = await db.execute(sql`
+        SELECT
+          ja.id            AS "applicationId",
+          ja.candidate_id  AS "candidateId",
+          jp.title         AS "jobTitle",
+          jp.company       AS "company"
+        FROM exam_attempts ea
+        JOIN job_applications ja
+          ON ja.job_id = ea.job_id AND ja.candidate_id = ea.candidate_id
+        JOIN job_postings jp ON jp.id = ea.job_id
+        WHERE ea.passed_exam = true
+          AND ea.response_deadline_at IS NOT NULL
+          AND ea.response_deadline_at < NOW()
+          AND ja.status IN ('submitted', 'viewed')
+      `);
+      return (rows as any).rows ?? (rows as any) as any[];
+    } catch (error) {
+      console.error('Error fetching overdue exam applications:', error);
+      return [];
     }
   }
 
@@ -1578,7 +1611,8 @@ export class DatabaseStorage implements IStorage {
           ea.score AS "examScore",
           ea.passed_exam AS "examPassed",
           ea.ranking AS "examRanking",
-          ea.qualified_for_chat AS "qualifiedForChat"
+          ea.qualified_for_chat AS "qualifiedForChat",
+          ea.response_deadline_at AS "responseDeadlineAt"
         FROM job_applications ja
         INNER JOIN users u ON ja.candidate_id = u.id
         LEFT JOIN candidate_users cp ON ja.candidate_id = cp.user_id
@@ -1616,6 +1650,7 @@ export class DatabaseStorage implements IStorage {
         examPassed: row.examPassed,
         examRanking: row.examRanking,
         qualifiedForChat: row.qualifiedForChat,
+        responseDeadlineAt: row.responseDeadlineAt,
       }));
     } catch (error) {
       console.error(`Error fetching applicants for job ${jobId}:`, error);

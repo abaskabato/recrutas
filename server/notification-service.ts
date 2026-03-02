@@ -357,17 +357,21 @@ class NotificationService {
     });
   }
 
-  async notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number) {
-    const priority = score >= 80 ? 'high' : 'medium';
-    
+  async notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number, passed = false) {
+    const priority = passed ? 'urgent' : score >= 80 ? 'high' : 'medium';
+    const title = passed ? '⏰ Candidate Passed — Respond Within 24h' : 'Screening Exam Completed';
+    const message = passed
+      ? `${candidateName} passed the ${jobTitle} exam with ${score}%. You have 24 hours to respond.`
+      : `${candidateName} completed the ${jobTitle} screening exam with ${score}% score`;
+
     await this.createNotification({
       userId: talentOwnerId,
       type: 'exam_completed',
-      title: 'Screening Exam Completed',
-      message: `${candidateName} completed the ${jobTitle} screening exam with ${score}% score`,
+      title,
+      message,
       priority,
       relatedApplicationId: applicationId,
-      data: { candidateName, jobTitle, score }
+      data: { candidateName, jobTitle, score, passed }
     });
   }
 

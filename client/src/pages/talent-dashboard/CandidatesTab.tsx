@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Users, Briefcase, MessageSquare, Star, Target, Calendar,
-  Linkedin, Github, Globe, ExternalLink, Trophy, ChevronDown, ChevronUp, Sparkles
+  Linkedin, Github, Globe, ExternalLink, Trophy, ChevronDown, ChevronUp, Sparkles, Clock, AlertCircle
 } from "lucide-react";
 import type { JobPosting } from "./types";
 
@@ -33,6 +33,28 @@ function scoreBadgeClass(score: number) {
 
 function getInitials(firstName: string, lastName: string) {
   return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || '?';
+}
+
+function DeadlineBadge({ responseDeadlineAt }: { responseDeadlineAt?: string | null }) {
+  if (!responseDeadlineAt) return null;
+  const deadline = new Date(responseDeadlineAt);
+  const msLeft = deadline.getTime() - Date.now();
+  if (msLeft <= 0) {
+    return (
+      <Badge variant="outline" className="text-xs px-1.5 py-0 bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800 animate-pulse">
+        <AlertCircle className="h-3 w-3 mr-1" />
+        Overdue
+      </Badge>
+    );
+  }
+  const hoursLeft = Math.ceil(msLeft / (1000 * 60 * 60));
+  const isUrgent = hoursLeft <= 6;
+  return (
+    <Badge variant="outline" className={`text-xs px-1.5 py-0 ${isUrgent ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-800' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800'}`}>
+      <Clock className="h-3 w-3 mr-1" />
+      {hoursLeft}h left
+    </Badge>
+  );
 }
 
 export default function CandidatesTab({
@@ -157,7 +179,10 @@ export default function CandidatesTab({
                             <Badge variant="outline" className={`text-xs px-1.5 py-0 ${applicant.qualifiedForChat ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800" : "bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}>
                               <Trophy className="h-3 w-3 mr-1" />
                               #{applicant.examRanking}/{totalRanked}
-                            </Badge>
+                          </Badge>
+                          )}
+                          {applicant.qualifiedForChat && (
+                            <DeadlineBadge responseDeadlineAt={applicant.responseDeadlineAt} />
                           )}
                           {applicant.match?.matchScore && (
                             <Badge variant="outline" className="text-xs px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800">

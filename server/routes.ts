@@ -2142,6 +2142,50 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // 24h Response SLA enforcement — called hourly by GitHub Actions cron
+  // Finds applications where candidate passed exam but recruiter hasn't acted
+  // within 24h, marks them as rejected, and notifies the candidate.
+  app.post('/api/cron/enforce-response-sla', async (req, res) => {
+    try {
+      const cronSecret = req.headers['x-cron-secret'];
+      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const overdue = await storage.getOverdueExamApplications();
+      if (overdue.length === 0) {
+        return res.json({ message: 'No overdue applications', closed: 0 });
+      }
+
+      let closed = 0;
+      for (const { applicationId, candidateId, jobTitle, company } of overdue) {
+        try {
+          // Mark as rejected with a system note — not a human rejection
+          await storage.updateApplicationStatusByCandidate(applicationId, 'rejected');
+          // Notify candidate: transparent, not a ghosting
+          await notificationService.createNotification({
+            userId: candidateId,
+            type: 'application_rejected',
+            title: 'Application Closed — No Response',
+            message: `${company} did not respond to your ${jobTitle} application within 24 hours. The application has been automatically closed.`,
+            priority: 'high',
+            relatedApplicationId: applicationId,
+            data: { jobTitle, company, reason: 'sla_expired' },
+          });
+          closed++;
+        } catch (err) {
+          console.error(`[SLA] Failed to close application ${applicationId}:`, (err as Error).message);
+        }
+      }
+
+      console.log(`[SLA] Closed ${closed}/${overdue.length} overdue applications`);
+      res.json({ message: 'SLA enforcement complete', closed, total: overdue.length });
+    } catch (error: any) {
+      console.error('[SLA] Enforcement failed:', error?.message);
+      res.status(500).json({ message: 'SLA enforcement failed', error: error?.message });
+    }
+  });
+
   // Ghost job detection endpoints
   app.post('/api/admin/run-ghost-job-detection', async (req, res) => {
     try {

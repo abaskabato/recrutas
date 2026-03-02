@@ -175,6 +175,10 @@ export const examAttempts = pgTable("exam_attempts", {
   qualifiedForChat: boolean("qualified_for_chat").default(false),
   ranking: integer("ranking"),
   completedAt: timestamp("completed_at"),
+  // 24h response SLA: set to completedAt + 24h when candidate passes
+  responseDeadlineAt: timestamp("response_deadline_at"),
+  // AI-generated feedback shown to failed candidates immediately after exam
+  examFeedback: text("exam_feedback"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
