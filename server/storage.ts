@@ -591,13 +591,25 @@ export class DatabaseStorage implements IStorage {
         );
       }
 
+      // Skills filter pushed to SQL: match title OR any element in the JSON skills array.
+      // skills is a jsonb column → cast to text for a fast LIKE without needing GIN index.
+      if (skills.length > 0) {
+        const skillConditions = skills.map(skill =>
+          or(
+            sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'})`,
+            sql`LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'})`
+          )
+        );
+        conditions.push(or(...skillConditions)!);
+      }
+
       // Query external jobs (source = 'external' or externalUrl is set)
       const query = db
         .select()
         .from(jobPostings)
         .where(and(...conditions))
         .orderBy(sql`${jobPostings.createdAt} DESC`)
-        .limit(200);
+        .limit(50);
 
       const jobs = await query;
 
@@ -616,18 +628,6 @@ export class DatabaseStorage implements IStorage {
           if (searchingRemote) return jobLoc.includes('remote') || jobLoc === '';
           // City/region match
           return jobLoc.includes(loc);
-        });
-      }
-
-      // Filter by skills (case-insensitive partial match)
-      if (skills.length > 0) {
-        filteredJobs = filteredJobs.filter(job => {
-          const jobSkills = Array.isArray(job.skills) ? job.skills.map((s: string) => s.toLowerCase()) : [];
-          const jobTitle = (job.title || '').toLowerCase();
-          return skills.some(skill => {
-            const skillLower = skill.toLowerCase();
-            return jobSkills.some((js: string) => js.includes(skillLower)) || jobTitle.includes(skillLower);
-          });
         });
       }
 

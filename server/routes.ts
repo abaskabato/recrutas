@@ -746,6 +746,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Universal job scraper with database persistence
+  // In-memory response cache for /api/external-jobs.
+  // Keyed by normalized query string; entries expire after 3 minutes.
+  // On Vercel each invocation is stateless, but within a warm instance this
+  // eliminates repeated DB round-trips for identical searches.
+  const externalJobsCache = new Map<string, { jobs: any[]; ts: number }>();
+  const EXTERNAL_JOBS_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
   app.get('/api/external-jobs', async (req, res) => {
     try {
       const skills = req.query.skills
@@ -759,9 +766,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
         ? rawWorkType
         : undefined;
 
-      // Return cached external jobs from database (instant, no scraping)
-      // External jobs are kept up-to-date by background scheduler
+      const cacheKey = JSON.stringify({ skills: skills.sort(), jobTitle, location, workType });
+      const cached = externalJobsCache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < EXTERNAL_JOBS_TTL_MS) {
+        res.set('Cache-Control', 'public, max-age=180, stale-while-revalidate=300');
+        return res.json({ jobs: cached.jobs, cached: true, message: 'External jobs from cache' });
+      }
+
+      // Return external jobs from database (no live scraping)
       const externalJobs = await storage.getExternalJobs(skills, { jobTitle, location, workType });
+      externalJobsCache.set(cacheKey, { jobs: externalJobs || [], ts: Date.now() });
 
       // triggerRefresh is only honoured for authenticated requests to prevent
       // unauthenticated callers from hammering the scrape pipeline (DOS risk)
@@ -771,10 +785,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
           .catch(err => console.error('Background scrape trigger failed:', err?.message));
       }
 
+      res.set('Cache-Control', 'public, max-age=180, stale-while-revalidate=300');
       res.json({
         jobs: externalJobs || [],
-        cached: true,
-        message: 'External jobs from cache',
+        cached: false,
+        message: 'External jobs from database',
       });
     } catch (error) {
       console.error('Error fetching cached external jobs:', error);
