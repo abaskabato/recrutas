@@ -99,6 +99,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   const [salaryError, setSalaryError] = useState<string | null>(null);
   const [parsedResumeData, setParsedResumeData] = useState<ExtractedInfo | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [userLocation, setUserLocation] = useState('');
   const [uploadElapsed, setUploadElapsed] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -115,6 +116,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
 
   useEffect(() => {
     if (profile && typeof profile === 'object') {
+      setUserLocation((profile as any).location || '');
       setProfileLinks({
         linkedinUrl: (profile as any).linkedinUrl || '',
         githubUrl: (profile as any).githubUrl || '',
@@ -190,7 +192,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       parsedResumeData.experience?.positions?.length > 0
     );
 
-    const profileDataToSave: Partial<any> = { ...profileLinks };
+    const profileDataToSave: Partial<any> = { ...profileLinks, location: userLocation };
     
     if (hasParsedData) {
       const flattenedSkills = [
@@ -693,11 +695,6 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
             ))}
           </div>
           <Separator />
-          <div className="flex justify-end">
-            <Button onClick={handleSaveLinks} disabled={updateProfileMutation.isPending}>
-              {updateProfileMutation.isPending ? 'Saving...' : 'Save Links'}
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -707,6 +704,20 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
           <p className="text-sm text-gray-600">Set your job search preferences. We'll use these to show you the most relevant jobs.</p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Location */}
+          <div className="space-y-2">
+            <Label htmlFor="location" className="font-semibold">Location</Label>
+            <Input 
+              id="location" 
+              placeholder="San Francisco, CA" 
+              value={userLocation} 
+              onChange={(e) => setUserLocation(e.target.value)} 
+            />
+            <p className="text-xs text-gray-500">City, state, or region where you're located</p>
+          </div>
+
+          <Separator />
+
           {/* Salary Range */}
           <div className="space-y-2">
             <Label className="font-semibold">Salary Range (Annual)</Label>
@@ -803,10 +814,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
 
           <Separator />
 
-          <div className="flex justify-between items-center pt-2">
-            <Button variant="outline" onClick={handleSavePreferences} disabled={preferencesMutation.isPending}>
-              {preferencesMutation.isPending ? 'Saving...' : 'Save Preferences'}
-            </Button>
+          <div className="flex justify-end pt-2">
             <Button 
               onClick={handleSaveAll} 
               disabled={updateProfileMutation.isPending || preferencesMutation.isPending}

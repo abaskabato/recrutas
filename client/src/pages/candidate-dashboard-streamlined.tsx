@@ -32,10 +32,11 @@ import {
   Shield,
   Palette,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import AIJobFeed from "@/components/ai-job-feed";
-import ProfileUpload from "@/components/profile-upload";
+import ProfileWizard from "@/components/profile-wizard";
 import ApplicationTracker from "@/components/application-tracker";
 import RealTimeNotifications from "@/components/real-time-notifications";
 import JobMatchesModal from "@/components/job-matches-modal";
@@ -96,6 +97,7 @@ export default function CandidateStreamlinedDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'jobs' | 'saved' | 'applications' | 'profile' | 'agent'>('jobs');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
@@ -354,8 +356,8 @@ export default function CandidateStreamlinedDashboard() {
                 Here's what's happening with your job search today.
               </p>
             </div>
-            {/* Profile completion mini-bar */}
-            {profile && (
+            {/* Profile completion mini-bar - only show if not complete */}
+            {profile && profileCompletion < 100 && (
               <div
                 className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition-colors shrink-0"
                 onClick={() => setActiveTab('profile')}
@@ -375,6 +377,45 @@ export default function CandidateStreamlinedDashboard() {
                 <ArrowRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
               </div>
             )}
+          </div>
+        )}
+
+        {/* Getting Started Checklist - for users without resume */}
+        {!hasResume && activeTab === 'jobs' && (
+          <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-5">
+            <div className="flex items-start gap-4">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
+                <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                  Get started in 3 steps
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    { step: 1, label: 'Upload your resume', done: false },
+                    { step: 2, label: 'Add your skills & experience', done: !!(profile as any)?.skills?.length },
+                    { step: 3, label: 'Set your job preferences', done: !!(profile as any)?.jobPreferences },
+                  ].map(({ step, label, done }) => (
+                    <div key={step} className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500' : 'bg-blue-200 dark:bg-blue-800'}`}>
+                        {done ? <CheckCircle className="h-3.5 w-3.5 text-white" /> : <span className="text-xs font-medium text-blue-700 dark:text-blue-300">{step}</span>}
+                      </div>
+                      <span className={`text-sm ${done ? 'text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setActiveTab('profile')}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700"
+                >
+                  Complete Setup <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -521,7 +562,32 @@ export default function CandidateStreamlinedDashboard() {
                 </div>
               </div>
             )}
-            <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
+            
+            {/* Only show AI-matched jobs if resume is uploaded */}
+            {hasResume ? (
+              <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
+            ) : (
+              <div className="text-center py-16">
+                <div className="h-16 w-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Upload your resume to get personalized matches
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6">
+                  Our AI analyzes your skills and experience to find jobs you're most likely to get. 
+                  It only takes 30 seconds.
+                </p>
+                <Button
+                  onClick={() => setActiveTab('profile')}
+                  size="lg"
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Resume to Get Matches
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -557,37 +623,64 @@ export default function CandidateStreamlinedDashboard() {
 
         {activeTab === 'profile' && (
           <div className="max-w-3xl space-y-5">
-            {/* Profile completion card */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">Profile Completion</span>
-                <span className={`text-sm font-bold ${profileCompletion === 100 ? 'text-emerald-600' : profileCompletion >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                  {profileCompletion}%
-                </span>
-              </div>
-              <Progress value={profileCompletion} className="h-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {profileCompletion === 100
-                  ? 'Your profile is complete — great matches incoming!'
-                  : profileCompletion < 33
-                    ? 'Upload a resume to unlock AI-matched jobs'
-                    : profileCompletion < 66
-                      ? 'Add experience, location, or salary range to improve matches'
-                      : 'Almost there — fill in the remaining fields for better matches'}
-              </p>
-            </div>
-
-            {/* Resume nudge */}
-            {!hasResume && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  No resume on file yet. Upload one below to get AI-powered job matches.
+            {/* Show different content based on profile completion */}
+            {profileCompletion === 100 && !isEditingProfile ? (
+              <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-5 text-center">
+                <CheckCircle className="h-12 w-12 text-emerald-600 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+                  Your profile is complete!
+                </h3>
+                <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
+                  You're getting the best possible job matches. Keep your profile updated to maintain visibility.
                 </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                  <Button 
+                    onClick={() => setActiveTab('jobs')} 
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    View Job Matches
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsEditingProfile(true)}
+                  >
+                    Edit Profile
+                  </Button>
+                </div>
               </div>
-            )}
+            ) : (
+              <>
+                {/* Profile completion card */}
+                <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">Profile Completion</span>
+                    <span className={`text-sm font-bold ${profileCompletion >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                      {profileCompletion}%
+                    </span>
+                  </div>
+                  <Progress value={profileCompletion} className="h-2" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    {profileCompletion < 33
+                      ? 'Upload a resume to unlock AI-matched jobs'
+                      : profileCompletion < 66
+                        ? 'Add experience, location, or salary range to improve matches'
+                        : 'Almost there — fill in the remaining fields for better matches'}
+                  </p>
+                </div>
 
-            <ProfileUpload onProfileSaved={() => setActiveTab('jobs')} />
+                {/* Resume nudge */}
+                {!hasResume && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      No resume on file yet. Upload one below to get AI-powered job matches.
+                    </p>
+                  </div>
+                )}
+
+                <ProfileWizard onComplete={() => { setActiveTab('jobs'); setIsEditingProfile(false); }} />
+              </>
+            )}
           </div>
         )}
 
@@ -719,7 +812,6 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [jobAlerts, setJobAlerts] = useState(true);
   const [applicationUpdates, setApplicationUpdates] = useState(true);
-  const [profileVisibility, setProfileVisibility] = useState(true);
 
   const { data: savedPrefs } = useQuery({
     queryKey: ['/api/candidate/notification-preferences'],
@@ -799,13 +891,13 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
           <div className="space-y-3">
             <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
               <Bell className="h-4 w-4 text-blue-500" />
-              Notifications
+              Email Notifications
             </h4>
-            <div className="space-y-3 pl-6">
+            <div className="space-y-3 pl-6 border-l-2 border-slate-100 dark:border-slate-800 ml-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="email-notif" className="text-sm font-medium">Email Notifications</Label>
-                  <p className="text-xs text-slate-500">Receive updates via email</p>
+                  <Label htmlFor="email-notif" className="text-sm font-medium">Enable Email</Label>
+                  <p className="text-xs text-slate-500">Receive notifications in your inbox</p>
                 </div>
                 <Switch
                   id="email-notif"
@@ -813,51 +905,36 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   onCheckedChange={setEmailNotifications}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="job-alerts" className="text-sm font-medium">Job Alerts</Label>
-                  <p className="text-xs text-slate-500">Get notified about new matching jobs</p>
-                </div>
-                <Switch
-                  id="job-alerts"
-                  checked={jobAlerts}
-                  onCheckedChange={setJobAlerts}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="app-updates" className="text-sm font-medium">Application Updates</Label>
-                  <p className="text-xs text-slate-500">Status changes on your applications</p>
-                </div>
-                <Switch
-                  id="app-updates"
-                  checked={applicationUpdates}
-                  onCheckedChange={setApplicationUpdates}
-                />
-              </div>
+              
+              {emailNotifications && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="job-alerts" className="text-sm font-medium">New Job Matches</Label>
+                      <p className="text-xs text-slate-500">When jobs match your profile</p>
+                    </div>
+                    <Switch
+                      id="job-alerts"
+                      checked={jobAlerts}
+                      onCheckedChange={setJobAlerts}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="app-updates" className="text-sm font-medium">Application Status</Label>
+                      <p className="text-xs text-slate-500">Viewed, accepted, or rejected</p>
+                    </div>
+                    <Switch
+                      id="app-updates"
+                      checked={applicationUpdates}
+                      onCheckedChange={setApplicationUpdates}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Privacy */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
-              <Shield className="h-4 w-4 text-green-500" />
-              Privacy
-            </h4>
-            <div className="space-y-3 pl-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="profile-visibility" className="text-sm font-medium">Profile Visibility</Label>
-                  <p className="text-xs text-slate-500">Make your profile visible to recruiters</p>
-                </div>
-                <Switch
-                  id="profile-visibility"
-                  checked={profileVisibility}
-                  onCheckedChange={setProfileVisibility}
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t">

@@ -15,20 +15,8 @@ export function useRoleBasedAuth() {
       return;
     }
 
-    // If authenticated but no role, redirect to role selection
-    if (isAuthenticated && (!user?.role || user.role === null)) {
-      if (location !== '/role-selection') {
-        setLocation('/role-selection');
-      }
-      return;
-    }
-
-    // If authenticated but profile is not complete, redirect to role selection
-    const extendedUser = user as { profile_complete?: boolean } | null;
-    if (isAuthenticated && extendedUser?.profile_complete === false && location !== '/role-selection') {
-      setLocation('/role-selection');
-      return;
-    }
+    // Note: Role is selected at signup, so we don't redirect to role-selection here
+    // Users can browse and complete their profile at their own pace
 
     // If authenticated with role, redirect to appropriate dashboard from root
     if (isAuthenticated && user?.role && location === '/') {

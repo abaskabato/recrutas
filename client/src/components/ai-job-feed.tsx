@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp, Upload } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -58,7 +58,7 @@ interface AIJobFeedProps {
   onUploadClick?: () => void;
 }
 
-export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedProps) {
+export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("all");
@@ -365,9 +365,48 @@ export default function AIJobFeed({ onUploadClick: _onUploadClick }: AIJobFeedPr
           ))}
         </div>
       ) : !filteredMatches || filteredMatches.length === 0 ? (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <Sparkles className="h-8 w-8 mx-auto mb-3 opacity-50" />
-          <p>No job matches found yet.</p>
+        <div className="text-center py-12 px-4">
+          <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Search className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            No matches yet
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+            We couldn't find jobs matching your profile. This could be because:
+          </p>
+          <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 mb-6 max-w-sm mx-auto text-left bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
+            <li className="flex items-start gap-2">
+              <FileText className="h-4 w-4 mt-0.5 text-gray-400" />
+              Your profile needs more details
+            </li>
+            <li className="flex items-start gap-2">
+              <Briefcase className="h-4 w-4 mt-0.5 text-gray-400" />
+              Your skills don't match current openings
+            </li>
+            <li className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 mt-0.5 text-gray-400" />
+              Try adjusting your location preferences
+            </li>
+          </ul>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              variant="outline"
+              onClick={() => onUploadClick?.()}
+              className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Update Profile
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Try Again
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

@@ -47,8 +47,8 @@ function ProductMockup() {
               <p className="text-xs text-gray-500 dark:text-gray-400">3 new today · 12 applied</p>
             </div>
             <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Agent active
+              <Sparkles className="h-3 w-3" />
+              AI Matching
             </span>
           </div>
 

@@ -3,9 +3,6 @@ import { useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { GuidedSetupProvider, useGuidedSetup } from '@/contexts/GuidedSetupContext';
-import RoleSelectionStep from '@/components/guided-setup/RoleSelectionStep';
-import ResumeUploadStep from '@/components/guided-setup/ResumeUploadStep';
-import BasicInfoStep from '@/components/guided-setup/BasicInfoStep';
 import SkillsStep from '@/components/guided-setup/SkillsStep';
 import CompanyProfileStep from '@/components/guided-setup/CompanyProfileStep';
 
@@ -60,28 +57,13 @@ function GuidedSetupContent() {
     setRoleMutation.mutate(selectedRole);
   };
 
-  // Skip role selection if role already set from signup
-  const candidateSteps = role === 'candidate' ? [
-    { name: 'Resume', component: <ResumeUploadStep /> },
-    { name: 'Info', component: <BasicInfoStep /> },
-    { name: 'Skills', component: <SkillsStep /> },
-  ] : role === 'talent_owner' ? [
-    { name: 'Company', component: <CompanyProfileStep /> },
-  ] : [
-    { name: 'Role', component: <RoleSelectionStep /> },
-    { name: 'Resume', component: <ResumeUploadStep /> },
-    { name: 'Info', component: <BasicInfoStep /> },
-    { name: 'Skills', component: <SkillsStep /> },
+  // Role is determined at signup - no need for role selection step
+  // Candidates go to ProfileWizard, talent owners go to Company Profile
+  const candidateSteps = [
+    { name: 'Profile', component: <SkillsStep /> },
   ];
 
-  const talentOwnerSteps = role === 'talent_owner' ? [
-    { name: 'Company', component: <CompanyProfileStep /> },
-  ] : role === 'candidate' ? [
-    { name: 'Resume', component: <ResumeUploadStep /> },
-    { name: 'Info', component: <BasicInfoStep /> },
-    { name: 'Skills', component: <SkillsStep /> },
-  ] : [
-    { name: 'Role', component: <RoleSelectionStep /> },
+  const talentOwnerSteps = [
     { name: 'Company', component: <CompanyProfileStep /> },
   ];
 
