@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 
 interface SignUpFormProps {
@@ -28,6 +29,7 @@ function getPasswordStrength(password: string): { score: number; label: string; 
 export default function SignUpForm({ role }: SignUpFormProps) {
   const supabase = useSupabaseClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,11 +58,16 @@ export default function SignUpForm({ role }: SignUpFormProps) {
           method: 'POST',
           headers: { Authorization: `Bearer ${data.session.access_token}` },
         }).catch(() => {}); // Non-critical: user will be synced on first role assignment
+        
+        // Redirect to guided setup to complete profile
+        setLocation("/guided-setup");
+      } else if (data.user && !data.session) {
+        // Email confirmation required - show message but don't redirect
+        toast({
+          title: "Account created",
+          description: "Please check your email to verify your account before signing in.",
+        });
       }
-      toast({
-        title: "Account created",
-        description: "Please check your email to verify your account.",
-      });
     } catch (error: unknown) {
       toast({
         title: "Error signing up",

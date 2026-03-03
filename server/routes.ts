@@ -937,7 +937,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
         timeoutPromise
       ]) as any;
 
-      res.json(profile || {});
+      // Return null for new users (no profile yet) - not an error
+      if (!profile) {
+        return res.json({ exists: false, profile: null });
+      }
+
+      res.json({ exists: true, profile });
     } catch (error: any) {
       console.error("Error fetching candidate profile:", error?.message);
 

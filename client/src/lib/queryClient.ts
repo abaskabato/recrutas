@@ -55,7 +55,16 @@ export async function fetchProfileWithCache(): Promise<any> {
     throw new Error(`Profile fetch failed: ${res.status}`);
   }
 
-  const profile = await res.json();
+  const data = await res.json();
+  
+  // Handle new user response format
+  if (data.exists === false) {
+    // New user with no profile yet - return null (not an error)
+    return null;
+  }
+
+  // Existing profile
+  const profile = data.profile || data;
   // Ensure skills is always an array to prevent crashes
   const safeProfile = {
     ...profile,

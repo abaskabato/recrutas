@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSessionContext } from "@supabase/auth-helpers-react";
+import { useLocation } from "wouter";
 import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Globe, Github, Linkedin, User, Sparkles, X, Check, Briefcase, AlertCircle } from "lucide-react";
+import { Upload, FileText, Globe, Github, Linkedin, User, Sparkles, X, Check, Briefcase, AlertCircle, ArrowRight } from "lucide-react";
 import { Badge } from "./ui/badge";
 
 interface ExtractedInfo {
@@ -73,6 +74,7 @@ interface JobPreferences {
 
 export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
   const { session } = useSessionContext();
+  const [, setLocation] = useLocation();
   const [profileLinks, setProfileLinks] = useState({
     linkedinUrl: '',
     githubUrl: '',
@@ -108,6 +110,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     enabled: !!session,
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    initialData: null,
   });
 
   useEffect(() => {
@@ -176,9 +179,49 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
       queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
-      toast({ title: 'Preferences saved' });
     },
   });
+
+  const handleSaveAll = async () => {
+    const hasParsedData = parsedResumeData && (
+      parsedResumeData.skills?.technical?.length > 0 ||
+      parsedResumeData.skills?.soft?.length > 0 ||
+      parsedResumeData.skills?.tools?.length > 0 ||
+      parsedResumeData.experience?.positions?.length > 0
+    );
+
+    const profileDataToSave: Partial<any> = { ...profileLinks };
+    
+    if (hasParsedData) {
+      const flattenedSkills = [
+        ...(parsedResumeData.skills?.technical || []),
+        ...(parsedResumeData.skills?.soft || []),
+        ...(parsedResumeData.skills?.tools || []),
+      ];
+      profileDataToSave.skills = flattenedSkills;
+      profileDataToSave.experience = parsedResumeData.experience;
+    }
+
+    try {
+      await updateProfileMutation.mutateAsync(profileDataToSave);
+      await preferencesMutation.mutateAsync(jobPreferences);
+      
+      toast({
+        title: "Profile Complete!",
+        description: "Your profile has been saved. Finding your best job matches...",
+      });
+      
+      setParsedResumeData(null);
+      
+      if (onProfileSaved) {
+        onProfileSaved();
+      } else {
+        setLocation("/candidate-dashboard?tab=jobs");
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    }
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -199,7 +242,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       } else {
         toast({
           title: "Resume Uploaded",
-          description: "Your resume has been updated.",
+          description: "Your resume has been saved. You can now add skills manually.",
         });
       }
     },
@@ -305,7 +348,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
     { key: 'portfolioUrl' as const, label: 'Portfolio', icon: User, placeholder: 'https://yourportfolio.com' },
   ];
 
-  if (isError && !profile) {
+  if (isError) {
     return (
       <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/50">
         <CardContent className="p-4">
@@ -317,6 +360,19 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
             <Button size="sm" variant="outline" onClick={() => queryClient.refetchQueries({ queryKey: ['/api/candidate/profile'] })}>
               Retry
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading || !profile) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-3 text-muted-foreground">Loading profile...</span>
           </div>
         </CardContent>
       </Card>
@@ -335,7 +391,7 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
             {uploadMutation.isPending ? (
               <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div><span>{uploadElapsed >= 8 ? 'Still scanning, almost done...' : 'Scanning Resume...'}</span></>
             ) : (
-              <><Upload className="h-5 w-5 text-primary" /><span>Upload & AI Scan Resume</span></>
+              <><Upload className="h-5 w-5 text-primary" /><span>{(profile as any)?.resumeUrl ? 'Update Resume' : 'Upload & Scan Resume'}</span></>
             )}
           </Button>
           {pendingFile && !uploadMutation.isPending && (
@@ -357,9 +413,18 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
               </div>
             </div>
           )}
-          {profile && (profile as any)?.resumeUrl && !parsedResumeData && !pendingFile && (
+          {parsedResumeData && (
             <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-              <p className="text-sm font-medium text-green-800 dark:text-green-200">A resume is on file and has been scanned.</p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
+                <Check className="h-4 w-4" /> Resume scanned successfully - Review details below
+              </p>
+            </div>
+          )}
+          {!parsedResumeData && (profile as any)?.resumeUrl && !pendingFile && !uploadMutation.isPending && (
+            <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
+                <Check className="h-4 w-4" /> Resume on file - Upload a new one to rescan
+              </p>
             </div>
           )}
         </CardContent>
@@ -738,9 +803,20 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
 
           <Separator />
 
-          <div className="flex justify-end">
-            <Button onClick={handleSavePreferences} disabled={preferencesMutation.isPending}>
+          <div className="flex justify-between items-center pt-2">
+            <Button variant="outline" onClick={handleSavePreferences} disabled={preferencesMutation.isPending}>
               {preferencesMutation.isPending ? 'Saving...' : 'Save Preferences'}
+            </Button>
+            <Button 
+              onClick={handleSaveAll} 
+              disabled={updateProfileMutation.isPending || preferencesMutation.isPending}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {updateProfileMutation.isPending || preferencesMutation.isPending ? (
+                <>Saving...</>
+              ) : (
+                <>Save Profile & View Matches <ArrowRight className="ml-2 h-4 w-4" /></>
+              )}
             </Button>
           </div>
         </CardContent>
