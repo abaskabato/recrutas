@@ -30,6 +30,8 @@ export default function SignUpForm({ role }: SignUpFormProps) {
   const supabase = useSupabaseClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -47,6 +49,9 @@ export default function SignUpForm({ role }: SignUpFormProps) {
         options: {
           data: {
             role,
+            first_name: firstName,
+            last_name: lastName,
+            full_name: `${firstName} ${lastName}`.trim(),
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -81,6 +86,49 @@ export default function SignUpForm({ role }: SignUpFormProps) {
 
   return (
     <form className="space-y-6" onSubmit={handleSignUp}>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label
+            htmlFor="firstName"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            First name
+          </label>
+          <div className="mt-1">
+            <input
+              id="firstName"
+              name="firstName"
+              type="text"
+              autoComplete="given-name"
+              required
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="appearance-none block w-full px-3 py-2 border border-input rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-ring focus:border-ring sm:text-sm bg-input text-foreground"
+            />
+          </div>
+        </div>
+        <div>
+          <label
+            htmlFor="lastName"
+            className="block text-sm font-medium text-muted-foreground"
+          >
+            Last name
+          </label>
+          <div className="mt-1">
+            <input
+              id="lastName"
+              name="lastName"
+              type="text"
+              autoComplete="family-name"
+              required
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="appearance-none block w-full px-3 py-2 border border-input rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-ring focus:border-ring sm:text-sm bg-input text-foreground"
+            />
+          </div>
+        </div>
+      </div>
+
       <div>
         <label
           htmlFor="email"
