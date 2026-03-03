@@ -1,4 +1,5 @@
 import { useLocation } from 'wouter';
+import { useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { GuidedSetupProvider, useGuidedSetup } from '@/contexts/GuidedSetupContext';
@@ -15,11 +16,23 @@ import { Button } from '@/components/ui/button';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 
 function GuidedSetupContent() {
   const { step, role, setRole, setStep } = useGuidedSetup();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { session } = useSessionContext();
+
+  // Initialize role from signup metadata if available
+  useEffect(() => {
+    if (session?.user?.user_metadata?.role) {
+      const userRole = session.user.user_metadata.role;
+      if (userRole === 'candidate' || userRole === 'talent_owner') {
+        setRole(userRole);
+      }
+    }
+  }, [session, setRole]);
 
   const setRoleMutation = useMutation({
     mutationFn: async (role: 'candidate' | 'talent_owner') => {
@@ -47,19 +60,32 @@ function GuidedSetupContent() {
     setRoleMutation.mutate(selectedRole);
   };
 
-  const candidateSteps = [
+  // Skip role selection if role already set from signup
+  const candidateSteps = role === 'candidate' ? [
+    { name: 'Resume', component: <ResumeUploadStep /> },
+    { name: 'Info', component: <BasicInfoStep /> },
+    { name: 'Skills', component: <SkillsStep /> },
+  ] : role === 'talent_owner' ? [
+    { name: 'Company', component: <CompanyProfileStep /> },
+  ] : [
     { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Resume', component: <ResumeUploadStep /> },
     { name: 'Info', component: <BasicInfoStep /> },
     { name: 'Skills', component: <SkillsStep /> },
   ];
 
-  const talentOwnerSteps = [
+  const talentOwnerSteps = role === 'talent_owner' ? [
+    { name: 'Company', component: <CompanyProfileStep /> },
+  ] : role === 'candidate' ? [
+    { name: 'Resume', component: <ResumeUploadStep /> },
+    { name: 'Info', component: <BasicInfoStep /> },
+    { name: 'Skills', component: <SkillsStep /> },
+  ] : [
     { name: 'Role', component: <RoleSelectionStep /> },
     { name: 'Company', component: <CompanyProfileStep /> },
   ];
 
-  const steps = role === 'candidate' ? candidateSteps : role === 'talent_owner' ? talentOwnerSteps : [{ name: 'Role', component: <RoleSelectionStep /> }];
+  const steps = role === 'candidate' ? candidateSteps : talentOwnerSteps;
   const clampedStep = Math.max(1, Math.min(step, steps.length));
   if (clampedStep !== step) {setStep(clampedStep);}
   const currentStep = steps[clampedStep - 1];
