@@ -21,9 +21,14 @@ export default function SkillsStep() {
       const response = await apiRequest('POST', '/api/candidate/profile/complete', { skills });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+    onSuccess: async () => {
+      // Force refetch user data before redirecting
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+      
+      // Also force refetch the user query to ensure fresh data
+      await queryClient.refetchQueries({ queryKey: ['/api/auth/user'] });
+      
       toast({
         title: 'Profile Complete!',
         description: 'Your profile is ready. Finding your best job matches...',
