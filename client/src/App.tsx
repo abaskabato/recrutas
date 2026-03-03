@@ -41,6 +41,9 @@ function App() {
           <Route path="/role-selection">
             <AuthGuard><GuidedSetup /></AuthGuard>
           </Route>
+          <Route path="/guided-setup">
+            <AuthGuard><GuidedSetup /></AuthGuard>
+          </Route>
           <Route path="/candidate-dashboard">
             <RoleGuard allowedRoles={['candidate']}><CandidateDashboard /></RoleGuard>
           </Route>
