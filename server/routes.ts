@@ -974,6 +974,25 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  app.post('/api/candidate/profile/complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const { skills } = req.body;
+      
+      const profileData: any = { userId: req.user.id };
+      if (skills && Array.isArray(skills)) {
+        profileData.skills = skills;
+      }
+      
+      await storage.upsertCandidateUser(profileData);
+      await storage.updateUserInfo(req.user.id, { profile_complete: true });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error completing candidate profile:", error);
+      res.status(500).json({ message: "Failed to complete profile" });
+    }
+  });
+
   app.put('/api/candidate/preferences', isAuthenticated, async (req: any, res) => {
     try {
       const { jobPreferences } = req.body;

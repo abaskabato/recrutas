@@ -18,14 +18,15 @@ export default function SkillsStep() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/candidate/profile', { skills });
+      const response = await apiRequest('POST', '/api/candidate/profile/complete', { skills });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
       toast({
-        title: 'Profile Updated',
-        description: 'Your skills have been saved.',
+        title: 'Profile Complete!',
+        description: 'Your profile is ready. Finding your best job matches...',
       });
       setLocation('/candidate-dashboard');
     },
