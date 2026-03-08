@@ -156,6 +156,22 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
 
       if ((profile as any).resumeUrl) {
         setCurrentStep(2);
+        // Populate parsedResumeData from saved profile so step 2 shows existing skills/experience
+        const savedSkills: string[] = (profile as any).skills || [];
+        const savedExperience = (profile as any).experience;
+        if (savedSkills.length > 0 || savedExperience) {
+          setParsedResumeData(prev => prev ?? {
+            skills: { technical: savedSkills, soft: [], tools: [] },
+            experience: savedExperience || { level: '', years: 0, positions: [] },
+            education: [],
+            certifications: [],
+            projects: [],
+            personalInfo: { name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' },
+            skillsCount: savedSkills.length,
+            workHistoryCount: savedExperience?.positions?.length || 0,
+            educationCount: 0,
+          });
+        }
       }
     }
   }, [profile]);
