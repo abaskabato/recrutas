@@ -294,10 +294,6 @@ export function getModelInfo() {
   };
 }
 
-// Warm up the model on startup (optional, respects feature flag)
-if (process.env.NODE_ENV !== 'test' && process.env.ENABLE_ML_MATCHING !== 'false') {
-  setTimeout(() => {
-    console.log('[ML Matching] Warming up embedding model...');
-    generateEmbedding('warmup').catch(console.error);
-  }, 5000);
-}
+// Model loads lazily on first use — no startup warmup.
+// Warmup was disabled because ONNX/WASM model loading blocks the Node event loop
+// for 15-60s on cold start, causing 504 cascades across all routes.
