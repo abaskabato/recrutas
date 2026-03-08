@@ -1377,15 +1377,27 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // Talent Owner routes
   app.get('/api/talent-owner/jobs', isAuthenticated, async (req: any, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       console.log(`[Talent Owner Jobs] Fetching jobs for user: ${req.user.id}`);
-      const jobs = await storage.getJobPostings(req.user.id);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Jobs query timeout')), 8000)
+      );
+      const jobs = await Promise.race([
+        storage.getJobPostings(req.user.id),
+        timeout,
+      ]);
       console.log(`[Talent Owner Jobs] Found ${jobs.length} jobs for user ${req.user.id}`);
       if (jobs.length > 0) {
         console.log(`[Talent Owner Jobs] Job IDs: ${jobs.map((j: any) => j.id).join(', ')}`);
       }
       res.json(jobs);
     } catch (error) {
+      const msg = (error as Error).message;
+      if (msg === 'Jobs query timeout') {
+        console.warn('[Talent Owner Jobs] Query timed out for user:', req.user.id);
+        return res.status(503).json({ message: 'Request timed out, please retry' });
+      }
       console.error("Error fetching talent owner jobs:", error);
       res.status(500).json({ message: "Failed to fetch job postings" });
     }
@@ -1393,8 +1405,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // Get all applicants across all jobs for a talent owner (for analytics)
   app.get('/api/talent-owner/all-applicants', isAuthenticated, async (req: any, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
-      const candidates = await storage.getCandidatesForRecruiter(req.user.id);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Applicants query timeout')), 8000)
+      );
+      const candidates = await Promise.race([
+        storage.getCandidatesForRecruiter(req.user.id),
+        timeout,
+      ]);
       // Transform to a flat applicant list
       const applicants = candidates.map((c: any) => ({
         applicationId: c.application.id,
@@ -1420,6 +1439,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }));
       res.json(applicants);
     } catch (error) {
+      const msg = (error as Error).message;
+      if (msg === 'Applicants query timeout') {
+        console.warn('[All Applicants] Query timed out for user:', req.user.id);
+        return res.status(503).json({ message: 'Request timed out, please retry' });
+      }
       console.error("Error fetching all applicants:", error);
       res.status(500).json({ message: "Failed to fetch applicants" });
     }
@@ -1427,6 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // Get talent owner profile
   app.get('/api/talent-owner/profile', isAuthenticated, async (req: any, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       const profile = await storage.getTalentOwnerProfile(req.user.id);
       res.json(profile || null);
@@ -1438,10 +1463,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // Recruiter specific stats
   app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
-      const stats = await storage.getRecruiterStats(req.user.id);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Stats query timeout')), 8000)
+      );
+      const stats = await Promise.race([storage.getRecruiterStats(req.user.id), timeout]);
       res.json(stats);
     } catch (error) {
+      const msg = (error as Error).message;
+      if (msg === 'Stats query timeout') {
+        console.warn('[Recruiter Stats] Query timed out for user:', req.user.id);
+        return res.status(503).json({ message: 'Request timed out, please retry' });
+      }
       console.error("Error fetching recruiter stats:", error);
       res.status(500).json({ message: "Failed to fetch recruiter stats" });
     }
