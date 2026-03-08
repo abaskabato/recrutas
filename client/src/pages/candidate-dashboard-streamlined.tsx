@@ -345,8 +345,8 @@ export default function CandidateStreamlinedDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Welcome + profile strip (only on jobs tab) */}
-        {activeTab === 'jobs' && (
+        {/* Welcome + profile strip (only on jobs tab, only once resume uploaded) */}
+        {activeTab === 'jobs' && hasResume && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -380,44 +380,6 @@ export default function CandidateStreamlinedDashboard() {
           </div>
         )}
 
-        {/* Getting Started Checklist - for users without resume */}
-        {!hasResume && activeTab === 'jobs' && (
-          <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-5">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
-                <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                  Get started in 3 steps
-                </h3>
-                <div className="space-y-2">
-                  {[
-                    { step: 1, label: 'Upload your resume', done: false },
-                    { step: 2, label: 'Add your skills & experience', done: !!(profile as any)?.skills?.length },
-                    { step: 3, label: 'Set your job preferences', done: !!(profile as any)?.jobPreferences },
-                  ].map(({ step, label, done }) => (
-                    <div key={step} className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500' : 'bg-blue-200 dark:bg-blue-800'}`}>
-                        {done ? <CheckCircle className="h-3.5 w-3.5 text-white" /> : <span className="text-xs font-medium text-blue-700 dark:text-blue-300">{step}</span>}
-                      </div>
-                      <span className={`text-sm ${done ? 'text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>
-                        {label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => setActiveTab('profile')}
-                  className="mt-4 bg-blue-600 hover:bg-blue-700"
-                >
-                  Complete Setup <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Stats row — only when resume uploaded */}
         {hasResume && activeTab === 'jobs' && (
@@ -523,32 +485,6 @@ export default function CandidateStreamlinedDashboard() {
           </div>
         )}
 
-        {/* Resume Upload CTA */}
-        {!hasResume && activeTab === 'jobs' && (
-          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-5">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                  Start by uploading your resume
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Upload once and we'll extract your skills, experience, and match you to the right jobs automatically.
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => setActiveTab('profile')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs"
-                >
-                  <Upload className="h-3.5 w-3.5 mr-1.5" />
-                  Upload Resume
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Tab Content */}
         {activeTab === 'jobs' && (
@@ -567,25 +503,48 @@ export default function CandidateStreamlinedDashboard() {
             {hasResume ? (
               <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
             ) : (
-              <div className="text-center py-16">
-                <div className="h-16 w-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              <div className="max-w-lg mx-auto py-10">
+                {/* Icon */}
+                <div className="h-14 w-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center mx-auto mb-6">
+                  <Sparkles className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Upload your resume to get personalized matches
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6">
-                  Our AI analyzes your skills and experience to find jobs you're most likely to get. 
-                  It only takes 30 seconds.
+
+                {/* Headline */}
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-2">
+                  See your job matches
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-8">
+                  Upload your resume once — our AI extracts your skills and ranks jobs by how likely you are to get them.
                 </p>
+
+                {/* What happens next */}
+                <div className="space-y-3 mb-8">
+                  {[
+                    { icon: FileText, label: 'Skills & experience extracted automatically', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/40' },
+                    { icon: Target,   label: 'Jobs ranked by your actual fit, not keywords',  color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-900/40' },
+                    { icon: Zap,      label: 'Apply to internal roles with guaranteed feedback', color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-900/40' },
+                  ].map(({ icon: Icon, label, color, bg }) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${bg}`}>
+                        <Icon className={`h-4 w-4 ${color}`} />
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Single CTA */}
                 <Button
                   onClick={() => setActiveTab('profile')}
                   size="lg"
-                  className="bg-emerald-600 hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload Resume to Get Matches
+                  Upload Resume
                 </Button>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
+                  PDF or Word · Under 5 MB · Takes about 30 seconds
+                </p>
               </div>
             )}
           </div>
