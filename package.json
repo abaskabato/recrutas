@@ -14,7 +14,7 @@
     "dev:server:stop": "pkill -f 'tsx standalone-server.js' || true",
     "dev:server-no-watch": "NODE_ENV=test tsx standalone-server.js",
     "build": "cd client && vite build && cd .. && npm run build:server && npm run build:api",
-    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist/server/index.js --external:./node_modules/* --external:@supabase/* --external:drizzle-orm --external:drizzle-orm/* --external:pg --external:express --external:multer --external:cors --external:cookie-parser --external:bcryptjs --external:groq-sdk --external:openai --external:pdf-parse --external:mammoth",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist/server/index.js --packages=external",
     "build:api": "node scripts/generate-api-handler.js",
     "postbuild": "ls -R dist",
     "start": "NODE_ENV=production node dist/index.js",

@@ -1548,7 +1548,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
           processJobMatchesInBackground(job.id);
 
           // Fire Inngest event to recompute embeddings + invalidate match cache
-          const { sendInngestEvent } = await import('./inngest.js');
+          const { sendInngestEvent } = await import('./inngest-service.js');
           await sendInngestEvent('match/recompute', { jobId: job.id, talentOwnerId: req.user.id });
         } catch (bgError) {
           console.error(`[Background] Error processing job ${job.id}:`, (bgError as Error)?.message);
@@ -2642,7 +2642,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // Required for background functions (match/recompute, sla/enforce, candidate/notify)
   if (process.env.INNGEST_EVENT_KEY) {
     const { serve } = await import('inngest/express');
-    const { inngest, inngestFunctions } = await import('./inngest.js');
+    const { inngest, inngestFunctions } = await import('./inngest-service.js');
     app.use('/api/inngest', serve({ client: inngest, functions: inngestFunctions }));
     console.log('[Inngest] Serve endpoint registered at /api/inngest');
   }
