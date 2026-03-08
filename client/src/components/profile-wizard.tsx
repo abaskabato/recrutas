@@ -234,7 +234,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
       return response.json();
     },
     onSuccess: (data) => {
-      setParsedResumeData(data);
+      setParsedResumeData(data.extractedInfo ?? null);
       setPendingFile(null);
       toast({
         title: "Resume Uploaded!",
