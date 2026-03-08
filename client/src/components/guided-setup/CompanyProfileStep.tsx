@@ -31,8 +31,8 @@ export default function CompanyProfileStep() {
         title: 'Profile Updated',
         description: 'Your company profile has been saved.',
       });
-      // Move to pricing plan selection step
-      setStep(3);
+      // Move to job posting step
+      setStep(2);
     },
     onError: (error) => {
       console.error('Company profile update failed:', error);

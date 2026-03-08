@@ -209,7 +209,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('resume', file);
-      const response = await fetch('/api/candidate/resume/upload', {
+      const response = await fetch('/api/candidate/resume', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session?.access_token}` },
         body: formData,

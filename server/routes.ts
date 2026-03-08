@@ -1462,6 +1462,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // All heavy processing happens in background to prevent timeouts
       res.status(201).json({
         ...job,
+        examGenerated: false, // exam questions generate async in background
         message: "Job posted successfully! Processing in background..."
       });
 

@@ -1,7 +1,6 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useSessionContext } from '@supabase/auth-helpers-react';
-import { apiRequest } from '@/lib/queryClient';
 
 interface GuidedSetupContextType {
   step: number;
@@ -20,41 +19,15 @@ export function GuidedSetupProvider({ children }: { children: React.ReactNode })
   const { session } = useSessionContext();
 
   useEffect(() => {
-    async function initGuidedSetup() {
-      if (!session?.user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        // Get role from auth metadata
-        const userRole = session.user.user_metadata?.role;
-        if (userRole === 'candidate' || userRole === 'talent_owner') {
-          setRole(userRole);
-        }
-
-        // Fetch profile to determine completed steps
-        const response = await apiRequest('GET', '/api/candidate/profile');
-        if (response.ok) {
-          const profile = await response.json();
-          const profileData = profile.profile || profile;
-          
-          // Determine starting step based on what's completed
-          if (profileData?.resumeUrl || profileData?.skills?.length > 0) {
-            setStep(2); // Resume done, go to info
-          }
-          if (profileData?.firstName || profileData?.lastName) {
-            setStep(3); // Info done, go to skills
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing guided setup:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!session?.user) {
+      setIsLoading(false);
+      return;
     }
-
-    initGuidedSetup();
+    const userRole = session.user.user_metadata?.role;
+    if (userRole === 'candidate' || userRole === 'talent_owner') {
+      setRole(userRole);
+    }
+    setIsLoading(false);
   }, [session]);
 
   return (

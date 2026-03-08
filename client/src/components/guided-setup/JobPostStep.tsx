@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import { useLocation } from 'wouter';
-import { Loader2, Briefcase, Building2, MapPin, DollarSign, Wrench } from 'lucide-react';
+import { Loader2, Briefcase, Building2, MapPin, DollarSign, Wrench, ClipboardList } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 export default function JobPostStep() {
   const [formData, setFormData] = useState({
@@ -21,6 +22,8 @@ export default function JobPostStep() {
     workType: 'remote' as 'remote' | 'hybrid' | 'onsite',
     salaryMin: '',
     salaryMax: '',
+    hasExam: false,
+    examPassingScore: '70',
   });
   const { toast } = useToast();
   const { setStep: _setStep } = useGuidedSetup();
@@ -67,17 +70,21 @@ export default function JobPostStep() {
         workType: formData.workType,
         salaryMin: formData.salaryMin ? parseInt(formData.salaryMin) : undefined,
         salaryMax: formData.salaryMax ? parseInt(formData.salaryMax) : undefined,
+        hasExam: formData.hasExam,
+        examPassingScore: formData.hasExam ? parseInt(formData.examPassingScore) : undefined,
       };
 
       const response = await apiRequest('POST', '/api/jobs', jobData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/talent-owner/jobs'] });
       toast({
         title: 'Job Posted Successfully',
-        description: 'Your first job has been posted and is now active.',
+        description: formData.hasExam && !data.examGenerated
+          ? 'Job posted! Note: exam questions are being generated in the background.'
+          : 'Your first job has been posted and is now active.',
       });
       setLocation('/talent-dashboard');
     },
@@ -299,6 +306,41 @@ export default function JobPostStep() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Exam Toggle */}
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <Label className="text-sm font-medium">Require screening exam</Label>
+                <p className="text-xs text-muted-foreground">Candidates must pass a skills assessment to qualify</p>
+              </div>
+            </div>
+            <Switch
+              checked={formData.hasExam}
+              onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, hasExam: checked }))}
+              disabled={mutation.isPending}
+            />
+          </div>
+          {formData.hasExam && (
+            <div className="space-y-2 pt-1">
+              <Label htmlFor="examPassingScore" className="text-sm font-medium">Passing score (%)</Label>
+              <Input
+                id="examPassingScore"
+                name="examPassingScore"
+                type="number"
+                min="1"
+                max="100"
+                value={formData.examPassingScore}
+                onChange={handleChange}
+                className="max-w-[120px]"
+                disabled={mutation.isPending}
+              />
+              <p className="text-xs text-muted-foreground">AI will generate relevant questions based on the job description</p>
+            </div>
+          )}
         </div>
 
         {/* Job Description */}

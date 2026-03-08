@@ -5,6 +5,8 @@ import { Progress } from '@/components/ui/progress';
 import { GuidedSetupProvider, useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import SkillsStep from '@/components/guided-setup/SkillsStep';
 import CompanyProfileStep from '@/components/guided-setup/CompanyProfileStep';
+import ResumeUploadStep from '@/components/guided-setup/ResumeUploadStep';
+import JobPostStep from '@/components/guided-setup/JobPostStep';
 
 import { ChevronLeft } from 'lucide-react';
 import { SignOutButton } from '@/components/SignOutButton';
@@ -58,13 +60,14 @@ function GuidedSetupContent() {
   };
 
   // Role is determined at signup - no need for role selection step
-  // Candidates go to ProfileWizard, talent owners go to Company Profile
   const candidateSteps = [
+    { name: 'Resume', component: <ResumeUploadStep /> },
     { name: 'Profile', component: <SkillsStep /> },
   ];
 
   const talentOwnerSteps = [
     { name: 'Company', component: <CompanyProfileStep /> },
+    { name: 'Post Job', component: <JobPostStep /> },
   ];
 
   const steps = role === 'candidate' ? candidateSteps : talentOwnerSteps;
