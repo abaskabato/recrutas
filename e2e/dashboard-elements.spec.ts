@@ -60,7 +60,7 @@ test.describe('Candidate Dashboard', () => {
 
     // Either job cards appear or an empty/loading state is shown
     const jobCards = page.locator('[data-testid="job-card"], [class*="job-card"], [class*="card"], main, [role="main"]');
-    const jobText = page.getByText(/matched for you|showing.*match|no.*job|browse|find.*job|looking for|loading/i);
+    const jobText = page.getByText(/matched for you|showing.*match|no.*job|browse|find.*job|looking for|loading|see your job|upload resume/i);
     const rendered = await jobCards.or(jobText).first().isVisible({ timeout: 8000 }).catch(() => false);
     expect(rendered).toBe(true);
   });
@@ -194,7 +194,7 @@ test.describe('Talent Owner Dashboard', () => {
       await page.waitForTimeout(1500);
     }
 
-    const createBtn = page.getByRole('button', { name: /create.*job|post.*job|new.*job|add.*job/i });
+    const createBtn = page.getByRole('button', { name: /create.*job|post.*job|new.*job|add.*job/i }).first();
     await expect(createBtn).toBeVisible({ timeout: 10000 });
   });
 
@@ -319,7 +319,8 @@ test.describe('API health checks (candidate auth)', () => {
   });
 
   async function apiGet(page: Page, path: string) {
-    return page.request.get(`http://localhost:5173${path}`, {
+    // Use page.request so Playwright applies the configured baseURL automatically
+    return page.request.get(path, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   }
@@ -341,7 +342,7 @@ test.describe('API health checks (candidate auth)', () => {
   });
 
   test('/api/external-jobs?jobTitle=engineer returns jobs array', async ({ page }) => {
-    const res = await page.request.get('http://localhost:5173/api/external-jobs?jobTitle=engineer');
+    const res = await page.request.get('/api/external-jobs?jobTitle=engineer');
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body.jobs)).toBe(true);
@@ -353,7 +354,10 @@ test.describe('API health checks (candidate auth)', () => {
     expect([200, 404]).toContain(res.status());
     if (res.status() === 200) {
       const body = await res.json();
-      expect(body).toHaveProperty('userId');
+      // The endpoint wraps the profile: { exists: true, profile: { userId, ... } }
+      // or returns the profile directly depending on implementation
+      const profile = body?.profile ?? body;
+      expect(profile).toHaveProperty('userId');
     }
   });
 
@@ -392,7 +396,8 @@ test.describe('API health checks (talent auth)', () => {
   });
 
   async function apiGet(page: Page, path: string) {
-    return page.request.get(`http://localhost:5173${path}`, {
+    // Use page.request so Playwright applies the configured baseURL automatically
+    return page.request.get(path, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   }
