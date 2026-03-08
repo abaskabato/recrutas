@@ -860,12 +860,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // Platform stats
   app.get('/api/platform/stats', async (req, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
-      const [userCount, jobCount, matchCount] = await Promise.all([
-        db.select({ count: sql<number>`count(*)` }).from(users),
-        db.select({ count: sql<number>`count(*)` }).from(jobPostings),
-        db.select({ count: sql<number>`count(*)` }).from(jobApplications)
-      ]);
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Stats query timeout')), 8000)
+      );
+      const [userCount, jobCount, matchCount] = await Promise.race([
+        Promise.all([
+          db.select({ count: sql<number>`count(*)` }).from(users),
+          db.select({ count: sql<number>`count(*)` }).from(jobPostings),
+          db.select({ count: sql<number>`count(*)` }).from(jobApplications)
+        ]),
+        timeout
+      ]) as any;
       const stats = {
         totalUsers: userCount[0].count || 0,
         totalJobs: jobCount[0].count || 0,
@@ -875,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(stats);
     } catch (error) {
       console.error('Error fetching platform stats:', error);
-      res.status(500).json({ message: 'Failed to fetch platform stats' });
+      res.status(503).json({ message: 'Stats temporarily unavailable' });
     }
   });
 
