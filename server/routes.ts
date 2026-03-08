@@ -323,8 +323,11 @@ async function generateExamQuestions(job: any) {
   return questions;
 }
 
+import { registerMetricsRoutes } from './routes/metrics-api.js';
+
 export async function registerRoutes(app: Express): Promise<Express> {
   console.log('registerRoutes called!');
+  registerMetricsRoutes(app);
 
   // Dev-only route for seeding the database - DISABLED in production
   app.post('/api/dev/seed', async (req, res) => {
@@ -1543,6 +1546,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
           // Process candidate matching in background
           processJobMatchesInBackground(job.id);
+
+          // Fire Inngest event to recompute embeddings + invalidate match cache
+          const { sendInngestEvent } = await import('./inngest.js');
+          await sendInngestEvent('match/recompute', { jobId: job.id, talentOwnerId: req.user.id });
         } catch (bgError) {
           console.error(`[Background] Error processing job ${job.id}:`, (bgError as Error)?.message);
         }
@@ -2630,6 +2637,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.status(500).json({ message: "Failed to cancel task" });
     }
   });
+
+  // Inngest serve endpoint — receives events from Inngest Cloud
+  // Required for background functions (match/recompute, sla/enforce, candidate/notify)
+  if (process.env.INNGEST_EVENT_KEY) {
+    const { serve } = await import('inngest/express');
+    const { inngest, inngestFunctions } = await import('./inngest.js');
+    app.use('/api/inngest', serve({ client: inngest, functions: inngestFunctions }));
+    console.log('[Inngest] Serve endpoint registered at /api/inngest');
+  }
 
   return app;
 }

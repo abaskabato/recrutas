@@ -171,7 +171,9 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
             skillsCount: savedSkills.length,
             workHistoryCount: savedPositions.length,
             educationCount: 0,
-          });
+            certificationsCount: 0,
+            projectsCount: 0,
+          } as any);
         }
       }
     }

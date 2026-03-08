@@ -1,5 +1,6 @@
 import { generateJobMatch } from './ai-service';
 import { storage } from './storage';
+import { redis } from './lib/redis.js';
 import { sql } from "drizzle-orm/sql";
 import { generateEmbedding, cosineSimilarity, generateCandidateEmbedding } from './ml-matching.js';
 import { semanticJobSearch, indexJobForSearch, hybridJobSearch, type SearchResult } from './vector-search.js';
@@ -62,17 +63,38 @@ const RANKING_WEIGHTS = {
 const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
 
 export class AdvancedMatchingEngine {
-  private matchCache: Map<string, EnhancedJobMatch[]> = new Map();
-  private readonly CACHE_DURATION = 60 * 1000; // 1 minute for fresh matches
-  private static readonly MAX_CACHE_SIZE = 200;
+  // In-process fallback cache (used when Redis is not configured)
+  private localCache: Map<string, EnhancedJobMatch[]> = new Map();
+  private static readonly LOCAL_CACHE_MAX = 200;
+  private static readonly CACHE_TTL_SECONDS = 300; // 5 min shared cache via Redis
+
+  private async getCached(key: string): Promise<EnhancedJobMatch[] | null> {
+    // Try Redis first
+    try {
+      const raw = await redis.get(`match:${key}`);
+      if (raw) return JSON.parse(raw) as EnhancedJobMatch[];
+    } catch { /* fall through to local */ }
+    return this.localCache.get(key) ?? null;
+  }
+
+  private async setCached(key: string, matches: EnhancedJobMatch[]): Promise<void> {
+    // Write to Redis (shared across instances)
+    try {
+      await redis.set(`match:${key}`, JSON.stringify(matches), AdvancedMatchingEngine.CACHE_TTL_SECONDS);
+    } catch { /* Redis unavailable — local only */ }
+    // Also write to local cache with eviction
+    if (this.localCache.size >= AdvancedMatchingEngine.LOCAL_CACHE_MAX) {
+      const oldest = this.localCache.keys().next().value;
+      if (oldest !== undefined) this.localCache.delete(oldest);
+    }
+    this.localCache.set(key, matches);
+    setTimeout(() => this.localCache.delete(key), AdvancedMatchingEngine.CACHE_TTL_SECONDS * 1000).unref();
+  }
 
   async generateAdvancedMatches(criteria: AdvancedMatchCriteria): Promise<EnhancedJobMatch[]> {
     const cacheKey = this.generateCacheKey(criteria);
-    const cached = this.matchCache.get(cacheKey);
-    
-    if (cached) {
-      return cached;
-    }
+    const cached = await this.getCached(cacheKey);
+    if (cached) return cached;
 
     try {
       // Fetch all active jobs from DB (internal + external)
@@ -99,14 +121,8 @@ export class AdvancedMatchingEngine {
       // Sort by PRD hybrid formula: FinalScore = w1*Semantic + w2*Recency + w3*Liveness + w4*Personalization
       matches.sort((a, b) => b.finalScore - a.finalScore);
 
-      // Cache results with size limit to prevent unbounded growth
-      if (this.matchCache.size >= AdvancedMatchingEngine.MAX_CACHE_SIZE) {
-        const oldestKey = this.matchCache.keys().next().value;
-        if (oldestKey !== undefined) {this.matchCache.delete(oldestKey);}
-      }
-      const topMatches = matches.slice(0, 50); // Top 50 matches
-      this.matchCache.set(cacheKey, topMatches);
-      setTimeout(() => this.matchCache.delete(cacheKey), this.CACHE_DURATION).unref();
+      const topMatches = matches.slice(0, 50);
+      await this.setCached(cacheKey, topMatches);
 
       return topMatches;
     } catch (error) {
@@ -477,9 +493,10 @@ export class AdvancedMatchingEngine {
       location: preferences.location
     });
 
-    // Clear cache to force refresh
-    const keys = Array.from(this.matchCache.keys()).filter(key => key.startsWith(candidateId));
-    keys.forEach(key => this.matchCache.delete(key));
+    // Clear local cache entries for this candidate
+    const keys = Array.from(this.localCache.keys()).filter(key => key.startsWith(candidateId));
+    keys.forEach(key => this.localCache.delete(key));
+    // Redis entries expire automatically via TTL — no explicit delete needed
   }
 
   async generateSOTAMatches(criteria: AdvancedMatchCriteria, limit: number = 50): Promise<EnhancedJobMatch[]> {

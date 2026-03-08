@@ -13,7 +13,7 @@ import { storage } from '../storage.js';
 import { generateEmbedding, cosineSimilarity } from '../ml-matching.js';
 import { db } from '../db.js';
 import { jobPostings } from '../../shared/schema.js';
-import { eq, isNull, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 const BATCH_SIZE = 50;
 

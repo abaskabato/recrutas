@@ -9,6 +9,7 @@ import { supabaseAdmin } from './lib/supabase-admin.js';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { errorHandlerMiddleware, requestTracingMiddleware, captureException } from './error-monitoring.js';
+import { metricsMiddleware } from './middleware/metrics.js';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 
 const app = express();
@@ -190,6 +191,9 @@ export async function configureApp() {
 
   // Request tracing middleware for performance monitoring (Sentry)
   app.use(requestTracingMiddleware());
+
+  // Metrics sampling middleware (20% of API requests → request_metrics table)
+  app.use(metricsMiddleware());
 
   // Middleware for logging
   app.use((req, res, next) => {

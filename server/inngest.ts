@@ -1,0 +1,139 @@
+/**
+ * Inngest client + background function definitions.
+ *
+ * Set INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY in Vercel env vars to enable.
+ * Without these, events are no-ops (graceful degradation).
+ *
+ * Functions:
+ * - match/recompute    — recompute matches after a new job is posted
+ * - sla/enforce        — enforce 24h response SLA (replaces GitHub Actions cron fallback)
+ * - candidate/notify   — send exam result notifications asynchronously
+ */
+
+import { Inngest } from 'inngest';
+
+export const inngest = new Inngest({
+  id: 'recrutas',
+  eventKey: process.env.INNGEST_EVENT_KEY,
+});
+
+// ── Event types ───────────────────────────────────────────────────────────────
+
+export type InngestEvents = {
+  'match/recompute': { data: { jobId: number; talentOwnerId: string } };
+  'sla/enforce': { data: Record<string, never> };
+  'candidate/notify': {
+    data: {
+      candidateId: string;
+      type: string;
+      title: string;
+      message: string;
+      relatedApplicationId?: number;
+    };
+  };
+};
+
+// ── Recompute matches after new job posted ────────────────────────────────────
+
+export const recomputeMatchesFunction = inngest.createFunction(
+  { id: 'recompute-matches', name: 'Recompute Job Matches' },
+  { event: 'match/recompute' },
+  async ({ event, step }) => {
+    const { jobId } = event.data;
+
+    await step.run('recompute', async () => {
+      const { storage } = await import('./storage.js');
+      const { updateJobEmbedding } = await import('./services/batch-embedding.service.js');
+
+      // Refresh embedding for the new job
+      await updateJobEmbedding(jobId);
+
+      // Clear Redis match cache for all candidates (they'll recompute on next request)
+      const { redis } = await import('./lib/redis.js');
+      // We use a scan-based clear in Redis, or just let TTL expire (5 min)
+      // For now: store a "cache_invalidated_at" marker so clients know to refresh
+      await redis.set('match:cache_invalidated_at', Date.now().toString(), 3600);
+
+      console.log(`[Inngest] Recomputed embedding for job ${jobId}`);
+    });
+  }
+);
+
+// ── SLA enforcement ───────────────────────────────────────────────────────────
+
+export const enforceSLAFunction = inngest.createFunction(
+  { id: 'enforce-sla', name: 'Enforce 24h Response SLA' },
+  { cron: '0 * * * *' }, // Hourly — same as GitHub Actions cron, but serverless-native
+  async ({ step }) => {
+    await step.run('enforce', async () => {
+      const { storage } = await import('./storage.js');
+      const { notificationService } = await import('./notification-service.js');
+
+      const overdue = await storage.getOverdueExamApplications();
+      let closed = 0;
+
+      for (const { applicationId, candidateId, jobTitle, company } of overdue) {
+        try {
+          await storage.updateApplicationStatusByCandidate(applicationId, 'rejected');
+          await notificationService.createNotification({
+            userId: candidateId,
+            type: 'application_rejected',
+            title: 'Application Closed — No Response',
+            message: `${company} did not respond to your ${jobTitle} application within 24 hours.`,
+            priority: 'high',
+            relatedApplicationId: applicationId,
+            data: { jobTitle, company, reason: 'sla_expired' },
+          });
+          closed++;
+        } catch (err) {
+          console.error(`[Inngest SLA] Failed for application ${applicationId}:`, (err as Error).message);
+        }
+      }
+
+      console.log(`[Inngest SLA] Closed ${closed}/${overdue.length} overdue applications`);
+      return { closed, total: overdue.length };
+    });
+  }
+);
+
+// ── Async candidate notification ──────────────────────────────────────────────
+
+export const candidateNotifyFunction = inngest.createFunction(
+  { id: 'candidate-notify', name: 'Candidate Notification' },
+  { event: 'candidate/notify' },
+  async ({ event, step }) => {
+    await step.run('notify', async () => {
+      const { notificationService } = await import('./notification-service.js');
+      const { candidateId, type, title, message, relatedApplicationId } = event.data;
+
+      await notificationService.createNotification({
+        userId: candidateId,
+        type,
+        title,
+        message,
+        priority: 'high',
+        relatedApplicationId,
+      });
+    });
+  }
+);
+
+// ── Helper: send event safely (no-op if Inngest not configured) ──────────────
+
+export async function sendInngestEvent<K extends keyof InngestEvents>(
+  name: K,
+  data: InngestEvents[K]['data']
+): Promise<void> {
+  if (!process.env.INNGEST_EVENT_KEY) return; // graceful no-op
+  try {
+    await inngest.send({ name, data } as any);
+  } catch (err) {
+    console.warn('[Inngest] Failed to send event:', name, (err as Error).message);
+  }
+}
+
+export const inngestFunctions = [
+  recomputeMatchesFunction,
+  enforceSLAFunction,
+  candidateNotifyFunction,
+];

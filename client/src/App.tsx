@@ -22,6 +22,7 @@ import { TopRightButtons } from '@/components/TopRightButtons';
 import { RoleGuard } from '@/components/role-guard';
 import { AuthGuard } from '@/components/auth-guard';
 import AdminDashboard from "@/pages/admin-dashboard";
+import MetricsDashboard from "@/pages/metrics-dashboard";
 import PageMeta from '@/components/page-meta';
 
 
@@ -60,6 +61,7 @@ function App() {
             <RoleGuard allowedRoles={['candidate', 'talent_owner', 'recruiter']}><Chat /></RoleGuard>
           </Route>
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/metrics" component={MetricsDashboard} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfService} />

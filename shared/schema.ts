@@ -847,6 +847,22 @@ export const agentTasksRelations = relations(agentTasks, ({ one }: { one: any })
   }),
 }));
 
+// ── Observability: request latency metrics ────────────────────────────────────
+// Sampled at 20% in production to keep table size manageable.
+// Used by /admin/metrics for p50/p95/p99 per endpoint.
+export const requestMetrics = pgTable("request_metrics", {
+  id: serial("id").primaryKey(),
+  endpoint: varchar("endpoint", { length: 200 }).notNull(),
+  method: varchar("method", { length: 10 }).notNull(),
+  statusCode: integer("status_code").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table: any) => ({
+  idxMetricsEndpoint: index("idx_metrics_endpoint").on(table.endpoint, table.createdAt),
+  idxMetricsCreatedAt: index("idx_metrics_created_at").on(table.createdAt),
+}));
+
 export const discoveredCompanies = pgTable("discovered_companies", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
