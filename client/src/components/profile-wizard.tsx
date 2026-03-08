@@ -158,17 +158,18 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
         setCurrentStep(2);
         // Populate parsedResumeData from saved profile so step 2 shows existing skills/experience
         const savedSkills: string[] = (profile as any).skills || [];
-        const savedExperience = (profile as any).experience;
-        if (savedSkills.length > 0 || savedExperience) {
+        const savedExperienceLevel: string = (profile as any).experienceLevel || '';
+        const savedPositions = (profile as any).resumeParsingData?.positions || [];
+        if (savedSkills.length > 0 || savedExperienceLevel) {
           setParsedResumeData(prev => prev ?? {
             skills: { technical: savedSkills, soft: [], tools: [] },
-            experience: savedExperience || { level: '', years: 0, positions: [] },
+            experience: { level: savedExperienceLevel, years: 0, positions: savedPositions },
             education: [],
             certifications: [],
             projects: [],
             personalInfo: { name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' },
             skillsCount: savedSkills.length,
-            workHistoryCount: savedExperience?.positions?.length || 0,
+            workHistoryCount: savedPositions.length,
             educationCount: 0,
           });
         }
@@ -192,7 +193,9 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
           ...(parsedResumeData.skills?.soft || []),
           ...(parsedResumeData.skills?.tools || []),
         ];
-        profileDataToSave.experience = parsedResumeData.experience;
+        if (parsedResumeData.experience?.level) {
+          profileDataToSave.experienceLevel = parsedResumeData.experience.level;
+        }
       }
 
       await apiRequest('POST', '/api/candidate/profile', { ...profileDataToSave, location: userLocation });
