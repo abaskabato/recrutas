@@ -9,6 +9,8 @@ import { normalizeSkills } from './skill-normalizer.js';
 
 // Skip local model checks since we're using pre-converted ONNX models
 env.allowLocalModels = false;
+// Use /tmp for model cache — Vercel's /var/task is read-only
+env.cacheDir = '/tmp/xenova-cache';
 // env.useBrowserCache omitted — no effect in Node.js
 
 // Model: all-MiniLM-L6-v2 - Fast (22MB), good quality embeddings
