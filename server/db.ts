@@ -31,9 +31,14 @@ if (connectionString) {
 
     // Create connection to PostgreSQL with optimized settings for serverless environments
     client = postgres(connectionString, {
-      max: isServerless ? 1 : 10,
-      idle_timeout: isServerless ? 10 : 30,
-      connect_timeout: 10,
+      // Allow 3 concurrent connections per serverless instance.
+      // Vercel scales horizontally so total = 3 × N instances; safe for Supabase Pro (200 limit).
+      // max: 1 caused head-of-line blocking when ≥2 concurrent requests hit a warm instance.
+      max: isServerless ? 3 : 10,
+      idle_timeout: isServerless ? 20 : 30,
+      // Keep connect_timeout longer than our 8s app timeout so the app timeout fires first
+      // and returns a clean 503 instead of an opaque postgres connection error.
+      connect_timeout: 15,
       connection: {
         application_name: 'recrutas-app',
         statement_timeout: 20000,
