@@ -1,0 +1,39 @@
+name: Auto-Hide Ghost Jobs
+
+on:
+  schedule:
+    # Run daily at 4 AM UTC (after scrape-tech-companies at 2 AM)
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      stale_days:
+        description: 'Days of inactivity before closing a job (default: 30)'
+        required: false
+        default: '30'
+        type: string
+
+jobs:
+  auto-hide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Close stale internal jobs
+        continue-on-error: true
+        run: |
+          STALE_DAYS="${{ github.event.inputs.stale_days || '30' }}"
+          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/auto-hide-ghost-jobs?staleDays=${STALE_DAYS}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "Response status: $response"
+          echo "Response body: $(cat /tmp/response.json)"
+
+          if [ "$response" != "200" ]; then
+            echo "Auto-hide returned non-200: $response"
+            exit 1
+          fi
+
+      - name: Log result
+        if: always()
+        run: echo "Ghost job auto-hide run complete at $(date -u)"

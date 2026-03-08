@@ -148,6 +148,8 @@ export interface IStorage {
   updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
   storeExamResult(result: any): Promise<any>;
   getOverdueExamApplications(): Promise<{ applicationId: number; candidateId: string; jobTitle: string; company: string }[]>;
+  getStaleInternalJobs(staleDays?: number): Promise<{ id: number; title: string; company: string; createdAt: Date | null }[]>;
+  closeJobsByIds(ids: number[]): Promise<number>;
   getAvailableNotificationUsers(): Promise<string[]>;
 
 
@@ -1370,6 +1372,49 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error fetching overdue exam applications:', error);
       return [];
+    }
+  }
+
+  // Returns internal platform jobs that have been active for staleDays+ days
+  // with no new applicant activity in the last 14 days — candidates for auto-close.
+  async getStaleInternalJobs(staleDays = 30): Promise<{ id: number; title: string; company: string; createdAt: Date | null }[]> {
+    try {
+      if (!db) return [];
+      const rows = await db.execute(sql`
+        SELECT
+          jp.id,
+          jp.title,
+          jp.company,
+          jp.created_at AS "createdAt"
+        FROM job_postings jp
+        WHERE jp.status = 'active'
+          AND (jp.source = 'platform' OR jp.source IS NULL OR jp.external_url IS NULL)
+          AND jp.created_at < NOW() - (${staleDays} || ' days')::interval
+          AND NOT EXISTS (
+            SELECT 1 FROM job_applications ja
+            WHERE ja.job_id = jp.id
+              AND ja.updated_at > NOW() - INTERVAL '14 days'
+          )
+      `);
+      return ((rows as any).rows ?? (rows as any)) as any[];
+    } catch (error) {
+      console.error('[storage] Error fetching stale internal jobs:', error);
+      return [];
+    }
+  }
+
+  // Set status='closed' for a list of job IDs (system-level, no ownership check).
+  async closeJobsByIds(ids: number[]): Promise<number> {
+    if (!db || ids.length === 0) return 0;
+    try {
+      const result = await db
+        .update(jobPostings)
+        .set({ status: 'closed', updatedAt: new Date() })
+        .where(sql`${jobPostings.id} = ANY(ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]::int[])`);
+      return (result as any).rowCount ?? ids.length;
+    } catch (error) {
+      console.error('[storage] Error closing jobs by IDs:', error);
+      return 0;
     }
   }
 

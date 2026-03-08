@@ -2313,6 +2313,38 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Auto-hide stale internal jobs — called daily by GitHub Actions cron
+  // Closes platform jobs with no applicant activity in 14 days, after being
+  // active for 30+ days. Prevents ghost jobs from accumulating in the feed.
+  app.post('/api/cron/auto-hide-ghost-jobs', async (req, res) => {
+    try {
+      const cronSecret = req.headers['x-cron-secret'];
+      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const staleDays = parseInt((req.query.staleDays as string) || '30', 10);
+      const staleJobs = await storage.getStaleInternalJobs(staleDays);
+
+      if (staleJobs.length === 0) {
+        return res.json({ message: 'No stale jobs found', closed: 0 });
+      }
+
+      const ids = staleJobs.map((j: any) => j.id);
+      const closed = await storage.closeJobsByIds(ids);
+
+      console.log(`[Ghost Auto-Hide] Closed ${closed} stale jobs:`, staleJobs.map((j: any) => `${j.title} @ ${j.company} (id:${j.id})`).join(', '));
+      res.json({
+        message: 'Ghost job auto-hide complete',
+        closed,
+        jobs: staleJobs.map((j: any) => ({ id: j.id, title: j.title, company: j.company })),
+      });
+    } catch (error: any) {
+      console.error('[Ghost Auto-Hide] Failed:', error?.message);
+      res.status(500).json({ message: 'Ghost job auto-hide failed', error: error?.message });
+    }
+  });
+
   // Ghost job detection endpoints
   app.post('/api/admin/run-ghost-job-detection', async (req, res) => {
     try {

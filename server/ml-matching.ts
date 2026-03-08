@@ -1,13 +1,14 @@
 /**
  * ML-Based Job Matching Service
- * Uses HuggingFace Inference API (sentence-transformers/all-MiniLM-L6-v2)
- * for semantic embeddings — no local ONNX/WASM model, no cold-start delays.
+ * Uses HuggingFace Inference API (BAAI/bge-m3) for semantic embeddings
+ * — 1024-dim multilingual model, SOTA for retrieval/matching tasks.
+ * No local ONNX/WASM model, no cold-start delays.
  */
 
 import { normalizeSkills } from './skill-normalizer.js';
 
 const HF_MODEL_URL =
-  'https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2';
+  'https://api-inference.huggingface.co/models/BAAI/bge-m3';
 
 interface EmbeddingResult {
   embedding: number[];
@@ -247,10 +248,10 @@ export function isModelLoaded(): boolean {
  */
 export function getModelInfo() {
   return {
-    model: 'sentence-transformers/all-MiniLM-L6-v2',
-    description: 'All-MiniLM-L6-v2 via HuggingFace Inference API',
-    dimensions: 384,
-    maxTokens: 512,
+    model: 'BAAI/bge-m3',
+    description: 'BGE-M3 via HuggingFace Inference API — 1024-dim, multilingual, SOTA retrieval',
+    dimensions: 1024,
+    maxTokens: 8192,
     type: 'HuggingFace Inference API',
     endpoint: HF_MODEL_URL,
   };
