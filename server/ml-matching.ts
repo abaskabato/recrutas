@@ -4,14 +4,9 @@
  * Runs locally - no external API calls needed
  */
 
-import { pipeline, env } from '@xenova/transformers';
+// @xenova/transformers is imported lazily inside getEmbeddingPipeline() to avoid
+// loading the WASM/ONNX runtime at module-import time (which causes slow cold starts).
 import { normalizeSkills } from './skill-normalizer.js';
-
-// Skip local model checks since we're using pre-converted ONNX models
-env.allowLocalModels = false;
-// Use /tmp for model cache — Vercel's /var/task is read-only
-env.cacheDir = '/tmp/xenova-cache';
-// env.useBrowserCache omitted — no effect in Node.js
 
 // Model: all-MiniLM-L6-v2 - Fast (22MB), good quality embeddings
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
@@ -51,6 +46,10 @@ async function getEmbeddingPipeline() {
 
   if (!pipelineLoadingPromise) {
     console.log('[ML Matching] Loading embedding model (first request may take 10-30 seconds)...');
+    // Lazy import — avoids loading WASM/ONNX at module import time
+    const { pipeline, env } = await import('@xenova/transformers');
+    env.allowLocalModels = false;
+    env.cacheDir = '/tmp/xenova-cache';
     pipelineLoadingPromise = withTimeout(
       pipeline('feature-extraction', MODEL_NAME),
       60000,
