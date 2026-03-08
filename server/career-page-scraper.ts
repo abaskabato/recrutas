@@ -77,47 +77,38 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Algolia', careerUrl: 'https://www.algolia.com/careers', greenhouseId: 'algolia' },
   { name: 'Contentful', careerUrl: 'https://www.contentful.com/careers/', greenhouseId: 'contentful' },
   { name: 'Pendo', careerUrl: 'https://www.pendo.io/careers/', greenhouseId: 'pendo' },
-  { name: 'Segment', careerUrl: 'https://segment.com/jobs/', greenhouseId: 'segment' },
   { name: 'Faire', careerUrl: 'https://www.faire.com/careers', greenhouseId: 'faire' },
   { name: 'Lattice', careerUrl: 'https://lattice.com/careers', greenhouseId: 'lattice' },
-  { name: 'Gem', careerUrl: 'https://www.gem.com/careers', greenhouseId: 'gem' },
-  { name: 'Front', careerUrl: 'https://front.com/jobs', greenhouseId: 'front' },
-  { name: 'Coda', careerUrl: 'https://coda.io/jobs', greenhouseId: 'coda' },
-  { name: 'Superhuman', careerUrl: 'https://superhuman.com/careers', greenhouseId: 'superhuman' },
 
   // ============================================
   // LEVER ATS Companies (verified 200)
   // ============================================
   { name: 'Netflix', careerUrl: 'https://jobs.netflix.com/', leverId: 'netflix' },
+  { name: 'Front', careerUrl: 'https://front.com/jobs', leverId: 'frontapp' },
 
   // ============================================
   // ASHBY ATS Companies (free public API)
   // ============================================
   { name: 'Linear', careerUrl: 'https://linear.app/careers', ashbyId: 'linear' },
   { name: 'Notion', careerUrl: 'https://www.notion.so/careers', ashbyId: 'notion' },
-  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers', ashbyId: 'rippling' },
   { name: 'Retool', careerUrl: 'https://retool.com/careers', ashbyId: 'retool' },
   { name: 'Loom', careerUrl: 'https://www.loom.com/careers', ashbyId: 'loom' },
   { name: 'Ramp', careerUrl: 'https://ramp.com/careers', ashbyId: 'ramp' },
   { name: 'Deel', careerUrl: 'https://www.deel.com/careers', ashbyId: 'deel' },
-  { name: 'dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/open-roles', ashbyId: 'dbtlabs' },
   { name: 'Plaid', careerUrl: 'https://plaid.com/careers/', ashbyId: 'plaid' },
   { name: 'Benchling', careerUrl: 'https://www.benchling.com/careers', ashbyId: 'benchling' },
+  { name: 'Coda', careerUrl: 'https://coda.io/jobs', ashbyId: 'coda' },
+  { name: 'Superhuman', careerUrl: 'https://superhuman.com/careers', ashbyId: 'superhuman' },
 
   // ============================================
-  // WORKABLE ATS Companies (free public API)
+  // WORKABLE ATS Companies (verified slugs)
   // ============================================
-  { name: 'Typeform', careerUrl: 'https://www.typeform.com/careers/', workableId: 'typeform' },
   { name: 'Hotjar', careerUrl: 'https://www.hotjar.com/careers/', workableId: 'hotjar' },
-  { name: 'Skroutz', careerUrl: 'https://www.skroutz.gr/careers', workableId: 'skroutz' },
   { name: 'Workato', careerUrl: 'https://www.workato.com/careers', workableId: 'workato' },
-  { name: 'InVision', careerUrl: 'https://www.invisionapp.com/careers', workableId: 'invision' },
 
   // ============================================
   // RECRUITEE ATS Companies (free public API)
   // ============================================
-  { name: 'Miro', careerUrl: 'https://miro.com/careers/', recruiteeId: 'miro' },
-  { name: 'MessageBird', careerUrl: 'https://messagebird.com/en/careers/', recruiteeId: 'messagebird' },
   { name: 'Templafy', careerUrl: 'https://templafy.com/careers/', recruiteeId: 'templafy' },
 
   // ============================================
@@ -154,9 +145,15 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Pinterest', careerUrl: 'https://www.pinterestcareers.com/' },
   { name: 'Snap', careerUrl: 'https://careers.snap.com/' },
   { name: 'Reddit', careerUrl: 'https://www.redditinc.com/careers' },
-  // No Greenhouse/Lever/Ashby/Workable/Recruitee API — AI-scraped from career pages
+  // No confirmed ATS API — AI-scraped from career pages
   { name: 'Zapier', careerUrl: 'https://zapier.com/jobs' },
   { name: 'Canva', careerUrl: 'https://www.canva.com/careers/' },
+  { name: 'Segment', careerUrl: 'https://segment.com/jobs/' },
+  { name: 'Miro', careerUrl: 'https://miro.com/careers/' },
+  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers' },
+  { name: 'Typeform', careerUrl: 'https://www.typeform.com/careers/' },
+  { name: 'Gem', careerUrl: 'https://www.gem.com/careers' },
+  { name: 'dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/open-roles' },
 ];
 
 class CareerPageScraper {
@@ -461,14 +458,23 @@ class CareerPageScraper {
    * Fetch jobs from Workable ATS API (free public widget API)
    */
   private async fetchFromWorkable(company: CompanyCareerPage): Promise<ScrapedJob[]> {
-    const apiUrl = `https://apply.workable.com/api/v1/widget/accounts/${company.workableId}/vacancies/`;
+    // Try the widget API; fall back to the legacy JSON endpoint
+    const urls = [
+      `https://apply.workable.com/api/v1/widget/accounts/${company.workableId}/vacancies/`,
+      `https://${company.workableId}.workable.com/api/vacancies`,
+    ];
+    let data: any = null;
+    for (const apiUrl of urls) {
+      try {
+        const response = await fetch(apiUrl, {
+          headers: { 'User-Agent': 'RecrutasJobAggregator/1.0', 'Accept': 'application/json' }
+        });
+        if (response.ok) { data = await response.json(); break; }
+      } catch { /* try next */ }
+    }
+    if (!data) throw new Error(`Workable API returned 404 for all endpoints`);
     try {
-      const response = await fetch(apiUrl, {
-        headers: { 'User-Agent': 'RecrutasJobAggregator/1.0', 'Accept': 'application/json' }
-      });
-      if (!response.ok) throw new Error(`Workable API returned ${response.status}`);
-      const data = await response.json();
-      const jobs: ScrapedJob[] = (data.results || []).slice(0, 20).map((job: any) => ({
+      const jobs: ScrapedJob[] = (data.results || data.vacancies || data.jobs || []).slice(0, 20).map((job: any) => ({
         id: `workable_${company.workableId}_${job.shortcode || job.id}`,
         title: job.title,
         company: company.name,
