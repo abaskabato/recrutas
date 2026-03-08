@@ -133,8 +133,8 @@ export const jobPostings = pgTable("job_postings", {
   companyVerified: boolean("company_verified").default(false), // Whether company email domain is verified
   recruiterEmailDomain: varchar("recruiter_email_domain"), // For company verification
   // Pre-computed vector embedding for semantic search (stored as JSON array)
-  // vectorEmbedding: text("vector_embedding"), 
-  // embeddingUpdatedAt: timestamp("embedding_updated_at"),
+  vectorEmbedding: text("vector_embedding"),
+  embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table: any) => ({
@@ -145,6 +145,8 @@ export const jobPostings = pgTable("job_postings", {
   idxJobTrustScore: index("idx_job_trust_score").on(table.trustScore),
   idxJobTalentOwner: index("idx_job_talent_owner").on(table.talentOwnerId),
   idxJobGhostScore: index("idx_job_ghost_score").on(table.ghostJobScore),
+  // Partial index for active external job feed (most frequent query)
+  idxJobActiveFeed: index("idx_job_active_feed").on(table.status, table.source, table.createdAt),
 }));
 
 export const jobExams = pgTable("job_exams", {

@@ -119,6 +119,15 @@ async function scoreJobWithML(
   }
 
   try {
+    // Use stored job embedding if fresh (< 7 days) — avoids HF API call per job
+    let precomputedJobEmbedding: number[] | undefined;
+    if (job.vectorEmbedding && job.embeddingUpdatedAt) {
+      const daysSince = (Date.now() - new Date(job.embeddingUpdatedAt).getTime()) / 86400000;
+      if (daysSince < 7) {
+        try { precomputedJobEmbedding = JSON.parse(job.vectorEmbedding); } catch { /* ignore */ }
+      }
+    }
+
     const mlResult = await calculateMLMatchScore(
       candidateSkills,
       candidateExperience,
@@ -126,7 +135,8 @@ async function scoreJobWithML(
       job.description || '',
       job.requirements || [],
       job.skills || [],
-      precomputedCandidateEmbedding
+      precomputedCandidateEmbedding,
+      precomputedJobEmbedding
     );
 
     return {
@@ -2342,6 +2352,34 @@ export async function registerRoutes(app: Express): Promise<Express> {
     } catch (error: any) {
       console.error('[Ghost Auto-Hide] Failed:', error?.message);
       res.status(500).json({ message: 'Ghost job auto-hide failed', error: error?.message });
+    }
+  });
+
+  // Purge old external jobs — called daily by GitHub Actions cron
+  // Deletes external jobs older than 90 days to prevent unbounded table growth.
+  // Internal/platform jobs are never purged (recruiters own them).
+  app.post('/api/cron/purge-old-jobs', async (req, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
+    try {
+      const cronSecret = req.headers['x-cron-secret'];
+      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const retainDays = parseInt((req.query.retainDays as string) || '90', 10);
+      const result = await db.execute(sql`
+        DELETE FROM job_postings
+        WHERE (source != 'platform' OR source IS NULL)
+          AND external_url IS NOT NULL
+          AND created_at < NOW() - (${retainDays} || ' days')::interval
+        RETURNING id
+      `);
+      const deleted = ((result as any).rows ?? (result as any)).length;
+      console.log(`[Purge] Deleted ${deleted} external jobs older than ${retainDays} days`);
+      res.json({ message: 'Purge complete', deleted, retainDays });
+    } catch (error: any) {
+      console.error('[Purge] Failed:', error?.message);
+      res.status(500).json({ message: 'Purge failed', error: error?.message });
     }
   });
 

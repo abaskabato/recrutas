@@ -1,0 +1,39 @@
+name: Purge Old External Jobs
+
+on:
+  schedule:
+    # Run daily at 5 AM UTC (after auto-hide-ghost-jobs at 4 AM)
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      retain_days:
+        description: 'Keep jobs newer than this many days (default: 90)'
+        required: false
+        default: '90'
+        type: string
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete stale external jobs
+        continue-on-error: true
+        run: |
+          RETAIN_DAYS="${{ github.event.inputs.retain_days || '90' }}"
+          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/purge-old-jobs?retainDays=${RETAIN_DAYS}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "Response status: $response"
+          echo "Response body: $(cat /tmp/response.json)"
+
+          if [ "$response" != "200" ]; then
+            echo "Purge returned non-200: $response"
+            exit 1
+          fi
+
+      - name: Log result
+        if: always()
+        run: echo "Job purge run complete at $(date -u)"

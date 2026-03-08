@@ -146,7 +146,8 @@ export async function calculateMLMatchScore(
   jobDescription: string,
   jobRequirements: string[],
   jobSkills: string[],
-  precomputedCandidateEmbedding?: number[]
+  precomputedCandidateEmbedding?: number[],
+  precomputedJobEmbedding?: number[]
 ): Promise<{
   score: number;
   confidence: number;
@@ -170,10 +171,17 @@ export async function calculateMLMatchScore(
       candidateEmbeddingVec = await generateCandidateEmbedding(candidateSkills, candidateExperience);
     }
 
-    const jobEmbedding = await generateEmbedding(jobText);
+    // Reuse pre-computed job embedding or generate a new one
+    let jobEmbeddingVec: number[];
+    if (precomputedJobEmbedding && precomputedJobEmbedding.length > 0) {
+      jobEmbeddingVec = precomputedJobEmbedding;
+    } else {
+      const jobEmbedding = await generateEmbedding(jobText);
+      jobEmbeddingVec = jobEmbedding.embedding;
+    }
 
     // Calculate semantic similarity using ML embeddings
-    const baseSimilarity = cosineSimilarity(candidateEmbeddingVec, jobEmbedding.embedding);
+    const baseSimilarity = cosineSimilarity(candidateEmbeddingVec, jobEmbeddingVec);
 
     // Check explicit skill matches (canonical exact match, no substring false positives)
     const normalizedCandSkills = normalizeSkills(candidateSkills).map(s => s.toLowerCase());

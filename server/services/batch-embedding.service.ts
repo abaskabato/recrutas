@@ -13,7 +13,7 @@ import { storage } from '../storage.js';
 import { generateEmbedding, cosineSimilarity } from '../ml-matching.js';
 import { db } from '../db.js';
 import { jobPostings } from '../../shared/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 
 const BATCH_SIZE = 50;
 
@@ -68,10 +68,14 @@ export async function batchComputeEmbeddings(
   let errors = 0;
 
   try {
-    const jobs = await storage.getJobPostings('');
-    const activeJobs = jobs
-      .filter(j => j.status === 'active')
-      .slice(0, limit);
+    if (!db) throw new Error('Database not available');
+    // Fetch all active jobs directly — storage.getJobPostings requires a talentOwnerId
+    const allJobs = await db
+      .select()
+      .from(jobPostings)
+      .where(eq(jobPostings.status, 'active'))
+      .limit(limit);
+    const activeJobs = allJobs;
 
     console.log(`[BatchEmbed] Processing ${activeJobs.length} active jobs`);
 
@@ -121,8 +125,9 @@ export async function findSimilarJobs(
     return [];
   }
 
+  if (!db) return [];
   const queryEmbedding = JSON.parse(job.vectorEmbedding);
-  const allJobs = await storage.getJobPostings('');
+  const allJobs = await db.select().from(jobPostings).where(eq(jobPostings.status, 'active'));
   
   const similarities: Array<{ jobId: number; score: number; title: string; company: string }> = [];
 
