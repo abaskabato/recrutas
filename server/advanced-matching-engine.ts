@@ -106,7 +106,7 @@ export class AdvancedMatchingEngine {
       }
       const topMatches = matches.slice(0, 50); // Top 50 matches
       this.matchCache.set(cacheKey, topMatches);
-      setTimeout(() => this.matchCache.delete(cacheKey), this.CACHE_DURATION);
+      setTimeout(() => this.matchCache.delete(cacheKey), this.CACHE_DURATION).unref();
 
       return topMatches;
     } catch (error) {

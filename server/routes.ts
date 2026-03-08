@@ -46,6 +46,10 @@ import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-su
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
 const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
+// In-memory cache for WeWorkRemotely jobs (30-min TTL)
+let wwrCache: { data: any[]; timestamp: number; key: string } | null = null;
+const WWR_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
 // Skills that are medical/healthcare-specific and should not drive tech job queries
 const MEDICAL_SKILL_SET = new Set([
   'patient care','bls certified','cpr certified',
@@ -503,13 +507,35 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       })();
 
-      const [dbResult, remoteOkResult] = await Promise.race([
-        Promise.allSettled([dbPromise, remoteOkPromise]),
+      // Also fetch from WeWorkRemotely (cached 30 min)
+      const wwrCacheKey = candidateSkills.slice(0, 2).join(',');
+      const wwrPromise = (async () => {
+        if (candidateSkills.length === 0) return [];
+        if (wwrCache && wwrCache.key === wwrCacheKey && Date.now() - wwrCache.timestamp < WWR_CACHE_TTL) {
+          console.log(`[WWR] Cache hit (${wwrCache.data.length} jobs)`);
+          return wwrCache.data;
+        }
+        try {
+          const { JobAggregator } = await import('./job-aggregator.js');
+          const aggregator = new JobAggregator();
+          const jobs = await aggregator.fetchWeWorkRemotelyJobs();
+          console.log(`[WWR] Got ${jobs.length} jobs`);
+          wwrCache = { data: jobs, timestamp: Date.now(), key: wwrCacheKey };
+          return jobs;
+        } catch (err) {
+          console.warn('[WWR] Failed:', err);
+          return wwrCache?.data || [];
+        }
+      })();
+
+      const [dbResult, remoteOkResult, wwrResult] = await Promise.race([
+        Promise.allSettled([dbPromise, remoteOkPromise, wwrPromise]),
         timeoutPromise
       ]) as any;
 
       const recommendations = (dbResult?.status === 'fulfilled' ? dbResult.value : []) as any[];
       const remoteOkJobs = (remoteOkResult?.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
+      const wwrJobs = (wwrResult?.status === 'fulfilled' ? wwrResult.value : []) as any[];
 
       // If we've exceeded the early-return threshold, return DB results only without ML scoring
       if (Date.now() - startTime > EARLY_RETURN_THRESHOLD_MS) {
@@ -648,11 +674,46 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return false;
       });
 
-      const allRecommendations = [...(mlScoredRecommendations || []), ...filteredRemoteOkJobs];
-      
+      // Score and add WeWorkRemotely jobs
+      let scoredWwrJobs: any[] = [];
+      const wwrLimit = wwrJobs.filter((job: any) => {
+        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
+        return !seenKeys.has(key);
+      }).slice(0, 10);
+      if (useML) {
+        for (let i = 0; i < wwrLimit.length; i += batchSize) {
+          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) break;
+          const batch = wwrLimit.slice(i, i + batchSize);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (job: any) => {
+              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
+              return { ...job, id: job.id, matchScore: mlScore.matchScore, skillMatches: mlScore.skillMatches, aiExplanation: mlScore.aiExplanation, confidenceLevel: mlScore.confidenceLevel, source: 'wwr', trustScore: job.trustScore ?? 80, livenessStatus: 'active' };
+            })
+          );
+          scoredWwrJobs.push(...batchResults.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').map(r => r.value));
+        }
+      } else {
+        scoredWwrJobs = wwrLimit.map((job: any) => {
+          const score = simpleSkillMatch(candidateSkills, job);
+          return { ...job, id: job.id, matchScore: score.matchScore, skillMatches: score.skillMatches, aiExplanation: score.aiExplanation, confidenceLevel: score.confidenceLevel, source: 'wwr', trustScore: job.trustScore ?? 80, livenessStatus: 'active' };
+        });
+      }
+      const filteredWwrJobs = scoredWwrJobs.filter((job: any) => {
+        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
+        if (!seenKeys.has(key)) {
+          if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
+            seenKeys.add(key);
+            return true;
+          }
+        }
+        return false;
+      });
+
+      const allRecommendations = [...(mlScoredRecommendations || []), ...filteredRemoteOkJobs, ...filteredWwrJobs];
+
       finish();
 
-      console.log(`Found ${recommendations?.length || 0} DB + ${filteredRemoteOkJobs.length} RemoteOK recommendations`);
+      console.log(`Found ${recommendations?.length || 0} DB + ${filteredRemoteOkJobs.length} RemoteOK + ${filteredWwrJobs.length} WWR recommendations`);
 
       // If still no recommendations, fetch recent jobs from DB as fallback (no skill matching)
       if (allRecommendations.length === 0 && candidateSkills.length > 0) {

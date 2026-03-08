@@ -12,6 +12,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Call SLA enforcement endpoint
+        continue-on-error: true  # App downtime should not block CI
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/enforce-response-sla" \

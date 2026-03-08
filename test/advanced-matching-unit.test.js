@@ -362,5 +362,5 @@ describe('Advanced Matching Engine Unit Tests', () => {
 
   test('Run all unit tests', async () => {
     await runAllTests();
-  }, 60000);
+  }, 120000); // 2 min — allows for real DB query when DATABASE_URL is set locally
 });

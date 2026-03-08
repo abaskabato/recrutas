@@ -31,6 +31,9 @@ interface CompanyCareerPage {
   greenhouseId?: string; // For companies using Greenhouse
   leverId?: string; // For companies using Lever
   workdayId?: string; // For companies using Workday ATS
+  ashbyId?: string;    // For companies using Ashby HQ
+  workableId?: string; // For companies using Workable
+  recruiteeId?: string; // For companies using Recruitee
 }
 
 // Top tech companies with career pages to scrape
@@ -71,11 +74,51 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Calendly', careerUrl: 'https://calendly.com/careers', greenhouseId: 'calendly' },
   { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', greenhouseId: 'gusto' },
   { name: 'Postman', careerUrl: 'https://www.postman.com/company/careers/', greenhouseId: 'postman' },
+  { name: 'Algolia', careerUrl: 'https://www.algolia.com/careers', greenhouseId: 'algolia' },
+  { name: 'Contentful', careerUrl: 'https://www.contentful.com/careers/', greenhouseId: 'contentful' },
+  { name: 'Pendo', careerUrl: 'https://www.pendo.io/careers/', greenhouseId: 'pendo' },
+  { name: 'Segment', careerUrl: 'https://segment.com/jobs/', greenhouseId: 'segment' },
+  { name: 'Faire', careerUrl: 'https://www.faire.com/careers', greenhouseId: 'faire' },
+  { name: 'Lattice', careerUrl: 'https://lattice.com/careers', greenhouseId: 'lattice' },
+  { name: 'Gem', careerUrl: 'https://www.gem.com/careers', greenhouseId: 'gem' },
+  { name: 'Front', careerUrl: 'https://front.com/jobs', greenhouseId: 'front' },
+  { name: 'Coda', careerUrl: 'https://coda.io/jobs', greenhouseId: 'coda' },
+  { name: 'Superhuman', careerUrl: 'https://superhuman.com/careers', greenhouseId: 'superhuman' },
 
   // ============================================
   // LEVER ATS Companies (verified 200)
   // ============================================
   { name: 'Netflix', careerUrl: 'https://jobs.netflix.com/', leverId: 'netflix' },
+
+  // ============================================
+  // ASHBY ATS Companies (free public API)
+  // ============================================
+  { name: 'Linear', careerUrl: 'https://linear.app/careers', ashbyId: 'linear' },
+  { name: 'Notion', careerUrl: 'https://www.notion.so/careers', ashbyId: 'notion' },
+  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers', ashbyId: 'rippling' },
+  { name: 'Retool', careerUrl: 'https://retool.com/careers', ashbyId: 'retool' },
+  { name: 'Loom', careerUrl: 'https://www.loom.com/careers', ashbyId: 'loom' },
+  { name: 'Ramp', careerUrl: 'https://ramp.com/careers', ashbyId: 'ramp' },
+  { name: 'Deel', careerUrl: 'https://www.deel.com/careers', ashbyId: 'deel' },
+  { name: 'dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/open-roles', ashbyId: 'dbtlabs' },
+  { name: 'Plaid', careerUrl: 'https://plaid.com/careers/', ashbyId: 'plaid' },
+  { name: 'Benchling', careerUrl: 'https://www.benchling.com/careers', ashbyId: 'benchling' },
+
+  // ============================================
+  // WORKABLE ATS Companies (free public API)
+  // ============================================
+  { name: 'Typeform', careerUrl: 'https://www.typeform.com/careers/', workableId: 'typeform' },
+  { name: 'Hotjar', careerUrl: 'https://www.hotjar.com/careers/', workableId: 'hotjar' },
+  { name: 'Skroutz', careerUrl: 'https://www.skroutz.gr/careers', workableId: 'skroutz' },
+  { name: 'Workato', careerUrl: 'https://www.workato.com/careers', workableId: 'workato' },
+  { name: 'InVision', careerUrl: 'https://www.invisionapp.com/careers', workableId: 'invision' },
+
+  // ============================================
+  // RECRUITEE ATS Companies (free public API)
+  // ============================================
+  { name: 'Miro', careerUrl: 'https://miro.com/careers/', recruiteeId: 'miro' },
+  { name: 'MessageBird', careerUrl: 'https://messagebird.com/en/careers/', recruiteeId: 'messagebird' },
+  { name: 'Templafy', careerUrl: 'https://templafy.com/careers/', recruiteeId: 'templafy' },
 
   // ============================================
   // WORKDAY ATS Companies
@@ -100,7 +143,6 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Spotify', careerUrl: 'https://www.lifeatspotify.com/jobs' },
   { name: 'Shopify', careerUrl: 'https://www.shopify.com/careers' },
   { name: 'GitHub', careerUrl: 'https://github.com/about/careers' },
-  { name: 'Linear', careerUrl: 'https://linear.app/careers' },
   { name: 'Vercel', careerUrl: 'https://vercel.com/careers' },
   { name: 'Supabase', careerUrl: 'https://supabase.com/careers' },
   { name: 'OpenAI', careerUrl: 'https://openai.com/careers/' },
@@ -112,13 +154,9 @@ const COMPANIES_TO_SCRAPE: CompanyCareerPage[] = [
   { name: 'Pinterest', careerUrl: 'https://www.pinterestcareers.com/' },
   { name: 'Snap', careerUrl: 'https://careers.snap.com/' },
   { name: 'Reddit', careerUrl: 'https://www.redditinc.com/careers' },
-  // No Greenhouse/Lever API — AI-scraped from career pages
-  { name: 'Notion', careerUrl: 'https://www.notion.so/careers' },
+  // No Greenhouse/Lever/Ashby/Workable/Recruitee API — AI-scraped from career pages
   { name: 'Zapier', careerUrl: 'https://zapier.com/jobs' },
-  { name: 'Miro', careerUrl: 'https://miro.com/careers/' },
   { name: 'Canva', careerUrl: 'https://www.canva.com/careers/' },
-  { name: 'Loom', careerUrl: 'https://www.loom.com/careers' },
-  { name: 'dbt Labs', careerUrl: 'https://www.getdbt.com/dbt-labs/careers/' },
 ];
 
 class CareerPageScraper {
@@ -217,6 +255,15 @@ class CareerPageScraper {
       // Try Workday ATS
       else if (company.workdayId) {
         jobs = await this.fetchFromWorkday(company);
+      }
+      else if (company.ashbyId) {
+        jobs = await this.fetchFromAshby(company);
+      }
+      else if (company.workableId) {
+        jobs = await this.fetchFromWorkable(company);
+      }
+      else if (company.recruiteeId) {
+        jobs = await this.fetchFromRecruitee(company);
       }
       // Fall back to HTML scraping with AI extraction
       else {
@@ -373,6 +420,104 @@ class CareerPageScraper {
       console.log(`[CareerScraper] Workday fetch failed for ${company.name}:`, error.message);
       // Fall back to AI scraping
       return this.scrapeWithAI(company);
+    }
+  }
+
+  /**
+   * Fetch jobs from Ashby HQ ATS API (free, no auth)
+   */
+  private async fetchFromAshby(company: CompanyCareerPage): Promise<ScrapedJob[]> {
+    const apiUrl = `https://api.ashbyhq.com/posting-api/job-board/${company.ashbyId}?includeCompensation=true`;
+    try {
+      const response = await fetch(apiUrl, {
+        headers: { 'User-Agent': 'RecrutasJobAggregator/1.0', 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Ashby API returned ${response.status}`);
+      const data = await response.json();
+      const jobs: ScrapedJob[] = (data.jobPostings || []).slice(0, 20).map((job: any) => ({
+        id: `ashby_${company.ashbyId}_${job.id}`,
+        title: job.title,
+        company: company.name,
+        location: job.locationName || job.isRemote ? 'Remote' : 'Various',
+        description: this.stripHtml(job.descriptionHtml || job.descriptionPlain || ''),
+        requirements: this.extractRequirements(job.descriptionPlain || ''),
+        skills: this.extractSkillsFromText(job.title + ' ' + (job.descriptionPlain || '')),
+        workType: job.isRemote ? 'remote' : this.determineWorkType(job.locationName || ''),
+        salaryMin: job.compensation?.minValue,
+        salaryMax: job.compensation?.maxValue,
+        externalUrl: job.jobUrl || company.careerUrl,
+        source: 'external',
+        postedDate: job.publishedAt || new Date().toISOString()
+      }));
+      console.log(`[CareerScraper] Fetched ${jobs.length} jobs from ${company.name} (Ashby)`);
+      return jobs;
+    } catch (error: any) {
+      console.log(`[CareerScraper] Ashby API failed for ${company.name}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch jobs from Workable ATS API (free public widget API)
+   */
+  private async fetchFromWorkable(company: CompanyCareerPage): Promise<ScrapedJob[]> {
+    const apiUrl = `https://apply.workable.com/api/v1/widget/accounts/${company.workableId}/vacancies/`;
+    try {
+      const response = await fetch(apiUrl, {
+        headers: { 'User-Agent': 'RecrutasJobAggregator/1.0', 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Workable API returned ${response.status}`);
+      const data = await response.json();
+      const jobs: ScrapedJob[] = (data.results || []).slice(0, 20).map((job: any) => ({
+        id: `workable_${company.workableId}_${job.shortcode || job.id}`,
+        title: job.title,
+        company: company.name,
+        location: job.location?.city || job.location?.country || 'Various',
+        description: this.stripHtml(job.description || ''),
+        requirements: this.extractRequirements(job.requirements || job.description || ''),
+        skills: this.extractSkillsFromText(job.title + ' ' + (job.description || '')),
+        workType: job.remote ? 'remote' : this.determineWorkType(job.location?.city || ''),
+        externalUrl: `https://apply.workable.com/${company.workableId}/j/${job.shortcode}/` || company.careerUrl,
+        source: 'external',
+        postedDate: job.published_on || new Date().toISOString()
+      }));
+      console.log(`[CareerScraper] Fetched ${jobs.length} jobs from ${company.name} (Workable)`);
+      return jobs;
+    } catch (error: any) {
+      console.log(`[CareerScraper] Workable API failed for ${company.name}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch jobs from Recruitee ATS API (free public API)
+   */
+  private async fetchFromRecruitee(company: CompanyCareerPage): Promise<ScrapedJob[]> {
+    const apiUrl = `https://${company.recruiteeId}.recruitee.com/api/offers`;
+    try {
+      const response = await fetch(apiUrl, {
+        headers: { 'User-Agent': 'RecrutasJobAggregator/1.0', 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`Recruitee API returned ${response.status}`);
+      const data = await response.json();
+      const jobs: ScrapedJob[] = (data.offers || []).slice(0, 20).map((job: any) => ({
+        id: `recruitee_${company.recruiteeId}_${job.id}`,
+        title: job.title,
+        company: company.name,
+        location: job.city || job.country || 'Various',
+        description: this.stripHtml(job.description || ''),
+        requirements: this.extractRequirements(job.requirements || job.description || ''),
+        skills: this.extractSkillsFromText(job.title + ' ' + (job.description || '')),
+        workType: job.remote ? 'remote' : this.determineWorkType(job.city || ''),
+        externalUrl: job.careers_url || `https://${company.recruiteeId}.recruitee.com/o/${job.slug}` || company.careerUrl,
+        source: 'external',
+        postedDate: job.published_at || new Date().toISOString()
+      }));
+      console.log(`[CareerScraper] Fetched ${jobs.length} jobs from ${company.name} (Recruitee)`);
+      return jobs;
+    } catch (error: any) {
+      console.log(`[CareerScraper] Recruitee API failed for ${company.name}:`, error.message);
+      return [];
     }
   }
 

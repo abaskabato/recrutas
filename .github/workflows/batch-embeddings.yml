@@ -56,13 +56,15 @@ jobs:
             LIMIT=500
             FORCE=false
           fi
-          
+
           if [ "$FORCE" = "true" ]; then
             BATCH_LIMIT=$LIMIT npx tsx server/services/batch-embedding.service.ts --force
           else
             BATCH_LIMIT=$LIMIT npx tsx server/services/batch-embedding.service.ts
           fi
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
       - name: Report results
