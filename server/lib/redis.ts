@@ -7,8 +7,8 @@
 
 import { Redis } from '@upstash/redis';
 
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL?.trim();
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
 
 export const redisEnabled = !!(REDIS_URL && REDIS_TOKEN);
 
