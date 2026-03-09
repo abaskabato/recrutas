@@ -7,6 +7,9 @@
 
 import Groq from 'groq-sdk';
 import { callAI } from './lib/ai-client';
+import { db } from './db.js';
+import { discoveredCompanies } from '../shared/schema.js';
+import { eq } from 'drizzle-orm';
 
 interface ScrapedJob {
   id: string;
@@ -176,16 +179,56 @@ class CareerPageScraper {
   /**
    * Get all jobs from company career pages
    */
+  /**
+   * Load dynamically approved companies from the discovered_companies table.
+   * Merges with COMPANIES_TO_SCRAPE at runtime — no hardcoded list change needed.
+   */
+  private async loadDynamicCompanies(): Promise<CompanyCareerPage[]> {
+    if (!db) return [];
+    try {
+      const rows = await db
+        .select()
+        .from(discoveredCompanies)
+        .where(eq(discoveredCompanies.status, 'approved'));
+
+      const hardcodedNames = new Set(
+        COMPANIES_TO_SCRAPE.map(c => c.name.toLowerCase())
+      );
+
+      return rows
+        .filter(r => r.atsId && !hardcodedNames.has(r.name.toLowerCase()))
+        .map(r => {
+          const entry: CompanyCareerPage = {
+            name: r.name,
+            careerUrl: r.careerPageUrl || `https://boards.greenhouse.io/${r.atsId}`,
+          };
+          if (r.detectedAts === 'greenhouse') entry.greenhouseId = r.atsId!;
+          else if (r.detectedAts === 'lever') entry.leverId = r.atsId!;
+          else if (r.detectedAts === 'ashby') entry.ashbyId = r.atsId!;
+          return entry;
+        });
+    } catch (err: any) {
+      console.error('[CareerScraper] Failed to load dynamic companies:', err?.message);
+      return [];
+    }
+  }
+
   async getAllJobs(userSkills?: string[]): Promise<ScrapedJob[]> {
     console.log('[CareerScraper] Starting job aggregation from career pages...');
+
+    const dynamicCompanies = await this.loadDynamicCompanies();
+    const allCompaniesToScrape = [...COMPANIES_TO_SCRAPE, ...dynamicCompanies];
+    if (dynamicCompanies.length > 0) {
+      console.log(`[CareerScraper] +${dynamicCompanies.length} dynamic companies from DB`);
+    }
 
     const allJobs: ScrapedJob[] = [];
     const errors: string[] = [];
 
     // Process companies in batches to avoid rate limits
     const batchSize = 5;
-    for (let i = 0; i < COMPANIES_TO_SCRAPE.length; i += batchSize) {
-      const batch = COMPANIES_TO_SCRAPE.slice(i, i + batchSize);
+    for (let i = 0; i < allCompaniesToScrape.length; i += batchSize) {
+      const batch = allCompaniesToScrape.slice(i, i + batchSize);
 
       const results = await Promise.allSettled(
         batch.map(company => this.scrapeCompany(company))
@@ -201,7 +244,7 @@ class CareerPageScraper {
       }
 
       // Rate limiting between batches
-      if (i + batchSize < COMPANIES_TO_SCRAPE.length) {
+      if (i + batchSize < allCompaniesToScrape.length) {
         await this.delay(1000);
       }
     }

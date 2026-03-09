@@ -2390,6 +2390,65 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Discover new companies + ATS probe (two-phase, called by GitHub Actions)
+  app.post('/api/cron/discover-companies', async (req, res) => {
+    if (!db) return res.status(503).json({ message: 'Database not available' });
+    try {
+      const cronSecret = req.headers['x-cron-secret'];
+      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const phase = (req.query.phase as string) || 'discover';
+      const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 20);
+
+      if (phase === 'discover') {
+        // Phase 1: mine job postings for new company names → save to discovered_companies
+        const { companyDiscoveryPipeline } = await import('./company-discovery.js');
+        await companyDiscoveryPipeline.runDiscovery();
+        const stats = await companyDiscoveryPipeline.getStatistics();
+        return res.json({ phase: 'discover', ...stats });
+      }
+
+      if (phase === 'probe') {
+        // Phase 2: probe pending companies against Greenhouse/Lever/Ashby APIs
+        const { probePendingCompanies } = await import('./lib/ats-probe.js');
+        const { discoveredCompanies: dcTable } = await import('../shared/schema.js');
+        const results = await probePendingCompanies(limit);
+
+        let approved = 0;
+        let rejected = 0;
+        for (const result of results) {
+          if (result.atsType && result.atsId) {
+            await db.update(dcTable)
+              .set({
+                detectedAts: result.atsType,
+                atsId: result.atsId,
+                careerPageUrl: result.careerPageUrl ?? undefined,
+                status: 'approved',
+                updatedAt: new Date(),
+              })
+              .where(eq(dcTable.normalizedName, result.normalizedName));
+            approved++;
+          } else {
+            await db.update(dcTable)
+              .set({ status: 'rejected', updatedAt: new Date() })
+              .where(eq(dcTable.normalizedName, result.normalizedName));
+            rejected++;
+          }
+        }
+
+        console.log(`[DiscoverCompanies] Probe done: ${approved} approved, ${rejected} rejected`);
+        return res.json({ phase: 'probe', probed: results.length, approved, rejected });
+      }
+
+      return res.status(400).json({ message: 'Invalid phase. Use ?phase=discover or ?phase=probe' });
+    } catch (error: any) {
+      console.error('[DiscoverCompanies] Failed:', error?.message);
+      res.status(500).json({ message: 'Company discovery failed', error: error?.message });
+    }
+  });
+
   // Ghost job detection endpoints
   app.post('/api/admin/run-ghost-job-detection', async (req, res) => {
     try {

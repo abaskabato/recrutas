@@ -1,0 +1,53 @@
+name: Discover and Probe Companies
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC — before scrape-tech-companies (if it exists)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max companies to probe per run (default: 10, max: 20)'
+        required: false
+        default: '10'
+        type: string
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Phase 1 — Mine job postings for new companies
+        run: |
+          response=$(curl -s -o /tmp/discover.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=discover" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Status: $response"
+          echo "Body: $(cat /tmp/discover.json)"
+          if [ "$response" != "200" ]; then
+            echo "::error::Discovery phase failed with status $response"
+            exit 1
+          fi
+
+      - name: Phase 2 — ATS probe pending companies
+        continue-on-error: true
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '10' }}"
+          response=$(curl -s -o /tmp/probe.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=probe&limit=${LIMIT}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Status: $response"
+          echo "Body: $(cat /tmp/probe.json)"
+          if [ "$response" != "200" ]; then
+            echo "::warning::Probe phase returned $response (non-fatal)"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Company discovery run complete at $(date -u)"
+          echo "Discover: $(cat /tmp/discover.json 2>/dev/null || echo 'N/A')"
+          echo "Probe:    $(cat /tmp/probe.json 2>/dev/null || echo 'N/A')"
