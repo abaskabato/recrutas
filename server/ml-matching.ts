@@ -8,7 +8,7 @@
 import { normalizeSkills } from './skill-normalizer.js';
 
 const HF_MODEL_URL =
-  'https://api-inference.huggingface.co/models/BAAI/bge-m3';
+  'https://router.huggingface.co/hf-inference/models/BAAI/bge-m3';
 
 interface EmbeddingResult {
   embedding: number[];

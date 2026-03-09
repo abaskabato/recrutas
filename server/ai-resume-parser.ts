@@ -300,7 +300,7 @@ English (Native), Spanish (Conversational)`;
     );
 
     const response = await Promise.race([
-      fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1/v1/chat/completions', {
+      fetch('https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.1/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
