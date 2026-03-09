@@ -21,7 +21,8 @@ import { redis } from './redis.js';
 
 const MAX_CONCURRENT = 5;
 const BATCH_DELAY_MS = 200;
-const PROBE_TIMEOUT_MS = 5000;
+const PROBE_TIMEOUT_MS = 8000; // HEAD requests
+const JSON_PROBE_TIMEOUT_MS = 10000; // JSON API requests (Lever/Ashby can be slow)
 const CIRCUIT_BREAKER_THRESHOLD = 10;
 const CIRCUIT_BREAKER_PAUSE_MS = 60_000;
 const REDIS_429_KEY = 'ats-probe:consecutive-429s';
@@ -108,16 +109,18 @@ async function probeGreenhouse(slug: string): Promise<boolean> {
 async function probeLever(slug: string): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), JSON_PROBE_TIMEOUT_MS);
     const res = await fetch(`https://api.lever.co/v0/postings/${slug}?mode=json`, {
       headers: { 'User-Agent': 'RecrutasJobAggregator/1.0' },
       signal: controller.signal,
     });
     clearTimeout(timer);
     if (res.status === 429) { await record429(); return false; }
+    if (res.status === 404) return false;
     if (res.ok) {
       const json = await res.json().catch(() => null);
-      // Lever returns [] for unknown slugs vs [...] for known companies
+      // Lever returns [] (200) for valid company boards (even with no postings)
+      // Lever returns 404 for unknown companies
       if (Array.isArray(json)) { await recordSuccess(); return true; }
     }
     return false;
@@ -129,7 +132,7 @@ async function probeLever(slug: string): Promise<boolean> {
 async function probeAshby(slug: string): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), JSON_PROBE_TIMEOUT_MS);
     const res = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${slug}`, {
       headers: { 'User-Agent': 'RecrutasJobAggregator/1.0' },
       signal: controller.signal,
@@ -138,8 +141,8 @@ async function probeAshby(slug: string): Promise<boolean> {
     if (res.status === 429) { await record429(); return false; }
     if (res.ok) {
       const json = await res.json().catch(() => null);
-      // Ashby returns { jobPostings: [...] } for valid boards
-      if (json && typeof json === 'object' && 'jobPostings' in json) {
+      // Ashby returns { jobs: [...], apiVersion: "..." } for valid boards
+      if (json && typeof json === 'object' && 'jobs' in json) {
         await recordSuccess();
         return true;
       }
