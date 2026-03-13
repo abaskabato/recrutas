@@ -19,6 +19,7 @@ import PricingPage from "@/pages/pricing";
 import PrivacyPolicy from "@/pages/privacy";
 import TermsOfService from "@/pages/terms";
 import { TopRightButtons } from '@/components/TopRightButtons';
+import { FeedbackButton } from '@/components/FeedbackButton';
 import { RoleGuard } from '@/components/role-guard';
 import { AuthGuard } from '@/components/auth-guard';
 import AdminDashboard from "@/pages/admin-dashboard";
@@ -68,6 +69,7 @@ function App() {
           <Route component={NotFound} />
         </Switch>
         <TopRightButtons />
+        <FeedbackButton />
       </SessionContextProvider>
     </AppProviders>
   );

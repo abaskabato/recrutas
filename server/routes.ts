@@ -40,7 +40,7 @@ import { jobIngestionService } from './services/job-ingestion.service';
 import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
 import { extractSkillsFromText } from './utils/skill-extractor';
-import { sendWelcomeEmail } from './email-service';
+import { sendWelcomeEmail, sendEmail } from './email-service';
 import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
 
 // In-memory cache for RemoteOK jobs (15-min TTL)
@@ -2758,6 +2758,29 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error cancelling agent task:", error?.message);
       res.status(500).json({ message: "Failed to cancel task" });
     }
+  });
+
+  // User feedback / bug reports — emails Abas directly
+  app.post('/api/feedback', async (req: any, res) => {
+    const { type, message, userEmail, userName } = req.body;
+    if (!message?.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    const validTypes = ['Bug', 'Suggestion', 'Other'];
+    const feedbackType = validTypes.includes(type) ? type : 'Other';
+    const from = userEmail ? `${userName || userEmail} <${userEmail}>` : 'Anonymous';
+    await sendEmail({
+      to: 'support@recrutas.ai',
+      from: 'noreply@recrutas.ai',
+      subject: `[Recrutas Feedback] ${feedbackType} — ${userEmail || 'anonymous'}`,
+      html: `
+        <p><strong>Type:</strong> ${feedbackType}</p>
+        <p><strong>From:</strong> ${from}</p>
+        <hr/>
+        <p>${message.replace(/\n/g, '<br/>')}</p>
+      `,
+    });
+    res.json({ ok: true });
   });
 
   // Inngest serve endpoint — receives events from Inngest Cloud
