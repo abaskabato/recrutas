@@ -193,6 +193,15 @@ export class ResumeService {
       if (aiExtracted.experience?.level) {
         profileUpdate.experienceLevel = aiExtracted.experience.level;
       }
+      // Build free-text experience summary from positions so scoreJobWithML has semantic signal
+      const positions: Array<{ title?: string; company?: string; duration?: string; description?: string }> =
+        aiExtracted.experience?.positions || [];
+      if (positions.length > 0) {
+        const summary = positions.slice(0, 4).map((p: any) =>
+          [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
+        ).join('. ');
+        profileUpdate.experience = summary.slice(0, 1000);
+      }
       if (aiExtracted.personalInfo?.location) {
         profileUpdate.location = aiExtracted.personalInfo.location;
       }
