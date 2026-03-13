@@ -28,6 +28,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           USE_OLLAMA: false
           ENABLE_AI_EXTRACTION: false
@@ -35,10 +36,11 @@ jobs:
 
       - name: Scrape Tier 2 — Lever + Workday companies (22)
         id: tier2
-        continue-on-error: true  # Groq TPD can be exhausted by Tier 1; don't block Tier 3 or cleanup
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           USE_OLLAMA: false
           ENABLE_AI_EXTRACTION: false
@@ -46,10 +48,11 @@ jobs:
 
       - name: Scrape Tier 3 — Custom career pages (21)
         id: tier3
-        continue-on-error: true  # Firecrawl or Groq failures should not abort cleanup
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           USE_OLLAMA: false
