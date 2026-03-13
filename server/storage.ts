@@ -855,8 +855,13 @@ export class DatabaseStorage implements IStorage {
       .from(jobPostings)
       .where(and(
         eq(jobPostings.status, 'active'),
+        // Match by skills JSONB (platform jobs) OR by title keyword (scraped jobs with empty skills)
         or(...candidateSkills.map(skill =>
-          sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
+          or(
+            sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`,
+            sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'})`,
+            sql`LOWER(${jobPostings.description}) LIKE LOWER(${'%' + skill + '%'})`
+          )
         )),
         or(
           sql`${jobPostings.expiresAt} IS NULL`,

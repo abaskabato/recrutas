@@ -39,6 +39,7 @@ import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { jobIngestionService } from './services/job-ingestion.service';
 import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
+import { extractSkillsFromText } from './utils/skill-extractor';
 import { sendWelcomeEmail } from './email-service';
 import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
 
@@ -128,13 +129,19 @@ async function scoreJobWithML(
       }
     }
 
+    // Scraped jobs (Greenhouse/Lever/Ashby) often have skills: [] — fall back to
+    // extracting known tech skills from the description so explicit match scoring works.
+    const effectiveJobSkills: string[] = (job.skills && (job.skills as string[]).length > 0)
+      ? job.skills
+      : extractSkillsFromText(job.description || '');
+
     const mlResult = await calculateMLMatchScore(
       candidateSkills,
       candidateExperience,
       job.title || '',
       job.description || '',
       job.requirements || [],
-      job.skills || [],
+      effectiveJobSkills,
       precomputedCandidateEmbedding,
       precomputedJobEmbedding
     );
