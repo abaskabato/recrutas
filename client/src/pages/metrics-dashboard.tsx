@@ -23,7 +23,7 @@ interface LatencyRow {
   client_errors: number;
 }
 
-interface ErrorRow { hour: string; total: number; errors: number; error_rate_pct: number; }
+interface ErrorRow { hour: string; total: number; errors: number; error_rate_pct: number | string | null; }
 
 interface MatchQualityRow { bucket: string; count: number; avg_score: number; }
 
@@ -385,8 +385,8 @@ export default function MetricsDashboard() {
                       <td className="text-right pr-4">{row.total}</td>
                       <td className="text-right pr-4 text-red-600">{row.errors}</td>
                       <td className="text-right">
-                        <Badge className={errorRateColor(row.error_rate_pct ?? 0)}>
-                          {(row.error_rate_pct ?? 0).toFixed(1)}%
+                        <Badge className={errorRateColor(Number(row.error_rate_pct ?? 0))}>
+                          {Number(row.error_rate_pct ?? 0).toFixed(1)}%
                         </Badge>
                       </td>
                     </tr>
