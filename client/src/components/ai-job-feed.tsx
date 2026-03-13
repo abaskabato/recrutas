@@ -51,8 +51,8 @@ interface SectionedResponse {
   matchedForYou: AIJobMatch[];
 }
 
-const INITIAL_JOB_LIMIT = 15;
-const JOBS_PER_PAGE = 10;
+const INITIAL_JOB_LIMIT = 20;
+const JOBS_PER_PAGE = 20;
 
 interface AIJobFeedProps {
   onUploadClick?: () => void;

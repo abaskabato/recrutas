@@ -115,26 +115,32 @@ async function scoreJobWithML(
   aiExplanation: string;
   confidenceLevel: number;
 }> {
+  // Scraped jobs often have skills: [] — extract from description so explicit matching works.
+  const effectiveJobSkills: string[] = (job.skills && (job.skills as string[]).length > 0)
+    ? job.skills
+    : extractSkillsFromText(job.description || '');
+
   if (!mlScoringEnabled) {
-    return simpleSkillMatch(candidateSkills, job);
+    return simpleSkillMatch(candidateSkills, { ...job, skills: effectiveJobSkills });
+  }
+
+  // Only use the HF API when a stored embedding is available — otherwise fall back to
+  // simpleSkillMatch (with description-extracted skills). This lets us score 50+ jobs
+  // per request without chaining N HF API calls and hitting the timeout.
+  let precomputedJobEmbedding: number[] | undefined;
+  if (job.vectorEmbedding && job.embeddingUpdatedAt) {
+    const daysSince = (Date.now() - new Date(job.embeddingUpdatedAt).getTime()) / 86400000;
+    if (daysSince < 7) {
+      try { precomputedJobEmbedding = JSON.parse(job.vectorEmbedding); } catch { /* ignore */ }
+    }
+  }
+
+  if (!precomputedJobEmbedding) {
+    // No stored embedding — skip HF API, use fast skill matching instead.
+    return simpleSkillMatch(candidateSkills, { ...job, skills: effectiveJobSkills });
   }
 
   try {
-    // Use stored job embedding if fresh (< 7 days) — avoids HF API call per job
-    let precomputedJobEmbedding: number[] | undefined;
-    if (job.vectorEmbedding && job.embeddingUpdatedAt) {
-      const daysSince = (Date.now() - new Date(job.embeddingUpdatedAt).getTime()) / 86400000;
-      if (daysSince < 7) {
-        try { precomputedJobEmbedding = JSON.parse(job.vectorEmbedding); } catch { /* ignore */ }
-      }
-    }
-
-    // Scraped jobs (Greenhouse/Lever/Ashby) often have skills: [] — fall back to
-    // extracting known tech skills from the description so explicit match scoring works.
-    const effectiveJobSkills: string[] = (job.skills && (job.skills as string[]).length > 0)
-      ? job.skills
-      : extractSkillsFromText(job.description || '');
-
     const mlResult = await calculateMLMatchScore(
       candidateSkills,
       candidateExperience,
@@ -649,7 +655,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Score and add RemoteOK jobs (ML if loaded, otherwise simple matching)
       let scoredRemoteOkJobs: any[] = [];
-      const remoteOkLimit = remoteOkJobs.slice(0, 10);
+      const remoteOkLimit = remoteOkJobs.slice(0, 25);
       if (useML) {
         for (let i = 0; i < remoteOkLimit.length; i += batchSize) {
           if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
@@ -714,7 +720,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const wwrLimit = wwrJobs.filter((job: any) => {
         const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
         return !seenKeys.has(key);
-      }).slice(0, 10);
+      }).slice(0, 25);
       if (useML) {
         for (let i = 0; i < wwrLimit.length; i += batchSize) {
           if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) break;
@@ -749,7 +755,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const companyJobsLimit = companyJobs.filter((job: any) => {
         const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
         return !seenKeys.has(key);
-      }).slice(0, 20);
+      }).slice(0, 50);
       if (useML && companyJobsLimit.length > 0) {
         for (let i = 0; i < companyJobsLimit.length; i += batchSize) {
           if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) break;

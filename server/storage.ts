@@ -612,7 +612,7 @@ export class DatabaseStorage implements IStorage {
         .from(jobPostings)
         .where(and(...conditions))
         .orderBy(sql`${jobPostings.createdAt} DESC`)
-        .limit(50);
+        .limit(150);
 
       const jobs = await query;
 
