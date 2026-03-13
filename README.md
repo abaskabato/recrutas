@@ -1,4 +1,4 @@
-# Recrutas — Apply Here. Know Today.
+# Recrutas — Job Search Reinvented
 
 > The hiring platform where every candidate gets a same-day response.
 
