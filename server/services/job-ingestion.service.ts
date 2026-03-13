@@ -125,15 +125,24 @@ export class JobIngestionService {
             .for('update', { skipLocked: true }); // Lock row to prevent concurrent modifications
 
           if (existing.length > 0) {
-            // Update liveness for existing jobs
+            // Update liveness + enrich description/skills if existing record is empty
+            const existingJob = existing[0];
+            const hasNewDescription = job.description && job.description.length > 50 && job.description !== 'No description provided';
+            const existingIsEmpty = !existingJob.description || existingJob.description.length < 50 || existingJob.description === 'No description provided';
+            const enrichmentSet: Record<string, any> = {
+              lastLivenessCheck: new Date(),
+              livenessStatus: 'active',
+              updatedAt: new Date()
+            };
+            if (hasNewDescription && existingIsEmpty) {
+              enrichmentSet.description = job.description;
+              const newSkills = normalizeSkills(job.skills?.length > 0 ? job.skills : extractSkillsFromText(job.description));
+              if (newSkills && newSkills.length > 0) enrichmentSet.skills = newSkills;
+            }
             await tx
               .update(jobPostings)
-              .set({
-                lastLivenessCheck: new Date(),
-                livenessStatus: 'active',
-                updatedAt: new Date()
-              })
-              .where(eq(jobPostings.id, existing[0].id));
+              .set(enrichmentSet)
+              .where(eq(jobPostings.id, existingJob.id));
             return 'duplicate';
           }
 

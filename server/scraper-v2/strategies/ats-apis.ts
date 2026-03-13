@@ -12,7 +12,7 @@ const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // ATS API Endpoints (only APIs with known working formats)
 const ATS_ENDPOINTS: Record<string, (boardId: string) => string> = {
-  greenhouse: (id) => `https://boards-api.greenhouse.io/v1/boards/${id}/jobs`,
+  greenhouse: (id) => `https://boards-api.greenhouse.io/v1/boards/${id}/jobs?content=true`,
   lever: (id) => `https://api.lever.co/v0/postings/${id}`,
   ashby: (id) => `https://api.ashbyhq.com/posting-api/job-board/${id}`,
   smartrecruiters: (id) => `https://api.smartrecruiters.com/v1/companies/${id}/postings`,
