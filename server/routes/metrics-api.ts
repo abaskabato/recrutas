@@ -101,7 +101,7 @@ export function registerMetricsRoutes(app: Express) {
             ELSE 'poor (<40)'
           END AS bucket,
           COUNT(*)::int AS count,
-          ROUND(AVG(match_score), 1) AS avg_score
+          ROUND(AVG(match_score)::numeric, 1) AS avg_score
         FROM job_matches
         WHERE created_at >= NOW() - INTERVAL '30 days'
         GROUP BY 1
@@ -111,8 +111,8 @@ export function registerMetricsRoutes(app: Express) {
       const total = await db.execute(sql`
         SELECT
           COUNT(*)::int AS total,
-          ROUND(AVG(match_score), 1) AS avg_score,
-          ROUND(percentile_cont(0.50) WITHIN GROUP (ORDER BY match_score), 1) AS median_score
+          ROUND(AVG(match_score)::numeric, 1) AS avg_score,
+          ROUND(percentile_cont(0.50) WITHIN GROUP (ORDER BY match_score)::numeric, 1) AS median_score
         FROM job_matches
         WHERE created_at >= NOW() - INTERVAL '30 days'
       `);
