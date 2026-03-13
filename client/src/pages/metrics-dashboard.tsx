@@ -86,6 +86,7 @@ export default function MetricsDashboard() {
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
+  const [authError, setAuthError] = useState(false);
   const [latency, setLatency] = useState<LatencyRow[]>([]);
   const [errors, setErrors] = useState<ErrorRow[]>([]);
   const [matchQuality, setMatchQuality] = useState<{ distribution: MatchQualityRow[]; summary: any }>({ distribution: [], summary: null });
@@ -100,22 +101,27 @@ export default function MetricsDashboard() {
     if (!authenticated) return;
     setLoading(true);
     try {
+      const safeJson = async (r: Response) => {
+        if (r.status === 401) { setAuthError(true); setAuthenticated(false); sessionStorage.removeItem('admin_secret'); return null; }
+        if (!r.ok) { console.warn(`Metrics API ${r.url} returned ${r.status}`); return null; }
+        return r.json();
+      };
       const [lat, err, mq, gr, ec, jf, sys] = await Promise.all([
-        fetch(`/api/admin/metrics/latency?hours=${timeRange}`, { headers }).then(r => r.json()),
-        fetch(`/api/admin/metrics/errors?hours=${timeRange}`, { headers }).then(r => r.json()),
-        fetch('/api/admin/metrics/match-quality', { headers }).then(r => r.json()),
-        fetch('/api/admin/metrics/growth?days=30', { headers }).then(r => r.json()),
-        fetch('/api/admin/metrics/embedding-cache', { headers }).then(r => r.json()),
-        fetch('/api/admin/metrics/job-feed', { headers }).then(r => r.json()),
-        fetch('/api/admin/metrics/system', { headers }).then(r => r.json()),
+        fetch(`/api/admin/metrics/latency?hours=${timeRange}`, { headers }).then(safeJson),
+        fetch(`/api/admin/metrics/errors?hours=${timeRange}`, { headers }).then(safeJson),
+        fetch('/api/admin/metrics/match-quality', { headers }).then(safeJson),
+        fetch('/api/admin/metrics/growth?days=30', { headers }).then(safeJson),
+        fetch('/api/admin/metrics/embedding-cache', { headers }).then(safeJson),
+        fetch('/api/admin/metrics/job-feed', { headers }).then(safeJson),
+        fetch('/api/admin/metrics/system', { headers }).then(safeJson),
       ]);
-      setLatency(lat.data || []);
-      setErrors(err.data || []);
-      setMatchQuality({ distribution: mq.distribution || [], summary: mq.summary });
-      setGrowth({ users: gr.users || [], jobs: gr.jobs || [], applications: gr.applications || [] });
-      setEmbeddingCache(ec);
-      setJobFeed({ breakdown: jf.breakdown || [], tableSize: jf.tableSize });
-      setSystem(sys);
+      setLatency(lat?.data || []);
+      setErrors(err?.data || []);
+      setMatchQuality({ distribution: mq?.distribution || [], summary: mq?.summary ?? null });
+      setGrowth({ users: gr?.users || [], jobs: gr?.jobs || [], applications: gr?.applications || [] });
+      setEmbeddingCache(ec?.total_active_jobs !== undefined ? ec : null);
+      setJobFeed({ breakdown: jf?.breakdown || [], tableSize: jf?.tableSize || '' });
+      setSystem(sys?.redis !== undefined ? sys : null);
       setLastRefresh(new Date());
     } catch (e) {
       console.error('Failed to fetch metrics:', e);
@@ -134,11 +140,12 @@ export default function MetricsDashboard() {
         <Card className="w-full max-w-sm">
           <CardHeader><CardTitle>Metrics Dashboard</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            {authError && <p className="text-sm text-red-600">Incorrect secret — try again.</p>}
             <Input
               type="password"
               placeholder="Admin secret"
               value={secret}
-              onChange={e => setSecret(e.target.value)}
+              onChange={e => { setSecret(e.target.value); setAuthError(false); }}
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   sessionStorage.setItem('admin_secret', secret);

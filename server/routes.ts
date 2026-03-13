@@ -541,14 +541,29 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       })();
 
-      const [dbResult, remoteOkResult, wwrResult] = await Promise.race([
-        Promise.allSettled([dbPromise, remoteOkPromise, wwrPromise]),
+      // Fetch company career page jobs (Greenhouse/Lever/Ashby/etc.) stored by daily cron
+      const filters = {
+        jobTitle: (req.query.jobTitle as string) || undefined,
+        location: (req.query.location as string) || undefined,
+        workType: (req.query.workType as string) || undefined,
+      };
+      const companyJobsPromise = Promise.race([
+        storage.getExternalJobs(candidateSkills as string[], filters),
+        new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('Company jobs timeout')), 8000))
+      ]).catch((err: Error) => {
+        console.warn('[CompanyJobs] DB fetch failed:', err?.message);
+        return [] as any[];
+      });
+
+      const [dbResult, remoteOkResult, wwrResult, companyJobsResult] = await Promise.race([
+        Promise.allSettled([dbPromise, remoteOkPromise, wwrPromise, companyJobsPromise]),
         timeoutPromise
       ]) as any;
 
       const recommendations = (dbResult?.status === 'fulfilled' ? dbResult.value : []) as any[];
       const remoteOkJobs = (remoteOkResult?.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
       const wwrJobs = (wwrResult?.status === 'fulfilled' ? wwrResult.value : []) as any[];
+      const companyJobs = (companyJobsResult?.status === 'fulfilled' ? companyJobsResult.value : []) as any[];
 
       // If we've exceeded the early-return threshold, return DB results only without ML scoring
       if (Date.now() - startTime > EARLY_RETURN_THRESHOLD_MS) {
@@ -722,11 +737,46 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return false;
       });
 
-      const allRecommendations = [...(mlScoredRecommendations || []), ...filteredRemoteOkJobs, ...filteredWwrJobs];
+      // Score and add company career page jobs (Greenhouse/Lever/Ashby/etc.)
+      let scoredCompanyJobs: any[] = [];
+      const companyJobsLimit = companyJobs.filter((job: any) => {
+        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
+        return !seenKeys.has(key);
+      }).slice(0, 20);
+      if (useML && companyJobsLimit.length > 0) {
+        for (let i = 0; i < companyJobsLimit.length; i += batchSize) {
+          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) break;
+          const batch = companyJobsLimit.slice(i, i + batchSize);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (job: any) => {
+              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
+              return { ...job, matchScore: mlScore.matchScore, skillMatches: mlScore.skillMatches, aiExplanation: mlScore.aiExplanation, confidenceLevel: mlScore.confidenceLevel, trustScore: job.trustScore ?? 75, livenessStatus: 'active' };
+            })
+          );
+          scoredCompanyJobs.push(...batchResults.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').map(r => r.value));
+        }
+      } else {
+        scoredCompanyJobs = companyJobsLimit.map((job: any) => {
+          const score = simpleSkillMatch(candidateSkills, job);
+          return { ...job, matchScore: score.matchScore, skillMatches: score.skillMatches, aiExplanation: score.aiExplanation, confidenceLevel: score.confidenceLevel, trustScore: job.trustScore ?? 75, livenessStatus: 'active' };
+        });
+      }
+      const filteredCompanyJobs = scoredCompanyJobs.filter((job: any) => {
+        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
+        if (!seenKeys.has(key)) {
+          if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
+            seenKeys.add(key);
+            return true;
+          }
+        }
+        return false;
+      });
+
+      const allRecommendations = [...(mlScoredRecommendations || []), ...filteredRemoteOkJobs, ...filteredWwrJobs, ...filteredCompanyJobs];
 
       finish();
 
-      console.log(`Found ${recommendations?.length || 0} DB + ${filteredRemoteOkJobs.length} RemoteOK + ${filteredWwrJobs.length} WWR recommendations`);
+      console.log(`Found ${recommendations?.length || 0} DB + ${filteredRemoteOkJobs.length} RemoteOK + ${filteredWwrJobs.length} WWR + ${filteredCompanyJobs.length} company jobs`);
 
       // If still no recommendations, fetch recent jobs from DB as fallback (no skill matching)
       if (allRecommendations.length === 0 && candidateSkills.length > 0) {

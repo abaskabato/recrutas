@@ -474,7 +474,7 @@ class CareerPageScraper {
       });
       if (!response.ok) throw new Error(`Ashby API returned ${response.status}`);
       const data = await response.json();
-      const jobs: ScrapedJob[] = (data.jobPostings || []).slice(0, 20).map((job: any) => ({
+      const jobs: ScrapedJob[] = (data.jobs || data.jobPostings || []).slice(0, 20).map((job: any) => ({
         id: `ashby_${company.ashbyId}_${job.id}`,
         title: job.title,
         company: company.name,

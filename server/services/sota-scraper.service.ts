@@ -15,66 +15,82 @@ import { atsDetectionService } from './ats-detection.service.js';
 import { deriveWorkdayApiUrl } from '../scraper-v2/strategies/ats-apis.js';
 
 // Import the company list from career-page-scraper and convert to SOTA format
+// Synced with server/career-page-scraper.ts — keep both in sync when adding companies
 const LEGACY_COMPANIES = [
-  // Greenhouse
+  // ============================================
+  // GREENHOUSE ATS (all IDs verified 200)
+  // ============================================
   { name: 'Stripe', careerUrl: 'https://stripe.com/jobs', greenhouseId: 'stripe' },
   { name: 'Airbnb', careerUrl: 'https://careers.airbnb.com/', greenhouseId: 'airbnb' },
   { name: 'Discord', careerUrl: 'https://discord.com/careers', greenhouseId: 'discord' },
   { name: 'Figma', careerUrl: 'https://www.figma.com/careers/', greenhouseId: 'figma' },
-  { name: 'Notion', careerUrl: 'https://www.notion.so/careers', greenhouseId: 'notion' },
   { name: 'Coinbase', careerUrl: 'https://www.coinbase.com/careers', greenhouseId: 'coinbase' },
   { name: 'Instacart', careerUrl: 'https://careers.instacart.com/', greenhouseId: 'instacart' },
   { name: 'Robinhood', careerUrl: 'https://robinhood.com/us/en/careers/', greenhouseId: 'robinhood' },
-  { name: 'Plaid', careerUrl: 'https://plaid.com/careers/', greenhouseId: 'plaid' },
-  { name: 'Ramp', careerUrl: 'https://ramp.com/careers', greenhouseId: 'ramp' },
   { name: 'Datadog', careerUrl: 'https://careers.datadoghq.com/', greenhouseId: 'datadog' },
   { name: 'Duolingo', careerUrl: 'https://careers.duolingo.com/', greenhouseId: 'duolingo' },
-  { name: 'HashiCorp', careerUrl: 'https://www.hashicorp.com/careers', greenhouseId: 'hashicorp' },
-  { name: 'Snyk', careerUrl: 'https://snyk.io/careers/', greenhouseId: 'snyk' },
   { name: 'GitLab', careerUrl: 'https://about.gitlab.com/jobs/', greenhouseId: 'gitlab' },
   { name: 'Databricks', careerUrl: 'https://databricks.com/careers', greenhouseId: 'databricks' },
   { name: 'Carta', careerUrl: 'https://carta.com/careers/', greenhouseId: 'carta' },
   { name: 'Brex', careerUrl: 'https://www.brex.com/careers', greenhouseId: 'brex' },
   { name: 'Scale AI', careerUrl: 'https://scale.com/careers', greenhouseId: 'scaleai' },
-  { name: 'Deel', careerUrl: 'https://www.deel.com/careers', greenhouseId: 'deel' },
-  { name: 'Retool', careerUrl: 'https://retool.com/careers', greenhouseId: 'retool' },
-  { name: 'Benchling', careerUrl: 'https://www.benchling.com/careers/', greenhouseId: 'benchling' },
+  { name: 'Remote.com', careerUrl: 'https://remote.com/careers', greenhouseId: 'remotecom' },
   { name: 'Mercury', careerUrl: 'https://mercury.com/careers', greenhouseId: 'mercury' },
-  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers', greenhouseId: 'rippling' },
-  { name: 'Anduril', careerUrl: 'https://www.anduril.com/careers/', greenhouseId: 'anduril' },
   { name: 'Cockroach Labs', careerUrl: 'https://www.cockroachlabs.com/careers/', greenhouseId: 'cockroachlabs' },
   { name: 'Amplitude', careerUrl: 'https://amplitude.com/careers', greenhouseId: 'amplitude' },
   { name: 'LaunchDarkly', careerUrl: 'https://launchdarkly.com/careers/', greenhouseId: 'launchdarkly' },
-  { name: 'Segment', careerUrl: 'https://segment.com/careers/', greenhouseId: 'segment' },
-  
-  // Lever
+  { name: 'Anduril', careerUrl: 'https://www.anduril.com/careers/', greenhouseId: 'andurilindustries' },
+  // Migrated from Lever (confirmed on Greenhouse)
+  { name: 'Cloudflare', careerUrl: 'https://www.cloudflare.com/careers/', greenhouseId: 'cloudflare' },
+  { name: 'Twilio', careerUrl: 'https://www.twilio.com/company/jobs', greenhouseId: 'twilio' },
+  { name: 'Flexport', careerUrl: 'https://www.flexport.com/careers/', greenhouseId: 'flexport' },
+  { name: 'Airtable', careerUrl: 'https://airtable.com/careers', greenhouseId: 'airtable' },
+  { name: 'Webflow', careerUrl: 'https://webflow.com/careers', greenhouseId: 'webflow' },
+  { name: 'Grammarly', careerUrl: 'https://www.grammarly.com/jobs', greenhouseId: 'grammarly' },
+  { name: 'Asana', careerUrl: 'https://asana.com/jobs', greenhouseId: 'asana' },
+  { name: 'Intercom', careerUrl: 'https://www.intercom.com/careers', greenhouseId: 'intercom' },
+  { name: 'Calendly', careerUrl: 'https://calendly.com/careers', greenhouseId: 'calendly' },
+  { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', greenhouseId: 'gusto' },
+  { name: 'Postman', careerUrl: 'https://www.postman.com/company/careers/', greenhouseId: 'postman' },
+  { name: 'Algolia', careerUrl: 'https://www.algolia.com/careers', greenhouseId: 'algolia' },
+  { name: 'Contentful', careerUrl: 'https://www.contentful.com/careers/', greenhouseId: 'contentful' },
+  { name: 'Pendo', careerUrl: 'https://www.pendo.io/careers/', greenhouseId: 'pendo' },
+  { name: 'Faire', careerUrl: 'https://www.faire.com/careers', greenhouseId: 'faire' },
+  { name: 'Lattice', careerUrl: 'https://lattice.com/careers', greenhouseId: 'lattice' },
+
+  // ============================================
+  // LEVER ATS (verified 200)
+  // ============================================
   { name: 'Netflix', careerUrl: 'https://jobs.netflix.com/', leverId: 'netflix' },
-  { name: 'Twilio', careerUrl: 'https://www.twilio.com/company/jobs', leverId: 'twilio' },
-  { name: 'Cloudflare', careerUrl: 'https://www.cloudflare.com/careers/', leverId: 'cloudflare' },
-  { name: 'Flexport', careerUrl: 'https://www.flexport.com/careers/', leverId: 'flexport' },
-  { name: 'Airtable', careerUrl: 'https://airtable.com/careers', leverId: 'airtable' },
-  { name: 'Webflow', careerUrl: 'https://webflow.com/careers', leverId: 'webflow' },
-  { name: 'Canva', careerUrl: 'https://www.canva.com/careers/', leverId: 'canva' },
-  { name: 'Loom', careerUrl: 'https://www.loom.com/careers', leverId: 'loom' },
-  { name: 'Postman', careerUrl: 'https://www.postman.com/company/careers/', leverId: 'postman' },
-  { name: 'Grammarly', careerUrl: 'https://www.grammarly.com/jobs', leverId: 'grammarly' },
-  { name: 'Miro', careerUrl: 'https://miro.com/careers/', leverId: 'miro' },
-  { name: 'Asana', careerUrl: 'https://asana.com/jobs', leverId: 'asana' },
-  { name: 'Intercom', careerUrl: 'https://www.intercom.com/careers', leverId: 'intercom' },
-  { name: 'Calendly', careerUrl: 'https://calendly.com/careers', leverId: 'calendly' },
-  { name: 'Zapier', careerUrl: 'https://zapier.com/jobs', leverId: 'zapier' },
-  { name: 'Gusto', careerUrl: 'https://gusto.com/company/careers', leverId: 'gusto' },
-  
-  // Workday — workdayBoardUrl is the *.myworkdayjobs.com board URL; API endpoint is derived from it
+  { name: 'Front', careerUrl: 'https://front.com/jobs', leverId: 'frontapp' },
+
+  // ============================================
+  // ASHBY ATS (free public API)
+  // ============================================
+  { name: 'Linear', careerUrl: 'https://linear.app/careers', ashbyId: 'linear' },
+  { name: 'Notion', careerUrl: 'https://www.notion.so/careers', ashbyId: 'notion' },
+  { name: 'Retool', careerUrl: 'https://retool.com/careers', ashbyId: 'retool' },
+  { name: 'Loom', careerUrl: 'https://www.loom.com/careers', ashbyId: 'loom' },
+  { name: 'Ramp', careerUrl: 'https://ramp.com/careers', ashbyId: 'ramp' },
+  { name: 'Deel', careerUrl: 'https://www.deel.com/careers', ashbyId: 'deel' },
+  { name: 'Plaid', careerUrl: 'https://plaid.com/careers/', ashbyId: 'plaid' },
+  { name: 'Benchling', careerUrl: 'https://www.benchling.com/careers', ashbyId: 'benchling' },
+  { name: 'Coda', careerUrl: 'https://coda.io/jobs', ashbyId: 'coda' },
+  { name: 'Superhuman', careerUrl: 'https://superhuman.com/careers', ashbyId: 'superhuman' },
+
+  // ============================================
+  // WORKDAY ATS — workdayBoardUrl derives JSON API endpoint
+  // ============================================
   { name: 'Salesforce', careerUrl: 'https://careers.salesforce.com/jobs', workdayId: 'salesforce', workdayBoardUrl: 'https://salesforce.wd12.myworkdayjobs.com/External_Career_Site' },
   { name: 'Adobe', careerUrl: 'https://careers.adobe.com/us/en/search-results', workdayId: 'adobe', workdayBoardUrl: 'https://adobe.wd5.myworkdayjobs.com/external_experienced' },
   { name: 'Workday', careerUrl: 'https://workday.wd5.myworkdayjobs.com/Workday', workdayId: 'workday', workdayBoardUrl: 'https://workday.wd5.myworkdayjobs.com/Workday' },
-  // ServiceNow Workday API blocks all external requests (422 on every board/body variant) — use page-based fallback
-  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow' },
   { name: 'Nvidia', careerUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite', workdayId: 'nvidia', workdayBoardUrl: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite' },
-  // VMware was acquired by Broadcom in 2023 — careers.vmware.com now redirects to Broadcom; skip Workday API
-  
-  // Custom career pages (use AI extraction)
+  // ServiceNow API blocks external requests — page-based fallback only
+  { name: 'ServiceNow', careerUrl: 'https://careers.servicenow.com/', workdayId: 'servicenow' },
+
+  // ============================================
+  // Custom career pages (AI extraction / Firecrawl)
+  // ============================================
   { name: 'Google', careerUrl: 'https://careers.google.com/jobs/results/' },
   { name: 'Microsoft', careerUrl: 'https://careers.microsoft.com/us/en/search-results' },
   { name: 'Apple', careerUrl: 'https://jobs.apple.com/en-us/search' },
@@ -83,7 +99,6 @@ const LEGACY_COMPANIES = [
   { name: 'Spotify', careerUrl: 'https://www.lifeatspotify.com/jobs' },
   { name: 'Shopify', careerUrl: 'https://www.shopify.com/careers' },
   { name: 'GitHub', careerUrl: 'https://github.com/about/careers' },
-  { name: 'Linear', careerUrl: 'https://linear.app/careers' },
   { name: 'Vercel', careerUrl: 'https://vercel.com/careers' },
   { name: 'Supabase', careerUrl: 'https://supabase.com/careers' },
   { name: 'OpenAI', careerUrl: 'https://openai.com/careers/' },
@@ -95,6 +110,11 @@ const LEGACY_COMPANIES = [
   { name: 'Pinterest', careerUrl: 'https://www.pinterestcareers.com/' },
   { name: 'Snap', careerUrl: 'https://careers.snap.com/' },
   { name: 'Reddit', careerUrl: 'https://www.redditinc.com/careers' },
+  { name: 'Zapier', careerUrl: 'https://zapier.com/jobs' },
+  { name: 'Canva', careerUrl: 'https://www.canva.com/careers/' },
+  { name: 'Segment', careerUrl: 'https://segment.com/jobs/' },
+  { name: 'Miro', careerUrl: 'https://miro.com/careers/' },
+  { name: 'Rippling', careerUrl: 'https://www.rippling.com/careers' },
 ];
 
 /**
@@ -108,6 +128,9 @@ function convertToSOTAConfig(legacy: any): CompanyConfig {
 
   if (legacy.greenhouseId) {
     ats = { type: 'greenhouse' as const, boardId: legacy.greenhouseId };
+    strategies = ['api', 'json_ld', 'ai_extraction'];
+  } else if (legacy.ashbyId) {
+    ats = { type: 'ashby' as const, boardId: legacy.ashbyId };
     strategies = ['api', 'json_ld', 'ai_extraction'];
   } else if (legacy.leverId) {
     ats = { type: 'lever' as const, boardId: legacy.leverId };
@@ -308,12 +331,12 @@ export class SOTAScraperService {
     };
 
     // Filter companies by tier based on ATS type
+    // Tier 1: Greenhouse + Ashby (fast JSON APIs, most reliable)
+    // Tier 2: Lever + Workday
+    // Tier 3: Custom career pages (AI extraction / Firecrawl, slowest)
     const tierCompanies = this.companies.filter(c => {
-      if (tier === 1) {return c.ats?.type === 'greenhouse';}
-      if (tier === 2) {return c.ats?.type === 'lever' || (LEGACY_COMPANIES.find(
-        l => l.name === c.name
-      ) as any)?.workdayId;}
-      // Tier 3: no ATS (custom career pages)
+      if (tier === 1) {return c.ats?.type === 'greenhouse' || c.ats?.type === 'ashby';}
+      if (tier === 2) {return c.ats?.type === 'lever' || c.ats?.type === 'workday';}
       return !c.ats;
     });
 
