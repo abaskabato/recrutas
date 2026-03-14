@@ -14,7 +14,7 @@
 
 import { db } from '../db.js';
 import { discoveredCompanies } from '../../shared/schema.js';
-import { eq, isNull, or } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import { redis } from './redis.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
