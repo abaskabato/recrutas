@@ -1,0 +1,30 @@
+name: Retry Failed Resume Parses
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 3 AM UTC daily
+  workflow_dispatch:
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Retry failed parses
+        run: |
+          response=$(curl -s -o /tmp/retry.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/retry-failed-parses" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Status: $response"
+          echo "Body: $(cat /tmp/retry.json)"
+          if [ "$response" != "200" ]; then
+            echo "::error::Retry failed with status $response"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Retry parse run complete at $(date -u)"
+          echo "Result: $(cat /tmp/retry.json 2>/dev/null || echo 'N/A')"

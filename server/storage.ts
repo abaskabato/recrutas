@@ -87,6 +87,8 @@ export interface IStorage {
   getCandidateUser(userId: string): Promise<CandidateProfile | undefined>;
   upsertCandidateUser(profile: InsertCandidateProfile): Promise<CandidateProfile>;
   getAllCandidateUsers(): Promise<CandidateProfile[]>;
+  getCandidatesForParseRetry(limit: number): Promise<CandidateProfile[]>;
+  incrementParseAttempts(userId: string): Promise<void>;
 
   // Talent Owner operations
   getTalentOwnerProfile(userId: string): Promise<TalentOwnerProfile | undefined>;
@@ -397,6 +399,34 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(candidateProfiles);
     } catch (error) {
       console.error('Error fetching all candidate profiles:', error);
+      throw error;
+    }
+  }
+
+  async getCandidatesForParseRetry(limit: number): Promise<CandidateProfile[]> {
+    try {
+      return await db.select().from(candidateProfiles)
+        .where(
+          and(
+            eq(candidateProfiles.resumeProcessingStatus, 'failed'),
+            sql`${candidateProfiles.resumeUrl} IS NOT NULL`,
+            sql`(${candidateProfiles.parseAttempts} < 3 OR ${candidateProfiles.parseAttempts} IS NULL)`
+          )
+        )
+        .limit(limit);
+    } catch (error) {
+      console.error('Error fetching candidates for parse retry:', error);
+      throw error;
+    }
+  }
+
+  async incrementParseAttempts(userId: string): Promise<void> {
+    try {
+      await db.update(candidateProfiles)
+        .set({ parseAttempts: sql`COALESCE(${candidateProfiles.parseAttempts}, 0) + 1` })
+        .where(eq(candidateProfiles.userId, userId));
+    } catch (error) {
+      console.error('Error incrementing parse attempts:', error);
       throw error;
     }
   }

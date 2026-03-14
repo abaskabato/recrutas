@@ -2,6 +2,7 @@ import { IStorage } from '../storage';
 import { AIResumeParser } from '../ai-resume-parser';
 import { User } from '@shared/schema';
 import { normalizeSkills } from '../skill-normalizer';
+import { sendInngestEvent } from '../inngest-service.js';
 
 /**
  * Custom error for resume processing failures
@@ -215,6 +216,11 @@ export class ResumeService {
       await this.storage.upsertCandidateUser(profileUpdate);
       console.log(`[ResumeService] Profile updated for user: ${userId}`);
 
+      // Fire match warming in background (non-blocking)
+      if (parsingSuccess) {
+        sendInngestEvent('candidate/profile-updated', { candidateId: userId }).catch(() => {});
+      }
+
       // Log activity
       await this.storage.createActivityLog(
         userId,
@@ -273,6 +279,106 @@ export class ResumeService {
       } : null,
       autoMatchingTriggered: parsingSuccess,
     };
+  }
+
+  /**
+   * Retry a failed resume parse for a candidate.
+   * Increments parseAttempts FIRST so a crash doesn't cause infinite retries.
+   */
+  async retryFailedParse(
+    userId: string,
+    resumeUrl: string
+  ): Promise<{ userId: string; success: boolean; skills: number }> {
+    console.log(`[ResumeService] Retrying failed parse for user: ${userId}, url: ${resumeUrl}`);
+
+    // Increment attempts before retrying — crash-safe
+    await this.storage.incrementParseAttempts(userId);
+
+    try {
+      // Download the resume file
+      const response = await fetch(resumeUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch resume: HTTP ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuffer);
+
+      // Infer mimetype from URL extension
+      const ext = resumeUrl.split('?')[0].split('.').pop()?.toLowerCase();
+      let mimetype = 'application/pdf';
+      if (ext === 'docx') {
+        mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      }
+
+      // Run AI parsing
+      const parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
+      const aiExtracted = parseResult?.aiExtracted || {};
+      const parsingSuccess = (
+        (aiExtracted.skills?.technical?.length > 0) ||
+        (aiExtracted.skills?.soft?.length > 0) ||
+        (aiExtracted.skills?.tools?.length > 0)
+      );
+
+      const extractedSkills = [
+        ...(aiExtracted.skills?.technical || []),
+        ...(aiExtracted.skills?.soft || []),
+        ...(aiExtracted.skills?.tools || []),
+      ];
+
+      // Build profile update
+      const profileUpdate: any = {
+        userId,
+        resumeProcessingStatus: parsingSuccess ? 'completed' : 'failed',
+        parsedAt: new Date(),
+        resumeParsingData: {
+          confidence: parseResult?.confidence || 0,
+          processingTime: 0,
+          extractedSkillsCount: extractedSkills.length,
+          parsingError: parsingSuccess ? null : 'AI parsing failed on retry',
+        },
+      };
+
+      if (parseResult?.text) {
+        profileUpdate.resumeText = parseResult.text;
+      }
+      if (extractedSkills.length > 0) {
+        profileUpdate.skills = normalizeSkills(extractedSkills).slice(0, 30);
+      }
+      if (aiExtracted.experience?.level) {
+        profileUpdate.experienceLevel = aiExtracted.experience.level;
+      }
+      const positions: Array<{ title?: string; company?: string; duration?: string; description?: string }> =
+        aiExtracted.experience?.positions || [];
+      if (positions.length > 0) {
+        const summary = positions.slice(0, 4).map((p: any) =>
+          [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
+        ).join('. ');
+        profileUpdate.experience = summary.slice(0, 1000);
+      }
+      if (aiExtracted.personalInfo?.location) {
+        profileUpdate.location = aiExtracted.personalInfo.location;
+      }
+      if (aiExtracted.personalInfo?.linkedin) {
+        profileUpdate.linkedinUrl = aiExtracted.personalInfo.linkedin;
+      }
+      if (aiExtracted.personalInfo?.github) {
+        profileUpdate.githubUrl = aiExtracted.personalInfo.github;
+      }
+
+      await this.storage.upsertCandidateUser(profileUpdate);
+
+      // Fire match warming on success
+      if (parsingSuccess) {
+        sendInngestEvent('candidate/profile-updated', { candidateId: userId }).catch(() => {});
+      }
+
+      console.log(`[ResumeService] Retry parse for ${userId}: success=${parsingSuccess}, skills=${extractedSkills.length}`);
+      return { userId, success: parsingSuccess, skills: extractedSkills.length };
+    } catch (error: any) {
+      console.error(`[ResumeService] Retry parse failed for ${userId}:`, error?.message);
+      // Status remains 'failed'; parseAttempts already incremented
+      return { userId, success: false, skills: 0 };
+    }
   }
 
 }

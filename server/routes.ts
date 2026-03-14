@@ -2512,6 +2512,69 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   });
 
+  // Retry failed resume parses — called daily by GitHub Actions
+  app.post('/api/cron/retry-failed-parses', async (req, res) => {
+    const cronSecret = req.headers['x-cron-secret'];
+    if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    try {
+      const candidates = await storage.getCandidatesForParseRetry(20);
+      if (candidates.length === 0) {
+        return res.json({ retried: 0, succeeded: 0, message: 'No failed parses to retry' });
+      }
+      const { ResumeService } = await import('./services/resume.service.js');
+      const { AIResumeParser } = await import('./ai-resume-parser.js');
+      const resumeService = new ResumeService(storage, new AIResumeParser());
+
+      let succeeded = 0;
+      const results: Array<{ userId: string; success: boolean; skills: number }> = [];
+      for (const candidate of candidates) {
+        const result = await resumeService.retryFailedParse(candidate.userId, candidate.resumeUrl!);
+        results.push(result);
+        if (result.success) succeeded++;
+      }
+      console.log(`[RetryParse] Retried ${candidates.length}, succeeded: ${succeeded}`);
+      res.json({ retried: candidates.length, succeeded, results });
+    } catch (error: any) {
+      console.error('[RetryParse] Failed:', error?.message);
+      res.status(500).json({ message: 'Retry failed', error: error?.message });
+    }
+  });
+
+  // Warm match cache for all active candidates — called daily by GitHub Actions
+  app.post('/api/cron/warm-candidate-matches', async (req, res) => {
+    const cronSecret = req.headers['x-cron-secret'];
+    if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    try {
+      const allCandidates = await storage.getAllCandidateUsers();
+      const withSkills = allCandidates.filter((c: any) => Array.isArray(c.skills) && c.skills.length > 0);
+
+      res.json({ warming: withSkills.length, message: 'Match warming started in background' });
+
+      // Warm in background — fire and forget
+      (async () => {
+        const { advancedMatchingEngine } = await import('./advanced-matching-engine.js');
+        let warmed = 0;
+        for (const candidate of withSkills) {
+          try {
+            await advancedMatchingEngine.getPersonalizedJobFeed(candidate.userId);
+            warmed++;
+            await new Promise(r => setTimeout(r, 100));
+          } catch (e: any) {
+            console.warn(`[WarmMatches] Failed for ${candidate.userId}:`, e?.message);
+          }
+        }
+        console.log(`[WarmMatches] Warmed ${warmed}/${withSkills.length} candidates`);
+      })().catch((e: any) => console.error('[WarmMatches] Background error:', e?.message));
+    } catch (error: any) {
+      console.error('[WarmMatches] Failed:', error?.message);
+      res.status(500).json({ message: 'Warming failed', error: error?.message });
+    }
+  });
+
   // Ghost job detection endpoints
   app.post('/api/admin/run-ghost-job-detection', async (req, res) => {
     try {

@@ -1,0 +1,29 @@
+name: Warm Candidate Match Cache
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 4 AM UTC daily (after retry-failed-parses)
+  workflow_dispatch:
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Warm match cache
+        run: |
+          response=$(curl -s -o /tmp/warm.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/warm-candidate-matches" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Status: $response"
+          echo "Body: $(cat /tmp/warm.json)"
+          if [ "$response" != "200" ]; then
+            echo "::warning::Match warming returned $response (non-fatal)"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Match warming complete at $(date -u)"
+          echo "Result: $(cat /tmp/warm.json 2>/dev/null || echo 'N/A')"

@@ -31,6 +31,7 @@ export type InngestEvents = {
       relatedApplicationId?: number;
     };
   };
+  'candidate/profile-updated': { data: { candidateId: string } };
 };
 
 // ── Recompute matches after new job posted ────────────────────────────────────
@@ -118,6 +119,21 @@ export const candidateNotifyFunction = inngest.createFunction(
   }
 );
 
+// ── Warm matches after profile update ────────────────────────────────────────
+
+export const profileUpdatedFunction = inngest.createFunction(
+  { id: 'profile-updated-warm-matches', name: 'Warm Matches After Profile Update' },
+  { event: 'candidate/profile-updated' },
+  async ({ event, step }) => {
+    await step.run('warm-matches', async () => {
+      const { advancedMatchingEngine } = await import('./advanced-matching-engine.js');
+      const { candidateId } = event.data;
+      await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
+      console.log(`[Inngest] Warmed match cache for candidate ${candidateId}`);
+    });
+  }
+);
+
 // ── Helper: send event safely (no-op if Inngest not configured) ──────────────
 
 export async function sendInngestEvent<K extends keyof InngestEvents>(
@@ -136,4 +152,5 @@ export const inngestFunctions = [
   recomputeMatchesFunction,
   enforceSLAFunction,
   candidateNotifyFunction,
+  profileUpdatedFunction,
 ];
