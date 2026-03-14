@@ -10,6 +10,7 @@ interface SendEmailOptions {
 }
 
 const FROM = 'Recrutas <hello@recrutas.ai>';
+const REPLY_TO = 'support@recrutas.ai';
 
 export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -26,6 +27,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
     },
     body: JSON.stringify({
       from: FROM,
+      reply_to: REPLY_TO,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
