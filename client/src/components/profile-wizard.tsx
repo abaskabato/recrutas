@@ -111,7 +111,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [userLocation, setUserLocation] = useState('');
   const [uploadElapsed, setUploadElapsed] = useState(0);
-  const [skillsCleared, setSkillsCleared] = useState(false);
+  const skillsClearedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -155,7 +155,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
         maxTravelDays: prefs.maxTravelDays || 0
       });
 
-      if ((profile as any).resumeUrl && !skillsCleared) {
+      if ((profile as any).resumeUrl && !skillsClearedRef.current) {
         setCurrentStep(2);
         // Populate parsedResumeData from saved profile so step 2 shows existing skills/experience
         const savedSkills: string[] = (profile as any).skills || [];
@@ -242,7 +242,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
     onSuccess: (data) => {
       setParsedResumeData(data.extractedInfo ?? null);
       setPendingFile(null);
-      setSkillsCleared(false);
+      skillsClearedRef.current = false;
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
       toast({
         title: "Resume Uploaded!",
@@ -544,7 +544,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
                         if (!confirm('This will clear all your skills and take you back to upload a new resume. Continue?')) return;
                         try {
                           await apiRequest('POST', '/api/candidate/profile', { skills: [] });
-                          setSkillsCleared(true);
+                          skillsClearedRef.current = true;
                           setParsedResumeData(null);
                           setCurrentStep(1);
                           queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
