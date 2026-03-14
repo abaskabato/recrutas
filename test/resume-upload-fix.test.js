@@ -38,7 +38,8 @@ async function createNewUserAndGetToken() {
 }
 
 async function createUserInPublicSchema(userId, email) {
-    const { error } = await supabase.from('users').insert([{ id: userId, email: email, name: email, role: 'candidate' }]);
+    const adminClient = createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { error } = await adminClient.from('users').insert([{ id: userId, email: email, name: email, role: 'candidate' }]);
     if (error) {
         throw new Error(`Failed to create user in public schema: ${error.message}`);
     }
