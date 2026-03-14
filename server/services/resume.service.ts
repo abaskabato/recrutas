@@ -295,16 +295,17 @@ export class ResumeService {
     await this.storage.incrementParseAttempts(userId);
 
     try {
-      // Download the resume file
-      const response = await fetch(resumeUrl);
+      // Resolve storage path → signed URL, then download
+      const signedUrl = await this.storage.getResumeSignedUrl(resumeUrl);
+      const response = await fetch(signedUrl);
       if (!response.ok) {
         throw new Error(`Failed to fetch resume: HTTP ${response.status}`);
       }
       const arrayBuffer = await response.arrayBuffer();
       const fileBuffer = Buffer.from(arrayBuffer);
 
-      // Infer mimetype from URL extension
-      const ext = resumeUrl.split('?')[0].split('.').pop()?.toLowerCase();
+      // Infer mimetype from storage path extension (strip query params from signed URL)
+      const ext = resumeUrl.split('.').pop()?.toLowerCase();
       let mimetype = 'application/pdf';
       if (ext === 'docx') {
         mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
