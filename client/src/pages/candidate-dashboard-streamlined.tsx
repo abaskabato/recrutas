@@ -504,6 +504,11 @@ export default function CandidateStreamlinedDashboard() {
             {/* Only show AI-matched jobs if resume is uploaded */}
             {hasResume ? (
               <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
+            ) : profileLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-500 border-t-transparent" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading your profile...</p>
+              </div>
             ) : (
               <div className="max-w-lg mx-auto py-10">
                 {/* Icon */}
