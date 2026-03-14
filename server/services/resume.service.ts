@@ -288,7 +288,7 @@ export class ResumeService {
   async retryFailedParse(
     userId: string,
     resumeUrl: string
-  ): Promise<{ userId: string; success: boolean; skills: number }> {
+  ): Promise<{ userId: string; success: boolean; skills: number; error?: string }> {
     console.log(`[ResumeService] Retrying failed parse for user: ${userId}, url: ${resumeUrl}`);
 
     // Increment attempts before retrying — crash-safe
@@ -378,7 +378,7 @@ export class ResumeService {
     } catch (error: any) {
       console.error(`[ResumeService] Retry parse failed for ${userId}:`, error?.message);
       // Status remains 'failed'; parseAttempts already incremented
-      return { userId, success: false, skills: 0 };
+      return { userId, success: false, skills: 0, error: error?.message };
     }
   }
 
