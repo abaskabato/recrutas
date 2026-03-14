@@ -128,7 +128,7 @@ export class AIResumeParser {
       };
     } catch (error) {
       console.error('AI Resume parsing error:', error);
-      throw new Error('Failed to parse resume with AI');
+      throw new Error(`Failed to parse resume with AI: ${(error as Error).message}`);
     }
   }
 
