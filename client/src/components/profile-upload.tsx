@@ -237,14 +237,19 @@ export default function ProfileUpload({ onProfileSaved }: ProfileUploadProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-matches"] });
       if (data.parsed && data.extractedInfo) {
         setParsedResumeData(data.extractedInfo);
+        const hasSkills = data.extractedInfo.skills?.technical?.length > 0 ||
+          data.extractedInfo.skills?.soft?.length > 0 ||
+          data.extractedInfo.skills?.tools?.length > 0;
         toast({
-          title: "Resume Scanned Successfully!",
-          description: "Please review the extracted information below.",
+          title: hasSkills ? "Resume Scanned Successfully!" : "Resume Uploaded",
+          description: hasSkills
+            ? "Please review the extracted information below."
+            : "We couldn't extract skills from this resume. Please add them manually below or try a different file.",
         });
       } else {
         toast({
           title: "Resume Uploaded",
-          description: "Your resume has been saved. You can now add skills manually.",
+          description: "We couldn't extract skills from this resume. Previous skills have been cleared — please add skills manually.",
         });
       }
     },

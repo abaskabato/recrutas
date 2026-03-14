@@ -95,6 +95,10 @@ export function ProfileCompletionModal({
     form.setValue("skills", currentSkills.filter(skill => skill !== skillToRemove));
   };
 
+  const clearAllSkills = () => {
+    form.setValue("skills", []);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -174,7 +178,20 @@ export function ProfileCompletionModal({
               name="skills"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Skills</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Skills</FormLabel>
+                    {field.value.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={clearAllSkills}
+                      >
+                        Clear all
+                      </Button>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Input

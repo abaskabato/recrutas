@@ -180,16 +180,15 @@ export class ResumeService {
         profileUpdate.resumeText = parseResult.text;
       }
 
-      // Skills: replace entirely from the new resume (don't merge — re-upload signals "this is my current profile")
-      // If parsing failed and no skills were extracted, leave existing skills untouched
+      // Skills: always wipe and replace on re-upload — stale skills pollute matches
       const extractedSkills = [
         ...(aiExtracted.skills?.technical || []),
         ...(aiExtracted.skills?.soft || []),
         ...(aiExtracted.skills?.tools || []),
       ];
-      if (extractedSkills.length > 0) {
-        profileUpdate.skills = normalizeSkills(extractedSkills).slice(0, 30);
-      }
+      profileUpdate.skills = extractedSkills.length > 0
+        ? normalizeSkills(extractedSkills).slice(0, 30)
+        : [];
 
       if (aiExtracted.experience?.level) {
         profileUpdate.experienceLevel = aiExtracted.experience.level;
@@ -342,9 +341,10 @@ export class ResumeService {
       if (parseResult?.text) {
         profileUpdate.resumeText = parseResult.text;
       }
-      if (extractedSkills.length > 0) {
-        profileUpdate.skills = normalizeSkills(extractedSkills).slice(0, 30);
-      }
+      // Skills: always wipe and replace on retry — stale skills pollute matches
+      profileUpdate.skills = extractedSkills.length > 0
+        ? normalizeSkills(extractedSkills).slice(0, 30)
+        : [];
       if (aiExtracted.experience?.level) {
         profileUpdate.experienceLevel = aiExtracted.experience.level;
       }

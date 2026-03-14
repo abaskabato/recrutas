@@ -66,6 +66,7 @@ export const enforceSLAFunction = inngest.createFunction(
   { id: 'enforce-sla', name: 'Enforce 24h Response SLA' },
   { cron: '0 * * * *' }, // Hourly — same as GitHub Actions cron, but serverless-native
   async ({ step }) => {
+    // Step 1: close overdue applications
     await step.run('enforce', async () => {
       const { storage } = await import('./storage.js');
       const { notificationService } = await import('./notification-service.js');
@@ -93,6 +94,44 @@ export const enforceSLAFunction = inngest.createFunction(
 
       console.log(`[Inngest SLA] Closed ${closed}/${overdue.length} overdue applications`);
       return { closed, total: overdue.length };
+    });
+
+    // Step 2: warn employers who are ~12h away from the deadline
+    await step.run('warn', async () => {
+      const { storage } = await import('./storage.js');
+      const { sendEmail, employerSLAWarningEmail } = await import('./lib/email.js');
+
+      const nearDeadline = await storage.getApplicationsNearSLADeadline(12);
+      let warned = 0;
+
+      for (const { talentOwnerId, candidateId, jobTitle, company, hoursLeft } of nearDeadline) {
+        try {
+          const [employer, candidate] = await Promise.all([
+            storage.getUser(talentOwnerId),
+            storage.getUser(candidateId),
+          ]);
+          if (!employer?.email) continue;
+          const candidateName = (candidate as any)?.firstName
+            ? `${(candidate as any).firstName} ${(candidate as any).lastName || ''}`.trim()
+            : 'A candidate';
+          await sendEmail({
+            to: employer.email,
+            subject: `⏰ ${hoursLeft}h left to respond to ${candidateName} — ${jobTitle}`,
+            html: employerSLAWarningEmail(
+              (employer as any).firstName,
+              candidateName,
+              jobTitle,
+              hoursLeft,
+            ),
+          });
+          warned++;
+        } catch (err) {
+          console.error(`[Inngest SLA warn] Failed:`, (err as Error).message);
+        }
+      }
+
+      console.log(`[Inngest SLA] Sent ${warned} SLA warning emails`);
+      return { warned };
     });
   }
 );
@@ -127,12 +166,37 @@ export const profileUpdatedFunction = inngest.createFunction(
   async ({ event, step }) => {
     const { candidateId } = event.data;
 
-    // Step 1: warm the match cache and get count
-    const matchCount = await step.run('warm-matches', async () => {
+    // Step 1: warm the match cache and return top matches
+    const matchResult = await step.run('warm-matches', async () => {
       const { advancedMatchingEngine } = await import('./advanced-matching-engine.js');
+      const { storage } = await import('./storage.js');
       const matches = await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
       console.log(`[Inngest] Warmed match cache for candidate ${candidateId}`);
-      return matches?.length ?? 0;
+
+      // Fetch job details for top 5 to include in the email
+      const top5 = (matches ?? []).slice(0, 5);
+      const jobDetails = await Promise.all(
+        top5.map(async (m) => {
+          const job = await storage.getJobPosting(m.jobId);
+          if (!job) return null;
+          return {
+            jobId: m.jobId,
+            title: job.title,
+            company: job.company,
+            location: job.location ?? null,
+            workType: job.workType ?? null,
+            salaryMin: job.salaryMin ?? null,
+            salaryMax: job.salaryMax ?? null,
+            matchScore: Math.round(m.finalScore * 100),
+            skillMatches: m.skillMatches ?? [],
+          };
+        })
+      );
+
+      return {
+        count: matches?.length ?? 0,
+        jobs: jobDetails.filter(Boolean),
+      };
     });
 
     // Step 2: send "matches ready" email
@@ -153,12 +217,13 @@ export const profileUpdatedFunction = inngest.createFunction(
         return;
       }
 
+      const { count, jobs } = matchResult;
       await sendEmail({
         to: user.email,
-        subject: `Your ${matchCount} job match${matchCount !== 1 ? 'es' : ''} are ready on Recrutas`,
-        html: matchesReadyEmail((user as any).first_name ?? '', matchCount),
+        subject: `Your ${count} job match${count !== 1 ? 'es' : ''} are ready on Recrutas`,
+        html: matchesReadyEmail((user as any).first_name ?? '', count, jobs as any),
       });
-      console.log(`[Inngest] Sent matches-ready email to ${user.email} (${matchCount} matches)`);
+      console.log(`[Inngest] Sent matches-ready email to ${user.email} (${count} matches)`);
     });
   }
 );

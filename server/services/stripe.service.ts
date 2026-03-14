@@ -20,6 +20,12 @@ import {
 import { eq, and } from 'drizzle-orm';
 import { sql, gte, lte } from 'drizzle-orm/sql';
 import { CANDIDATE_PLANS, TALENT_OWNER_PLANS } from '../../shared/pricing';
+import {
+  sendEmail,
+  subscriptionConfirmedEmail,
+  paymentFailedEmail,
+  subscriptionCanceledEmail,
+} from '../lib/email.js';
 
 // Free tier limits - Candidates get unlimited everything (100% free model)
 const FREE_TIER_LIMITS: Record<string, number> = {
@@ -419,6 +425,25 @@ class StripeService {
       .where(eq(userSubscriptions.userId, userId));
 
     console.log(`[StripeService] User ${userId} subscribed to tier ${tierId}`);
+
+    // Send confirmation email
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    const [tier] = await db.select().from(subscriptionTiers).where(eq(subscriptionTiers.id, parseInt(tierId)));
+    if (user?.email && tier) {
+      const billingCycle = session.metadata?.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+      const priceRaw = billingCycle === 'yearly' ? tier.priceYearly : tier.priceMonthly;
+      const price = priceRaw ? `$${Math.round(priceRaw / 100)}/mo` : '';
+      sendEmail({
+        to: user.email,
+        subject: `Your Recrutas ${tier.name} plan is active`,
+        html: subscriptionConfirmedEmail(
+          (user as any).firstName ?? (user as any).name?.split(' ')[0],
+          tier.name,
+          billingCycle,
+          price,
+        ),
+      }).catch((err: Error) => console.error('[Email] subscription confirmed failed:', err));
+    }
   }
 
   /**

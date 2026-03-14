@@ -150,6 +150,7 @@ export interface IStorage {
   updateTalentTransparencySettings(talentId: string, settings: any): Promise<any>;
   storeExamResult(result: any): Promise<any>;
   getOverdueExamApplications(): Promise<{ applicationId: number; candidateId: string; jobTitle: string; company: string }[]>;
+  getApplicationsNearSLADeadline(hoursWindow: number): Promise<{ applicationId: number; candidateId: string; talentOwnerId: string; jobTitle: string; company: string; hoursLeft: number }[]>;
   getStaleInternalJobs(staleDays?: number): Promise<{ id: number; title: string; company: string; createdAt: Date | null }[]>;
   closeJobsByIds(ids: number[]): Promise<number>;
   getAvailableNotificationUsers(): Promise<string[]>;
@@ -1402,6 +1403,33 @@ export class DatabaseStorage implements IStorage {
       return (rows as any).rows ?? (rows as any) as any[];
     } catch (error) {
       console.error('Error fetching overdue exam applications:', error);
+      return [];
+    }
+  }
+
+  async getApplicationsNearSLADeadline(hoursWindow: number): Promise<{ applicationId: number; candidateId: string; talentOwnerId: string; jobTitle: string; company: string; hoursLeft: number }[]> {
+    try {
+      const rows = await db.execute(sql`
+        SELECT
+          ja.id                                                      AS "applicationId",
+          ja.candidate_id                                            AS "candidateId",
+          jp.talent_owner_id                                         AS "talentOwnerId",
+          jp.title                                                   AS "jobTitle",
+          jp.company                                                 AS "company",
+          ROUND(EXTRACT(EPOCH FROM (ea.response_deadline_at - NOW())) / 3600)::int AS "hoursLeft"
+        FROM exam_attempts ea
+        JOIN job_applications ja
+          ON ja.job_id = ea.job_id AND ja.candidate_id = ea.candidate_id
+        JOIN job_postings jp ON jp.id = ea.job_id
+        WHERE ea.passed_exam = true
+          AND ea.response_deadline_at IS NOT NULL
+          AND ea.response_deadline_at > NOW()
+          AND ea.response_deadline_at <= NOW() + (${hoursWindow + 1} || ' hours')::interval
+          AND ja.status IN ('submitted', 'viewed')
+      `);
+      return (rows as any).rows ?? (rows as any) as any[];
+    } catch (error) {
+      console.error('Error fetching near-SLA applications:', error);
       return [];
     }
   }

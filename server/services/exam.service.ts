@@ -4,7 +4,7 @@ import { callAI, isAIAvailable } from "../lib/ai-client";
 // Interface for notification service to avoid circular dependency
 interface INotificationService {
   notifyExamCompleted(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number, passed?: boolean): Promise<void>;
-  notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number): Promise<void>;
+  notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number, examFeedback?: string, company?: string, ranking?: number, totalCandidates?: number): Promise<void>;
 }
 
 class ExamProcessingError extends Error {
@@ -101,7 +101,9 @@ export class ExamService {
         score,
         passed,
         passingScore,
-        applicationId
+        applicationId,
+        examFeedback,
+        job.company,
       );
 
       // Compute ranking against all completed attempts for this job.

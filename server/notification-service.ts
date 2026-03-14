@@ -15,6 +15,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { gt } from "drizzle-orm/sql/expressions";
 import { WebSocket } from "ws";
 import { sendApplicationStatusEmail, sendInterviewScheduledEmail, sendNewMatchEmail } from "./email-service";
+import { sendEmail as sendTransactionalEmail, candidateExamPassEmail, candidateExamFailEmail } from "./lib/email";
 import { captureException } from "./error-monitoring";
 
 interface NotificationData {
@@ -375,7 +376,7 @@ class NotificationService {
     });
   }
 
-  async notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number) {
+  async notifyCandidateExamResult(candidateId: string, jobTitle: string, score: number, passed: boolean, passingScore: number, applicationId: number, examFeedback?: string, company?: string, ranking?: number, totalCandidates?: number) {
     const priority = passed ? 'high' : 'medium';
     const title = passed ? 'Exam Passed — Chat Unlocked!' : 'Exam Result';
     const message = passed
@@ -391,6 +392,24 @@ class NotificationService {
       relatedApplicationId: applicationId,
       data: { jobTitle, score, passingScore, passed }
     });
+
+    // Send email
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, candidateId));
+      if (user?.email) {
+        const candidateName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : undefined;
+        const html = passed
+          ? candidateExamPassEmail(candidateName, jobTitle, company || '', score, ranking || 1, totalCandidates || 1)
+          : candidateExamFailEmail(candidateName, jobTitle, company || '', score, passingScore, examFeedback);
+        await sendTransactionalEmail({
+          to: user.email,
+          subject: passed ? `You passed the ${jobTitle} exam — chat unlocked` : `Your ${jobTitle} exam result`,
+          html,
+        });
+      }
+    } catch (err) {
+      console.error('[Email] exam result email failed:', err);
+    }
   }
 
   async notifyHighScoreAlert(talentOwnerId: string, candidateName: string, jobTitle: string, score: number, applicationId: number) {

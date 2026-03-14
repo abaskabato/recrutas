@@ -41,6 +41,7 @@ import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isMode
 import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
 import { extractSkillsFromText } from './utils/skill-extractor';
 import { sendWelcomeEmail, sendEmail } from './email-service';
+import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
 import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
 
 // In-memory cache for RemoteOK jobs (15-min TTL)
@@ -1060,6 +1061,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
         emailVerified: true,
       });
       const updatedUser = await storage.updateUserRole(req.user.id, role);
+
+      if (role === 'talent_owner' && req.user.email) {
+        const firstName = req.user.user_metadata?.first_name;
+        sendTransactionalEmail({
+          to: req.user.email,
+          subject: 'Welcome to Recrutas — post your first job',
+          html: employerWelcomeEmail(firstName),
+        }).catch((err: Error) => console.error('[Email] employer welcome failed:', err));
+      }
+
       res.json({ success: true, user: updatedUser });
     } catch (error) {
       console.error("Error setting user role:", error);
@@ -1430,6 +1441,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
           message: `You have a new application for ${job.title}.${hasLinks ? ' Candidate has provided professional links.' : ''}`,
           relatedApplicationId: application.id,
         });
+
+        // Email employer about new applicant
+        storage.getUser(job.talentOwnerId).then(employer => {
+          if (!employer?.email) return;
+          const candidateProfile = applicationMetadata as any;
+          const candidateName = candidateProfile?.firstName
+            ? `${candidateProfile.firstName} ${candidateProfile.lastName || ''}`.trim()
+            : 'A candidate';
+          sendTransactionalEmail({
+            to: employer.email,
+            subject: `New applicant for ${job.title}`,
+            html: employerNewApplicantEmail(
+              (employer as any).name?.split(' ')[0],
+              candidateName,
+              job.title,
+              !!job.hasExam,
+              application.id,
+            ),
+          }).catch((err: Error) => console.error('[Email] new applicant failed:', err));
+        }).catch(() => {});
 
         // Notify candidate their application was received (core promise: know where you stand)
         const examNote = job.hasExam ? ' Complete the screening exam to advance your application.' : '';
