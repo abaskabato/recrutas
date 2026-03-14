@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -52,6 +52,21 @@ export function ProfileCompletionModal({
       portfolioUrl: currentProfile?.portfolioUrl || "",
     },
   });
+
+  // Sync form when currentProfile loads or changes (defaultValues only apply on mount)
+  useEffect(() => {
+    if (currentProfile) {
+      form.reset({
+        bio: currentProfile.bio || "",
+        location: currentProfile.location || "",
+        experience: currentProfile.experience || "entry",
+        skills: currentProfile.skills || [],
+        linkedinUrl: currentProfile.linkedinUrl || "",
+        githubUrl: currentProfile.githubUrl || "",
+        portfolioUrl: currentProfile.portfolioUrl || "",
+      });
+    }
+  }, [currentProfile, form]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
