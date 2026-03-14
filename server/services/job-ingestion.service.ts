@@ -250,7 +250,7 @@ export class JobIngestionService {
           sql`${jobPostings.source} != 'platform'`,
           or(
             sql`${jobPostings.expiresAt} < NOW()`,
-            sql`${jobPostings.createdAt} < ${cutoffDate}`
+            sql`${jobPostings.createdAt} < ${cutoffDate.toISOString()}`
           ),
           eq(jobPostings.status, 'active')
         )
