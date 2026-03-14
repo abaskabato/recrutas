@@ -4,7 +4,7 @@ import mammoth from 'mammoth';
 import { generateJobMatch } from './ai-service';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
-import { callAI } from './lib/ai-client';
+import { callAI, callGeminiWithPDF } from './lib/ai-client';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -63,6 +63,19 @@ interface ParsedResume {
   processingTime: number;
 }
 
+const RESUME_EXTRACTION_PROMPT = `Extract the following information from this resume and return as JSON:
+
+{
+  "personalInfo": { "name": "", "email": "", "phone": "", "location": "", "linkedin": "", "github": "", "portfolio": "" },
+  "summary": "",
+  "skills": { "technical": [], "soft": [], "tools": [] },
+  "experience": { "totalYears": 0, "level": "entry|mid|senior|executive", "positions": [{ "title": "", "company": "", "duration": "", "responsibilities": [] }] },
+  "education": [{ "degree": "", "institution": "", "year": "", "gpa": "" }],
+  "certifications": [],
+  "projects": [{ "name": "", "description": "", "technologies": [] }],
+  "languages": []
+}`;
+
 export class AIResumeParser {
   private skillsDatabase = [
     // Programming Languages
@@ -105,27 +118,45 @@ export class AIResumeParser {
   async parseFile(fileContent: Buffer | string, mimeType: string): Promise<ParsedResume> {
     const startTime = Date.now();
 
+    // Path 1: normal text extraction → AI
+    if (typeof fileContent !== 'string' || fileContent !== 'text-input') {
+      try {
+        const text = await this.extractText(fileContent as Buffer, mimeType);
+        console.log(`[AIResumeParser] Extracted ${text.length} characters from ${mimeType}`);
+        const aiExtracted = await this.extractWithAI(text);
+        const confidence = this.calculateConfidence(aiExtracted);
+        return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
+      } catch (extractErr) {
+        // Path 2: text extraction failed — try Gemini multimodal PDF directly
+        if (mimeType === 'application/pdf' && process.env.GEMINI_API_KEY) {
+          console.warn('[AIResumeParser] pdf-parse failed, attempting Gemini multimodal fallback:', (extractErr as Error).message);
+          try {
+            const jsonStr = await callGeminiWithPDF(
+              'You are an expert resume parser. Extract structured data and return ONLY valid JSON.',
+              RESUME_EXTRACTION_PROMPT,
+              fileContent as Buffer,
+              { priority: 'high', maxOutputTokens: 2000 }
+            );
+            const aiExtracted = this.parseAIResponse(jsonStr);
+            const confidence = this.calculateConfidence(aiExtracted);
+            console.log(`[AIResumeParser] Gemini multimodal fallback succeeded, confidence: ${confidence}`);
+            return { text: '[extracted via Gemini multimodal]', aiExtracted, confidence, processingTime: Date.now() - startTime };
+          } catch (geminiErr) {
+            console.error('[AIResumeParser] Gemini multimodal fallback also failed:', (geminiErr as Error).message);
+            throw new Error(`Failed to parse resume with AI: ${(geminiErr as Error).message}`);
+          }
+        }
+        console.error('AI Resume parsing error:', extractErr);
+        throw new Error(`Failed to parse resume with AI: ${(extractErr as Error).message}`);
+      }
+    }
+
+    // Sample/demo path
     try {
-      // Extract text from file or use sample for demo
-      const text = typeof fileContent === 'string' && fileContent === 'text-input' ? this.getSampleResumeText() : await this.extractText(fileContent as Buffer, mimeType);
-
-      console.log(`[AIResumeParser] Extracted ${text.length} characters from ${mimeType}`);
-      console.log(`[AIResumeParser] Text preview: ${text.substring(0, 200).replace(/\n/g, ' ')}...`);
-
-      // Use AI-powered extraction
+      const text = this.getSampleResumeText();
       const aiExtracted = await this.extractWithAI(text);
-
-      // Calculate confidence based on extracted data completeness
       const confidence = this.calculateConfidence(aiExtracted);
-
-      const processingTime = Date.now() - startTime;
-
-      return {
-        text,
-        aiExtracted,
-        confidence,
-        processingTime
-      };
+      return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
     } catch (error) {
       console.error('AI Resume parsing error:', error);
       throw new Error(`Failed to parse resume with AI: ${(error as Error).message}`);
@@ -153,6 +184,16 @@ export class AIResumeParser {
     } catch (error) {
       console.error('AI Resume parsing error:', error);
       throw new Error('Failed to parse resume text with AI');
+    }
+  }
+
+  private parseAIResponse(jsonStr: string): AIExtractedData {
+    try {
+      return JSON.parse(jsonStr) as AIExtractedData;
+    } catch {
+      // Try stripping markdown code fences
+      const stripped = jsonStr.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
+      return JSON.parse(stripped) as AIExtractedData;
     }
   }
 

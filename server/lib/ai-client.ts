@@ -97,6 +97,55 @@ export async function callAI(
   return text;
 }
 
+/**
+ * Send a PDF buffer directly to Gemini as inline multimodal data.
+ * Used as fallback when pdf-parse fails to extract text (e.g. complex encodings).
+ * Only available when GEMINI_API_KEY is set.
+ */
+export async function callGeminiWithPDF(
+  systemPrompt: string,
+  userPrompt: string,
+  pdfBuffer: Buffer,
+  opts: CallAIOptions = {}
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set — cannot use PDF multimodal');
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const body = {
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType: 'application/pdf', data: pdfBuffer.toString('base64') } },
+        { text: userPrompt },
+      ],
+    }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: opts.temperature ?? 0.1,
+      ...(opts.maxOutputTokens ? { maxOutputTokens: opts.maxOutputTokens } : {}),
+    },
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini PDF API error ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  type GeminiResponse = { candidates?: Array<{ content: { parts: Array<{ text: string }> } }> };
+  const data = await res.json() as GeminiResponse;
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini returned no content for PDF');
+  return text;
+}
+
 /** Returns true if at least one AI provider is configured. */
 export function isAIAvailable(): boolean {
   return !!(process.env.GEMINI_API_KEY || getGroqClient());
