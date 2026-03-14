@@ -125,11 +125,40 @@ export const profileUpdatedFunction = inngest.createFunction(
   { id: 'profile-updated-warm-matches', name: 'Warm Matches After Profile Update' },
   { event: 'candidate/profile-updated' },
   async ({ event, step }) => {
-    await step.run('warm-matches', async () => {
+    const { candidateId } = event.data;
+
+    // Step 1: warm the match cache and get count
+    const matchCount = await step.run('warm-matches', async () => {
       const { advancedMatchingEngine } = await import('./advanced-matching-engine.js');
-      const { candidateId } = event.data;
-      await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
+      const matches = await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
       console.log(`[Inngest] Warmed match cache for candidate ${candidateId}`);
+      return matches?.length ?? 0;
+    });
+
+    // Step 2: send "matches ready" email
+    await step.run('send-matches-email', async () => {
+      const { storage } = await import('./storage.js');
+      const { sendEmail, matchesReadyEmail } = await import('./lib/email.js');
+
+      const user = await storage.getUser(candidateId);
+      if (!user?.email) {
+        console.warn(`[Inngest] No email for candidate ${candidateId} — skipping email`);
+        return;
+      }
+
+      // Respect email notification preferences
+      const prefs = await storage.getNotificationPreferences(candidateId);
+      if (prefs && prefs.emailNotifications === false) {
+        console.log(`[Inngest] Email notifications disabled for ${candidateId}`);
+        return;
+      }
+
+      await sendEmail({
+        to: user.email,
+        subject: `Your ${matchCount} job match${matchCount !== 1 ? 'es' : ''} are ready on Recrutas`,
+        html: matchesReadyEmail((user as any).first_name ?? '', matchCount),
+      });
+      console.log(`[Inngest] Sent matches-ready email to ${user.email} (${matchCount} matches)`);
     });
   }
 );
