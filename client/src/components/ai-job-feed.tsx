@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp, Upload } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp, Upload, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -535,19 +535,21 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                             size="sm"
                             variant={isApplied ? "outline" : "default"}
                             onClick={(e) => handleApply(e, match)}
-                            disabled={isApplied}
+                            disabled={isApplied || applyMutation.isPending}
                             className={`flex-1 sm:flex-none text-xs sm:text-sm ${isApplied ? 'border-green-400 text-green-700 dark:border-green-600 dark:text-green-400' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                             title={match.job.externalUrl ? "Opens company career page in new tab" : isInternalJob && match.job.hasExam ? "Apply and take the screening exam" : "Submit application for this job"}
                           >
-                            {isApplied
-                              ? <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                              : isInternalJob && match.job.hasExam
-                                ? <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                                : <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
+                            {applyMutation.isPending
+                              ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                              : isApplied
+                                ? <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                : isInternalJob && match.job.hasExam
+                                  ? <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                  : <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
                             <span className="hidden sm:inline">
-                              {isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Apply & Take Exam" : match.job.externalUrl ? "Apply Externally" : "Apply Now"}
+                              {applyMutation.isPending ? "Applying..." : isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Apply & Take Exam" : match.job.externalUrl ? "Apply Externally" : "Apply Now"}
                             </span>
-                            <span className="sm:hidden">{isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Exam" : "Apply"}</span>
+                            <span className="sm:hidden">{applyMutation.isPending ? "..." : isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Exam" : "Apply"}</span>
                           </Button>
                           {supportsAgentApply && !isApplied && (
                             <Button
@@ -558,9 +560,11 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                               className="flex-1 sm:flex-none border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20 text-xs sm:text-sm"
                               title="Auto-fills and submits your application on the company's Greenhouse/Lever form"
                             >
-                              <Bot className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                              <span className="hidden sm:inline">Apply For Me</span>
-                              <span className="sm:hidden">Agent</span>
+                              {agentApplyingIds.has(match.job.id)
+                                ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
+                                : <Bot className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
+                              <span className="hidden sm:inline">{agentApplyingIds.has(match.job.id) ? "Applying..." : "Apply For Me"}</span>
+                              <span className="sm:hidden">{agentApplyingIds.has(match.job.id) ? "..." : "Agent"}</span>
                             </Button>
                           )}
                           <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2">
@@ -568,17 +572,23 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                               size="sm"
                               variant="outline"
                               onClick={(e) => handleSaveToggle(e, match)}
+                              disabled={saveMutation.isPending || unsaveMutation.isPending}
                               className="px-2 sm:px-2.5"
                             >
-                              <Bookmark className={`h-3 w-3 sm:h-4 sm:w-4 ${isSaved ? "fill-current text-yellow-500" : ""}`} />
+                              {(saveMutation.isPending || unsaveMutation.isPending)
+                                ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                                : <Bookmark className={`h-3 w-3 sm:h-4 sm:w-4 ${isSaved ? "fill-current text-yellow-500" : ""}`} />}
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={(e) => handleHide(e, match)}
+                              disabled={hideMutation.isPending}
                               className="px-2 sm:px-2.5"
                             >
-                              <EyeOff className="h-3 w-3 sm:h-4 sm:w-4" />
+                              {hideMutation.isPending
+                                ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                                : <EyeOff className="h-3 w-3 sm:h-4 sm:w-4" />}
                             </Button>
                             <Button
                               size="sm"

@@ -3,7 +3,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Edit, Pause, Users } from "lucide-react";
+import { Edit, Pause, Users, Loader2 } from "lucide-react";
 
 interface JobCardProps {
   job: any;
@@ -86,8 +86,10 @@ export default function JobCard({ job, onEdit, onViewMatches }: JobCardProps) {
             <Button variant="ghost" size="sm" onClick={() => onEdit?.(job)} title="Edit job">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={toggleJobStatus} title={job.status === 'active' ? 'Pause job' : 'Activate job'}>
-              <Pause className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={toggleJobStatus} disabled={updateJobMutation.isPending} title={job.status === 'active' ? 'Pause job' : 'Activate job'}>
+              {updateJobMutation.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Pause className="h-4 w-4" />}
             </Button>
           </div>
         </div>

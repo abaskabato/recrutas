@@ -260,6 +260,16 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
+            {ghostFetching && !ghostStats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center animate-pulse">
+                    <div className="h-6 w-10 bg-gray-300 dark:bg-gray-600 rounded mx-auto mb-1" />
+                    <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded mx-auto" />
+                  </div>
+                ))}
+              </div>
+            )}
             {ghostStats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
@@ -300,6 +310,16 @@ export default function AdminDashboard() {
               </Button>
             </div>
 
+            {verifyFetching && !verifyStats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 text-center animate-pulse">
+                    <div className="h-6 w-10 bg-gray-300 dark:bg-gray-600 rounded mx-auto mb-1" />
+                    <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded mx-auto" />
+                  </div>
+                ))}
+              </div>
+            )}
             {verifyStats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[

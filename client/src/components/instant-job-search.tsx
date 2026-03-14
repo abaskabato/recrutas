@@ -372,15 +372,18 @@ export default function InstantJobSearch() {
                       </div>
 
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" disabled={applyMutation.isPending}>
                           Save Job
                         </Button>
                         <Button
                           size="sm"
                           onClick={() => handleJobApplication(job)}
+                          disabled={applyMutation.isPending}
                         >
-                          <ExternalLink className="w-4 h-4 mr-1" />
-                          Apply Now
+                          {applyMutation.isPending
+                            ? <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            : <ExternalLink className="w-4 h-4 mr-1" />}
+                          {applyMutation.isPending ? "Applying..." : "Apply Now"}
                         </Button>
                       </div>
                     </div>

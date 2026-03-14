@@ -3,7 +3,7 @@ import { useSupabaseClient, useSession } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import SmartLogo from "@/components/smart-logo";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const supabase = useSupabaseClient();
@@ -147,7 +147,9 @@ export default function AuthPage() {
                 disabled={signInLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring"
               >
-                {signInLoading ? 'Signing in...' : 'Sign in'}
+                {signInLoading ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin inline" />Signing in...</>
+                ) : 'Sign in'}
               </button>
               <div className="text-center text-sm">
                 <p className="text-muted-foreground mb-4">Don't have an account?</p>

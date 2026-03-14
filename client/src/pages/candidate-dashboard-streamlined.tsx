@@ -115,7 +115,7 @@ export default function CandidateStreamlinedDashboard() {
   }, [isAuthenticated, isLoading, setLocation]);
 
   // Fetch candidate stats
-  const { data: stats } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ['/api/candidate/stats'],
     queryFn: async () => {
       const response = await apiRequest("GET", '/api/candidate/stats');
@@ -421,13 +421,15 @@ export default function CandidateStreamlinedDashboard() {
                 action: () => setActiveTab('applications'),
                 actionLabel: 'Track all',
               },
-            ].map(({ label, value, icon: Icon, iconBg, iconColor, action, actionLabel }) => (
+            ].map(({ label, value, icon: Icon, iconBg, iconColor, action }) => (
               <div key={label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
                 <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
                   <Icon className={`h-4 w-4 ${iconColor}`} />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{value}</div>
+                  {statsLoading
+                    ? <div className="h-7 w-10 bg-gray-200 dark:bg-gray-700 animate-pulse rounded mb-1" />
+                    : <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{value}</div>}
                   <button
                     onClick={action}
                     className="flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mt-0.5"

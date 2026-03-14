@@ -165,6 +165,30 @@ export default function MetricsDashboard() {
 
   // ── Auth gate ──────────────────────────────────────────────────────────────
 
+  if (authenticated && loading && !lastRefresh) {
+    return (
+      <div className="min-h-screen bg-background p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="h-9 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-9 w-32 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i}><CardContent className="pt-4 pb-3 space-y-2">
+              <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+              <div className="h-7 w-12 bg-muted animate-pulse rounded" />
+              <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+            </CardContent></Card>
+          ))}
+        </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          {[1, 2].map(i => <Card key={i}><CardContent className="pt-6 h-40 flex items-center justify-center"><div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></CardContent></Card>)}
+        </div>
+        <Card><CardContent className="pt-6 h-32 flex items-center justify-center"><div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></CardContent></Card>
+      </div>
+    );
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
