@@ -29,7 +29,7 @@ export function FeedbackButton() {
           userName: session?.user?.user_metadata?.full_name,
         }),
       });
-      toast({ title: 'Feedback sent', description: 'Thanks — we'll look into it.' });
+      toast({ title: 'Feedback sent', description: "Thanks — we'll look into it." });
       setOpen(false);
       setMessage('');
       setType('Bug');

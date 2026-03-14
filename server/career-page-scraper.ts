@@ -526,7 +526,7 @@ class CareerPageScraper {
         requirements: this.extractRequirements(job.requirements || job.description || ''),
         skills: this.extractSkillsFromText(job.title + ' ' + (job.description || '')),
         workType: job.remote ? 'remote' : this.determineWorkType(job.location?.city || ''),
-        externalUrl: `https://apply.workable.com/${company.workableId}/j/${job.shortcode}/` || company.careerUrl,
+        externalUrl: `https://apply.workable.com/${company.workableId}/j/${job.shortcode}/`,
         source: 'external',
         postedDate: job.published_on || new Date().toISOString()
       }));
