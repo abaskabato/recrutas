@@ -2519,7 +2519,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     try {
-      const candidates = await storage.getCandidatesForParseRetry(20);
+      // Process 3 per run — Gemini multimodal PDFs are large; spreading over days avoids quota limits
+      const candidates = await storage.getCandidatesForParseRetry(3);
       if (candidates.length === 0) {
         return res.json({ retried: 0, succeeded: 0, message: 'No failed parses to retry' });
       }
@@ -2533,6 +2534,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         const result = await resumeService.retryFailedParse(candidate.userId, candidate.resumeUrl!);
         results.push(result);
         if (result.success) succeeded++;
+        // 4s delay between candidates — Gemini PDF multimodal is token-heavy
+        if (candidates.indexOf(candidate) < candidates.length - 1) {
+          await new Promise(r => setTimeout(r, 4000));
+        }
       }
       console.log(`[RetryParse] Retried ${candidates.length}, succeeded: ${succeeded}`);
       res.json({ retried: candidates.length, succeeded, results });
