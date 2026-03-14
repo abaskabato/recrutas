@@ -530,7 +530,30 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
               <>
                 <Separator />
                 <div className="space-y-3">
-                  <Label className="font-semibold">Your Saved Skills</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="font-semibold">Your Saved Skills</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={async () => {
+                        if (!confirm('This will clear all your skills and take you back to upload a new resume. Continue?')) return;
+                        try {
+                          await apiRequest('POST', '/api/candidate/profile', { skills: [] });
+                          setParsedResumeData(null);
+                          setCurrentStep(1);
+                          queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+                          queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+                          toast({ title: 'Skills cleared', description: 'Upload a new resume to extract fresh skills.' });
+                        } catch {
+                          toast({ title: 'Failed to clear skills', variant: 'destructive' });
+                        }
+                      }}
+                    >
+                      Clear all
+                    </Button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {(profile as any).skills.map((skill: string, idx: number) => (
                       <Badge key={idx} variant="outline">{skill}</Badge>
