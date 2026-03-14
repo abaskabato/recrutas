@@ -353,16 +353,9 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
       {/* Job Feed */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-4">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-3"></div>
-                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Finding your best job matches...</p>
         </div>
       ) : !filteredMatches || filteredMatches.length === 0 ? (
         <div className="text-center py-12 px-4">
