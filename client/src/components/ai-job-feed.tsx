@@ -72,17 +72,11 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: filteredMatches, isLoading, isFetching, refetch } = useQuery<AIJobMatch[]>({
-    queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter],
+  // Fetch all matches once — filters applied client-side for instant interaction
+  const { data: allMatches, isLoading, isFetching, refetch } = useQuery<AIJobMatch[]>({
+    queryKey: ['/api/ai-matches'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchTerm) {params.append('q', searchTerm);}
-      if (locationFilter !== 'all') {params.append('location', locationFilter);}
-      if (workTypeFilter !== 'all') {params.append('workType', workTypeFilter);}
-      if (companyFilter !== 'all') {params.append('company', companyFilter);}
-
-      const url = `/api/ai-matches?${params.toString()}`;
-      const response = await apiRequest("GET", url);
+      const response = await apiRequest("GET", '/api/ai-matches');
       const data = await response.json();
 
       // Handle sectioned response: { applyAndKnowToday, matchedForYou }
@@ -98,6 +92,19 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     },
     refetchInterval: 300000, // Refresh every 5 minutes
   });
+
+  // Client-side filtering — instant, no network calls
+  const filteredMatches = useMemo(() => {
+    if (!allMatches) return undefined;
+    const term = searchTerm.toLowerCase().trim();
+    return allMatches.filter(m => {
+      if (term && !m.job.title.toLowerCase().includes(term) && !m.job.company.toLowerCase().includes(term) && !(m.job.description || '').toLowerCase().includes(term)) return false;
+      if (locationFilter !== 'all' && m.job.location !== locationFilter) return false;
+      if (workTypeFilter !== 'all' && m.job.workType !== workTypeFilter) return false;
+      if (companyFilter !== 'all' && m.job.company !== companyFilter) return false;
+      return true;
+    });
+  }, [allMatches, searchTerm, locationFilter, workTypeFilter, companyFilter]);
 
   const { data: userJobActions } = useQuery({
     queryKey: ['/api/candidate/job-actions'],
@@ -181,9 +188,9 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const hideMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest("POST", '/api/candidate/hidden-jobs', { jobId }),
     onMutate: async (jobId: number) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter] });
-      const previousMatches = queryClient.getQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter]);
-      queryClient.setQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter], (oldData: any) =>
+      await queryClient.cancelQueries({ queryKey: ['/api/ai-matches'] });
+      const previousMatches = queryClient.getQueryData(['/api/ai-matches']);
+      queryClient.setQueryData(['/api/ai-matches'], (oldData: any) =>
         Array.isArray(oldData) ? oldData.filter((match: AIJobMatch) => match.job.id !== jobId) : oldData
       );
       return { previousMatches };
@@ -193,12 +200,12 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     },
     onError: (err, variables, context) => {
       if (context?.previousMatches) {
-        queryClient.setQueryData(['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter], context.previousMatches);
+        queryClient.setQueryData(['/api/ai-matches'], context.previousMatches);
       }
       toast({ title: "Error", description: "Failed to hide job.", variant: "destructive" });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches', searchTerm, locationFilter, workTypeFilter, companyFilter] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
     },
   });
 
@@ -273,9 +280,9 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     overscan: 5,
   });
 
-  const locations = useMemo(() => [...new Set((filteredMatches || []).map(m => m.job.location).filter(Boolean))], [filteredMatches]);
-  const companies = useMemo(() => [...new Set((filteredMatches || []).map(m => m.job.company).filter(Boolean))], [filteredMatches]);
-  const workTypes = useMemo(() => [...new Set((filteredMatches || []).map(m => m.job.workType).filter(Boolean))], [filteredMatches]);
+  const locations = useMemo(() => [...new Set((allMatches || []).map(m => m.job.location).filter(Boolean))].sort(), [allMatches]);
+  const companies = useMemo(() => [...new Set((allMatches || []).map(m => m.job.company).filter(Boolean))].sort(), [allMatches]);
+  const workTypes = useMemo(() => [...new Set((allMatches || []).map(m => m.job.workType).filter(Boolean))].sort(), [allMatches]);
 
   const clearFilters = () => {
     setSearchTerm("");
