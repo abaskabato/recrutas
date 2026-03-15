@@ -116,51 +116,60 @@ export class AIResumeParser {
   ];
 
   async parseFile(fileContent: Buffer | string, mimeType: string): Promise<ParsedResume> {
-    const startTime = Date.now();
+    const PARSE_TIMEOUT_MS = 45000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Resume parsing timeout (45s)')), PARSE_TIMEOUT_MS)
+    );
 
-    // Path 1: normal text extraction → AI
-    if (typeof fileContent !== 'string' || fileContent !== 'text-input') {
+    const doParseFile = async (): Promise<ParsedResume> => {
+      const startTime = Date.now();
+
+      // Path 1: normal text extraction → AI
+      if (typeof fileContent !== 'string' || fileContent !== 'text-input') {
+        try {
+          const text = await this.extractText(fileContent as Buffer, mimeType);
+          console.log(`[AIResumeParser] Extracted ${text.length} characters from ${mimeType}`);
+          const aiExtracted = await this.extractWithAI(text);
+          const confidence = this.calculateConfidence(aiExtracted);
+          return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
+        } catch (extractErr) {
+          // Path 2: text extraction failed — try Gemini multimodal PDF directly
+          if (mimeType === 'application/pdf' && process.env.GEMINI_API_KEY) {
+            console.warn('[AIResumeParser] pdf-parse failed, attempting Gemini multimodal fallback:', (extractErr as Error).message);
+            try {
+              const jsonStr = await callGeminiWithPDF(
+                'You are an expert resume parser. Extract structured data and return ONLY valid JSON.',
+                RESUME_EXTRACTION_PROMPT,
+                fileContent as Buffer,
+                { priority: 'high', maxOutputTokens: 2000 }
+              );
+              const aiExtracted = this.parseAIResponse(jsonStr);
+              const confidence = this.calculateConfidence(aiExtracted);
+              console.log(`[AIResumeParser] Gemini multimodal fallback succeeded, confidence: ${confidence}`);
+              return { text: '[extracted via Gemini multimodal]', aiExtracted, confidence, processingTime: Date.now() - startTime };
+            } catch (geminiErr) {
+              console.error('[AIResumeParser] Gemini multimodal fallback also failed:', (geminiErr as Error).message);
+              throw new Error(`Failed to parse resume with AI: ${(geminiErr as Error).message}`);
+            }
+          }
+          console.error('AI Resume parsing error:', extractErr);
+          throw new Error(`Failed to parse resume with AI: ${(extractErr as Error).message}`);
+        }
+      }
+
+      // Sample/demo path
       try {
-        const text = await this.extractText(fileContent as Buffer, mimeType);
-        console.log(`[AIResumeParser] Extracted ${text.length} characters from ${mimeType}`);
+        const text = this.getSampleResumeText();
         const aiExtracted = await this.extractWithAI(text);
         const confidence = this.calculateConfidence(aiExtracted);
         return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
-      } catch (extractErr) {
-        // Path 2: text extraction failed — try Gemini multimodal PDF directly
-        if (mimeType === 'application/pdf' && process.env.GEMINI_API_KEY) {
-          console.warn('[AIResumeParser] pdf-parse failed, attempting Gemini multimodal fallback:', (extractErr as Error).message);
-          try {
-            const jsonStr = await callGeminiWithPDF(
-              'You are an expert resume parser. Extract structured data and return ONLY valid JSON.',
-              RESUME_EXTRACTION_PROMPT,
-              fileContent as Buffer,
-              { priority: 'high', maxOutputTokens: 2000 }
-            );
-            const aiExtracted = this.parseAIResponse(jsonStr);
-            const confidence = this.calculateConfidence(aiExtracted);
-            console.log(`[AIResumeParser] Gemini multimodal fallback succeeded, confidence: ${confidence}`);
-            return { text: '[extracted via Gemini multimodal]', aiExtracted, confidence, processingTime: Date.now() - startTime };
-          } catch (geminiErr) {
-            console.error('[AIResumeParser] Gemini multimodal fallback also failed:', (geminiErr as Error).message);
-            throw new Error(`Failed to parse resume with AI: ${(geminiErr as Error).message}`);
-          }
-        }
-        console.error('AI Resume parsing error:', extractErr);
-        throw new Error(`Failed to parse resume with AI: ${(extractErr as Error).message}`);
+      } catch (error) {
+        console.error('AI Resume parsing error:', error);
+        throw new Error(`Failed to parse resume with AI: ${(error as Error).message}`);
       }
-    }
+    };
 
-    // Sample/demo path
-    try {
-      const text = this.getSampleResumeText();
-      const aiExtracted = await this.extractWithAI(text);
-      const confidence = this.calculateConfidence(aiExtracted);
-      return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
-    } catch (error) {
-      console.error('AI Resume parsing error:', error);
-      throw new Error(`Failed to parse resume with AI: ${(error as Error).message}`);
-    }
+    return Promise.race([doParseFile(), timeoutPromise]);
   }
 
   async parseText(resumeText: string): Promise<ParsedResume> {

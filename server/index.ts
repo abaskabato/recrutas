@@ -122,6 +122,10 @@ export async function configureApp() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    // CSP: allow Supabase auth/storage, inline styles (Tailwind), wss for WebSocket
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: https://*.supabase.co https://*.supabase.in https:; frame-ancestors 'none'");
+    }
     if (process.env.NODE_ENV === 'production') {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
@@ -186,8 +190,8 @@ export async function configureApp() {
     }
   });
 
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
   // Request tracing middleware for performance monitoring (Sentry)
   app.use(requestTracingMiddleware());
@@ -218,6 +222,19 @@ export async function configureApp() {
   }
 
   app.use(errorHandlerMiddleware());
+
+  // Fallback error handler — catches anything asyncHandler forwards that
+  // Sentry didn't consume, and returns a consistent JSON response.
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    if (res.headersSent) return;
+    console.error('[Fallback Error Handler]', err?.message || err);
+    res.status(err?.statusCode || 500).json({
+      error: {
+        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : (err?.message || 'Unknown error'),
+        statusCode: err?.statusCode || 500,
+      },
+    });
+  });
 
   return app;
 }

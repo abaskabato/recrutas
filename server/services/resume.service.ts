@@ -104,6 +104,21 @@ export class ResumeService {
         resumeProcessingStatus: 'processing'
       });
 
+      // Delete old resume file from storage if it exists
+      try {
+        const existingProfile = await this.storage.getCandidateUser(userId);
+        if (existingProfile?.resumeUrl) {
+          const oldPath = (existingProfile.resumeUrl as string);
+          if (!oldPath.startsWith('http')) {
+            const { supabaseAdmin } = await import('../lib/supabase-admin.js');
+            await supabaseAdmin.storage.from('resumes').remove([oldPath]);
+            console.log(`[ResumeService] Deleted old resume: ${oldPath}`);
+          }
+        }
+      } catch (cleanupErr: any) {
+        console.warn('[ResumeService] Old resume cleanup failed (non-fatal):', cleanupErr?.message);
+      }
+
       // Step 1: Upload file to storage (this must succeed)
       console.log(`[ResumeService] Uploading file (${fileBuffer.length} bytes)...`);
       resumeUrl = await this.storage.uploadResume(fileBuffer, mimetype);

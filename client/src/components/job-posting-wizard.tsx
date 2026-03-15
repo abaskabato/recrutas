@@ -179,7 +179,15 @@ export default function JobPostingWizard({
     }));
   };
 
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+
   const nextStep = () => {
+    const errors = getValidationErrors();
+    if (errors.length > 0) {
+      setShowValidationErrors(true);
+      return;
+    }
+    setShowValidationErrors(false);
     if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -964,7 +972,7 @@ export default function JobPostingWizard({
       )}
 
       {/* Validation Errors */}
-      {!canProceed() && getValidationErrors().length > 0 && (
+      {showValidationErrors && getValidationErrors().length > 0 && (
         <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-700 font-medium">Please fill in the following required fields:</p>
           <ul className="text-sm text-red-600 list-disc list-inside mt-1">
@@ -987,7 +995,7 @@ export default function JobPostingWizard({
         </Button>
         <Button
           onClick={nextStep}
-          disabled={!canProceed() || isSubmitting}
+          disabled={isSubmitting}
           className="bg-purple-600 hover:bg-purple-700"
         >
           {isSubmitting ? (

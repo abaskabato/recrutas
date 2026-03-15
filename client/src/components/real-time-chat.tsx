@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRoleBasedAuth } from "@/hooks/useRoleBasedAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -8,16 +8,18 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Send, 
-  MessageCircle, 
-  Phone, 
-  Video, 
+import {
+  Send,
+  MessageCircle,
+  Phone,
+  Video,
   MoreVertical,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  WifiOff
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import supabase from "@/lib/supabase";
 
 interface Message {
   id: number;
@@ -106,19 +108,32 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
     }
   });
 
-  // WebSocket connection for real-time updates
-  useEffect(() => {
-    if (!roomId || !user) {return;}
+  // WebSocket connection for real-time updates with reconnect
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const backoffRef = useRef(1000);
+  const retryCountRef = useRef(0);
+  const MAX_WS_RETRIES = 10;
+  const unmountedRef = useRef(false);
+
+  const connectWs = useCallback(async () => {
+    if (!roomId || !user || unmountedRef.current) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
       setIsConnected(true);
-      // Join chat room
+      setIsReconnecting(false);
+      backoffRef.current = 1000;
+      retryCountRef.current = 0;
       ws.send(JSON.stringify({
         type: 'join_chat',
         roomId,
@@ -127,28 +142,49 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'new_message' && data.roomId === roomId) {
-        // Invalidate messages to fetch new ones
-        queryClient.invalidateQueries({ queryKey: ['/api/chat/messages', roomId] });
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_message' && data.roomId === roomId) {
+          queryClient.invalidateQueries({ queryKey: ['/api/chat/messages', roomId] });
+        }
+      } catch (e) {
+        console.error('[Chat WS] Parse error:', e);
       }
     };
 
     ws.onclose = () => {
       setIsConnected(false);
-    };
-
-    ws.onerror = (error) => {
-      setIsConnected(false);
-    };
-
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
+      wsRef.current = null;
+      if (!unmountedRef.current && retryCountRef.current < MAX_WS_RETRIES) {
+        retryCountRef.current += 1;
+        setIsReconnecting(true);
+        reconnectTimeoutRef.current = setTimeout(connectWs, backoffRef.current);
+        backoffRef.current = Math.min(backoffRef.current * 2, 30000);
+      } else if (retryCountRef.current >= MAX_WS_RETRIES) {
+        setIsReconnecting(false);
+        console.debug('[Chat WS] Max retries reached, giving up on reconnect');
       }
     };
-  }, [roomId, user?.id]);
+
+    ws.onerror = (event) => {
+      console.error('[Chat WS] WebSocket error:', event);
+      setIsConnected(false);
+    };
+  }, [roomId, user?.id, queryClient]);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    if (roomId && user) {
+      connectWs();
+    }
+    return () => {
+      unmountedRef.current = true;
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+    };
+  }, [roomId, user?.id, connectWs]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -206,8 +242,10 @@ export default function RealTimeChat({ roomId, onClose }: RealTimeChatProps) {
                 <p className="text-sm text-slate-500">
                   {chatRoom?.match.job.title} at {chatRoom?.match.job.company}
                 </p>
-                <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
-                  {isConnected ? "Online" : "Offline"}
+                <Badge variant={isConnected ? "default" : isReconnecting ? "outline" : "secondary"} className="text-xs">
+                  {isConnected ? "Online" : isReconnecting ? (
+                    <span className="flex items-center gap-1"><WifiOff className="h-3 w-3" /> Reconnecting...</span>
+                  ) : "Offline"}
                 </Badge>
               </div>
             </div>

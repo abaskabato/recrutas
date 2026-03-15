@@ -86,9 +86,12 @@ export class ExamService {
         await this.storage.updateApplicationStatusByCandidate(applicationId, 'submitted');
       }
 
+      const candidateName = candidate
+        ? `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || 'Candidate'
+        : 'Candidate';
       await this.notificationService.notifyExamCompleted(
         job.talentOwnerId,
-        `${candidate?.firstName} ${candidate?.lastName}`,
+        candidateName,
         job.title,
         score,
         applicationId,
@@ -234,7 +237,13 @@ ${shortAnswerQuestions.map((q, i) => `${i + 1}. ${q.answer}`).join('\n')}`;
       ]);
 
       if (content) {
-        const results = JSON.parse(content);
+        let results: any;
+        try { results = JSON.parse(content); } catch { results = null; }
+        if (!results) {
+          // Malformed AI response — give full credit
+          for (const { question } of shortAnswerQuestions) { onScore(1, question.points || 10); }
+          return;
+        }
         const scores = Array.isArray(results) ? results : results.scores || [];
         
         for (let i = 0; i < shortAnswerQuestions.length; i++) {

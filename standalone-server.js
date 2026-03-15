@@ -14,6 +14,17 @@ console.error(`[standalone-server] Loaded SUPABASE_SERVICE_ROLE_KEY: ${process.e
 
 console.error(`[standalone-server] Attempting to configure and start server on port ${port}...`);
 
+// Catch unhandled promise rejections — prevents silent crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[standalone-server] Unhandled Rejection:', reason);
+});
+
+// Catch uncaught exceptions — log and exit (process is in undefined state)
+process.on('uncaughtException', (error) => {
+  console.error('[standalone-server] Uncaught Exception:', error);
+  process.exit(1);
+});
+
 configureApp().then(app => {
   console.error('[standalone-server] App configured successfully. Creating HTTP server...');
   const server = createServer(app);
@@ -22,11 +33,15 @@ configureApp().then(app => {
   server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     if (url.pathname === '/ws') {
+      // Verify JWT token before accepting WebSocket connection
+      const userId = notificationService.verifyWebSocketToken(request);
+      if (!userId) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
       wss.handleUpgrade(request, socket, head, (ws) => {
-        const userId = url.searchParams.get('userId');
-        if (userId) {
-          notificationService.addConnection(userId, ws);
-        }
+        notificationService.addConnection(userId, ws);
         wss.emit('connection', ws, request);
       });
     } else {
@@ -50,6 +65,11 @@ configureApp().then(app => {
 
   const gracefulShutdown = () => {
     console.error('\n[standalone-server] Shutting down gracefully...');
+
+    // Stop WebSocket heartbeat and close connections
+    notificationService.stopHeartbeat();
+    wss.clients.forEach(ws => ws.close());
+
     server.close(() => {
       console.error('[standalone-server] HTTP server closed.');
       client.end().then(() => {
@@ -57,6 +77,12 @@ configureApp().then(app => {
         process.exit(0);
       });
     });
+
+    // Force exit after 10 seconds if graceful shutdown stalls
+    setTimeout(() => {
+      console.error('[standalone-server] Forced shutdown after timeout.');
+      process.exit(1);
+    }, 10000);
   };
 
   process.on('SIGINT', gracefulShutdown);

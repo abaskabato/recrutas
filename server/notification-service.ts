@@ -17,6 +17,10 @@ import { WebSocket } from "ws";
 import { sendApplicationStatusEmail, sendInterviewScheduledEmail, sendNewMatchEmail } from "./email-service";
 import { sendEmail as sendTransactionalEmail, candidateExamPassEmail, candidateExamFailEmail } from "./lib/email";
 import { captureException } from "./error-monitoring";
+import jwt from 'jsonwebtoken';
+import type { IncomingMessage } from 'http';
+
+const JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
 
 interface NotificationData {
   userId: string;
@@ -48,6 +52,33 @@ class NotificationService {
   private readonly STALE_CONNECTION_TIMEOUT = 60000; // 1 minute
   private readonly MAX_CONNECTIONS_PER_USER = 5; // Limit connections per user
   private heartbeatIntervals: NodeJS.Timeout[] = [];
+
+  // Verify JWT token from WebSocket upgrade request
+  verifyWebSocketToken(request: IncomingMessage): string | null {
+    try {
+      if (!JWT_SECRET) return null;
+      const url = new URL(request.url || '', `http://${request.headers.host}`);
+      const token = url.searchParams.get('token');
+      if (!token) return null;
+      const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
+      const userId = payload.sub || payload.user_id;
+      return typeof userId === 'string' ? userId : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Safe send that catches errors instead of crashing
+  private safeSend(ws: WebSocketClient, message: string) {
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(message);
+      }
+    } catch (error) {
+      console.error('[NotificationService] ws.send failed:', error);
+      if (ws.userId) this.removeConnection(ws.userId, ws);
+    }
+  }
 
   // WebSocket connection management
   addConnection(userId: string, ws: WebSocketClient) {
@@ -229,9 +260,7 @@ class NotificationService {
     });
 
     userConnections.forEach(ws => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
-      }
+      this.safeSend(ws, message);
     });
   }
 
@@ -602,13 +631,18 @@ class NotificationService {
       setInterval(() => {
         this.connectedClients.forEach((connections, userId) => {
           connections.forEach((ws) => {
-            if (!ws.isAlive) {
-              ws.terminate();
+            try {
+              if (!ws.isAlive) {
+                ws.terminate();
+                this.removeConnection(userId, ws);
+                return;
+              }
+              ws.isAlive = false;
+              ws.ping();
+            } catch (error) {
+              console.error('[NotificationService] Heartbeat error:', error);
               this.removeConnection(userId, ws);
-              return;
             }
-            ws.isAlive = false;
-            ws.ping();
           });
         });
       }, 30000), // 30 seconds

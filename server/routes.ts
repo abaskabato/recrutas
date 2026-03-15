@@ -43,6 +43,9 @@ import { extractSkillsFromText } from './utils/skill-extractor';
 import { sendWelcomeEmail, sendEmail } from './email-service';
 import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
 import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
+import { asyncHandler } from './middleware/error-handler';
+import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
+import rateLimit from 'express-rate-limit';
 
 // In-memory cache for RemoteOK jobs (15-min TTL)
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
@@ -344,7 +347,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   registerMetricsRoutes(app);
 
   // Dev-only route for seeding the database - DISABLED in production
-  app.post('/api/dev/seed', async (req, res) => {
+  app.post('/api/dev/seed', asyncHandler(async (req, res) => {
     // Only allow in development environment
     if (process.env.NODE_ENV === 'production') {
       return res.status(403).json({ message: "This endpoint is disabled in production" });
@@ -363,10 +366,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error seeding database:", error);
       res.status(500).json({ message: "Failed to seed database" });
     }
-  });
+  }));
 
   // Health check endpoint
-  app.get('/api/health', async (req, res) => {
+  app.get('/api/health', asyncHandler(async (req, res) => {
     try {
       // Check database connectivity
       const isDbHealthy = await testDbConnection();
@@ -400,10 +403,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
       });
     }
-  });
+  }));
 
   // ML Matching info endpoint
-  app.get('/api/ml-matching/status', async (req, res) => {
+  app.get('/api/ml-matching/status', asyncHandler(async (req, res) => {
     try {
       const modelInfo = getModelInfo();
       res.json({
@@ -417,10 +420,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         message: 'ML matching service unavailable',
       });
     }
-  });
+  }));
 
   // Layoff news endpoint
-  app.get('/api/news/layoffs', async (req, res) => {
+  app.get('/api/news/layoffs', asyncHandler(async (req, res) => {
     try {
       const articles = await newsService.getLayoffNews();
       res.json(articles);
@@ -428,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching layoff news:", error);
       res.status(500).json({ message: "Failed to fetch layoff news" });
     }
-  });
+  }));
 
   // Helper function to format job match
   function formatJobMatch(job: any, index: number, aiExplanation?: string): any {
@@ -468,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   }
 
   // AI-powered job matching
-  app.get('/api/ai-matches', isAuthenticated, async (req: any, res) => {
+  app.get('/api/ai-matches', isAuthenticated, asyncHandler(async (req: any, res) => {
     const MATCHING_TIMEOUT_MS = 45000; // 45 second timeout - increased to allow ML model to load on first request (can take 10-30s)
     const EARLY_RETURN_THRESHOLD_MS = 30000; // return DB-only results if exceeded after fetches
     const BATCH_ABORT_THRESHOLD_MS = 20000;  // stop scoring batches if exceeded
@@ -853,10 +856,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
       });
     }
-  });
+  }));
 
   // AI-powered screening questions
-  app.post('/api/ai/screening-questions', isAuthenticated, async (req: any, res) => {
+  app.post('/api/ai/screening-questions', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { jobId, candidateId } = req.body;
       if (!jobId || !candidateId) {
@@ -881,7 +884,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error generating screening questions:", error);
       res.status(500).json({ message: "Failed to generate screening questions" });
     }
-  });
+  }));
 
   // Universal job scraper with database persistence
   // In-memory response cache for /api/external-jobs.
@@ -891,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   const externalJobsCache = new Map<string, { jobs: any[]; ts: number }>();
   const EXTERNAL_JOBS_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
-  app.get('/api/external-jobs', async (req, res) => {
+  app.get('/api/external-jobs', asyncHandler(async (req, res) => {
     try {
       const skills = req.query.skills
         ? String(req.query.skills).split(',').filter(Boolean).slice(0, 20).map(s => s.slice(0, 100))
@@ -933,10 +936,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('Error fetching cached external jobs:', error);
       res.status(503).json({ jobs: [], cached: false, message: 'External jobs unavailable' });
     }
-  });
+  }));
 
   // Platform stats
-  app.get('/api/platform/stats', async (req, res) => {
+  app.get('/api/platform/stats', asyncHandler(async (req, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       const timeout = new Promise((_, reject) =>
@@ -961,13 +964,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('Error fetching platform stats:', error);
       res.status(503).json({ message: 'Stats temporarily unavailable' });
     }
-  });
+  }));
 
   // Auth routes
 
   // Extension login — proxies email/password to Supabase, returns JWT tokens.
   // No isAuthenticated middleware: this IS the sign-in endpoint.
-  app.post('/api/auth/extension-login', async (req, res) => {
+  app.post('/api/auth/extension-login', asyncHandler(async (req, res) => {
     try {
       const { email, password } = req.body || {};
       if (!email || !password) {
@@ -1011,9 +1014,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('Extension login error:', error);
       res.status(500).json({ message: 'Login failed' });
     }
-  });
+  }));
 
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const user = await storage.getUser(req.user.id);
@@ -1023,10 +1026,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
-  });
+  }));
 
   // Sync Supabase auth user into local DB (called after signup/login)
-  app.post('/api/auth/sync', isAuthenticated, async (req: any, res) => {
+  app.post('/api/auth/sync', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const isNew = !(await storage.getUser(req.user.id));
@@ -1046,9 +1049,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error syncing user:", error);
       res.status(500).json({ message: "Failed to sync user" });
     }
-  });
+  }));
 
-  app.post('/api/auth/role', isAuthenticated, async (req: any, res) => {
+  app.post('/api/auth/role', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const { role } = req.body;
@@ -1076,10 +1079,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error setting user role:", error);
       res.status(500).json({ message: "Failed to set user role" });
     }
-  });
+  }));
 
   // Candidate profile
-  app.get('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/profile', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       // Add timeout to prevent hanging on database connection issues
       // 15s timeout allows for serverless cold starts + DB connection time
@@ -1113,9 +1116,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       res.status(500).json({ message: "Failed to fetch profile" });
     }
-  });
+  }));
 
-  app.post('/api/candidate/profile', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/profile', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const profileData = insertCandidateProfileSchema.parse({ ...req.body, userId: req.user.id });
       const profile = await storage.upsertCandidateUser(profileData);
@@ -1127,9 +1130,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating candidate profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
-  });
+  }));
 
-  app.post('/api/candidate/profile/complete', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/profile/complete', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { skills } = req.body;
       
@@ -1146,9 +1149,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error completing candidate profile:", error);
       res.status(500).json({ message: "Failed to complete profile" });
     }
-  });
+  }));
 
-  app.put('/api/candidate/preferences', isAuthenticated, async (req: any, res) => {
+  app.put('/api/candidate/preferences', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { jobPreferences } = req.body;
       if (!jobPreferences || typeof jobPreferences !== 'object') {
@@ -1160,10 +1163,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('Error saving preferences:', error);
       res.status(500).json({ message: 'Failed to save preferences' });
     }
-  });
+  }));
 
   // Get job statistics (for monitoring)
-  app.get('/api/job-stats', async (req: any, res) => {
+  app.get('/api/job-stats', asyncHandler(async (req: any, res) => {
     try {
       const stats = await storage.getJobStatistics();
       res.json(stats);
@@ -1171,13 +1174,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching job stats:", error?.message);
       res.status(500).json({ message: "Failed to fetch statistics" });
     }
-  });
+  }));
 
   // Get signed URL for resume (secure access)
-  app.get('/api/resume/:resumePath', isAuthenticated, async (req: any, res) => {
+  app.get('/api/resume/:resumePath', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const resumePath = decodeURIComponent(req.params.resumePath);
-      if (!resumePath.startsWith(`resumes/${req.user.id}/`) && !resumePath.startsWith(`${req.user.id}/`)) {
+      const normalizedPath = path.posix.normalize(resumePath);
+      if (normalizedPath.includes('..') ||
+          (!normalizedPath.startsWith(`resumes/${req.user.id}/`) && !normalizedPath.startsWith(`${req.user.id}/`))) {
         return res.status(403).json({ message: "Not authorized to access this resume" });
       }
       const signedUrl = await storage.getResumeSignedUrl(resumePath);
@@ -1186,7 +1191,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error generating resume URL:", error);
       res.status(500).json({ message: "Failed to generate resume URL" });
     }
-  });
+  }));
 
   // Resume upload
   // NOTE: multer errors (wrong type, file too large) must be caught explicitly —
@@ -1245,7 +1250,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   });
 
   // Candidate specific stats
-  app.get('/api/candidate/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/stats', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const stats = await storage.getCandidateStats(req.user.id);
       res.json(stats);
@@ -1253,10 +1258,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching candidate stats:", error);
       res.status(500).json({ message: "Failed to fetch candidate stats" });
     }
-  });
+  }));
 
   // Candidate activity
-  app.get('/api/candidate/activity', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/activity', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const activity = await storage.getActivityLogs(req.user.id);
       res.json(activity);
@@ -1264,10 +1269,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching candidate activity:", error);
       res.status(500).json({ message: "Failed to fetch candidate activity" });
     }
-  });
+  }));
 
   // Candidate applications
-  app.get('/api/candidate/applications', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/applications', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const applications = await storage.getApplicationsWithStatus(req.user.id);
       res.json(applications);
@@ -1275,10 +1280,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching candidate applications:", error);
       res.status(500).json({ message: "Failed to fetch candidate applications" });
     }
-  });
+  }));
 
   // Get saved jobs for a candidate
-  app.get('/api/candidate/saved-jobs', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/saved-jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const savedJobIds = await storage.getSavedJobIds(req.user.id);
       if (savedJobIds.length === 0) {
@@ -1299,10 +1304,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching saved jobs:", error);
       res.status(500).json({ message: "Failed to fetch saved jobs" });
     }
-  });
+  }));
 
   // Save a job for a candidate
-  app.post('/api/candidate/saved-jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/saved-jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { jobId } = req.body;
       if (!jobId) {
@@ -1314,10 +1319,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error saving job:", error);
       res.status(500).json({ message: "Failed to save job" });
     }
-  });
+  }));
 
   // Unsave a job for a candidate
-  app.delete('/api/candidate/saved-jobs/:jobId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/candidate/saved-jobs/:jobId', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1327,10 +1332,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error unsaving job:", error);
       res.status(500).json({ message: "Failed to unsave job" });
     }
-  });
+  }));
 
   // Hide a job for a candidate
-  app.post('/api/candidate/hidden-jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/hidden-jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { jobId } = req.body;
       if (!jobId) {
@@ -1342,10 +1347,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error hiding job:", error);
       res.status(500).json({ message: "Failed to hide job" });
     }
-  });
+  }));
 
   // Get all job actions for a candidate
-  app.get('/api/candidate/job-actions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/job-actions', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const savedJobIds = await storage.getSavedJobIds(req.user.id);
       const applications = await storage.getApplicationsForCandidate(req.user.id);
@@ -1359,10 +1364,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching job actions:", error);
       res.status(500).json({ message: "Failed to fetch job actions" });
     }
-  });
+  }));
 
   // Candidate can update their own application status (for external jobs)
-  app.put('/api/candidate/application/:applicationId/status', isAuthenticated, async (req: any, res) => {
+  app.put('/api/candidate/application/:applicationId/status', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { status } = req.body;
       if (!status) {return res.status(400).json({ message: "Status is required" });}
@@ -1391,17 +1396,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating application status:", error);
       res.status(500).json({ message: "Failed to update application status" });
     }
-  });
+  }));
 
   // Job application
-  app.post('/api/candidate/apply/:jobId', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/apply/:jobId', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
-      const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
-      if (existingApplication) {return res.status(400).json({ message: "Already applied to this job" });}
-
       const job = await storage.getJobPosting(jobId);
       if (!job) {
         return res.status(404).json({ message: "Job not found" });
@@ -1409,9 +1411,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Check if it's an internal/platform job (not external)
       const isInternalJob = !job.externalUrl && (job.source === 'platform' || job.source === 'internal' || !job.source);
-      
+
       let applicationMetadata = undefined;
-      
+
       // Only store professional links for internal jobs
       if (isInternalJob) {
         const candidateProfile = await storage.getCandidateUser(userId);
@@ -1421,13 +1423,21 @@ export async function registerRoutes(app: Express): Promise<Express> {
           portfolioUrl: (candidateProfile as any)?.portfolioUrl,
         };
       }
-      
-      const application = await storage.createJobApplication({
-        jobId,
-        candidateId: userId,
-        status: isInternalJob && job.hasExam ? 'pending_exam' : 'submitted',
-        metadata: applicationMetadata
+
+      // Atomic duplicate check + insert inside transaction
+      const application = await db.transaction(async (tx: any) => {
+        const [existing] = await tx.select().from(jobApplications)
+          .where(sql`${jobApplications.jobId} = ${jobId} AND ${jobApplications.candidateId} = ${userId}`);
+        if (existing) throw new Error('DUPLICATE_APPLICATION');
+        const [created] = await tx.insert(jobApplications).values({
+          jobId,
+          candidateId: userId,
+          status: isInternalJob && job.hasExam ? 'pending_exam' : 'submitted',
+          metadata: applicationMetadata
+        }).returning();
+        return created;
       });
+      if (!application) {return res.status(500).json({ message: "Failed to create application" });}
       
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
@@ -1476,14 +1486,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
 
       res.json(application);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message === 'DUPLICATE_APPLICATION') {
+        return res.status(400).json({ message: "Already applied to this job" });
+      }
       console.error("Error applying to job:", error);
       res.status(500).json({ message: "Failed to apply to job" });
     }
-  });
+  }));
 
   // Talent Owner routes
-  app.get('/api/talent-owner/jobs', isAuthenticated, async (req: any, res) => {
+  app.get('/api/talent-owner/jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       console.log(`[Talent Owner Jobs] Fetching jobs for user: ${req.user.id}`);
@@ -1508,10 +1521,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching talent owner jobs:", error);
       res.status(500).json({ message: "Failed to fetch job postings" });
     }
-  });
+  }));
 
   // Get all applicants across all jobs for a talent owner (for analytics)
-  app.get('/api/talent-owner/all-applicants', isAuthenticated, async (req: any, res) => {
+  app.get('/api/talent-owner/all-applicants', isAuthenticated, asyncHandler(async (req: any, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       const timeout = new Promise<never>((_, reject) =>
@@ -1554,10 +1567,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching all applicants:", error);
       res.status(500).json({ message: "Failed to fetch applicants" });
     }
-  });
+  }));
 
   // Get talent owner profile
-  app.get('/api/talent-owner/profile', isAuthenticated, async (req: any, res) => {
+  app.get('/api/talent-owner/profile', isAuthenticated, asyncHandler(async (req: any, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       const profile = await storage.getTalentOwnerProfile(req.user.id);
@@ -1566,10 +1579,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching talent owner profile:", error);
       res.status(500).json({ message: "Failed to fetch profile" });
     }
-  });
+  }));
 
   // Recruiter specific stats
-  app.get('/api/recruiter/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/recruiter/stats', isAuthenticated, asyncHandler(async (req: any, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
       const timeout = new Promise<never>((_, reject) =>
@@ -1586,9 +1599,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching recruiter stats:", error);
       res.status(500).json({ message: "Failed to fetch recruiter stats" });
     }
-  });
+  }));
 
-  app.post('/api/jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       // Log request details for debugging job creation issues
       console.log('[Job Creation] Request:', {
@@ -1667,10 +1680,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
       });
     }
-  });
+  }));
 
   // Update job posting (PUT /api/jobs/:jobId)
-  app.put('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/jobs/:jobId', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1698,10 +1711,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating job posting:", error);
       res.status(500).json({ message: "Failed to update job posting" });
     }
-  });
+  }));
 
   // Delete job posting (DELETE /api/jobs/:jobId)
-  app.delete('/api/jobs/:jobId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/jobs/:jobId', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1720,10 +1733,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error deleting job posting:", error);
       res.status(500).json({ message: "Failed to delete job posting" });
     }
-  });
+  }));
 
   // Update job status (pause/resume/close)
-  app.patch('/api/jobs/:jobId/status', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/jobs/:jobId/status', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1752,9 +1765,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating job status:", error);
       res.status(500).json({ message: "Failed to update job status" });
     }
-  });
+  }));
 
-  app.post('/api/talent-owner/profile/complete', isAuthenticated, async (req: any, res) => {
+  app.post('/api/talent-owner/profile/complete', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const validated = completeTalentOwnerProfileSchema.parse(req.body);
 
@@ -1810,10 +1823,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error completing talent owner profile:", error);
       res.status(500).json({ message: "Failed to complete profile" });
     }
-  });
+  }));
 
 
-  app.get('/api/jobs/:jobId/applicants', isAuthenticated, async (req: any, res) => {
+  app.get('/api/jobs/:jobId/applicants', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1823,11 +1836,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching applicants:", error);
       res.status(500).json({ message: "Failed to fetch applicants" });
     }
-  });
+  }));
 
   // Screening Questions API
   // Get screening questions for a job
-  app.get('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/jobs/:jobId/screening-questions', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1837,10 +1850,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching screening questions:", error);
       res.status(500).json({ message: "Failed to fetch screening questions" });
     }
-  });
+  }));
 
   // Create/Update screening questions for a job
-  app.post('/api/jobs/:jobId/screening-questions', isAuthenticated, async (req: any, res) => {
+  app.post('/api/jobs/:jobId/screening-questions', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1863,10 +1876,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error saving screening questions:", error);
       res.status(500).json({ message: "Failed to save screening questions" });
     }
-  });
+  }));
 
   // Submit screening answers for an application
-  app.post('/api/applications/:applicationId/screening-answers', isAuthenticated, async (req: any, res) => {
+  app.post('/api/applications/:applicationId/screening-answers', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const applicationId = parseIntParam(req.params.applicationId);
       if (!applicationId) {return res.status(400).json({ message: "Invalid applicationId" });}
@@ -1889,9 +1902,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error saving screening answers:", error);
       res.status(500).json({ message: "Failed to save screening answers" });
     }
-  });
+  }));
 
-  app.get('/api/jobs/:jobId/discovery', isAuthenticated, async (req: any, res) => {
+  app.get('/api/jobs/:jobId/discovery', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -1907,9 +1920,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error in job discovery:", error);
       res.status(500).json({ message: "Failed to fetch matching candidates" });
     }
-  });
+  }));
 
-  app.put('/api/applications/:applicationId/status', isAuthenticated, async (req: any, res) => {
+  app.put('/api/applications/:applicationId/status', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { status } = req.body;
       if (!status) {return res.status(400).json({ message: "Status is required." });}
@@ -1969,9 +1982,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating application status:", error);
       res.status(500).json({ message: "Failed to update status" });
     }
-  });
+  }));
 
-  app.post('/api/jobs/:jobId/exam/submit', isAuthenticated, async (req: any, res) => {
+  app.post('/api/jobs/:jobId/exam/submit', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) { return res.status(400).json({ message: "Invalid jobId" }); }
@@ -1989,10 +2002,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       res.status(500).json({ message: "Failed to submit exam" });
     }
-  });
+  }));
 
   // Notification endpoints
-  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+  app.get('/api/notifications', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const notifications = await notificationService.getAllNotifications(req.user.id);
       res.json(notifications);
@@ -2000,9 +2013,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ message: "Failed to fetch notifications" });
     }
-  });
+  }));
 
-  app.get('/api/notifications/count', isAuthenticated, async (req: any, res) => {
+  app.get('/api/notifications/count', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const count = await notificationService.getUnreadCount(req.user.id);
       res.json({ count });
@@ -2010,9 +2023,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching notification count:", error);
       res.status(500).json({ message: "Failed to fetch notification count" });
     }
-  });
+  }));
 
-  app.post('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
+  app.post('/api/notifications/:id/read', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const notificationId = parseIntParam(req.params.id);
       if (!notificationId) {return res.status(400).json({ message: "Invalid notification id" });}
@@ -2022,9 +2035,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error marking notification as read:", error);
       res.status(500).json({ message: "Failed to mark notification as read" });
     }
-  });
+  }));
 
-  app.post('/api/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+  app.post('/api/notifications/mark-all-read', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       await notificationService.markAllAsRead(req.user.id);
       res.json({ success: true });
@@ -2032,10 +2045,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error marking all notifications as read:", error);
       res.status(500).json({ message: "Failed to mark all notifications as read" });
     }
-  });
+  }));
 
   // Polling-based notification endpoints (Vercel serverless compatible)
-  app.get('/api/notifications/poll', isAuthenticated, async (req: any, res) => {
+  app.get('/api/notifications/poll', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const lastNotificationId = req.query.lastId ? parseInt(req.query.lastId as string) : undefined;
       const longPoll = req.query.longPoll === 'true';
@@ -2051,9 +2064,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error polling notifications:", error);
       res.status(500).json({ message: "Failed to poll notifications" });
     }
-  });
+  }));
 
-  app.post('/api/notifications/subscribe', isAuthenticated, async (req: any, res) => {
+  app.post('/api/notifications/subscribe', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const result = await notificationService.subscribePolling(req.user.id);
       res.json(result);
@@ -2061,9 +2074,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error subscribing to notifications:", error);
       res.status(500).json({ message: "Failed to subscribe to notifications" });
     }
-  });
+  }));
 
-  app.post('/api/notifications/unsubscribe', isAuthenticated, async (req: any, res) => {
+  app.post('/api/notifications/unsubscribe', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       await notificationService.unsubscribePolling(req.user.id);
       res.json({ success: true });
@@ -2071,9 +2084,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error unsubscribing from notifications:", error);
       res.status(500).json({ message: "Failed to unsubscribe from notifications" });
     }
-  });
+  }));
 
-  app.get('/api/notifications/connection-status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/notifications/connection-status', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const status = await notificationService.getConnectionStatus(req.user.id);
       res.json(status);
@@ -2081,10 +2094,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error getting connection status:", error);
       res.status(500).json({ message: "Failed to get connection status" });
     }
-  });
+  }));
 
   // Interview scheduling endpoint
-  app.post('/api/interviews/schedule', isAuthenticated, async (req: any, res) => {
+  app.post('/api/interviews/schedule', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const validated = scheduleInterviewSchema.parse(req.body);
 
@@ -2136,10 +2149,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error scheduling interview:", error);
       res.status(500).json({ message: "Failed to schedule interview" });
     }
-  });
+  }));
 
   // Advanced matching endpoints
-  app.get('/api/advanced-matches/:candidateId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/advanced-matches/:candidateId', isAuthenticated, asyncHandler(async (req: any, res) => {
     // Add timeout to prevent hanging
     const timeoutMs = 15000; // 15 second timeout
     const timeoutPromise = new Promise((_, reject) => 
@@ -2169,9 +2182,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       res.status(500).json({ message: "Failed to fetch advanced matches", matches: [], total: 0 });
     }
-  });
+  }));
 
-  app.put('/api/candidate/match-preferences', isAuthenticated, async (req: any, res) => {
+  app.put('/api/candidate/match-preferences', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const preferences = req.body;
       await advancedMatchingEngine.updateMatchPreferences(req.user.id, preferences);
@@ -2180,10 +2193,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating match preferences:", error);
       res.status(500).json({ message: "Failed to update match preferences" });
     }
-  });
+  }));
 
   // Exam retrieval endpoint
-  app.get('/api/jobs/:jobId/exam', isAuthenticated, async (req: any, res) => {
+  app.get('/api/jobs/:jobId/exam', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
@@ -2233,7 +2246,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching exam:", error);
       res.status(500).json({ message: "Failed to fetch exam" });
     }
-  });
+  }));
 
   // ==========================================
   // STRIPE SUBSCRIPTION ROUTES
@@ -2243,7 +2256,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
   const { stripeService } = await import('./services/stripe.service');
 
   // Get subscription status
-  app.get('/api/subscription/status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/subscription/status', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const subscription = await stripeService.getUserSubscription(req.user.id);
       res.json(subscription);
@@ -2251,10 +2264,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching subscription status:", error);
       res.status(500).json({ message: "Failed to fetch subscription status" });
     }
-  });
+  }));
 
   // Get available subscription tiers
-  app.get('/api/subscription/tiers', async (req, res) => {
+  app.get('/api/subscription/tiers', asyncHandler(async (req, res) => {
     try {
       const tiers = await stripeService.getAvailableTiers();
       res.json(tiers);
@@ -2262,10 +2275,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching subscription tiers:", error);
       res.status(500).json({ message: "Failed to fetch subscription tiers" });
     }
-  });
+  }));
 
   // Create checkout session (accepts tierName or tierId for backward compat)
-  app.post('/api/stripe/create-checkout', isAuthenticated, async (req: any, res) => {
+  app.post('/api/stripe/create-checkout', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!stripeService.isConfigured()) {
         return res.status(503).json({ message: "Payment system is not configured" });
@@ -2299,10 +2312,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error creating checkout session:", error);
       res.status(500).json({ message: error.message || "Failed to create checkout session" });
     }
-  });
+  }));
 
   // Create customer portal session
-  app.post('/api/stripe/portal', isAuthenticated, async (req: any, res) => {
+  app.post('/api/stripe/portal', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!stripeService.isConfigured()) {
         return res.status(503).json({ message: "Payment system is not configured" });
@@ -2314,10 +2327,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error creating portal session:", error);
       res.status(500).json({ message: error.message || "Failed to create portal session" });
     }
-  });
+  }));
 
   // Check feature access
-  app.get('/api/subscription/can-access/:feature', isAuthenticated, async (req: any, res) => {
+  app.get('/api/subscription/can-access/:feature', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const { feature } = req.params;
       const access = await stripeService.canAccessFeature(req.user.id, feature);
@@ -2326,22 +2339,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error checking feature access:", error);
       res.status(500).json({ message: "Failed to check feature access" });
     }
-  });
+  }));
 
   // Stripe webhook route is in index.ts (before express.json() for raw body verification)
 
   // Initialize default subscription tiers (admin endpoint) - DISABLED in production
-  app.post('/api/admin/init-subscription-tiers', async (req, res) => {
+  app.post('/api/admin/init-subscription-tiers', asyncHandler(async (req, res) => {
     // Only allow in development environment
     if (process.env.NODE_ENV === 'production') {
       return res.status(403).json({ message: "This endpoint is disabled in production" });
     }
 
-    // Require admin secret
-    const adminSecret = req.headers['x-admin-secret'];
-    if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    // Require admin secret (timing-safe)
+    if (!verifyAdminSecret(req, res)) return;
 
     try {
       await stripeService.initializeDefaultTiers();
@@ -2350,17 +2360,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error initializing subscription tiers:", error);
       res.status(500).json({ message: "Failed to initialize subscription tiers" });
     }
-  });
+  }));
 
   // Trigger external jobs scraping (for Vercel Cron or manual requests)
   // Returns immediately and scrapes in background (non-blocking)
-  app.post('/api/cron/scrape-external-jobs', async (req, res) => {
+  app.post('/api/cron/scrape-external-jobs', asyncHandler(async (req, res) => {
     try {
-      // Verify cron secret for security (required if CRON_SECRET is set)
-      const cronSecret = req.headers['x-cron-secret'];
-      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      // Verify cron secret (timing-safe)
+      if (!verifyCronSecret(req, res)) return;
 
       // Return immediately without waiting for scraping to complete
       // This prevents Vercel timeout while still allowing the scraping to happen
@@ -2378,17 +2385,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error triggering external jobs scrape:", error?.message);
       res.status(500).json({ message: "Failed to trigger external jobs scraping", error: error?.message });
     }
-  });
+  }));
 
   // 24h Response SLA enforcement — called hourly by GitHub Actions cron
   // Finds applications where candidate passed exam but recruiter hasn't acted
   // within 24h, marks them as rejected, and notifies the candidate.
-  app.post('/api/cron/enforce-response-sla', async (req, res) => {
+  app.post('/api/cron/enforce-response-sla', asyncHandler(async (req, res) => {
     try {
-      const cronSecret = req.headers['x-cron-secret'];
-      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
+      if (!verifyCronSecret(req, res)) return;
 
       const overdue = await storage.getOverdueExamApplications();
       if (overdue.length === 0) {
@@ -2422,19 +2426,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('[SLA] Enforcement failed:', error?.message);
       res.status(500).json({ message: 'SLA enforcement failed', error: error?.message });
     }
-  });
+  }));
 
   // Auto-hide stale internal jobs — called daily by GitHub Actions cron
   // Closes platform jobs with no applicant activity in 14 days, after being
   // active for 30+ days. Prevents ghost jobs from accumulating in the feed.
-  app.post('/api/cron/auto-hide-ghost-jobs', async (req, res) => {
+  app.post('/api/cron/auto-hide-ghost-jobs', asyncHandler(async (req, res) => {
     try {
-      const cronSecret = req.headers['x-cron-secret'];
-      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
+      if (!verifyCronSecret(req, res)) return;
 
-      const staleDays = parseInt((req.query.staleDays as string) || '30', 10);
+      const staleDays = Math.max(7, Math.min(365, parseInt((req.query.staleDays as string) || '30', 10) || 30));
       const staleJobs = await storage.getStaleInternalJobs(staleDays);
 
       if (staleJobs.length === 0) {
@@ -2454,20 +2455,17 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('[Ghost Auto-Hide] Failed:', error?.message);
       res.status(500).json({ message: 'Ghost job auto-hide failed', error: error?.message });
     }
-  });
+  }));
 
   // Purge old external jobs — called daily by GitHub Actions cron
   // Deletes external jobs older than 90 days to prevent unbounded table growth.
   // Internal/platform jobs are never purged (recruiters own them).
-  app.post('/api/cron/purge-old-jobs', async (req, res) => {
+  app.post('/api/cron/purge-old-jobs', asyncHandler(async (req, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
-      const cronSecret = req.headers['x-cron-secret'];
-      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
+      if (!verifyCronSecret(req, res)) return;
 
-      const retainDays = parseInt((req.query.retainDays as string) || '90', 10);
+      const retainDays = Math.max(30, Math.min(365, parseInt((req.query.retainDays as string) || '90', 10) || 90));
       const result = await db.execute(sql`
         DELETE FROM job_postings
         WHERE (source != 'platform' OR source IS NULL)
@@ -2482,16 +2480,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('[Purge] Failed:', error?.message);
       res.status(500).json({ message: 'Purge failed', error: error?.message });
     }
-  });
+  }));
 
   // Discover new companies + ATS probe (two-phase, called by GitHub Actions)
-  app.post('/api/cron/discover-companies', async (req, res) => {
+  app.post('/api/cron/discover-companies', asyncHandler(async (req, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });
     try {
-      const cronSecret = req.headers['x-cron-secret'];
-      if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
+      if (!verifyCronSecret(req, res)) return;
 
       const phase = (req.query.phase as string) || 'discover';
       const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 20);
@@ -2541,14 +2536,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('[DiscoverCompanies] Failed:', error?.message);
       res.status(500).json({ message: 'Company discovery failed', error: error?.message });
     }
-  });
+  }));
 
   // Retry failed resume parses — called daily by GitHub Actions
-  app.post('/api/cron/retry-failed-parses', async (req, res) => {
-    const cronSecret = req.headers['x-cron-secret'];
-    if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+  app.post('/api/cron/retry-failed-parses', asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     try {
       // Process 3 per run — Gemini multimodal PDFs are large; spreading over days avoids quota limits
       const candidates = await storage.getCandidatesForParseRetry(3);
@@ -2576,14 +2568,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('[RetryParse] Failed:', error?.message);
       res.status(500).json({ message: 'Retry failed', error: error?.message });
     }
-  });
+  }));
 
   // Warm match cache for all active candidates — called daily by GitHub Actions
-  app.post('/api/cron/warm-candidate-matches', async (req, res) => {
-    const cronSecret = req.headers['x-cron-secret'];
-    if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
+  app.post('/api/cron/warm-candidate-matches', asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     try {
       const allCandidates = await storage.getAllCandidateUsers();
       const withSkills = allCandidates.filter((c: any) => Array.isArray(c.skills) && c.skills.length > 0);
@@ -2609,16 +2598,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error('[WarmMatches] Failed:', error?.message);
       res.status(500).json({ message: 'Warming failed', error: error?.message });
     }
-  });
+  }));
 
   // Ghost job detection endpoints
-  app.post('/api/admin/run-ghost-job-detection', async (req, res) => {
+  app.post('/api/admin/run-ghost-job-detection', asyncHandler(async (req, res) => {
     try {
-      // Verify admin secret
-      const adminSecret = req.headers['x-admin-secret'];
-      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      // Verify admin secret (timing-safe)
+      if (!verifyAdminSecret(req, res)) return;
 
       const { ghostJobDetectionService } = await import('./ghost-job-detection.service');
       
@@ -2636,15 +2622,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error running ghost job detection:", error?.message);
       res.status(500).json({ message: "Failed to run ghost job detection", error: error?.message });
     }
-  });
+  }));
 
-  app.get('/api/admin/ghost-job-stats', async (req, res) => {
+  app.get('/api/admin/ghost-job-stats', asyncHandler(async (req, res) => {
     try {
-      // Verify admin secret
-      const adminSecret = req.headers['x-admin-secret'];
-      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      // Verify admin secret (timing-safe)
+      if (!verifyAdminSecret(req, res)) return;
 
       const { ghostJobDetectionService } = await import('./ghost-job-detection.service');
       const stats = await ghostJobDetectionService.getStatistics();
@@ -2655,16 +2638,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching ghost job stats:", error?.message);
       res.status(500).json({ message: "Failed to fetch ghost job stats", error: error?.message });
     }
-  });
+  }));
 
   // Company verification endpoints
-  app.post('/api/admin/run-company-verification', async (req, res) => {
+  app.post('/api/admin/run-company-verification', asyncHandler(async (req, res) => {
     try {
-      // Verify admin secret
-      const adminSecret = req.headers['x-admin-secret'];
-      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      // Verify admin secret (timing-safe)
+      if (!verifyAdminSecret(req, res)) return;
 
       const { companyVerificationService } = await import('./company-verification.service');
       
@@ -2682,15 +2662,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error running company verification:", error?.message);
       res.status(500).json({ message: "Failed to run company verification", error: error?.message });
     }
-  });
+  }));
 
-  app.get('/api/admin/company-verification-stats', async (req, res) => {
+  app.get('/api/admin/company-verification-stats', asyncHandler(async (req, res) => {
     try {
-      // Verify admin secret
-      const adminSecret = req.headers['x-admin-secret'];
-      if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      // Verify admin secret (timing-safe)
+      if (!verifyAdminSecret(req, res)) return;
 
       const { companyVerificationService } = await import('./company-verification.service');
       const stats = await companyVerificationService.getStatistics();
@@ -2700,10 +2677,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching company verification stats:", error?.message);
       res.status(500).json({ message: "Failed to fetch company verification stats", error: error?.message });
     }
-  });
+  }));
 
   // Job quality indicators for candidates
-  app.get('/api/jobs/:jobId/quality-indicators', isAuthenticated, async (req: any, res) => {
+  app.get('/api/jobs/:jobId/quality-indicators', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
       if (isNaN(jobId)) {
@@ -2730,13 +2707,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching job quality indicators:", error?.message);
       res.status(500).json({ message: "Failed to fetch job quality indicators", error: error?.message });
     }
-  });
+  }));
 
   // ==========================================
   // AGENT APPLY ENDPOINTS
   // ==========================================
 
-  app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, async (req: any, res) => {
+  app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
@@ -2808,9 +2785,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error in agent apply:", error?.message);
       res.status(500).json({ message: "Failed to submit application" });
     }
-  });
+  }));
 
-  app.get('/api/candidate/agent-tasks', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/agent-tasks', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const tasks = await storage.getAgentTasksForCandidate(req.user.id);
       res.json(tasks);
@@ -2818,9 +2795,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching agent tasks:", error?.message);
       res.status(500).json({ message: "Failed to fetch agent tasks" });
     }
-  });
+  }));
 
-  app.get('/api/candidate/notification-preferences', isAuthenticated, async (req: any, res) => {
+  app.get('/api/candidate/notification-preferences', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const prefs = await storage.getNotificationPreferences(req.user.id);
       res.json(prefs || {});
@@ -2828,9 +2805,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching notification preferences:", error);
       res.status(500).json({ message: "Failed to fetch preferences" });
     }
-  });
+  }));
 
-  app.put('/api/candidate/notification-preferences', isAuthenticated, async (req: any, res) => {
+  app.put('/api/candidate/notification-preferences', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const prefs = await storage.updateNotificationPreferences(req.user.id, req.body);
       res.json(prefs);
@@ -2838,9 +2815,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error updating notification preferences:", error);
       res.status(500).json({ message: "Failed to update preferences" });
     }
-  });
+  }));
 
-  app.delete('/api/candidate/agent-tasks/:taskId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/candidate/agent-tasks/:taskId', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const taskId = parseIntParam(req.params.taskId);
       if (!taskId) {return res.status(400).json({ message: "Invalid task id" });}
@@ -2857,30 +2834,35 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error cancelling agent task:", error?.message);
       res.status(500).json({ message: "Failed to cancel task" });
     }
-  });
+  }));
 
   // User feedback / bug reports — emails Abas directly
-  app.post('/api/feedback', async (req: any, res) => {
+  // Rate-limited to prevent spam; sanitized to prevent email HTML injection.
+  app.post('/api/feedback', rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), asyncHandler(async (req: any, res) => {
     const { type, message, userEmail, userName } = req.body;
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message is required' });
     }
+    const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const validTypes = ['Bug', 'Suggestion', 'Other'];
     const feedbackType = validTypes.includes(type) ? type : 'Other';
-    const from = userEmail ? `${userName || userEmail} <${userEmail}>` : 'Anonymous';
+    const safeEmail = typeof userEmail === 'string' ? escHtml(userEmail.slice(0, 200)) : '';
+    const safeName = typeof userName === 'string' ? escHtml(userName.slice(0, 100)) : '';
+    const safeMessage = escHtml(String(message).slice(0, 5000));
+    const from = safeEmail ? `${safeName || safeEmail} <${safeEmail}>` : 'Anonymous';
     await sendEmail({
       to: 'support@recrutas.ai',
       from: 'noreply@recrutas.ai',
-      subject: `[Recrutas Feedback] ${feedbackType} — ${userEmail || 'anonymous'}`,
+      subject: `[Recrutas Feedback] ${feedbackType} — ${safeEmail || 'anonymous'}`,
       html: `
         <p><strong>Type:</strong> ${feedbackType}</p>
         <p><strong>From:</strong> ${from}</p>
         <hr/>
-        <p>${message.replace(/\n/g, '<br/>')}</p>
+        <p>${safeMessage.replace(/\n/g, '<br/>')}</p>
       `,
     });
     res.json({ ok: true });
-  });
+  }));
 
   // Inngest serve endpoint — receives events from Inngest Cloud
   // Required for background functions (match/recompute, sla/enforce, candidate/notify)

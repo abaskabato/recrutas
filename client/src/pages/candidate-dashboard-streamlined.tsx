@@ -187,15 +187,29 @@ export default function CandidateStreamlinedDashboard() {
   const resumeProcessingStatus = (profile as any)?.resumeProcessingStatus || 'idle';
   const isResumeProcessing = resumeProcessingStatus === 'processing';
 
-  // Poll for resume processing status updates when processing
+  // Poll for resume processing status updates when processing (max 5 minutes)
   useEffect(() => {
     if (isResumeProcessing) {
+      const pollStartTime = Date.now();
+      const MAX_POLL_DURATION_MS = 5 * 60 * 1000;
+
       const pollInterval = setInterval(async () => {
+        if (Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+          clearInterval(pollInterval);
+          toast({
+            title: 'Resume Processing Timeout',
+            description: 'Resume processing is taking longer than expected. Please try uploading again or add your skills manually.',
+            variant: 'destructive',
+          });
+          queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+          return;
+        }
+
         try {
           const response = await apiRequest("GET", '/api/candidate/profile');
           const data = await response.json();
           if (data.resumeProcessingStatus !== 'processing') {
-            // Refresh all relevant data
+            clearInterval(pollInterval);
             queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
             queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
             queryClient.invalidateQueries({ queryKey: ['/api/candidate/stats'] });
@@ -209,7 +223,7 @@ export default function CandidateStreamlinedDashboard() {
         } catch (error) {
           console.error('Error polling resume status:', error);
         }
-      }, 5000); // Poll every 5 seconds
+      }, 5000);
 
       return () => clearInterval(pollInterval);
     }
@@ -299,7 +313,7 @@ export default function CandidateStreamlinedDashboard() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setActiveTab('profile')}>
+                  <DropdownMenuItem onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }}>
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
@@ -360,7 +374,7 @@ export default function CandidateStreamlinedDashboard() {
             {profile && profileCompletion < 100 && (
               <div
                 className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition-colors shrink-0"
-                onClick={() => setActiveTab('profile')}
+                onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }}
               >
                 <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
                   {avatarInitial}
@@ -400,7 +414,7 @@ export default function CandidateStreamlinedDashboard() {
                 icon: Eye,
                 iconBg: 'bg-blue-50 dark:bg-blue-950',
                 iconColor: 'text-blue-600 dark:text-blue-400',
-                action: () => setActiveTab('profile'),
+                action: () => { setActiveTab('profile'); setIsEditingProfile(true); },
                 actionLabel: 'Improve profile',
               },
               {
@@ -503,7 +517,7 @@ export default function CandidateStreamlinedDashboard() {
             
             {/* Only show AI-matched jobs if resume is uploaded */}
             {hasResume ? (
-              <AIJobFeed onUploadClick={() => setActiveTab('profile')} />
+              <AIJobFeed onUploadClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }} />
             ) : profileLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-500 border-t-transparent" />
@@ -542,7 +556,7 @@ export default function CandidateStreamlinedDashboard() {
 
                 {/* Single CTA */}
                 <Button
-                  onClick={() => setActiveTab('profile')}
+                  onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }}
                   size="lg"
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-11"
                 >
@@ -739,7 +753,7 @@ export default function CandidateStreamlinedDashboard() {
                 <Search className="h-4 w-4 mr-2" />
                 Find AI-Matched Jobs
               </Button>
-              <Button onClick={() => setActiveTab('profile')} variant="outline">
+              <Button onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }} variant="outline">
                 <User className="h-4 w-4 mr-2" />
                 Update Profile
               </Button>

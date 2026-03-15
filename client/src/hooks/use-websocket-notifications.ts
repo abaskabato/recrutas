@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import supabase from "@/lib/supabase";
 
 interface WebSocketMessage {
   type: string;
@@ -44,14 +45,21 @@ export function useWebSocketNotifications(userId?: string) {
     }
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!userId || wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        console.debug('[WS] No access token, falling back to polling');
+        startPolling();
+        return;
+      }
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws?userId=${userId}`;
+      const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Clock, CheckCircle, AlertCircle, Trophy, XCircle, Shield, Monitor, EyeOff } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, AlertTriangle, Trophy, XCircle, Shield, Monitor, EyeOff } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   const [result, setResult] = useState<{ score: number; passed: boolean; alreadySubmitted?: boolean; ranking?: number; totalCandidates?: number; qualifiedForChat?: boolean; examFeedback?: string } | null>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenSupported = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen;
   const [violationCount, setViolationCount] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
   const [examStarted, setExamStarted] = useState(false);
@@ -55,6 +56,7 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   const violationCountRef = useRef(0);
   // Stable ref ensures handleViolation and the timer always call the current submit fn.
   const submitExamRef = useRef<() => void>(() => {});
+  const hasSubmittedRef = useRef(false);
   const { toast } = useToast();
 
   const maxViolations = 3;
@@ -129,20 +131,26 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    if (fullscreenSupported) {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+    }
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      if (fullscreenSupported) {
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      }
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [examStarted, isFullscreen, handleViolation]);
+  }, [examStarted, isFullscreen, handleViolation, fullscreenSupported]);
 
   const startExam = async () => {
-    await requestFullscreen();
+    if (fullscreenSupported) {
+      await requestFullscreen();
+    }
     setExamStarted(true);
   };
 
@@ -222,7 +230,8 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
   });
 
   const handleSubmitExam = () => {
-    if (isSubmitting) {return;}
+    if (hasSubmittedRef.current || isSubmitting) {return;}
+    hasSubmittedRef.current = true;
     setIsSubmitting(true);
     submitExamMutation.mutate(answers);
   };
@@ -379,6 +388,15 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
 
   return (
     <div ref={containerRef} className="max-w-4xl mx-auto space-y-6">
+      {/* Mobile fullscreen warning */}
+      {examStarted && !fullscreenSupported && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-amber-800">
+            Fullscreen mode is not supported on this device. For the best experience, use a desktop browser. Tab-switching detection is still active.
+          </p>
+        </div>
+      )}
       {/* Warning Overlay */}
       {showWarning && (
         <div className="fixed inset-0 bg-red-500/90 z-50 flex items-center justify-center">

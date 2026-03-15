@@ -17,9 +17,13 @@ const MAX_MESSAGE_LENGTH = 5000;
 // characters like &, ", ' unencoded if they came from decoded entities.
 function sanitizeMessage(message: string): string {
   if (!message) {return '';}
-  // Remove any HTML/script tags so raw content can never be injected into
-  // contexts that render HTML (emails, future server-side templates, etc.)
-  return message.replace(/<[^>]*>/g, '').trim();
+  return message
+    .replace(/<[^>]*>/g, '')          // Strip HTML tags
+    .replace(/javascript\s*:/gi, '')  // Remove javascript: URLs
+    .replace(/\bon\w+\s*=/gi, '')     // Remove on* event handlers
+    .replace(/data\s*:[^,\s]*/gi, '') // Remove data: URLs
+    .trim()
+    .slice(0, MAX_MESSAGE_LENGTH);    // Enforce max length
 }
 
 /**
