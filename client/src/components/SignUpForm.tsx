@@ -34,6 +34,7 @@ export default function SignUpForm({ role }: SignUpFormProps) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -57,13 +58,25 @@ export default function SignUpForm({ role }: SignUpFormProps) {
         },
       });
       if (error) {throw error;}
-      // Bootstrap user record in local DB so role assignment works after email verification
+      // Bootstrap user record in local DB — requires invite code for early access
       if (data.session?.access_token) {
-        await fetch('/api/auth/sync', {
+        const syncRes = await fetch('/api/auth/sync', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${data.session.access_token}` },
-        }).catch(() => {}); // Non-critical: user will be synced on first role assignment
-        
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ inviteCode: inviteCode.trim() }),
+        });
+        if (!syncRes.ok) {
+          const syncData = await syncRes.json().catch(() => ({ message: 'Sync failed' }));
+          if (syncData.code === 'INVITE_REQUIRED' || syncData.code === 'INVITE_INVALID') {
+            // Delete the Supabase auth user since they can't complete signup
+            await supabase.auth.signOut();
+            throw new Error(syncData.message || 'Invalid invite code');
+          }
+        }
+
         // Redirect to guided setup to complete profile
         setLocation("/guided-setup");
       } else if (data.user && !data.session) {
@@ -148,6 +161,30 @@ export default function SignUpForm({ role }: SignUpFormProps) {
             className="appearance-none block w-full px-3 py-2 border border-input rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-ring focus:border-ring sm:text-sm bg-input text-foreground"
           />
         </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="inviteCode"
+          className="block text-sm font-medium text-muted-foreground"
+        >
+          Invite Code
+        </label>
+        <div className="mt-1">
+          <input
+            id="inviteCode"
+            name="inviteCode"
+            type="text"
+            required
+            placeholder="e.g. REC-A1B2C3"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+            className="appearance-none block w-full px-3 py-2 border border-input rounded-md shadow-sm placeholder-muted-foreground focus:outline-none focus:ring-ring focus:border-ring sm:text-sm bg-input text-foreground uppercase tracking-wider"
+          />
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Recrutas is in early access. Enter your invite code to join.
+        </p>
       </div>
 
       <div>

@@ -1029,10 +1029,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
   }));
 
   // Sync Supabase auth user into local DB (called after signup/login)
+  // For new users: requires a valid invite code (early access gate).
+  // Existing users pass through without a code.
   app.post('/api/auth/sync', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const isNew = !(await storage.getUser(req.user.id));
+
+      // Early access gate: new users must provide a valid invite code
+      if (isNew) {
+        const inviteCode = req.body?.inviteCode || req.headers['x-invite-code'];
+        if (!inviteCode) {
+          return res.status(403).json({ message: 'Invite code required', code: 'INVITE_REQUIRED' });
+        }
+        const role = req.user.user_metadata?.role || 'candidate';
+        const result = await storage.validateAndRedeemInviteCode(inviteCode, req.user.id, role);
+        if (!result.valid) {
+          return res.status(403).json({ message: result.error, code: 'INVITE_INVALID' });
+        }
+      }
+
       const user = await storage.upsertUser({
         id: req.user.id,
         email: req.user.email || '',
@@ -1056,6 +1072,20 @@ export async function registerRoutes(app: Express): Promise<Express> {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
       const { role } = req.body;
       if (!['candidate', 'talent_owner'].includes(role)) {return res.status(400).json({ message: "Invalid role" });}
+
+      // Early access gate: if user is not yet in local DB, they must have an invite code
+      const existingUser = await storage.getUser(req.user.id);
+      if (!existingUser) {
+        const inviteCode = req.body?.inviteCode || req.headers['x-invite-code'];
+        if (!inviteCode) {
+          return res.status(403).json({ message: 'Invite code required', code: 'INVITE_REQUIRED' });
+        }
+        const result = await storage.validateAndRedeemInviteCode(inviteCode, req.user.id, role);
+        if (!result.valid) {
+          return res.status(403).json({ message: result.error, code: 'INVITE_INVALID' });
+        }
+      }
+
       // Ensure user exists in local DB before updating role (Supabase Auth doesn't auto-sync)
       await storage.upsertUser({
         id: req.user.id,
@@ -1207,8 +1237,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       next();
     });
-  }, async (req: any, res) => {
+  }, asyncHandler(async (req: any, res) => {
     try {
+      // Daily limit: 3 resume uploads per day
+      const limitCheck = await storage.checkDailyLimit(req.user.id, 'resume_upload', 3);
+      if (!limitCheck.allowed) {
+        return res.status(429).json({ message: `Resume upload limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+      }
+
       if (!req.file) {
         console.error("Resume upload error: No file uploaded or file too large/wrong type.");
         return res.status(400).json({ message: "No file uploaded or file too large/wrong type" });
@@ -1227,6 +1263,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         size: req.file.size,
       });
       const result = await resumeService.uploadAndProcessResume(req.user.id, req.file.buffer, req.file.mimetype);
+      await storage.incrementDailyUsage(req.user.id, 'resume_upload');
       res.json(result);
     } catch (error) {
       console.error("Error processing resume upload:", error);
@@ -1247,7 +1284,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         details: process.env.NODE_ENV === 'development' ? (error as Error)?.message : undefined
       });
     }
-  });
+  }));
 
   // Candidate specific stats
   app.get('/api/candidate/stats', isAuthenticated, asyncHandler(async (req: any, res) => {
@@ -1404,6 +1441,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
+
+      // Daily limit: 20 applications per day
+      const limitCheck = await storage.checkDailyLimit(userId, 'application', 20);
+      if (!limitCheck.allowed) {
+        return res.status(429).json({ message: `Application limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+      }
+
       const job = await storage.getJobPosting(jobId);
       if (!job) {
         return res.status(404).json({ message: "Job not found" });
@@ -1438,7 +1482,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return created;
       });
       if (!application) {return res.status(500).json({ message: "Failed to create application" });}
-      
+
+      await storage.incrementDailyUsage(userId, 'application');
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
       if (isInternalJob) {
@@ -1603,6 +1648,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
+      // Daily limit: 5 job posts per day
+      const limitCheck = await storage.checkDailyLimit(req.user.id, 'job_post', 5);
+      if (!limitCheck.allowed) {
+        return res.status(429).json({ message: `Job posting limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+      }
+
       // Log request details for debugging job creation issues
       console.log('[Job Creation] Request:', {
         userId: req.user?.id,
@@ -1617,6 +1668,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const jobData = insertJobPostingSchema.parse({ ...req.body, talentOwnerId: req.user.id });
       console.log(`[Job Creation] Parsed job data with talentOwnerId: ${jobData.talentOwnerId}`);
       const job = await storage.createJobPosting(jobData);
+      await storage.incrementDailyUsage(req.user.id, 'job_post');
       console.log(`[Job Creation] Successfully created job ID: ${job.id} for talent owner: ${job.talentOwnerId}`);
 
       // Return job IMMEDIATELY (within <100ms) before any async operations
@@ -2678,6 +2730,98 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.status(500).json({ message: "Failed to fetch company verification stats", error: error?.message });
     }
   }));
+
+  // ── Error Monitoring Admin Endpoints ─────────────────────────────────────────
+
+  // Recent errors — grouped by fingerprint, newest first
+  app.get('/api/admin/errors', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    if (!db) return res.status(503).json({ message: 'Database not available' });
+    const { errorEvents } = await import('../shared/schema.js');
+    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10) || 50, 200);
+    const level = req.query.level as string; // optional filter: error, warning, fatal
+
+    const errors = level
+      ? await db.select().from(errorEvents).where(eq(errorEvents.level, level)).orderBy(sql`created_at DESC`).limit(limit)
+      : await db.select().from(errorEvents).orderBy(sql`created_at DESC`).limit(limit);
+
+    // Also get grouped counts (top errors by fingerprint in last 24h)
+    const grouped = await db.execute(sql`
+      SELECT fingerprint, message, component, level, COUNT(*)::int as count,
+             MAX(created_at) as last_seen
+      FROM error_events
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+      GROUP BY fingerprint, message, component, level
+      ORDER BY count DESC
+      LIMIT 20
+    `);
+
+    res.json({
+      errors,
+      grouped: (grouped as any).rows ?? grouped,
+      total: errors.length,
+    });
+  }));
+
+  // Cleanup old errors (keep last 30 days) — called by cron or manually
+  app.post('/api/cron/cleanup-errors', asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
+    if (!db) return res.status(503).json({ message: 'Database not available' });
+    const result = await db.execute(sql`
+      DELETE FROM error_events WHERE created_at < NOW() - INTERVAL '30 days' RETURNING id
+    `);
+    const deleted = ((result as any).rows ?? (result as any)).length;
+    console.log(`[ErrorCleanup] Deleted ${deleted} error events older than 30 days`);
+    res.json({ deleted });
+  }));
+
+  // ── Invite Code Admin Endpoints ──────────────────────────────────────────────
+
+  // Create invite codes (single or batch)
+  app.post('/api/admin/invite-codes', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const { code, description, role, maxUses, count, prefix, expiresAt } = req.body;
+
+    // Batch mode: generate `count` codes with a prefix
+    if (count && count > 0) {
+      const codes = [];
+      const batchSize = Math.min(count, 100);
+      for (let i = 0; i < batchSize; i++) {
+        const generated = (prefix || 'REC') + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const created = await storage.createInviteCode({
+          code: generated,
+          description: description || `Batch ${new Date().toISOString().split('T')[0]}`,
+          role: role || 'any',
+          maxUses: maxUses ?? 1,
+          createdBy: 'admin',
+          expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        });
+        codes.push(created);
+      }
+      return res.json({ created: codes.length, codes: codes.map((c: any) => c.code) });
+    }
+
+    // Single code mode
+    if (!code) return res.status(400).json({ message: 'Code or count required' });
+    const created = await storage.createInviteCode({
+      code,
+      description,
+      role: role || 'any',
+      maxUses: maxUses ?? 1,
+      createdBy: 'admin',
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+    });
+    res.json(created);
+  }));
+
+  // List all invite codes with usage stats
+  app.get('/api/admin/invite-codes', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const codes = await storage.listInviteCodes();
+    res.json(codes);
+  }));
+
+  // ── End Invite Code Endpoints ──────────────────────────────────────────────
 
   // Job quality indicators for candidates
   app.get('/api/jobs/:jobId/quality-indicators', isAuthenticated, asyncHandler(async (req: any, res) => {

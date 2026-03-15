@@ -57,6 +57,9 @@ import {
   agentTasks,
   type AgentTask,
   type InsertAgentTask,
+  inviteCodes,
+  inviteCodeRedemptions,
+  dailyUsageLimits,
 } from "../shared/schema.js";
 import { db } from "./db";
 import { eq, desc, asc, and, or } from "drizzle-orm";
@@ -213,6 +216,15 @@ export interface IStorage {
   getAgentTasksForCandidate(candidateId: string): Promise<AgentTask[]>;
   getPendingAgentTasks(limit: number): Promise<AgentTask[]>;
   updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask>;
+
+  // Invite code operations
+  validateAndRedeemInviteCode(code: string, userId: string, role: string): Promise<{ valid: boolean; error?: string }>;
+  createInviteCode(data: { code: string; description?: string; role?: string; maxUses?: number; createdBy?: string; expiresAt?: Date }): Promise<any>;
+  listInviteCodes(): Promise<any[]>;
+
+  // Daily usage limit operations
+  checkDailyLimit(userId: string, action: string, limit: number): Promise<{ allowed: boolean; used: number; limit: number }>;
+  incrementDailyUsage(userId: string, action: string): Promise<void>;
 }
 
 // Sources that publish directly from company ATSs (not aggregators)
@@ -2596,6 +2608,85 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentTasks.id, taskId))
       .returning();
     return result;
+  }
+
+  // ── Invite Code Operations ──────────────────────────────────────────────────
+
+  async validateAndRedeemInviteCode(code: string, userId: string, role: string): Promise<{ valid: boolean; error?: string }> {
+    try {
+      const [invite] = await db
+        .select()
+        .from(inviteCodes)
+        .where(eq(inviteCodes.code, code.trim().toUpperCase()))
+        .limit(1);
+
+      if (!invite) return { valid: false, error: 'Invalid invite code' };
+      if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return { valid: false, error: 'Invite code has expired' };
+      if (invite.maxUses !== -1 && invite.usedCount >= (invite.maxUses ?? 1)) return { valid: false, error: 'Invite code has been fully used' };
+      if (invite.role !== 'any' && invite.role !== role) return { valid: false, error: `This invite code is for ${invite.role} accounts only` };
+
+      // Check if user already redeemed any code
+      const [existing] = await db
+        .select()
+        .from(inviteCodeRedemptions)
+        .where(eq(inviteCodeRedemptions.userId, userId))
+        .limit(1);
+      if (existing) return { valid: true }; // already redeemed — allow through
+
+      // Redeem: increment count + record redemption
+      await db.update(inviteCodes).set({ usedCount: invite.usedCount + 1 }).where(eq(inviteCodes.id, invite.id));
+      await db.insert(inviteCodeRedemptions).values({ codeId: invite.id, userId });
+
+      return { valid: true };
+    } catch (error) {
+      console.error('[Storage] Invite code validation error:', error);
+      return { valid: false, error: 'Failed to validate invite code' };
+    }
+  }
+
+  async createInviteCode(data: { code: string; description?: string; role?: string; maxUses?: number; createdBy?: string; expiresAt?: Date }): Promise<any> {
+    const [result] = await db.insert(inviteCodes).values({
+      code: data.code.toUpperCase(),
+      description: data.description ?? null,
+      role: (data.role as any) ?? 'any',
+      maxUses: data.maxUses ?? 1,
+      createdBy: data.createdBy ?? 'admin',
+      expiresAt: data.expiresAt ?? null,
+    }).returning();
+    return result;
+  }
+
+  async listInviteCodes(): Promise<any[]> {
+    return db.select().from(inviteCodes).orderBy(desc(inviteCodes.createdAt));
+  }
+
+  // ── Daily Usage Limit Operations ────────────────────────────────────────────
+
+  async checkDailyLimit(userId: string, action: string, limit: number): Promise<{ allowed: boolean; used: number; limit: number }> {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD UTC
+    const [row] = await db
+      .select()
+      .from(dailyUsageLimits)
+      .where(and(
+        eq(dailyUsageLimits.userId, userId),
+        eq(dailyUsageLimits.action, action),
+        eq(dailyUsageLimits.date, today),
+      ))
+      .limit(1);
+
+    const used = row?.count ?? 0;
+    return { allowed: used < limit, used, limit };
+  }
+
+  async incrementDailyUsage(userId: string, action: string): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    // Upsert: increment if exists, insert if not
+    await db.execute(sql`
+      INSERT INTO daily_usage_limits (user_id, action, date, count)
+      VALUES (${userId}, ${action}, ${today}, 1)
+      ON CONFLICT (user_id, action, date)
+      DO UPDATE SET count = daily_usage_limits.count + 1
+    `);
   }
 }
 

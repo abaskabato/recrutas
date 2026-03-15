@@ -848,6 +848,78 @@ export const agentTasksRelations = relations(agentTasks, ({ one }: { one: any })
   }),
 }));
 
+// ── Early Access: invite codes ────────────────────────────────────────────────
+// Invite-only signup gate. Codes are created by admin, each usable once (or
+// multi-use with a maxUses cap). Verified server-side during /api/auth/sync.
+
+export const inviteCodes = pgTable("invite_codes", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 40 }).notNull().unique(),
+  description: text("description"),                         // e.g. "Ada Dev Academy batch 3"
+  role: varchar("role", { enum: ["candidate", "talent_owner", "any"] }).default("any"),
+  maxUses: integer("max_uses").default(1),                  // -1 = unlimited
+  usedCount: integer("used_count").default(0).notNull(),
+  createdBy: varchar("created_by", { length: 100 }),        // admin name or system
+  expiresAt: timestamp("expires_at"),                       // null = never expires
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table: any) => ({
+  idxInviteCode: index("idx_invite_code").on(table.code),
+}));
+
+export const inviteCodeRedemptions = pgTable("invite_code_redemptions", {
+  id: serial("id").primaryKey(),
+  codeId: integer("code_id").notNull().references(() => inviteCodes.id, { onDelete: 'cascade' }),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  redeemedAt: timestamp("redeemed_at").defaultNow(),
+}, (table: any) => ({
+  idxRedemptionUser: index("idx_redemption_user").on(table.userId),
+  uniqRedemption: index("idx_redemption_unique").on(table.codeId, table.userId),
+}));
+
+export type InviteCode = typeof inviteCodes.$inferSelect;
+export type InviteCodeRedemption = typeof inviteCodeRedemptions.$inferSelect;
+
+// ── Per-user daily rate limits ───────────────────────────────────────────────
+// Lightweight counter table: one row per user per action per day.
+// Checked before expensive operations (resume upload, job post, application).
+
+export const dailyUsageLimits = pgTable("daily_usage_limits", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  action: varchar("action", { length: 50 }).notNull(),   // e.g. "resume_upload", "job_post", "application"
+  count: integer("count").default(0).notNull(),
+  date: varchar("date", { length: 10 }).notNull(),        // YYYY-MM-DD (UTC)
+}, (table: any) => ({
+  uniqUserActionDate: unique("uniq_daily_usage").on(table.userId, table.action, table.date),
+}));
+
+export type DailyUsageLimit = typeof dailyUsageLimits.$inferSelect;
+
+// ── Observability: error events ───────────────────────────────────────────────
+// In-house error tracking. Replaces external Sentry for early access.
+// Capped via daily cleanup cron (keep last 30 days).
+
+export const errorEvents = pgTable("error_events", {
+  id: serial("id").primaryKey(),
+  level: varchar("level", { length: 10 }).notNull().default("error"),  // error, warning, fatal
+  message: text("message").notNull(),
+  stack: text("stack"),
+  endpoint: varchar("endpoint", { length: 200 }),
+  method: varchar("method", { length: 10 }),
+  statusCode: integer("status_code"),
+  userId: varchar("user_id", { length: 100 }),
+  component: varchar("component", { length: 100 }),  // e.g. "express", "exam-service", "resume-parser"
+  metadata: jsonb("metadata"),
+  fingerprint: varchar("fingerprint", { length: 64 }),  // sha256 of message+component for grouping
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table: any) => ({
+  idxErrorCreatedAt: index("idx_error_created_at").on(table.createdAt),
+  idxErrorFingerprint: index("idx_error_fingerprint").on(table.fingerprint),
+  idxErrorLevel: index("idx_error_level").on(table.level),
+}));
+
+export type ErrorEvent = typeof errorEvents.$inferSelect;
+
 // ── Observability: request latency metrics ────────────────────────────────────
 // Sampled at 20% in production to keep table size manageable.
 // Used by /admin/metrics for p50/p95/p99 per endpoint.

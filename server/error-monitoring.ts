@@ -1,10 +1,12 @@
 /**
- * Error Monitoring Service
- * Provides error tracking and performance monitoring with optional Sentry integration
+ * Error Monitoring Service — In-house (Supabase Postgres)
  *
- * This module wraps monitoring functionality with graceful degradation
- * when Sentry is not configured (development mode or missing API key)
+ * Logs errors to the `error_events` table for visibility in /admin.
+ * Replaces external Sentry for early access. Lightweight, zero external deps.
+ * Can be swapped to GlitchTip/Sentry later by changing this file only.
  */
+
+import crypto from 'crypto';
 
 interface ErrorContext {
   userId?: string;
@@ -18,89 +20,82 @@ interface PerformanceSpan {
   setStatus: (status: 'ok' | 'error') => void;
 }
 
-// Check if Sentry should be initialized
-const SENTRY_DSN = process.env.SENTRY_DSN;
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const SENTRY_ENABLED = !!SENTRY_DSN;
+// Lazy DB import to avoid circular dependency at startup
+let dbRef: any = null;
+let errorEventsRef: any = null;
 
-// Sentry module reference (loaded dynamically if available)
-let sentryModule: any = null;
-let sentryInitialized = false;
-
-async function initSentry(): Promise<boolean> {
-  if (!SENTRY_ENABLED || sentryInitialized) {return sentryModule !== null;}
-
-  sentryInitialized = true;
-
-  try {
-    // Dynamic import with proper handling
-    const Sentry = await import('@sentry/node').catch(() => null);
-    if (!Sentry) {
-      console.log('[ErrorMonitoring] Sentry not available, using console logging');
-      return false;
+async function getDb() {
+  if (!dbRef) {
+    try {
+      const { db } = await import('./db.js');
+      const { errorEvents } = await import('../shared/schema.js');
+      dbRef = db;
+      errorEventsRef = errorEvents;
+    } catch {
+      // DB not available (test env, startup race) — silently skip
     }
-
-    (Sentry as any).init({
-      dsn: SENTRY_DSN,
-      environment: process.env.NODE_ENV || 'development',
-      release: process.env.npm_package_version || '1.0.0',
-      tracesSampleRate: IS_PRODUCTION ? 0.1 : 1.0,
-      profilesSampleRate: IS_PRODUCTION ? 0.1 : 1.0,
-      integrations: [],
-      beforeSend(event: any) {
-        if (event.request?.headers) {
-          delete event.request.headers['authorization'];
-          delete event.request.headers['cookie'];
-        }
-        return event;
-      },
-    });
-
-    sentryModule = Sentry;
-    console.log('[ErrorMonitoring] Sentry initialized successfully');
-    return true;
-  } catch (error) {
-    console.log('[ErrorMonitoring] Sentry initialization skipped:', (error as Error).message);
-    return false;
   }
+  return { db: dbRef, errorEvents: errorEventsRef };
+}
+
+function fingerprint(message: string, component?: string): string {
+  // Group errors by message + component so the admin view isn't flooded
+  const input = `${component || 'unknown'}:${message.replace(/\d+/g, 'N').slice(0, 200)}`;
+  return crypto.createHash('sha256').update(input).digest('hex').slice(0, 16);
+}
+
+// In-memory dedup: skip logging the same fingerprint more than once per minute
+const recentFingerprints = new Map<string, number>();
+const DEDUP_WINDOW_MS = 60_000;
+
+function isDuplicate(fp: string): boolean {
+  const now = Date.now();
+  const last = recentFingerprints.get(fp);
+  if (last && now - last < DEDUP_WINDOW_MS) return true;
+  recentFingerprints.set(fp, now);
+  // Prune old entries every 100 inserts
+  if (recentFingerprints.size > 500) {
+    for (const [k, v] of recentFingerprints) {
+      if (now - v > DEDUP_WINDOW_MS) recentFingerprints.delete(k);
+    }
+  }
+  return false;
 }
 
 /**
  * Capture an exception with optional context
  */
 export async function captureException(error: Error, context?: ErrorContext): Promise<string | null> {
-  // Always log errors regardless of Sentry status
+  // Always log to console
   console.error('[Error]', {
     message: error.message,
-    stack: error.stack,
+    stack: error.stack?.split('\n').slice(0, 5).join('\n'),
     ...context
   });
 
-  await initSentry();
-
-  if (!sentryModule) {
-    return null;
-  }
+  const fp = fingerprint(error.message, context?.component);
+  if (isDuplicate(fp)) return fp;
 
   try {
-    sentryModule.withScope((scope: any) => {
-      if (context?.userId) {
-        scope.setUser({ id: context.userId });
-      }
-      if (context?.action) {
-        scope.setTag('action', context.action);
-      }
-      if (context?.component) {
-        scope.setTag('component', context.component);
-      }
-      if (context?.metadata) {
-        scope.setContext('metadata', context.metadata);
-      }
+    const { db, errorEvents } = await getDb();
+    if (!db || !errorEvents) return null;
+
+    await db.insert(errorEvents).values({
+      level: 'error',
+      message: error.message.slice(0, 2000),
+      stack: error.stack?.slice(0, 5000) || null,
+      endpoint: context?.action?.split(' ')[1] || null,
+      method: context?.action?.split(' ')[0] || null,
+      userId: context?.userId || null,
+      component: context?.component || null,
+      metadata: context?.metadata || null,
+      fingerprint: fp,
     });
 
-    return sentryModule.captureException(error);
-  } catch (sentryError) {
-    console.warn('[ErrorMonitoring] Failed to send to Sentry:', (sentryError as Error).message);
+    return fp;
+  } catch (dbErr) {
+    // Don't let error monitoring crash the app
+    console.warn('[ErrorMonitoring] Failed to persist error:', (dbErr as Error).message);
     return null;
   }
 }
@@ -113,7 +108,6 @@ export async function captureMessage(
   level: 'info' | 'warning' | 'error' | 'fatal' = 'info',
   context?: ErrorContext
 ): Promise<string | null> {
-  // Log based on level
   switch (level) {
     case 'fatal':
     case 'error':
@@ -126,22 +120,33 @@ export async function captureMessage(
       console.info('[Info]', message, context);
   }
 
-  await initSentry();
+  // Only persist warnings and above
+  if (level === 'info') return null;
 
-  if (!sentryModule) {
-    return null;
-  }
+  const fp = fingerprint(message, context?.component);
+  if (isDuplicate(fp)) return fp;
 
   try {
-    return sentryModule.captureMessage(message, level);
+    const { db, errorEvents } = await getDb();
+    if (!db || !errorEvents) return null;
+
+    await db.insert(errorEvents).values({
+      level,
+      message: message.slice(0, 2000),
+      userId: context?.userId || null,
+      component: context?.component || null,
+      metadata: context?.metadata || null,
+      fingerprint: fp,
+    });
+
+    return fp;
   } catch {
-    console.warn('[ErrorMonitoring] Failed to send message to Sentry');
     return null;
   }
 }
 
 /**
- * Start a performance monitoring span
+ * Start a performance monitoring span (lightweight, console-only)
  */
 export async function startSpan(name: string, operation: string): Promise<PerformanceSpan> {
   const startTime = Date.now();
@@ -162,44 +167,23 @@ export async function startSpan(name: string, operation: string): Promise<Perfor
 }
 
 /**
- * Set user context for all subsequent events
+ * Set user context (no-op for DB-based monitoring — context passed per-event)
  */
-export async function setUser(user: { id: string; email?: string; role?: string }): Promise<void> {
-  await initSentry();
-  if (sentryModule) {
-    sentryModule.setUser(user);
-  }
-}
+export async function setUser(_user: { id: string; email?: string; role?: string }): Promise<void> {}
 
 /**
- * Clear user context (on logout)
+ * Clear user context (no-op)
  */
-export async function clearUser(): Promise<void> {
-  await initSentry();
-  if (sentryModule) {
-    sentryModule.setUser(null);
-  }
-}
+export async function clearUser(): Promise<void> {}
 
 /**
- * Add breadcrumb for debugging
+ * Add breadcrumb (no-op — breadcrumbs are a Sentry concept)
  */
 export async function addBreadcrumb(
-  category: string,
-  message: string,
-  data?: Record<string, any>
-): Promise<void> {
-  await initSentry();
-  if (sentryModule) {
-    sentryModule.addBreadcrumb({
-      category,
-      message,
-      data,
-      level: 'info',
-      timestamp: Date.now() / 1000,
-    });
-  }
-}
+  _category: string,
+  _message: string,
+  _data?: Record<string, any>
+): Promise<void> {}
 
 /**
  * Express error handling middleware
@@ -212,18 +196,21 @@ export function errorHandlerMiddleware() {
       component: 'express',
       metadata: {
         query: req.query,
-        body: req.body ? '[REDACTED]' : undefined,
         userAgent: req.headers['user-agent'],
+        statusCode: res.statusCode,
       }
     });
 
+    const IS_PRODUCTION = process.env.NODE_ENV === 'production';
     const status = (err as any).status || (err as any).statusCode || 500;
     const message = IS_PRODUCTION ? 'An unexpected error occurred' : err.message;
 
-    res.status(status).json({
-      error: message,
-      ...(IS_PRODUCTION ? {} : { stack: err.stack })
-    });
+    if (!res.headersSent) {
+      res.status(status).json({
+        error: message,
+        ...(IS_PRODUCTION ? {} : { stack: err.stack })
+      });
+    }
   };
 }
 
@@ -244,16 +231,13 @@ export function requestTracingMiddleware() {
 }
 
 /**
- * Graceful shutdown handler
+ * Graceful shutdown handler (no-op for DB-based monitoring)
  */
-export async function flushAndClose(timeout: number = 2000): Promise<void> {
-  if (sentryModule) {
-    await sentryModule.close(timeout);
-    console.log('[ErrorMonitoring] Sentry closed');
-  }
-}
+export async function flushAndClose(_timeout: number = 2000): Promise<void> {}
 
-// Export status check
+/**
+ * Status check
+ */
 export function isErrorMonitoringEnabled(): boolean {
-  return SENTRY_ENABLED;
+  return true; // Always enabled — it's just a DB insert
 }
