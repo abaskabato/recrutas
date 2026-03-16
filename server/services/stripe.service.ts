@@ -108,7 +108,7 @@ class StripeService {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/talent-dashboard?subscription=success`,
       cancel_url: `${process.env.APP_URL || 'http://localhost:5000'}/pricing`,
       metadata: {
         userId,
@@ -159,7 +159,7 @@ class StripeService {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/talent-dashboard?subscription=success`,
       cancel_url: `${process.env.APP_URL || 'http://localhost:5000'}/pricing`,
       metadata: {
         userId,

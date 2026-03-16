@@ -1,0 +1,32 @@
+name: Cleanup Old Error Events
+
+on:
+  schedule:
+    # Run weekly on Sundays at 6 AM UTC
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Purge error events older than 30 days
+        continue-on-error: true
+        run: |
+          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/cleanup-errors" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "Response status: $response"
+          echo "Response body: $(cat /tmp/response.json)"
+
+          if [ "$response" != "200" ]; then
+            echo "Cleanup returned non-200: $response"
+            exit 1
+          fi
+
+      - name: Log result
+        if: always()
+        run: echo "Error cleanup run complete at $(date -u)"
