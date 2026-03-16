@@ -88,19 +88,23 @@ async function fetchJobQuestions(boardToken: string, jobId: string): Promise<Gre
 function classifyQuestion(label: string): string | null {
   const l = label.toLowerCase();
 
-  if (/authorized.*work|legally.*authorized|eligible.*work|right to work/.test(l)) return 'work_auth';
+  if (/authorized.*work|legally.*authorized|eligible.*work|right to work|u\.s\..*work.*authorization/.test(l)) return 'work_auth';
   if (/sponsor|visa.*status|immigration.*sponsor/.test(l)) return 'sponsorship';
   if (/how did you hear|how.*find.*job|where.*hear|referral source/.test(l)) return 'source';
   if (/linkedin/.test(l) && !/why/.test(l)) return 'linkedin';
   if (/github/.test(l)) return 'github';
-  if (/website|portfolio|personal.*site/.test(l)) return 'website';
-  if (/currently.*located|currently.*reside|where.*located|city.*state|current.*location/.test(l)) return 'location';
-  if (/willing.*relocate|open.*relocat/.test(l)) return 'relocate';
+  if (/website|portfolio|personal.*site|other website/.test(l)) return 'website';
+  if (/currently.*located|currently.*reside|where.*located|city.*state|current.*location|located in/.test(l)) return 'location';
+  if (/willing.*relocate|open.*relocat|open to working|able to work.*on.?site/.test(l)) return 'relocate';
   if (/18.*years|age/.test(l)) return 'age_confirm';
-  if (/previously.*employed|worked.*before|former.*employee/.test(l)) return 'previous_employee';
+  if (/previously.*employed|worked.*before|former.*employee|ever been employed|history with/.test(l)) return 'previous_employee';
   if (/pronouns/.test(l)) return 'pronouns';
-  if (/salary|compensation|pay.*expect/.test(l)) return 'salary';
-  if (/acknowledge|privacy.*policy|consent|agree/.test(l)) return 'acknowledge';
+  if (/salary|compensation|pay.*expect|hourly.*rate.*expect/.test(l)) return 'salary';
+  if (/acknowledge|privacy.*policy|consent|agree|i understand/.test(l)) return 'acknowledge';
+  if (/if other|please specify|additional info/i.test(l)) return 'skip_optional';
+  if (/conflict of interest/.test(l)) return 'conflict_of_interest';
+  if (/current.*employer|previous.*employer/.test(l)) return 'current_employer';
+  if (/current.*job.*title|previous.*job.*title/.test(l)) return 'current_title';
 
   return null;
 }
@@ -190,6 +194,22 @@ function autoAnswer(
 
     case 'salary':
       return null; // Don't auto-fill salary expectations
+
+    case 'skip_optional':
+      return null; // "If other, please specify" — leave blank
+
+    case 'conflict_of_interest': {
+      if (field.values?.length) {
+        return selectOption(field.values, /^no/);
+      }
+      return 'No';
+    }
+
+    case 'current_employer':
+      return null; // Could pull from resume but risky to auto-fill
+
+    case 'current_title':
+      return null; // Could pull from resume but risky to auto-fill
 
     default:
       return null;
