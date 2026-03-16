@@ -123,178 +123,187 @@ export function ProfileCompletionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Complete Your Profile</DialogTitle>
-        </DialogHeader>
-        
+      <DialogContent className="sm:max-w-[560px]">
+        <div className="px-6 pt-6 pb-2">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Complete Your Profile</DialogTitle>
+          </DialogHeader>
+        </div>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="bio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Professional Bio</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Tell us about your professional background and career goals..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)}>
+            <div className="px-6 space-y-5 max-h-[60vh] overflow-y-auto">
               <FormField
                 control={form.control}
-                name="location"
+                name="bio"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location</FormLabel>
+                    <FormLabel>Professional Bio</FormLabel>
                     <FormControl>
-                      <Input placeholder="San Francisco, CA" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="experience"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Experience Level</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select experience level" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="entry">Entry Level (0-2 years)</SelectItem>
-                        <SelectItem value="mid">Mid Level (3-5 years)</SelectItem>
-                        <SelectItem value="senior">Senior Level (6+ years)</SelectItem>
-                        <SelectItem value="executive">Executive Level</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="skills"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Skills</FormLabel>
-                    {field.value.length > 0 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={clearAllSkills}
-                      >
-                        Clear all
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Add a skill..."
-                        value={skillInput}
-                        onChange={(e) => setSkillInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                      <Textarea
+                        placeholder="Tell us about your professional background and career goals..."
+                        className="min-h-[100px] rounded-xl"
+                        {...field}
                       />
-                      <Button type="button" onClick={addSkill} disabled={!skillInput.trim()}>
-                        Add
-                      </Button>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="San Francisco, CA" className="rounded-xl" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="experience"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Experience Level</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="rounded-xl">
+                            <SelectValue placeholder="Select level" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="entry">Entry Level (0-2 years)</SelectItem>
+                          <SelectItem value="mid">Mid Level (3-5 years)</SelectItem>
+                          <SelectItem value="senior">Senior Level (6+ years)</SelectItem>
+                          <SelectItem value="executive">Executive Level</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="skills"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Skills</FormLabel>
+                      {field.value.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={clearAllSkills}
+                        >
+                          Clear all
+                        </Button>
+                      )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {field.value.map((skill) => (
-                        <Badge key={skill} variant="secondary" className="flex items-center gap-1">
-                          {skill}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
-                            onClick={() => removeSkill(skill)}
-                          />
-                        </Badge>
-                      ))}
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Add a skill..."
+                          className="rounded-xl"
+                          value={skillInput}
+                          onChange={(e) => setSkillInput(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                        />
+                        <Button type="button" variant="outline" className="rounded-xl" onClick={addSkill} disabled={!skillInput.trim()}>
+                          Add
+                        </Button>
+                      </div>
+                      {field.value.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {field.value.map((skill) => (
+                            <Badge key={skill} variant="secondary" className="flex items-center gap-1 rounded-lg px-2.5 py-1">
+                              {skill}
+                              <X
+                                className="h-3 w-3 cursor-pointer opacity-60 hover:opacity-100"
+                                onClick={() => removeSkill(skill)}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Social Links (Optional)</h3>
-              
-              <FormField
-                control={form.control}
-                name="linkedinUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>LinkedIn URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://linkedin.com/in/yourprofile" {...field} />
-                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="githubUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>GitHub URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://github.com/yourusername" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="portfolioUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Portfolio URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://yourportfolio.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-slate-500">Links (Optional)</h3>
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700 overflow-hidden">
+                  <FormField
+                    control={form.control}
+                    name="linkedinUrl"
+                    render={({ field }) => (
+                      <FormItem className="px-4 py-3 space-y-1">
+                        <FormLabel className="text-xs text-slate-500">LinkedIn</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://linkedin.com/in/yourprofile" className="border-0 p-0 h-8 shadow-none focus-visible:ring-0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="githubUrl"
+                    render={({ field }) => (
+                      <FormItem className="px-4 py-3 space-y-1">
+                        <FormLabel className="text-xs text-slate-500">GitHub</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://github.com/yourusername" className="border-0 p-0 h-8 shadow-none focus-visible:ring-0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="portfolioUrl"
+                    render={({ field }) => (
+                      <FormItem className="px-4 py-3 space-y-1">
+                        <FormLabel className="text-xs text-slate-500">Portfolio</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://yourportfolio.com" className="border-0 p-0 h-8 shadow-none focus-visible:ring-0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 px-6 py-4 mt-2 border-t border-slate-200 dark:border-slate-700">
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 onClick={() => onOpenChange(false)}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
+                size="sm"
                 disabled={updateProfileMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {updateProfileMutation.isPending ? "Updating..." : "Complete Profile"}
+                {updateProfileMutation.isPending ? "Updating..." : "Save Profile"}
               </Button>
             </div>
           </form>

@@ -301,8 +301,8 @@ export default function CandidateStreamlinedDashboard() {
                     </div>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-52" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
+                <DropdownMenuContent className="w-56 rounded-xl p-1.5 shadow-lg border-slate-200 dark:border-slate-700" align="end" sideOffset={8} forceMount>
+                  <DropdownMenuLabel className="font-normal px-3 py-2">
                     <div className="flex flex-col gap-0.5">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {(user as any)?.firstName && (user as any)?.lastName
@@ -312,17 +312,17 @@ export default function CandidateStreamlinedDashboard() {
                       <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || 'Candidate'}</p>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }}>
+                  <DropdownMenuSeparator className="mx-1" />
+                  <DropdownMenuItem onClick={() => { setActiveTab('profile'); setIsEditingProfile(true); }} className="rounded-lg px-3 py-2 cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSettingsModalOpen(true)}>
+                  <DropdownMenuItem onClick={() => setSettingsModalOpen(true)} className="rounded-lg px-3 py-2 cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 dark:text-red-400">
+                  <DropdownMenuSeparator className="mx-1" />
+                  <DropdownMenuItem onClick={handleSignOut} className="rounded-lg px-3 py-2 cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign out
                   </DropdownMenuItem>
@@ -834,47 +834,47 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Settings
-          </DialogTitle>
-          <DialogDescription>
-            Manage your account preferences and notification settings
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[460px]">
+        <div className="px-6 pt-6 pb-2">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Settings className="h-5 w-5 text-slate-500" />
+              Settings
+            </DialogTitle>
+            <DialogDescription>
+              Preferences and notifications
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-6 py-4">
+        <div className="px-6 space-y-5">
           {/* Appearance */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
-              <Palette className="h-4 w-4 text-purple-500" />
-              Appearance
-            </h4>
-            <div className="space-y-3 pl-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="theme" className="text-sm font-medium">Dark Mode</Label>
-                  <p className="text-xs text-slate-500">Toggle between light and dark theme</p>
-                </div>
-                <Switch
-                  id="theme"
-                  checked={theme === 'dark'}
-                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                />
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+                <Palette className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <Label htmlFor="theme" className="text-sm font-medium">Dark Mode</Label>
+                <p className="text-xs text-slate-500">Switch theme</p>
               </div>
             </div>
+            <Switch
+              id="theme"
+              checked={theme === 'dark'}
+              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            />
           </div>
 
           {/* Notifications */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1 mb-1">
               <Bell className="h-4 w-4 text-blue-500" />
-              Email Notifications
-            </h4>
-            <div className="space-y-3 pl-6 border-l-2 border-slate-100 dark:border-slate-800 ml-2">
-              <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">Email Notifications</span>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
                 <div>
                   <Label htmlFor="email-notif" className="text-sm font-medium">Enable Email</Label>
                   <p className="text-xs text-slate-500">Receive notifications in your inbox</p>
@@ -885,10 +885,10 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                   onCheckedChange={setEmailNotifications}
                 />
               </div>
-              
+
               {emailNotifications && (
                 <>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between px-4 py-3">
                     <div>
                       <Label htmlFor="job-alerts" className="text-sm font-medium">New Job Matches</Label>
                       <p className="text-xs text-slate-500">When jobs match your profile</p>
@@ -899,7 +899,7 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                       onCheckedChange={setJobAlerts}
                     />
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between px-4 py-3">
                     <div>
                       <Label htmlFor="app-updates" className="text-sm font-medium">Application Status</Label>
                       <p className="text-xs text-slate-500">Viewed, accepted, or rejected</p>
@@ -914,14 +914,13 @@ function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               )}
             </div>
           </div>
-
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <div className="flex justify-end gap-3 px-6 py-4 mt-2 border-t border-slate-200 dark:border-slate-700">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             {saveMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
