@@ -359,7 +359,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       </div>
 
       {/* Job Feed */}
-      {isLoading ? (
+      {isLoading || (isFetching && (!filteredMatches || filteredMatches.length === 0)) ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Finding your best job matches...</p>
