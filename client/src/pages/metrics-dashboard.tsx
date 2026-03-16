@@ -105,16 +105,14 @@ function statusBadge(enabled: boolean, label: string) {
     : <Badge variant="outline" className="text-muted-foreground">{label}: Off</Badge>;
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── Embeddable metrics content (used by admin-dashboard tabs) ──────────────────
 
-export default function MetricsDashboard() {
-  const [secret, setSecret] = useState(() => sessionStorage.getItem('admin_secret') || '');
-  const [authenticated, setAuthenticated] = useState(!!sessionStorage.getItem('admin_secret'));
+export function MetricsContent({ secret: externalSecret }: { secret?: string }) {
+  const resolvedSecret = externalSecret || sessionStorage.getItem('admin_secret') || '';
   const [timeRange, setTimeRange] = useState('24');
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  const [authError, setAuthError] = useState(false);
   const [pitch, setPitch] = useState<{ kpis: PitchKPIs | null; funnel: PitchFunnel | null; sla: PitchSLA | null; exam: PitchExam | null; feed: PitchFeed | null }>({ kpis: null, funnel: null, sla: null, exam: null, feed: null });
   const [latency, setLatency] = useState<LatencyRow[]>([]);
   const [errors, setErrors] = useState<ErrorRow[]>([]);
@@ -124,14 +122,12 @@ export default function MetricsDashboard() {
   const [jobFeed, setJobFeed] = useState<{ breakdown: JobFeedRow[]; tableSize: string }>({ breakdown: [], tableSize: '' });
   const [system, setSystem] = useState<SystemHealth | null>(null);
 
-  const headers = { 'x-admin-secret': secret };
+  const headers = { 'x-admin-secret': resolvedSecret };
 
   const fetchAll = useCallback(async () => {
-    if (!authenticated) return;
     setLoading(true);
     try {
       const safeJson = async (r: Response) => {
-        if (r.status === 401) { setAuthError(true); setAuthenticated(false); sessionStorage.removeItem('admin_secret'); return null; }
         if (!r.ok) { console.warn(`Metrics API ${r.url} returned ${r.status}`); return null; }
         return r.json();
       };
@@ -159,19 +155,14 @@ export default function MetricsDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [authenticated, timeRange, secret]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange, resolvedSecret]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ── Auth gate ──────────────────────────────────────────────────────────────
-
-  if (authenticated && loading && !lastRefresh) {
+  if (loading && !lastRefresh) {
     return (
-      <div className="min-h-screen bg-background p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="h-9 w-48 bg-muted animate-pulse rounded" />
-          <div className="h-9 w-32 bg-muted animate-pulse rounded" />
-        </div>
+      <div className="space-y-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {Array.from({ length: 8 }).map((_, i) => (
             <Card key={i}><CardContent className="pt-4 pb-3 space-y-2">
@@ -184,57 +175,21 @@ export default function MetricsDashboard() {
         <div className="grid md:grid-cols-2 gap-6">
           {[1, 2].map(i => <Card key={i}><CardContent className="pt-6 h-40 flex items-center justify-center"><div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></CardContent></Card>)}
         </div>
-        <Card><CardContent className="pt-6 h-32 flex items-center justify-center"><div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></CardContent></Card>
       </div>
     );
   }
-
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader><CardTitle>Metrics Dashboard</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {authError && <p className="text-sm text-red-600">Incorrect secret — try again.</p>}
-            <Input
-              type="password"
-              placeholder="Admin secret"
-              value={secret}
-              onChange={e => { setSecret(e.target.value); setAuthError(false); }}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  sessionStorage.setItem('admin_secret', secret);
-                  setAuthenticated(true);
-                }
-              }}
-            />
-            <Button className="w-full" onClick={() => {
-              sessionStorage.setItem('admin_secret', secret);
-              setAuthenticated(true);
-            }}>
-              Enter
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // ── Summary stats from latency data ───────────────────────────────────────
 
   const totalRequests = latency.reduce((s, r) => s + r.count, 0);
   const totalErrors = latency.reduce((s, r) => s + r.errors, 0);
   const overallErrorRate = totalRequests > 0 ? ((totalErrors / totalRequests) * 100).toFixed(1) : '0.0';
   const slowestEndpoint = [...latency].sort((a, b) => b.p95 - a.p95)[0];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-screen bg-background p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Platform Metrics</h1>
+          <h2 className="text-xl font-bold">Platform Metrics</h2>
           {lastRefresh && (
             <p className="text-sm text-muted-foreground">
               Last updated {lastRefresh.toLocaleTimeString()}
@@ -778,6 +733,21 @@ export default function MetricsDashboard() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ── Standalone page (redirects to admin dashboard) ─────────────────────────────
+
+export default function MetricsDashboard() {
+  // If accessed directly at /admin/metrics, redirect to /admin with metrics tab
+  useEffect(() => {
+    window.location.replace('/admin');
+  }, []);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <p className="text-muted-foreground">Redirecting to admin panel...</p>
     </div>
   );
 }

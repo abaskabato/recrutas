@@ -82,8 +82,8 @@ export default function PrivacyPolicy() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">6. Contact Us</h2>
             <p>
               If you have any questions about this Privacy Policy, please contact us at{" "}
-              <a href="mailto:privacy@recrutas.com" className="text-blue-600 hover:underline">
-                privacy@recrutas.com
+              <a href="mailto:privacy@recrutas.ai" className="text-blue-600 hover:underline">
+                privacy@recrutas.ai
               </a>
             </p>
           </section>

@@ -110,8 +110,8 @@ export default function TermsOfService() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">10. Contact Us</h2>
             <p>
               If you have any questions about these Terms of Service, please contact us at{" "}
-              <a href="mailto:legal@recrutas.com" className="text-blue-600 hover:underline">
-                legal@recrutas.com
+              <a href="mailto:legal@recrutas.ai" className="text-blue-600 hover:underline">
+                legal@recrutas.ai
               </a>
             </p>
           </section>

@@ -44,7 +44,7 @@ export function FeedbackButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-sm font-medium shadow-lg hover:opacity-80 transition-opacity"
+        className="fixed bottom-20 right-5 sm:bottom-5 z-50 flex items-center gap-2 rounded-full bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-sm font-medium shadow-lg hover:opacity-80 transition-opacity"
       >
         <MessageSquare className="h-4 w-4" />
         Feedback

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, DollarSign, ChevronUp, Upload, Loader2 } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, Upload, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -66,11 +66,19 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [companyFilter, setCompanyFilter] = useState("all");
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
   const [displayLimit, setDisplayLimit] = useState(INITIAL_JOB_LIMIT);
   const [agentApplyingIds, setAgentApplyingIds] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Read candidate profile from cache (parent dashboard already fetches it)
+  const cachedProfile = queryClient.getQueryData<any>(['/api/candidate/profile']);
+  const hasSkills = Array.isArray(cachedProfile?.skills) && cachedProfile.skills.length > 0;
+
+  // Track retries when matches come back empty (backend still computing)
+  const emptyRetryCount = useRef(0);
+  const MAX_EMPTY_RETRIES = 6; // ~30s of retrying (6 × 5s)
+  const [waitingForMatches, setWaitingForMatches] = useState(false);
 
   // Fetch all matches once — filters applied client-side for instant interaction
   const { data: allMatches, isLoading, isFetching, refetch } = useQuery<AIJobMatch[]>({
@@ -92,6 +100,32 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     },
     refetchInterval: 300000, // Refresh every 5 minutes
   });
+
+  // Auto-retry when matches are empty — backend may still be computing
+  useEffect(() => {
+    if (isLoading || isFetching) return;
+    if (allMatches && allMatches.length > 0) {
+      emptyRetryCount.current = 0;
+      setWaitingForMatches(false);
+      return;
+    }
+    // No skills = no matches possible — skip retries
+    if (!hasSkills) {
+      setWaitingForMatches(false);
+      return;
+    }
+    // Data came back empty — retry if under limit
+    if (emptyRetryCount.current < MAX_EMPTY_RETRIES) {
+      setWaitingForMatches(true);
+      const timer = setTimeout(() => {
+        emptyRetryCount.current++;
+        refetch();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+    // Exhausted retries — show empty state
+    setWaitingForMatches(false);
+  }, [allMatches, isLoading, isFetching, refetch, hasSkills]);
 
   // Client-side filtering — instant, no network calls
   const filteredMatches = useMemo(() => {
@@ -359,7 +393,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       </div>
 
       {/* Job Feed */}
-      {isLoading || (isFetching && (!filteredMatches || filteredMatches.length === 0)) ? (
+      {isLoading || waitingForMatches || (isFetching && (!filteredMatches || filteredMatches.length === 0)) ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Finding your best job matches...</p>
@@ -499,15 +533,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                             )}
                             <span className="text-xs text-gray-500 hidden sm:inline">Match: {match.matchScore}</span>
                           </div>
-                          <h3 className="font-semibold text-base sm:text-lg leading-tight hover:text-blue-600 transition-colors">
-                            <button
-                              type="button"
-                              className="text-left hover:underline flex items-center gap-1 group"
-                              onClick={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
-                            >
-                              <span className="line-clamp-2 sm:line-clamp-1">{match.job.title}</span>
-                              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-400 group-hover:text-blue-500 transition-transform ${expandedMatchId === match.id ? 'rotate-180' : ''}`} />
-                            </button>
+                          <h3 className="font-semibold text-base sm:text-lg leading-tight">
+                            <span className="line-clamp-2 sm:line-clamp-1">{match.job.title}</span>
                           </h3>
                           <div className="flex flex-col sm:flex-row sm:items-center gap-y-1 sm:gap-x-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
                             <div className="flex items-center">
@@ -601,47 +628,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                           </div>
                         </div>
                       </div>
-                      {/* Expanded detail panel */}
-                      {expandedMatchId === match.id && (
-                        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-3">
-                          {match.job.description && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-6">
-                              {match.job.description}
-                            </p>
-                          )}
-                          {(match.job.salaryMin || match.job.salaryMax) && (
-                            <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                              <DollarSign className="h-3.5 w-3.5 shrink-0" />
-                              {match.job.salaryMin && match.job.salaryMax
-                                ? `$${match.job.salaryMin.toLocaleString()} – $${match.job.salaryMax.toLocaleString()}/yr`
-                                : match.job.salaryMin
-                                  ? `From $${match.job.salaryMin.toLocaleString()}/yr`
-                                  : `Up to $${match.job.salaryMax!.toLocaleString()}/yr`}
-                            </div>
-                          )}
-                          {match.job.skills && match.job.skills.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {match.job.skills.slice(0, 10).map((skill: string) => (
-                                <Badge
-                                  key={skill}
-                                  variant="outline"
-                                  className={`text-xs ${match.skillMatches?.includes(skill) ? 'border-green-400 text-green-700 dark:text-green-400' : ''}`}
-                                >
-                                  {match.skillMatches?.includes(skill) && <Check className="h-2.5 w-2.5 mr-1" />}
-                                  {skill}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex items-center gap-1"
-                            onClick={() => setExpandedMatchId(null)}
-                          >
-                            <ChevronUp className="h-3 w-3" /> Show less
-                          </button>
-                        </div>
-                      )}
                       {match.job.externalSource && match.job.externalSource !== 'internal' && (
                         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                           <div className="flex items-center">

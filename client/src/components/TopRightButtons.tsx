@@ -14,7 +14,10 @@ import {
 
 export function TopRightButtons() {
   const session = useSession();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  // Hide on admin pages — admin dashboard has its own header with sign out
+  if (location.startsWith('/admin')) return null;
 
   const handleHomeClick = () => {
     if (session) {

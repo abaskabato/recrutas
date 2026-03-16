@@ -22,7 +22,7 @@ export class JobWebhookService {
       method: 'POST',
       headers: { 'Authorization': `Basic ${btoa(GREENHOUSE_API_KEY + ':')}` },
       body: JSON.stringify({
-        url: 'https://recrutas.com/api/webhooks/greenhouse',
+        url: 'https://recrutas.ai/api/webhooks/greenhouse',
         events: ['job_posted', 'job_updated', 'job_closed']
       })
     });

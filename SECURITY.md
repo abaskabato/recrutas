@@ -8,7 +8,7 @@ We take the security of Recrutas seriously. If you discover a security vulnerabi
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please email us at: **security@recrutas.com**
+Instead, please email us at: **security@recrutas.ai**
 
 Include the following information:
 - Description of the vulnerability
@@ -216,7 +216,7 @@ In case of a security incident:
 ## Contact Information
 
 For security-related questions or concerns:
-- **Email**: security@recrutas.com
+- **Email**: security@recrutas.ai
 - **Response Time**: Within 24 hours
 - **Emergency Contact**: Available for critical vulnerabilities
 

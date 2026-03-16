@@ -551,7 +551,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
                           setParsedResumeData(null);
                           setCurrentStep(1);
                           queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
-                          queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+                          queryClient.removeQueries({ queryKey: ['/api/ai-matches'] });
                           toast({ title: 'Skills & experience cleared', description: 'Upload a new resume to extract fresh skills.' });
                         } catch {
                           toast({ title: 'Failed to clear skills', variant: 'destructive' });
