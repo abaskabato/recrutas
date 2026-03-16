@@ -2893,7 +2893,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
           phone: (candidateProfile as any).phone || '',
           linkedinUrl: candidateProfile.linkedinUrl || '',
           portfolioUrl: candidateProfile.portfolioUrl || '',
+          githubUrl: candidateProfile.githubUrl || '',
+          personalWebsite: candidateProfile.personalWebsite || '',
           resumeUrl: candidateProfile.resumeUrl,
+          location: candidateProfile.location || '',
         });
 
         if (!result.success) {
@@ -2911,6 +2914,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
             agentApply: true,
             ats: 'greenhouse',
             greenhouseApplicationId: result.applicationId,
+            questionsAnswered: result.questionsAnswered,
+            questionsSkipped: result.questionsSkipped,
             submittedAt: new Date().toISOString(),
           },
         });
