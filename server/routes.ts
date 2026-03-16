@@ -2921,6 +2921,44 @@ export async function registerRoutes(app: Express): Promise<Express> {
         });
 
         await storage.createActivityLog(userId, "agent_apply_submitted", `Agent applied to job ID: ${jobId} via Greenhouse API`);
+
+        // Notify candidate: in-app + email
+        await notificationService.createNotification({
+          userId,
+          type: 'application_update',
+          title: 'Application Submitted',
+          message: `Your application for ${job.title} at ${job.company} was submitted successfully via Agent Apply.`,
+          relatedApplicationId: application.id,
+        });
+
+        const candidateName = [candidateProfile.firstName, candidateProfile.lastName].filter(Boolean).join(' ') || 'there';
+        const dashboardUrl = (process.env.FRONTEND_URL || 'https://www.recrutas.ai') + '/candidate-dashboard';
+        sendTransactionalEmail({
+          to: candidateProfile.email!,
+          subject: `Application submitted: ${job.title} at ${job.company}`,
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+              <div style="background:#000;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+                <h1 style="margin:0;font-size:20px;">Application Submitted</h1>
+              </div>
+              <div style="padding:24px;background:#f9f9f9;">
+                <p>Hi ${candidateName},</p>
+                <p>Agent Apply has successfully submitted your application for <strong>${job.title}</strong> at <strong>${job.company}</strong>.</p>
+                <div style="background:#e8f5e9;padding:15px;border-radius:5px;margin:15px 0;">
+                  <strong>What was sent:</strong><br/>
+                  &bull; Your resume<br/>
+                  &bull; Name, email, and contact info<br/>
+                  &bull; ${result.questionsAnswered || 0} screening question${(result.questionsAnswered || 0) !== 1 ? 's' : ''} answered automatically
+                </div>
+                <p>You'll hear back from ${job.company} directly if they'd like to move forward.</p>
+                <div style="text-align:center;margin:20px 0;">
+                  <a href="${dashboardUrl}" style="display:inline-block;padding:12px 30px;background:#000;color:#fff;text-decoration:none;border-radius:5px;">View Your Applications</a>
+                </div>
+              </div>
+              <div style="text-align:center;padding:15px;color:#666;font-size:13px;">Recrutas &mdash; No ghosting, guaranteed.</div>
+            </div>`,
+        }).catch((err: any) => console.error('[AgentApply] Email notification failed:', err?.message));
+
         return res.json({ application, status: 'submitted', ats: 'greenhouse' });
       }
 
