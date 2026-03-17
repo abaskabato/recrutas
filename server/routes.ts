@@ -46,6 +46,7 @@ import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-su
 import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
 import rateLimit from 'express-rate-limit';
+import { captureException } from './error-monitoring';
 
 // In-memory cache for RemoteOK jobs (15-min TTL)
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
@@ -1267,11 +1268,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(result);
     } catch (error) {
       console.error("Error processing resume upload:", error);
-      console.error("Error details:", {
-        name: (error as Error)?.name,
-        message: (error as Error)?.message,
-        stack: (error as Error)?.stack,
-        originalError: (error as any)?.originalError
+      // Record to error_events so it shows in admin dashboard
+      await captureException(error as Error, {
+        userId: req.user?.id,
+        action: `POST /api/candidate/resume`,
+        component: 'resume-upload',
+        metadata: {
+          fileName: req.file?.originalname,
+          fileSize: req.file?.size,
+          mimeType: req.file?.mimetype,
+        },
       });
       if (error instanceof ResumeProcessingError) {
         return res.status(500).json({

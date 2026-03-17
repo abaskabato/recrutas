@@ -3,6 +3,7 @@ import { AIResumeParser } from '../ai-resume-parser';
 import { User } from '@shared/schema';
 import { normalizeSkills } from '../skill-normalizer';
 import { sendInngestEvent } from '../inngest-service.js';
+import { captureException } from '../error-monitoring';
 
 /**
  * Custom error for resume processing failures
@@ -192,7 +193,8 @@ export class ResumeService {
 
       // Only overwrite resumeText if we actually got content — don't nuke existing text on parse failure
       if (parseResult?.text) {
-        profileUpdate.resumeText = parseResult.text;
+        // Strip null bytes — PostgreSQL rejects \0 in UTF-8 text columns
+        profileUpdate.resumeText = parseResult.text.replace(/\0/g, '');
       }
 
       // Skills: always wipe and replace on re-upload — stale skills pollute matches
@@ -246,6 +248,12 @@ export class ResumeService {
 
     } catch (saveError: any) {
       console.error(`[ResumeService] Failed to save profile:`, saveError);
+      await captureException(saveError instanceof Error ? saveError : new Error(saveError?.message || 'Profile save failed'), {
+        userId,
+        action: 'POST /api/candidate/resume',
+        component: 'resume-service',
+        metadata: { step: 'profile-save', resumeUrl },
+      });
       // Still return success since file was uploaded
     }
 
