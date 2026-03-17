@@ -30,6 +30,7 @@ async function callHFAPI(text: string, attempt = 0): Promise<number[]> {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'x-hf-task': 'feature-extraction',
       },
       body: JSON.stringify({
         inputs: text,

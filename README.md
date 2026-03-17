@@ -59,6 +59,7 @@ Recrutas is a candidate-first hiring platform built around one hard promise: **i
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Key Gotchas & Lessons Learned](#key-gotchas--lessons-learned)
+- [External APIs & Startup Credits](#external-apis--startup-credits)
 
 ---
 
@@ -1284,6 +1285,83 @@ Server build uses `--packages=external` to exclude all node_modules from the bun
 
 ### `POSTGRES_URL_NON_POOLING` vs `DIRECT_URL`
 `.env` uses `POSTGRES_URL_NON_POOLING`. Drizzle config expects `DIRECT_URL`. If running `drizzle-kit push` locally, either set `DIRECT_URL` or use raw SQL via `psql`.
+
+---
+
+## External APIs & Startup Credits
+
+Recrutas consumes several external APIs. As the platform scales, startup credit programs can offset costs significantly.
+
+### API Inventory
+
+#### Critical Path (app breaks without these)
+
+| Service | Purpose | Env Var | Current Tier | Monthly Cost (est.) |
+|---------|---------|---------|-------------|-------------------|
+| **Supabase** | Database, Auth, Storage | `SUPABASE_*`, `POSTGRES_URL` | Free | $0 (free tier) |
+| **Groq** | Resume parsing, exam generation (Llama 3) | `GROQ_API_KEY` | Free | $0 (rate-limited) |
+| **HuggingFace** | Semantic embeddings (BGE-M3) | `HF_API_KEY` | Free Inference API | $0 |
+| **Resend** | Transactional email | `RESEND_API_KEY` | Free (3K emails/mo) | $0 |
+| **Vercel** | Hosting & serverless | — | Hobby | $0 |
+
+#### High Priority (degraded experience without these)
+
+| Service | Purpose | Env Var | Current Tier | Monthly Cost (est.) |
+|---------|---------|---------|-------------|-------------------|
+| **Gemini** | PDF multimodal parsing, AI fallback | `GEMINI_API_KEY` | Free (v1beta) | $0 |
+| **Firecrawl** | JS-rendered career page scraping | `FIRECRAWL_API_KEY` | Free (6 RPM) | $0 |
+| **JSearch (RapidAPI)** | External job aggregation | `RAPIDAPI_KEY` | Free | $0 |
+| **Upstash Redis** | Distributed rate limiting, cache | `UPSTASH_REDIS_*` | Free | $0 |
+| **Inngest** | Background jobs (match warming, SLA) | `INNGEST_EVENT_KEY` | Free (50K exec/mo) | $0 |
+
+#### Job Sources (no API key needed)
+
+| Source | Type | Trust Score |
+|--------|------|-------------|
+| Greenhouse boards API | ATS scraper | 90 |
+| Lever postings API | ATS scraper | 85 |
+| Ashby jobs API | ATS scraper | 85 |
+| Workable widget API | ATS scraper | 80 |
+| Recruitee offers API | ATS scraper | 80 |
+| RemoteOK | Public API | 65 |
+| The Muse | Public API | 70 |
+| WeWorkRemotely | RSS/scraping | 80 |
+
+#### Optional / Future
+
+| Service | Purpose | Env Var | Status |
+|---------|---------|---------|--------|
+| **Stripe** | Payments & subscriptions | `STRIPE_SECRET_KEY` | Wired but disabled |
+| **Pinecone** | Vector DB for embeddings at scale | `PINECONE_*` | Not active |
+| **Weaviate** | Alternative vector DB | `WEAVIATE_*` | Not active |
+| **Ollama** | Local LLM fallback | `OLLAMA_URL` | Dev only |
+
+### Startup Credit Programs
+
+Programs to apply for as the platform scales. Sorted by estimated value.
+
+| Program | Credits | Requirements | Apply |
+|---------|---------|-------------|-------|
+| **Google for Startups (AI)** | Up to $350K over 2yr | AI-first startup, GCP account, business email | [cloud.google.com/startup/apply](https://cloud.google.com/startup/apply) |
+| **Cloudflare for Startups** | Up to $250K | Startup | [cloudflare.com/forstartups](https://www.cloudflare.com/forstartups/) |
+| **Microsoft Founders Hub** | $5K–$150K Azure | No application for $5K; investor-backed for $150K | [microsoft.com/startups](https://www.microsoft.com/en-us/startups) |
+| **AWS Activate** | $1K–$100K | Pre-Series B, company website | [aws.amazon.com/startups/credits](https://aws.amazon.com/startups/credits) |
+| **Supabase for Startups** | Up to $25K | Via partner channels (Mercury, AWS Activate) | [supabase.com/solutions/startups](https://supabase.com/solutions/startups) |
+| **Groq Partner Program** | $10K inference credits | Hand-selected; 90-day expiry | [groq.com/groq-partner-program](https://groq.com/groq-partner-program) |
+| **Pinecone for Startups** | $5K + Standard tier | Business email, company website | [pinecone.io/startup-program](https://www.pinecone.io/startup-program/) |
+| **Vercel OSS Program** | $3,600/yr | Open-source project (reopens Apr 2026) | [vercel.com/open-source-program](https://vercel.com/open-source-program) |
+| **Stripe Atlas** | $2.5K Stripe + $50K partner perks | $500 incorporation fee | [stripe.com/atlas](https://stripe.com/atlas) |
+| **Firecrawl Creator/OSS** | Free Standard plan | Creators & OSS maintainers; 24-48hr review | [firecrawl.dev/creator-oss-program](https://www.firecrawl.dev/creator-oss-program) |
+| **Upstash OSS Program** | $1K/mo covered | Open-source project using Upstash | [upstash.com/open-source](https://upstash.com/open-source) |
+| **GetAIPerks** | Up to $7M across 200+ tools | Startup | [getaiperks.com](https://www.getaiperks.com/en) |
+
+### Scaling Plan
+
+**Phase 1 (Current — Free tiers):** All services on free/hobby tiers. Total cost: $0/mo.
+
+**Phase 2 (100–1K users):** Supabase Pro ($25/mo), Vercel Pro ($20/mo), Resend Pro ($20/mo). Apply for Google for Startups ($350K) and Supabase for Startups ($25K) before this phase.
+
+**Phase 3 (1K–10K users):** Dedicated vector DB (Pinecone/Weaviate), Redis Pro, paid Groq tier. Apply for AWS Activate and Firecrawl OSS program. Consider Stripe Atlas for incorporation + partner perks.
 
 ---
 
