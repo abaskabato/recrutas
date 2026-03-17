@@ -48,6 +48,15 @@ import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
 import rateLimit from 'express-rate-limit';
 import { captureException } from './error-monitoring';
 
+// Admin/owner accounts bypass daily usage limits
+// Set via ADMIN_EMAILS env var (comma-separated): "alice@example.com,bob@example.com"
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+);
+function isAdminUser(req: any): boolean {
+  return ADMIN_EMAILS.has(req.user?.email?.toLowerCase());
+}
+
 // In-memory cache for RemoteOK jobs (15-min TTL)
 let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
 const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
@@ -1240,10 +1249,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
     });
   }, asyncHandler(async (req: any, res) => {
     try {
-      // Daily limit: 3 resume uploads per day
-      const limitCheck = await storage.checkDailyLimit(req.user.id, 'resume_upload', 3);
-      if (!limitCheck.allowed) {
-        return res.status(429).json({ message: `Resume upload limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+      // Daily limit: 3 resume uploads per day (admins exempt)
+      if (!isAdminUser(req)) {
+        const limitCheck = await storage.checkDailyLimit(req.user.id, 'resume_upload', 3);
+        if (!limitCheck.allowed) {
+          return res.status(429).json({ message: `Resume upload limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+        }
       }
 
       if (!req.file) {
@@ -1448,10 +1459,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
 
-      // Daily limit: 20 applications per day
-      const limitCheck = await storage.checkDailyLimit(userId, 'application', 20);
-      if (!limitCheck.allowed) {
-        return res.status(429).json({ message: `Application limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+      // Daily limit: 20 applications per day (admins exempt)
+      if (!isAdminUser(req)) {
+        const limitCheck = await storage.checkDailyLimit(userId, 'application', 20);
+        if (!limitCheck.allowed) {
+          return res.status(429).json({ message: `Application limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+        }
       }
 
       const job = await storage.getJobPosting(jobId);
@@ -1654,10 +1667,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   app.post('/api/jobs', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
-      // Daily limit: 5 job posts per day
-      const limitCheck = await storage.checkDailyLimit(req.user.id, 'job_post', 5);
-      if (!limitCheck.allowed) {
-        return res.status(429).json({ message: `Job posting limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+      // Daily limit: 5 job posts per day (admins exempt)
+      if (!isAdminUser(req)) {
+        const limitCheck = await storage.checkDailyLimit(req.user.id, 'job_post', 5);
+        if (!limitCheck.allowed) {
+          return res.status(429).json({ message: `Job posting limit reached (${limitCheck.limit}/day). Try again tomorrow.` });
+        }
       }
 
       // Log request details for debugging job creation issues

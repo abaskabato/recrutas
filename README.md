@@ -1131,6 +1131,7 @@ const { isConnected, lastMessage } = useWebSocketNotifications(userId);
 | `FRONTEND_URL` | `server/index.ts` | CORS origin |
 | `CRON_SECRET` | `routes.ts` | Authenticate GitHub Actions cron calls |
 | `ADMIN_SECRET` | `routes.ts` | Admin panel password |
+| `ADMIN_EMAILS` | `routes.ts` | Comma-separated admin emails (bypass daily limits) |
 
 ### Optional (Feature-Gated)
 
