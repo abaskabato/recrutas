@@ -1,12 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X, FileText } from "lucide-react";
+import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X, FileText, ShieldCheck } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -42,8 +43,9 @@ interface ApplicationStatus {
 interface AgentTaskStatus {
   id: number;
   applicationId: number;
-  status: 'queued' | 'processing' | 'submitted' | 'failed' | 'cancelled';
+  status: 'queued' | 'processing' | 'submitted' | 'failed' | 'cancelled' | 'awaiting_verification';
   lastError?: string;
+  agentLog?: { verificationEmail?: string };
 }
 
 const agentStatusConfig: Record<string, { label: string; color: string }> = {
@@ -52,6 +54,7 @@ const agentStatusConfig: Record<string, { label: string; color: string }> = {
   submitted: { label: "Submitted", color: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
   failed: { label: "Failed", color: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
   cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300" },
+  awaiting_verification: { label: "Code Needed", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300" },
 };
 
 const statusConfig: Record<string, { label: string; color: string; progress: number }> = {
@@ -112,6 +115,26 @@ export default function ApplicationTracker() {
     },
     onError: () => {
       toast({ title: "Error", description: "Could not cancel task.", variant: "destructive" });
+    },
+  });
+
+  const [verifyCode, setVerifyCode] = useState<Record<number, string>>({});
+  const submitVerificationMutation = useMutation({
+    mutationFn: async ({ taskId, code }: { taskId: number; code: string }) => {
+      const res = await apiRequest('POST', `/api/candidate/agent-tasks/${taskId}/verify`, { code });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ message: 'Failed' }));
+        throw new Error(data.message || 'Verification failed');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Application Submitted", description: "Verification successful! Your application has been submitted." });
+      queryClient.invalidateQueries({ queryKey: ["/api/candidate/agent-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/candidate/applications"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Verification Failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -269,6 +292,7 @@ export default function ApplicationTracker() {
                         return (
                           <div className="flex items-center gap-1">
                             <Badge variant="secondary" className={`text-xs ${cfg.color}`}>
+                              {task.status === 'awaiting_verification' && <ShieldCheck className="h-3 w-3 mr-1" />}
                               {cfg.label}
                             </Badge>
                             {cancellable && (
@@ -386,6 +410,41 @@ export default function ApplicationTracker() {
                         Salary: ${application.job?.salaryMin?.toLocaleString() || 'N/A'} - ${application.job?.salaryMax?.toLocaleString() || 'N/A'}
                       </div>
                     )}
+
+                    {/* Verification Code Input */}
+                    {(() => {
+                      const task = agentTaskByAppId.get(application.id);
+                      if (!task || task.status !== 'awaiting_verification') return null;
+                      const email = task.agentLog?.verificationEmail || 'your email';
+                      return (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 mb-2">
+                            <ShieldCheck className="h-4 w-4" />
+                            <span className="font-medium text-sm">Verification code needed</span>
+                          </div>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">
+                            Check <strong>{email}</strong> for an 8-character code from the employer, then paste it below.
+                          </p>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Enter code"
+                              className="h-8 text-sm font-mono tracking-wider"
+                              maxLength={8}
+                              value={verifyCode[task.id] || ''}
+                              onChange={(e) => setVerifyCode(prev => ({ ...prev, [task.id]: e.target.value }))}
+                            />
+                            <Button
+                              size="sm"
+                              className="h-8"
+                              disabled={!verifyCode[task.id]?.trim() || submitVerificationMutation.isPending}
+                              onClick={() => submitVerificationMutation.mutate({ taskId: task.id, code: verifyCode[task.id] })}
+                            >
+                              {submitVerificationMutation.isPending ? 'Verifying...' : 'Verify'}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Interview Info */}
                     {application.status === 'interview_scheduled' && application.interviewDate && (

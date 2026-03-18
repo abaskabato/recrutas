@@ -23,6 +23,7 @@ import {
   users,
   jobPostings,
   jobApplications,
+  agentTasks,
   JobPosting,
 } from "@shared/schema";
 import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
@@ -2906,7 +2907,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Check if this is a Greenhouse job we can submit to directly
       const ghParsed = parseGreenhouseUrl(job.externalUrl);
       if (ghParsed) {
-        // Direct HTTP submission via Greenhouse Boards API (no Playwright needed)
+        // Resolve resume storage path → signed URL
+        const resumeSignedUrl = await storage.getResumeSignedUrl(candidateProfile.resumeUrl);
+
+        // Submit via Greenhouse embed form (Playwright)
         const result = await submitToGreenhouse(ghParsed.boardToken, ghParsed.jobId, {
           firstName: candidateProfile.firstName || '',
           lastName: candidateProfile.lastName || '',
@@ -2916,9 +2920,68 @@ export async function registerRoutes(app: Express): Promise<Express> {
           portfolioUrl: candidateProfile.portfolioUrl || '',
           githubUrl: candidateProfile.githubUrl || '',
           personalWebsite: candidateProfile.personalWebsite || '',
-          resumeUrl: candidateProfile.resumeUrl,
+          resumeUrl: resumeSignedUrl,
+          resumeText: candidateProfile.resumeText || '',
           location: candidateProfile.location || '',
         });
+
+        if (!result.success && result.verificationRequired) {
+          // Create application + agent task in awaiting_verification state
+          const application = await storage.createJobApplication({
+            jobId,
+            candidateId: userId,
+            status: 'submitted',
+            autoFilled: true,
+            resumeUrl: candidateProfile.resumeUrl,
+            metadata: {
+              agentApply: true,
+              ats: 'greenhouse',
+              questionsAnswered: result.questionsAnswered,
+              questionsSkipped: result.questionsSkipped,
+              submittedAt: new Date().toISOString(),
+            },
+          });
+
+          // Create agent task so candidate can provide the verification code
+          const [agentTask] = await db.insert(agentTasks).values({
+            applicationId: application.id,
+            candidateId: userId,
+            jobId,
+            externalUrl: job.externalUrl,
+            status: 'awaiting_verification' as any,
+            candidateData: {
+              firstName: candidateProfile.firstName,
+              lastName: candidateProfile.lastName,
+              email: candidateProfile.email,
+              phone: (candidateProfile as any).phone,
+              location: candidateProfile.location,
+              linkedinUrl: candidateProfile.linkedinUrl,
+              resumeUrl: candidateProfile.resumeUrl,
+              resumeText: candidateProfile.resumeText,
+            },
+            agentLog: {
+              verificationEmail: result.verificationEmail,
+              boardToken: ghParsed.boardToken,
+              ghJobId: ghParsed.jobId,
+            },
+          }).returning();
+
+          await notificationService.createNotification({
+            userId,
+            type: 'application_update',
+            title: 'Verification Code Needed',
+            message: `${job.company} requires an email verification code. Check your email (${result.verificationEmail}) and enter the code to complete your application.`,
+            relatedApplicationId: application.id,
+          });
+
+          return res.json({
+            message: 'Verification code required',
+            verificationRequired: true,
+            agentTaskId: agentTask.id,
+            verificationEmail: result.verificationEmail,
+            applicationId: application.id,
+          });
+        }
 
         if (!result.success) {
           console.error('[AgentApply] Greenhouse submission failed:', result.error);
@@ -3003,6 +3066,74 @@ export async function registerRoutes(app: Express): Promise<Express> {
       console.error("Error fetching agent tasks:", error?.message);
       res.status(500).json({ message: "Failed to fetch agent tasks" });
     }
+  }));
+
+  // Submit verification code for an agent task awaiting verification
+  app.post('/api/candidate/agent-tasks/:taskId/verify', isAuthenticated, asyncHandler(async (req: any, res) => {
+    const userId = req.user.id;
+    const taskId = parseIntParam(req.params.taskId);
+    const { code } = req.body;
+
+    if (!taskId || !code) {
+      return res.status(400).json({ message: 'Task ID and verification code are required' });
+    }
+
+    const [task] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId));
+    if (!task || task.candidateId !== userId) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    if (task.status !== 'awaiting_verification') {
+      return res.status(400).json({ message: `Task is not awaiting verification (status: ${task.status})` });
+    }
+
+    const log = task.agentLog as any;
+    const candidateData = task.candidateData as any;
+    if (!log?.boardToken || !log?.ghJobId) {
+      return res.status(400).json({ message: 'Task is missing Greenhouse metadata' });
+    }
+
+    // Resolve resume signed URL
+    const resumeSignedUrl = await storage.getResumeSignedUrl(candidateData.resumeUrl);
+
+    // Re-submit with the verification code callback
+    const result = await submitToGreenhouse(
+      log.boardToken,
+      log.ghJobId,
+      {
+        firstName: candidateData.firstName || '',
+        lastName: candidateData.lastName || '',
+        email: candidateData.email || '',
+        phone: candidateData.phone || '',
+        linkedinUrl: candidateData.linkedinUrl || '',
+        resumeUrl: resumeSignedUrl,
+        resumeText: candidateData.resumeText || '',
+        location: candidateData.location || '',
+      },
+      async () => code, // verification code callback
+    );
+
+    if (result.success) {
+      await db.update(agentTasks).set({
+        status: 'submitted',
+        completedAt: new Date(),
+        agentLog: { ...log, verifiedAt: new Date().toISOString() },
+      }).where(eq(agentTasks.id, taskId));
+
+      return res.json({ success: true, message: 'Application submitted successfully' });
+    }
+
+    // Check if code was wrong
+    if (result.error?.includes('Incorrect')) {
+      return res.status(400).json({ success: false, message: 'Incorrect verification code. Check your email for the latest code.' });
+    }
+
+    // Other failure
+    await db.update(agentTasks).set({
+      status: 'failed',
+      lastError: result.error,
+    }).where(eq(agentTasks.id, taskId));
+
+    return res.status(502).json({ success: false, message: result.error });
   }));
 
   app.get('/api/candidate/notification-preferences', isAuthenticated, asyncHandler(async (req: any, res) => {

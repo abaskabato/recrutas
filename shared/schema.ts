@@ -816,7 +816,7 @@ export const agentTasks = pgTable("agent_tasks", {
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   externalUrl: text("external_url").notNull(),
   status: varchar("status", {
-    enum: ["queued", "processing", "submitted", "failed", "cancelled"]
+    enum: ["queued", "processing", "submitted", "failed", "cancelled", "awaiting_verification"]
   }).default("queued").notNull(),
   attempts: integer("attempts").default(0).notNull(),
   maxAttempts: integer("max_attempts").default(3).notNull(),

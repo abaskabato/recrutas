@@ -121,6 +121,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.55.0",
     "react-resizable-panels": "^2.1.7",
+    "rebrowser-playwright": "^1.52.0",
     "recharts": "^2.15.2",
     "resend": "^6.9.2",
     "stripe": "^20.2.0",

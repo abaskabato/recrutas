@@ -6,8 +6,10 @@
  * and submits applications on behalf of candidates.
  */
 
-import { chromium, type Page, type Browser, type BrowserContext, type BrowserContextOptions, type LaunchOptions } from 'playwright';
+import { chromium, type Page, type Browser, type BrowserContext, type BrowserContextOptions, type LaunchOptions } from 'rebrowser-playwright';
 import type { AgentTask } from '../../shared/schema';
+import { isCaptchaSolverAvailable, solveRecaptchaV2, solveRecaptchaV3, solveHCaptcha } from '../lib/captcha-solver';
+import { solveRecaptchaViaAudio } from '../lib/audio-captcha-solver';
 
 // ==========================================
 // TYPES
@@ -227,14 +229,13 @@ export class AgentApplyService {
       const captcha = await this.detectCaptcha(page);
       if (captcha.detected) {
         addLog('captcha_detected', `CAPTCHA detected: ${captcha.type}`);
-        // Try to wait and retry - full CAPTCHA solving would require external service
-        await this.randomDelay(3000, 5000);
-        const captchaRetry = await this.detectCaptcha(page);
-        if (captchaRetry.detected) {
+        const solved = await this.solveCaptcha(page, captcha.type, task.externalUrl, addLog);
+        if (!solved) {
           const screenshot = await this.takeScreenshot(page);
-          addLog('captcha_blocked', `Blocked by ${captcha.type} - requires manual intervention`, screenshot);
+          addLog('captcha_blocked', `Failed to solve ${captcha.type}`, screenshot);
           return { success: false, log, error: `captcha_blocked_${captcha.type}` };
         }
+        addLog('captcha_solved', `Successfully solved ${captcha.type}`);
       }
 
       // Fix 5: Dismiss cookie banners/consent overlays before interacting
@@ -353,6 +354,24 @@ export class AgentApplyService {
         // Wait for the result of the click — networkidle timeout is normal for SPAs
         await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
         await this.randomDelay(1500, 2500);
+
+        // Check for CAPTCHA that appears after clicking submit
+        const postSubmitCaptcha = await this.detectCaptcha(page);
+        if (postSubmitCaptcha.detected) {
+          addLog(`step_${stepCount}_captcha`, `CAPTCHA appeared after submit: ${postSubmitCaptcha.type}`);
+          const solved = await this.solveCaptcha(page, postSubmitCaptcha.type, page.url(), addLog);
+          if (solved) {
+            addLog(`step_${stepCount}_captcha_solved`, 'Post-submit CAPTCHA solved, re-submitting');
+            // Re-click submit after CAPTCHA solve
+            await this.advanceForm(activePage, atsType);
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+            await this.randomDelay(1500, 2500);
+          } else {
+            const screenshot = await this.takeScreenshot(page);
+            addLog(`step_${stepCount}_captcha_failed`, `Could not solve ${postSubmitCaptcha.type}`, screenshot);
+            return { success: false, log, error: `captcha_blocked_${postSubmitCaptcha.type}` };
+          }
+        }
 
         // Check URL change - some forms navigate to a new page on submit
         const currentUrl = page.url();
@@ -486,6 +505,169 @@ export class AgentApplyService {
     }
 
     return { type: 'none', detected: false };
+  }
+
+  // ==========================================
+  // CAPTCHA SOLVING
+  // ==========================================
+
+  private async solveCaptcha(
+    page: Page,
+    captchaType: string,
+    pageUrl: string,
+    addLog: (action: string, result: string, screenshot?: string) => void,
+  ): Promise<boolean> {
+    // Strategy 1: Free audio solver for reCAPTCHA v2 (Wit.ai — $0)
+    if (captchaType === 'recaptcha') {
+      const { isAudioSolverAvailable } = await import('../lib/audio-captcha-solver');
+      if (isAudioSolverAvailable()) {
+        addLog('captcha_solver', 'Trying free audio solver (Wit.ai)...');
+        const audioResult = await solveRecaptchaViaAudio(page, addLog);
+        if (audioResult.success) return true;
+        addLog('captcha_solver', `Audio solver failed: ${audioResult.error} — trying next strategy`);
+      }
+    }
+
+    // Strategy 2: Paid 2Captcha fallback (if configured)
+    if (!isCaptchaSolverAvailable()) {
+      addLog('captcha_solver', 'No TWOCAPTCHA_API_KEY configured and audio solver unavailable');
+      return false;
+    }
+
+    try {
+      // Extract sitekey from the page
+      const sitekey = await page.evaluate(() => {
+        // Check data-sitekey attribute (used by both reCAPTCHA and hCaptcha)
+        const el = document.querySelector('[data-sitekey]');
+        if (el) return el.getAttribute('data-sitekey');
+
+        // Check reCAPTCHA iframe src for sitekey
+        const recaptchaIframe = document.querySelector('iframe[src*="recaptcha"]') as HTMLIFrameElement;
+        if (recaptchaIframe) {
+          const match = recaptchaIframe.src.match(/[?&]k=([^&]+)/);
+          if (match) return match[1];
+        }
+
+        // Check hCaptcha iframe src
+        const hcaptchaIframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement;
+        if (hcaptchaIframe) {
+          const match = hcaptchaIframe.src.match(/sitekey=([^&]+)/);
+          if (match) return match[1];
+        }
+
+        // Check for grecaptcha.enterprise or grecaptcha render params in scripts
+        const scripts = document.querySelectorAll('script');
+        for (const script of scripts) {
+          const text = script.textContent || '';
+          const match = text.match(/sitekey['":\s]+['"]([a-zA-Z0-9_-]{40})['"]/);
+          if (match) return match[1];
+        }
+
+        return null;
+      });
+
+      if (!sitekey) {
+        addLog('captcha_solver', 'Could not extract sitekey from page');
+        return false;
+      }
+
+      addLog('captcha_solver', `Extracted sitekey: ${sitekey.substring(0, 20)}... — sending to 2Captcha`);
+
+      // Solve based on type
+      let result;
+      if (captchaType === 'hcaptcha') {
+        result = await solveHCaptcha(sitekey, pageUrl);
+      } else {
+        // Try v2 first (most common on ATS forms)
+        result = await solveRecaptchaV2(sitekey, pageUrl);
+      }
+
+      if (!result.success || !result.token) {
+        addLog('captcha_solver', `Solve failed: ${result.error}`);
+        return false;
+      }
+
+      // Inject the solution token into the page
+      if (captchaType === 'hcaptcha') {
+        await page.evaluate((token: string) => {
+          // Set the hCaptcha response textarea
+          const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement
+            || document.querySelector('textarea[name*="hcaptcha"]') as HTMLTextAreaElement;
+          if (textarea) {
+            textarea.value = token;
+            textarea.style.display = 'block';
+          }
+          // Also set data attribute and trigger callback
+          const el = document.querySelector('.h-captcha') || document.querySelector('[data-sitekey]');
+          if (el) el.setAttribute('data-hcaptcha-response', token);
+          // Trigger hCaptcha callback if registered
+          if ((window as any).hcaptcha) {
+            try { (window as any).hcaptcha.execute(); } catch {}
+          }
+        }, result.token);
+      } else {
+        // reCAPTCHA v2 — inject into g-recaptcha-response textarea and trigger callback
+        await page.evaluate((token: string) => {
+          // Set the response textarea (reCAPTCHA creates a hidden one)
+          const textarea = document.querySelector('#g-recaptcha-response') as HTMLTextAreaElement
+            || document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement;
+          if (textarea) {
+            textarea.value = token;
+            textarea.style.display = 'block';
+          }
+
+          // Also set any additional response textareas (some forms have multiple)
+          document.querySelectorAll('textarea[name="g-recaptcha-response"]').forEach((el) => {
+            (el as HTMLTextAreaElement).value = token;
+          });
+
+          // Trigger the reCAPTCHA callback if one is registered
+          if ((window as any).___grecaptcha_cfg?.clients) {
+            const clients = (window as any).___grecaptcha_cfg.clients;
+            for (const key of Object.keys(clients)) {
+              const client = clients[key];
+              // Walk the client object to find the callback
+              const walk = (obj: any, depth: number): void => {
+                if (depth > 5 || !obj) return;
+                for (const k of Object.keys(obj)) {
+                  if (typeof obj[k] === 'function' && k.length < 3) {
+                    try { obj[k](token); } catch {}
+                  }
+                  if (typeof obj[k] === 'object') walk(obj[k], depth + 1);
+                }
+              };
+              walk(client, 0);
+            }
+          }
+
+          // Also try the global grecaptcha callback
+          if ((window as any).grecaptcha) {
+            try {
+              const response = (window as any).grecaptcha.getResponse();
+              if (!response) {
+                // Callback-based approach
+                const cb = document.querySelector('.g-recaptcha')?.getAttribute('data-callback');
+                if (cb && typeof (window as any)[cb] === 'function') {
+                  (window as any)[cb](token);
+                }
+              }
+            } catch {}
+          }
+        }, result.token);
+      }
+
+      // Wait a moment for the form to react to the solved CAPTCHA
+      await this.randomDelay(1000, 2000);
+
+      // Verify CAPTCHA is no longer blocking
+      const recheck = await this.detectCaptcha(page);
+      // Even if CAPTCHA elements are still in DOM, the token is injected — proceed
+      addLog('captcha_solver', `Token injected. CAPTCHA elements still visible: ${recheck.detected}`);
+      return true;
+    } catch (err: any) {
+      addLog('captcha_solver', `Exception: ${err.message}`);
+      return false;
+    }
   }
 
   // ==========================================
