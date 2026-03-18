@@ -100,13 +100,13 @@ export interface CachedProfile {
   cachedAt: number;
 }
 
-export function getCachedProfile(): any | null {
+export function getCachedProfile(): any | undefined {
   const cached = SafeStorage.getItem<CachedProfile | null>(STORAGE_KEYS.candidateProfile, null);
-  if (!cached) {return null;}
+  if (!cached) {return undefined;}
 
   // Cache valid for 30 minutes
   const MAX_AGE = 1000 * 60 * 30;
-  if (Date.now() - cached.cachedAt > MAX_AGE) {return null;}
+  if (Date.now() - cached.cachedAt > MAX_AGE) {return undefined;}
 
   return cached.data;
 }
