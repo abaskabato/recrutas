@@ -185,10 +185,18 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const appliedJobIds = userJobActions?.applied ?? new Set();
 
   const applyMutation = useMutation({
-    mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/apply/${jobId}`, {}),
-    onSuccess: (_data, _variables) => {
+    mutationFn: async (jobId: number) => {
+      const res = await apiRequest("POST", `/api/candidate/apply/${jobId}`, {});
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ message: 'Application failed' }));
+        throw new Error(data.message || `Application failed (${res.status})`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
       toast({ title: "Application Tracked!", description: "We've marked this job as applied." });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
     },
     onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
   });
@@ -273,13 +281,25 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   });
 
   const agentApplyMutation = useMutation({
-    mutationFn: (jobId: number) => apiRequest("POST", `/api/candidate/agent-apply/${jobId}`, {}),
-    onSuccess: () => {
-      toast({ title: "Applied!", description: "Your application was submitted automatically." });
+    mutationFn: async (jobId: number) => {
+      const res = await apiRequest("POST", `/api/candidate/agent-apply/${jobId}`, {});
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ message: 'Application failed' }));
+        throw new Error(data.message || `Application failed (${res.status})`);
+      }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.verificationRequired) {
+        toast({ title: "Verification Needed", description: `Check your email for a verification code to complete the application.` });
+      } else {
+        toast({ title: "Applied!", description: "Your application was submitted automatically." });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/agent-tasks'] });
     },
-    onError: (error: any) => toast({ title: "Error", description: error.message, variant: "destructive" }),
+    onError: (error: any) => toast({ title: "Application Failed", description: error.message, variant: "destructive" }),
   });
 
   const handleAgentApply = (e: React.MouseEvent, match: AIJobMatch) => {
