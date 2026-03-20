@@ -602,7 +602,7 @@ export class AgentApplyService {
           if (el) el.setAttribute('data-hcaptcha-response', token);
           // Trigger hCaptcha callback if registered
           if ((window as any).hcaptcha) {
-            try { (window as any).hcaptcha.execute(); } catch {}
+            try { (window as any).hcaptcha.execute(); } catch { /* best-effort */ }
           }
         }, result.token);
       } else {
@@ -631,7 +631,7 @@ export class AgentApplyService {
                 if (depth > 5 || !obj) return;
                 for (const k of Object.keys(obj)) {
                   if (typeof obj[k] === 'function' && k.length < 3) {
-                    try { obj[k](token); } catch {}
+                    try { obj[k](token); } catch { /* best-effort */ }
                   }
                   if (typeof obj[k] === 'object') walk(obj[k], depth + 1);
                 }
@@ -651,7 +651,7 @@ export class AgentApplyService {
                   (window as any)[cb](token);
                 }
               }
-            } catch {}
+            } catch { /* best-effort */ }
           }
         }, result.token);
       }

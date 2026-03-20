@@ -155,7 +155,6 @@ export function MetricsContent({ secret: externalSecret }: { secret?: string }) 
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange, resolvedSecret]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);

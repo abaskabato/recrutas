@@ -59,10 +59,10 @@ const LEGACY_COMPANIES = [
   { name: 'Lattice', careerUrl: 'https://lattice.com/careers', greenhouseId: 'lattice' },
 
   // ============================================
-  // LEVER ATS (verified 200)
+  // LEVER ATS (verified 200 — 2026-03-20)
   // ============================================
-  { name: 'Netflix', careerUrl: 'https://jobs.netflix.com/', leverId: 'netflix' },
-  { name: 'Front', careerUrl: 'https://front.com/jobs', leverId: 'frontapp' },
+  { name: 'Palantir', careerUrl: 'https://www.palantir.com/careers/', leverId: 'palantir' },
+  { name: 'Ro', careerUrl: 'https://ro.co/careers/', leverId: 'ro' },
 
   // ============================================
   // ASHBY ATS (free public API)

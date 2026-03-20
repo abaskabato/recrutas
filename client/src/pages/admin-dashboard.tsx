@@ -99,7 +99,6 @@ export default function AdminDashboard() {
     } else if (activeTab === 'invites') {
       loadInviteCodes();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, activeTab]);
 
   async function loadPlatformStats() {

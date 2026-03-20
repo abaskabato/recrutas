@@ -2540,13 +2540,26 @@ export async function registerRoutes(app: Express): Promise<Express> {
       if (!verifyCronSecret(req, res)) return;
 
       const retainDays = Math.max(30, Math.min(365, parseInt((req.query.retainDays as string) || '90', 10) || 90));
-      const result = await db.execute(sql`
-        DELETE FROM job_postings
-        WHERE (source != 'platform' OR source IS NULL)
-          AND external_url IS NOT NULL
-          AND created_at < NOW() - (${retainDays} || ' days')::interval
-        RETURNING id
+
+      // First, find old external jobs eligible for purge
+      const candidates = await db.execute(sql`
+        SELECT jp.id FROM job_postings jp
+        WHERE (jp.source != 'platform' OR jp.source IS NULL)
+          AND jp.external_url IS NOT NULL
+          AND jp.created_at < NOW() - (${retainDays} || ' days')::interval
       `);
+      const candidateIds = ((candidates as any).rows ?? (candidates as any)).map((r: any) => r.id);
+
+      if (candidateIds.length === 0) {
+        return res.json({ message: 'No jobs to purge', deleted: 0, retainDays });
+      }
+
+      // Delete dependent rows first, then the job postings
+      for (const table of ['job_applications', 'job_matches', 'exam_attempts', 'job_exams', 'chat_rooms', 'notifications', 'interviews', 'saved_jobs', 'hidden_jobs']) {
+        const col = table === 'notifications' ? 'related_job_id' : 'job_id';
+        await db.execute(sql.raw(`DELETE FROM ${table} WHERE ${col} IN (${candidateIds.join(',')})`));
+      }
+      const result = await db.execute(sql.raw(`DELETE FROM job_postings WHERE id IN (${candidateIds.join(',')}) RETURNING id`));
       const deleted = ((result as any).rows ?? (result as any)).length;
       console.log(`[Purge] Deleted ${deleted} external jobs older than ${retainDays} days`);
       res.json({ message: 'Purge complete', deleted, retainDays });

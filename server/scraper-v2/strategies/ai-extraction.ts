@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import Groq from 'groq-sdk';
 import { ScrapedJob, CompanyConfig, JobLocation } from '../types.js';
 import { logger } from '../utils/logger.js';
+import { callAI } from '../../lib/ai-client.js';
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -259,34 +260,30 @@ async function callGroqForExtraction(html: string, company: CompanyConfig): Prom
  * Call AI for job extraction (tries Ollama first if available, then Groq)
  */
 async function callAIForExtraction(html: string, company: CompanyConfig): Promise<AIResponse> {
-  const useOllama = process.env.USE_OLLAMA === 'true';
+  // Truncate HTML to fit in context window
+  const maxLength = 25000;
+  const truncatedHtml = html.length > maxLength
+    ? html.substring(0, maxLength) + '\n...[truncated]'
+    : html;
 
-  // Try Ollama first if enabled
-  if (useOllama) {
-    try {
-      if (await isOllamaAvailable()) {
-        return await callOllamaForExtraction(html, company);
-      } else {
-        logger.warn('Ollama not available, falling back to Groq');
-      }
-    } catch (error) {
-      logger.warn(`Ollama failed for ${company.name}, trying Groq:`, error as Record<string, unknown>);
-    }
+  // Use unified AI client (Gemini-first, Groq fallback) to avoid burning Groq tokens
+  const content = await callAI(
+    systemPrompt,
+    `Extract job listings from ${company.name}'s careers page:\n\n${truncatedHtml}`,
+    { priority: 'low', estimatedTokens: 5000, temperature: 0.1, maxOutputTokens: 4000 }
+  );
+
+  if (!content) {
+    throw new Error('Empty response from AI');
   }
 
-  // Fall back to Groq
-  try {
-    return await callGroqForExtraction(html, company);
-  } catch (error: any) {
-    // If Groq rate limited and Ollama is available but not tried, use Ollama
-    if (error?.message?.includes('429') || error?.status === 429) {
-      logger.warn(`Groq rate limited for ${company.name}, trying Ollama...`);
-      if (await isOllamaAvailable()) {
-        return await callOllamaForExtraction(html, company);
-      }
-    }
-    throw error;
+  const parsed = JSON.parse(content) as AIResponse;
+
+  if (!parsed.jobs || !Array.isArray(parsed.jobs)) {
+    throw new Error('Invalid AI response structure');
   }
+
+  return parsed;
 }
 
 /**

@@ -483,8 +483,8 @@ export async function submitToGreenhouse(
   } catch (err) {
     return { success: false, error: `Playwright error: ${(err as Error).message}`, questionsAnswered, questionsSkipped };
   } finally {
-    if (browser) await browser.close().catch(() => {});
-    if (resumeTmpPath) try { fs.unlinkSync(resumeTmpPath); } catch {}
+    if (browser) await browser.close().catch(() => { /* cleanup */ });
+    if (resumeTmpPath) try { fs.unlinkSync(resumeTmpPath); } catch { /* cleanup */ }
   }
 }
 
