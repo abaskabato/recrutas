@@ -56,17 +56,25 @@ export function scoreJob(
   const normalizedJob = parseSkillsInput(jobSkills).map(s => s.toLowerCase());
   const jobSkillsCount = Math.max(normalizedJob.length, 3);
 
-  // Exact matches (full credit)
-  const exactMatches = normalizedCand.filter(s => normalizedJob.includes(s));
-  const exactMatchSet = new Set(exactMatches);
+  // Exact matches (full credit) — keep canonical casing for display
+  const exactMatches: string[] = [];
+  const exactMatchSet = new Set<string>();
+  for (let i = 0; i < normalizedCand.length; i++) {
+    if (normalizedJob.includes(normalizedCand[i]) && !exactMatchSet.has(normalizedCand[i])) {
+      exactMatchSet.add(normalizedCand[i]);
+      exactMatches.push(candidateSkills[i]); // canonical casing
+    }
+  }
 
-  // Partial matches via SKILL_PARENTS (0.5x credit)
+  // Partial matches via SKILL_PARENTS (0.5x credit) — deduplicated
   const partialMatches: string[] = [];
+  const partialMatchSet = new Set<string>();
   for (const skill of candidateSkills) {
     for (const related of getRelatedSkills(skill)) {
       const r = related.toLowerCase();
-      if (normalizedJob.includes(r) && !exactMatchSet.has(r)) {
-        partialMatches.push(related);
+      if (normalizedJob.includes(r) && !exactMatchSet.has(r) && !partialMatchSet.has(r)) {
+        partialMatchSet.add(r);
+        partialMatches.push(related); // canonical casing
       }
     }
   }
@@ -102,10 +110,12 @@ export function scoreJob(
     // This lets semantic rescue jobs that have poor skill tags but great description match,
     // while keyword matching keeps results grounded in explicit skill overlap.
     matchScore = Math.round(0.5 * keywordScore + 0.5 * semanticScore);
-    const keywordPart = `${exactMatches.length} direct + ${partialMatches.length} related skill matches`;
-    explanation = effectiveMatches > 0
-      ? `${keywordPart} (${semanticScore}% semantic fit)`
-      : `${semanticScore}% semantic fit`;
+    const parts: string[] = [];
+    if (effectiveMatches > 0) {
+      parts.push(`${exactMatches.length} direct + ${partialMatches.length} related skill matches`);
+    }
+    parts.push(`${semanticScore}% profile-to-job similarity`);
+    explanation = parts.join(', ');
   } else {
     // Keyword only — no embedding available
     matchScore = keywordScore;
@@ -117,7 +127,17 @@ export function scoreJob(
   // Apply experience-level multiplier
   if (candidateExperienceLevel && job.title) {
     const multiplier = experienceLevelMultiplier(candidateExperienceLevel, job.title);
-    matchScore = Math.min(100, Math.round(matchScore * multiplier));
+    if (multiplier !== 1.0) {
+      matchScore = Math.min(100, Math.round(matchScore * multiplier));
+      const jobLevel = inferJobLevel(job.title);
+      const idx: Record<string, number> = { entry: 0, mid: 1, senior: 2, lead: 3, executive: 4 };
+      const candIdx = idx[candidateExperienceLevel] ?? 1;
+      if (candIdx > jobLevel) {
+        explanation += ' (slightly above your level)';
+      } else {
+        explanation += ' (stretch role for your level)';
+      }
+    }
   }
 
   return {

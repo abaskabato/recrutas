@@ -574,9 +574,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.get('/api/auth/user', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       if (!req.user) {return res.status(401).json({ message: "Unauthorized" });}
-      const user = await storage.getUser(req.user.id);
+      // Fetch user + candidate profile in parallel to eliminate sequential round-trip
+      const [user, candidateProfile] = await Promise.all([
+        storage.getUser(req.user.id),
+        storage.getCandidateUser(req.user.id).catch(() => null),
+      ]);
       if (!user) {return res.status(404).json({ message: "User not found" });}
-      res.json(user);
+      res.json({ ...user, candidateProfile: candidateProfile || null });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
