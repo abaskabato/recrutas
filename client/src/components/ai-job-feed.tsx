@@ -7,10 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, Upload, Loader2 } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, Upload, Loader2, Layers } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
+
+type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
+
+function inferJobLevel(title: string): ExperienceLevel {
+  const t = (title || '').toLowerCase();
+  if (/director|vp|vice president|head of|chief|cto|ceo/i.test(t)) return 'executive';
+  if (/lead|manager|principal/i.test(t)) return 'lead';
+  if (/senior|sr\.|staff/i.test(t)) return 'senior';
+  if (/junior|entry|intern|associate|new grad/i.test(t)) return 'entry';
+  return 'mid';
+}
+
+const EXPERIENCE_LEVEL_LABELS: Record<ExperienceLevel, string> = {
+  entry: 'Entry Level',
+  mid: 'Mid Level',
+  senior: 'Senior',
+  lead: 'Lead',
+  executive: 'Executive',
+};
 
 export interface AIJobMatch {
   id: number;
@@ -64,6 +83,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [locationFilter, setLocationFilter] = useState("all");
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
+  const [experienceLevelFilter, setExperienceLevelFilter] = useState("all");
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(INITIAL_JOB_LIMIT);
@@ -136,9 +156,18 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       if (locationFilter !== 'all' && m.job.location !== locationFilter) return false;
       if (workTypeFilter !== 'all' && m.job.workType !== workTypeFilter) return false;
       if (companyFilter !== 'all' && m.job.company !== companyFilter) return false;
+      if (experienceLevelFilter !== 'all') {
+        const level = inferJobLevel(m.job.title);
+        // When filtering for entry level, also include mid (many entry jobs lack "junior" in title)
+        if (experienceLevelFilter === 'entry') {
+          if (level !== 'entry' && level !== 'mid') return false;
+        } else {
+          if (level !== experienceLevelFilter) return false;
+        }
+      }
       return true;
     });
-  }, [allMatches, searchTerm, locationFilter, workTypeFilter, companyFilter]);
+  }, [allMatches, searchTerm, locationFilter, workTypeFilter, companyFilter, experienceLevelFilter]);
 
   const { data: userJobActions } = useQuery({
     queryKey: ['/api/candidate/job-actions'],
@@ -323,6 +352,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     setLocationFilter("all");
     setWorkTypeFilter("all");
     setCompanyFilter("all");
+    setExperienceLevelFilter("all");
   };
 
   return (
@@ -381,8 +411,21 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                 ))}
               </SelectContent>
             </Select>
-            
-            {(searchTerm || locationFilter !== 'all' || workTypeFilter !== 'all' || companyFilter !== 'all') && (
+
+            <Select value={experienceLevelFilter} onValueChange={setExperienceLevelFilter}>
+              <SelectTrigger className="w-full sm:w-[150px]">
+                <Layers className="h-4 w-4 mr-2 shrink-0" />
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                {(Object.keys(EXPERIENCE_LEVEL_LABELS) as ExperienceLevel[]).map(level => (
+                  <SelectItem key={level} value={level}>{EXPERIENCE_LEVEL_LABELS[level]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(searchTerm || locationFilter !== 'all' || workTypeFilter !== 'all' || companyFilter !== 'all' || experienceLevelFilter !== 'all') && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
                 <Filter className="h-4 w-4 mr-1" />
                 Clear
