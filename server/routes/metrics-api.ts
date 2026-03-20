@@ -235,80 +235,147 @@ export function registerMetricsRoutes(app: Express) {
     if (!db) return res.status(503).json({ message: 'Database not available' });
 
     try {
-      const [kpis, funnel, sla, exam, feed] = await Promise.all([
-        // Business KPIs
-        db.execute(sql`
+      const rows = await db.execute(sql`
+        WITH 
+        user_counts AS (
+          SELECT 
+            COUNT(*) FILTER (WHERE role = 'candidate') AS total_candidates,
+            COUNT(*) FILTER (WHERE role = 'talent_owner') AS total_employers,
+            COUNT(*) FILTER (WHERE "createdAt" >= NOW() - INTERVAL '7 days') AS new_users_7d
+          FROM users
+        ),
+        job_counts AS (
+          SELECT 
+            COUNT(*) FILTER (WHERE source = 'platform' AND status = 'active') AS internal_jobs,
+            COUNT(*) FILTER (WHERE source != 'platform' AND status = 'active') AS external_jobs
+          FROM job_postings
+        ),
+        match_counts AS (
+          SELECT 
+            COUNT(*) AS total_matches,
+            COUNT(DISTINCT candidate_id) AS unique_candidates_matched
+          FROM job_matches
+        ),
+        application_counts AS (
+          SELECT 
+            COUNT(*) AS total_applications,
+            COUNT(DISTINCT candidate_id) AS unique_candidates_applied
+          FROM job_applications
+        ),
+        chat_counts AS (
+          SELECT COUNT(*) AS total_chats
+          FROM chat_rooms
+        ),
+        profile_counts AS (
+          SELECT 
+            COUNT(*) FILTER (WHERE cu.resume_url IS NOT NULL) AS with_profile,
+            COUNT(DISTINCT ea.candidate_id) FILTER (WHERE ea.status = 'completed') AS took_exam,
+            COUNT(DISTINCT ea.candidate_id) FILTER (WHERE ea.passed_exam = true) AS passed_exam
+          FROM candidate_users cu
+          LEFT JOIN exam_attempts ea ON ea.candidate_id = cu.user_id
+        ),
+        sla_stats AS (
           SELECT
-            (SELECT COUNT(*)::int FROM users WHERE role = 'candidate') AS total_candidates,
-            (SELECT COUNT(*)::int FROM users WHERE role = 'talent_owner') AS total_employers,
-            (SELECT COUNT(*)::int FROM job_postings WHERE source = 'platform' AND status = 'active') AS internal_jobs,
-            (SELECT COUNT(*)::int FROM job_postings WHERE source != 'platform' AND status = 'active') AS external_jobs,
-            (SELECT COUNT(*)::int FROM job_matches) AS total_matches,
-            (SELECT COUNT(*)::int FROM job_applications) AS total_applications,
-            (SELECT COUNT(*)::int FROM chat_rooms) AS total_chats,
-            (SELECT COUNT(*)::int FROM users WHERE "createdAt" >= NOW() - INTERVAL '7 days') AS new_users_7d
-        `),
-        // Hiring funnel
-        db.execute(sql`
-          SELECT
-            (SELECT COUNT(*)::int FROM candidate_users WHERE resume_url IS NOT NULL) AS with_profile,
-            (SELECT COUNT(DISTINCT candidate_id)::int FROM job_matches) AS got_match,
-            (SELECT COUNT(DISTINCT candidate_id)::int FROM job_applications) AS applied,
-            (SELECT COUNT(DISTINCT candidate_id)::int FROM exam_attempts WHERE status = 'completed') AS took_exam,
-            (SELECT COUNT(DISTINCT candidate_id)::int FROM exam_attempts WHERE passed_exam = true) AS passed_exam,
-            (SELECT COUNT(DISTINCT candidate_id)::int FROM chat_rooms) AS got_chat
-        `),
-        // SLA performance (24h response promise)
-        db.execute(sql`
-          SELECT
-            COUNT(*)::int AS total_passed,
+            COUNT(*) AS total_passed,
             SUM(CASE WHEN cr.access_granted_at IS NOT NULL AND cr.access_granted_at <= ea.response_deadline_at THEN 1 ELSE 0 END)::int AS sla_met,
             SUM(CASE WHEN cr.access_granted_at IS NULL AND ea.response_deadline_at > NOW() THEN 1 ELSE 0 END)::int AS pending,
             SUM(CASE WHEN cr.access_granted_at IS NULL AND ea.response_deadline_at <= NOW() THEN 1 ELSE 0 END)::int AS breached,
-            ROUND(
-              100.0 * SUM(CASE WHEN cr.access_granted_at IS NOT NULL AND cr.access_granted_at <= ea.response_deadline_at THEN 1 ELSE 0 END) /
-              NULLIF(COUNT(*), 0)
-            , 1) AS compliance_pct,
-            ROUND(AVG(
-              CASE WHEN cr.access_granted_at IS NOT NULL THEN
-                EXTRACT(EPOCH FROM (cr.access_granted_at - ea.completed_at)) / 3600.0
-              END
-            )::numeric, 1) AS avg_response_hours
+            ROUND(AVG(CASE WHEN cr.access_granted_at IS NOT NULL THEN EXTRACT(EPOCH FROM (cr.access_granted_at - ea.completed_at)) / 3600.0 END), 1) AS avg_response_hours
           FROM exam_attempts ea
           LEFT JOIN chat_rooms cr ON cr.candidate_id = ea.candidate_id AND cr.job_id = ea.job_id
           WHERE ea.passed_exam = true AND ea.completed_at IS NOT NULL AND ea.response_deadline_at IS NOT NULL
-        `),
-        // Exam intelligence
-        db.execute(sql`
+        ),
+        exam_stats AS (
           SELECT
-            COUNT(*)::int AS total_attempts,
+            COUNT(*) AS total_attempts,
             SUM(CASE WHEN passed_exam = true THEN 1 ELSE 0 END)::int AS passed,
-            ROUND(
-              100.0 * SUM(CASE WHEN passed_exam = true THEN 1 ELSE 0 END) /
-              NULLIF(COUNT(CASE WHEN status = 'completed' THEN 1 END), 0)
-            , 1) AS pass_rate_pct,
-            ROUND(AVG(CASE WHEN status = 'completed' THEN score END)::numeric, 1) AS avg_score
+            ROUND(AVG(CASE WHEN status = 'completed' THEN score END), 1) AS avg_score
           FROM exam_attempts
-        `),
-        // External feed freshness
-        db.execute(sql`
+        ),
+        feed_stats AS (
           SELECT
             COUNT(DISTINCT source)::int AS source_count,
             COUNT(DISTINCT company)::int AS companies_count,
             COUNT(*)::int AS total_active,
-            SUM(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END)::int AS added_24h,
-            SUM(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 ELSE 0 END)::int AS added_7d
+            COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS added_24h,
+            COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS added_7d
           FROM job_postings
           WHERE status = 'active' AND source != 'platform'
-        `),
-      ]);
+        )
+        SELECT 
+          uc.total_candidates,
+          uc.total_employers,
+          jc.internal_jobs,
+          jc.external_jobs,
+          mc.total_matches,
+          ac.total_applications,
+          cc.total_chats,
+          uc.new_users_7d,
+          pc.with_profile,
+          mc.unique_candidates_matched AS got_match,
+          ac.unique_candidates_applied AS applied,
+          pc.took_exam,
+          pc.passed_exam,
+          cc.total_chats AS got_chat,
+          ss.total_passed,
+          ss.sla_met,
+          ss.pending,
+          ss.breached,
+          ROUND(100.0 * ss.sla_met / NULLIF(ss.total_passed, 0), 1) AS compliance_pct,
+          ss.avg_response_hours,
+          es.total_attempts,
+          es.passed,
+          ROUND(100.0 * es.passed / NULLIF(es.total_attempts, 0), 1) AS pass_rate_pct,
+          es.avg_score,
+          fs.source_count,
+          fs.companies_count,
+          fs.total_active,
+          fs.added_24h,
+          fs.added_7d
+        FROM user_counts uc, job_counts jc, match_counts mc, application_counts ac, chat_counts cc, profile_counts pc, sla_stats ss, exam_stats es, feed_stats fs
+      `);
 
+      const data = ((rows as any).rows ?? rows)[0];
       res.json({
-        kpis: ((kpis as any).rows ?? kpis)[0],
-        funnel: ((funnel as any).rows ?? funnel)[0],
-        sla: ((sla as any).rows ?? sla)[0],
-        exam: ((exam as any).rows ?? exam)[0],
-        feed: ((feed as any).rows ?? feed)[0],
+        kpis: {
+          total_candidates: data.total_candidates,
+          total_employers: data.total_employers,
+          internal_jobs: data.internal_jobs,
+          external_jobs: data.external_jobs,
+          total_matches: data.total_matches,
+          total_applications: data.total_applications,
+          total_chats: data.total_chats,
+          new_users_7d: data.new_users_7d,
+        },
+        funnel: {
+          with_profile: data.with_profile,
+          got_match: data.got_match,
+          applied: data.applied,
+          took_exam: data.took_exam,
+          passed_exam: data.passed_exam,
+          got_chat: data.got_chat,
+        },
+        sla: {
+          total_passed: data.total_passed,
+          sla_met: data.sla_met,
+          pending: data.pending,
+          breached: data.breached,
+          compliance_pct: data.compliance_pct,
+          avg_response_hours: data.avg_response_hours,
+        },
+        exam: {
+          total_attempts: data.total_attempts,
+          passed: data.passed,
+          pass_rate_pct: data.pass_rate_pct,
+          avg_score: data.avg_score,
+        },
+        feed: {
+          source_count: data.source_count,
+          companies_count: data.companies_count,
+          total_active: data.total_active,
+          added_24h: data.added_24h,
+          added_7d: data.added_7d,
+        },
       });
     } catch (error: any) {
       res.status(500).json({ message: 'Failed to fetch pitch metrics', error: error.message });
