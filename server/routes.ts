@@ -52,7 +52,7 @@ import { captureException } from './error-monitoring';
 // Admin/owner accounts bypass daily usage limits
 // Set via ADMIN_EMAILS env var (comma-separated): "alice@example.com,bob@example.com"
 const ADMIN_EMAILS = new Set(
-  (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  (process.env.ADMIN_EMAILS || '').replace(/\\n/g, '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
 );
 function isAdminUser(req: any): boolean {
   return ADMIN_EMAILS.has(req.user?.email?.toLowerCase());
