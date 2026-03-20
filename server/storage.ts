@@ -66,9 +66,9 @@ import { eq, desc, asc, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
-import { normalizeSkills, parseSkillsInput, getRelatedSkills } from "./skill-normalizer";
+import { normalizeSkills, parseSkillsInput } from "./skill-normalizer";
 import { isUSLocation } from "./location-filter";
-import { extractSkillsFromText } from "./utils/skill-extractor";
+import { scoreJob, computeRecencyScore, getFreshnessLabel, inferJobLevel } from "./job-scorer";
 
 /**
  * Storage Interface Definition
@@ -102,7 +102,7 @@ export interface IStorage {
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
-  getJobRecommendations(candidateId: string): Promise<JobPosting[]>;
+  getJobRecommendations(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }): Promise<JobPosting[]>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
   deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
 
@@ -739,63 +739,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * Compute match tier label from a percentage score.
-   */
-  private getMatchTier(score: number): 'great' | 'good' | 'worth-a-look' {
-    if (score >= 75) {return 'great';}
-    if (score >= 50) {return 'good';}
-    return 'worth-a-look';
-  }
-
-  /**
-   * Compute freshness label from a job's creation date.
-   */
-  private getFreshnessLabel(createdAt: Date | null): { freshness: 'just-posted' | 'this-week' | 'recent'; daysOld: number } {
-    if (!createdAt) {return { freshness: 'recent', daysOld: 15 };}
-    const daysOld = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysOld <= 3) {return { freshness: 'just-posted', daysOld };}
-    if (daysOld <= 7) {return { freshness: 'this-week', daysOld };}
-    return { freshness: 'recent', daysOld };
-  }
-
-  /**
-   * Recency score for composite sort: < 1 day = 1.0, tapering to 0.2 for > 30 days.
-   */
-  private computeRecencyScore(createdAt: Date | null | undefined): number {
-    if (!createdAt) {return 0.5;}
-    const daysOld = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24);
-    if (daysOld < 1) {return 1.0;}
-    if (daysOld < 3) {return 0.9;}
-    if (daysOld < 7) {return 0.8;}
-    if (daysOld < 14) {return 0.6;}
-    if (daysOld < 30) {return 0.4;}
-    return 0.2;
-  }
-
-  /** Infer job seniority level (0=entry … 4=executive) from the job title. */
-  private inferJobLevel(title: string): number {
-    const t = title.toLowerCase();
-    if (/\b(junior|jr\.?|entry[\s-]level|associate|trainee|intern|graduate)\b/.test(t)) {return 0;}
-    if (/\b(senior|sr\.?)\b/.test(t)) {return 2;}
-    if (/\b(staff|lead|principal|manager)\b/.test(t)) {return 3;}
-    if (/\b(director|vp|vice[\s-]president|head of|chief|cto|ceo)\b/.test(t)) {return 4;}
-    return 1; // mid is the default for unlabelled roles
-  }
-
-  /** Score multiplier based on gap between candidate level and inferred job level. */
-  private experienceLevelMultiplier(candidateLevel: string, jobTitle: string): number {
-    const idx: Record<string, number> = { entry: 0, mid: 1, senior: 2, lead: 3, executive: 4 };
-    const diff = Math.abs((idx[candidateLevel] ?? 1) - this.inferJobLevel(jobTitle));
-    if (diff === 0) {return 1.00;}
-    if (diff === 1) {return 0.85;}
-    if (diff === 2) {return 0.65;}
-    return 0.45; // 3+ levels off
-  }
-
-  /**
    * Fetch and score jobs for a candidate. Shared logic for both flat and sectioned responses.
    */
-  private async fetchScoredJobs(candidateId: string): Promise<any[] | null> {
+  private async fetchScoredJobs(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }): Promise<any[] | null> {
     const candidate = await this.getCandidateUser(candidateId);
 
     // Fetch hidden + applied job IDs to exclude from all recommendation paths
@@ -857,7 +803,7 @@ export class DatabaseStorage implements IStorage {
         .limit(20);
 
       return discoveryJobs.map((job: any) => {
-        const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
+        const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
         return {
           ...job,
           requirements: Array.isArray(job.requirements) ? job.requirements : [],
@@ -888,54 +834,76 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
 
+    // Parse pre-computed candidate embedding for semantic scoring (sync — no API call)
+    let candidateEmbedding: number[] | undefined;
+    if ((candidate as any).vectorEmbedding) {
+      try {
+        candidateEmbedding = JSON.parse((candidate as any).vectorEmbedding);
+      } catch { /* malformed — skip semantic scoring */ }
+    }
+
     // Only show jobs from last 90 days for fresh results
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     const cutoffDateStr = ninetyDaysAgo.toISOString();
 
+    // Build optional filter conditions from the search UI
+    const extraFilters: any[] = [];
+    if (filters?.jobTitle) {
+      extraFilters.push(sql`LOWER(${jobPostings.title}) LIKE ${'%' + filters.jobTitle.toLowerCase() + '%'}`);
+    }
+    if (filters?.location) {
+      extraFilters.push(sql`LOWER(${jobPostings.location}) LIKE ${'%' + filters.location.toLowerCase() + '%'}`);
+    }
+    if (filters?.workType) {
+      extraFilters.push(sql`LOWER(${jobPostings.workType}) = ${filters.workType.toLowerCase()}`);
+    }
+
+    // Wide query: match by skills OR title keyword. Scoring happens in application code.
     const allJobs = await db
       .select()
       .from(jobPostings)
       .where(and(
         eq(jobPostings.status, 'active'),
-        // Match by skills JSONB (platform jobs) OR by title keyword (scraped jobs with empty skills)
-        or(...candidateSkills.map(skill =>
-          sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
-        )),
+        // Match by skills JSONB OR by title containing a candidate skill
+        or(
+          ...candidateSkills.map(skill =>
+            sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
+          ),
+          ...candidateSkills.map(skill =>
+            sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
+          ),
+        ),
         or(
           sql`${jobPostings.expiresAt} IS NULL`,
           sql`${jobPostings.expiresAt} > NOW()`
         ),
-        // Platform jobs are verified by definition — skip liveness check
         or(
           eq(jobPostings.livenessStatus, 'active'),
           eq(jobPostings.livenessStatus, 'unknown'),
           eq(jobPostings.source, 'platform')
         ),
-        // Platform jobs are never ghost jobs
         or(
           sql`${jobPostings.ghostJobScore} IS NULL`,
           sql`${jobPostings.ghostJobScore} < 60`,
           eq(jobPostings.source, 'platform')
         ),
-        // Platform jobs are exempt from the 90-day cutoff
         or(
           eq(jobPostings.source, 'platform'),
           sql`${jobPostings.createdAt} > ${cutoffDateStr}`
         ),
-        // Exclude ArbeitNow jobs (European job board)
         sql`${jobPostings.source} != 'ArbeitNow'`,
-        // Exclude hidden and applied-to jobs
         ...(excludeIds.length > 0
           ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
-          : [])
+          : []),
+        ...extraFilters,
       ))
       .orderBy(
         sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
         sql`${jobPostings.trustScore} DESC NULLS LAST`,
         sql`${jobPostings.createdAt} DESC`
       )
-      .limit(200);
+      .limit(300);
 
     const jobsWithSource = allJobs
       .map((job: any) => ({
@@ -948,57 +916,16 @@ export class DatabaseStorage implements IStorage {
 
     const recommendations = jobsWithSource
       .map(job => {
-        // Fallback: extract skills from description if skills array is empty
-        let jobSkills = job.skills || [];
-        if (jobSkills.length === 0 && job.description) {
-          jobSkills = extractSkillsFromText(job.description);
-        }
-        
-        // Normalize job skills at comparison time to handle legacy un-normalized entries
-        const normalizedJobSkills = parseSkillsInput(jobSkills).map(s => s.toLowerCase());
-
-        // Exact skill matches (full credit)
-        const matchingSkills = candidateSkills.filter(skill =>
-          normalizedJobSkills.includes(skill.toLowerCase())
-        );
-
-        // Partial-credit related skill matches (0.5x weight)
-        const exactMatchSet = new Set(matchingSkills.map(s => s.toLowerCase()));
-        const partialMatchSkills: string[] = [];
-        for (const candidateSkill of candidateSkills) {
-          for (const related of getRelatedSkills(candidateSkill)) {
-            const relatedLower = related.toLowerCase();
-            if (normalizedJobSkills.includes(relatedLower) && !exactMatchSet.has(relatedLower)) {
-              partialMatchSkills.push(related);
-            }
-          }
-        }
-
-        // Score: exact matches count 1.0, related matches count 0.5, divided by job skill count
-        // Use normalized job skills count to handle legacy badly-formatted skill strings
-        const normalizedJobSkillsCount = Math.max(normalizedJobSkills.length || 0, 3);
-        const effectiveMatches = matchingSkills.length + 0.5 * partialMatchSkills.length;
-        const skillMatchPercentage = effectiveMatches > 0
-          ? Math.round((effectiveMatches / normalizedJobSkillsCount) * 100)
-          : 0;
-
-        const expMultiplier = candidate.experienceLevel
-          ? this.experienceLevelMultiplier(candidate.experienceLevel, job.title)
-          : 1.0;
-        // Clamp to 100 so expMultiplier > 1 can't push score over 100
-        const adjustedMatchScore = Math.min(100, Math.round(skillMatchPercentage * expMultiplier));
-
-        const { freshness, daysOld } = this.getFreshnessLabel(job.createdAt);
+        const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding);
+        const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
 
         return {
           ...job,
-          matchScore: adjustedMatchScore,
-          matchTier: this.getMatchTier(adjustedMatchScore),
-          skillMatches: matchingSkills,
-          partialSkillMatches: partialMatchSkills,
-          aiExplanation: matchingSkills.length > 0 || partialMatchSkills.length > 0
-            ? `${matchingSkills.length} direct + ${partialMatchSkills.length} related skill matches`
-            : 'No skill overlap found',
+          matchScore: score.matchScore,
+          matchTier: score.matchTier,
+          skillMatches: score.skillMatches,
+          partialSkillMatches: score.partialSkillMatches,
+          aiExplanation: score.aiExplanation,
           isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90,
           isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
           freshness,
@@ -1049,7 +976,7 @@ export class DatabaseStorage implements IStorage {
         }
         if (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0) {
           const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
-          const inferred = LEVELS[this.inferJobLevel(job.title)];
+          const inferred = LEVELS[inferJobLevel(job.title)];
           // Compare case-insensitively: stored values may be "Senior" while LEVELS uses "senior"
           const preferredLevels = (jobPreferences.experienceLevels as string[]).map((l: string) => l.toLowerCase());
           if (!preferredLevels.includes(inferred)) {return false;}
@@ -1058,8 +985,8 @@ export class DatabaseStorage implements IStorage {
       })
       .sort((a, b) => {
         // Composite score: 60% skill match + 20% trust + 20% recency
-        const recencyA = this.computeRecencyScore(a.createdAt);
-        const recencyB = this.computeRecencyScore(b.createdAt);
+        const recencyA = computeRecencyScore(a.createdAt);
+        const recencyB = computeRecencyScore(b.createdAt);
         const scoreA = 0.60 * (a.matchScore / 100) + 0.20 * ((a.trustScore || 0) / 100) + 0.20 * recencyA;
         const scoreB = 0.60 * (b.matchScore / 100) + 0.20 * ((b.trustScore || 0) / 100) + 0.20 * recencyB;
         return scoreB - scoreA;
@@ -1072,12 +999,12 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get job recommendations as a flat array (backward-compatible for /api/ai-matches).
    */
-  async getJobRecommendations(candidateId: string): Promise<any[]> {
+  async getJobRecommendations(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }): Promise<any[]> {
     try {
-      const recommendations = await this.fetchScoredJobs(candidateId);
+      const recommendations = await this.fetchScoredJobs(candidateId, filters);
       if (!recommendations) {return [];}
-      console.log(`Returning ${Math.min(recommendations.length, 20)} job recommendations`);
-      return recommendations.slice(0, 20);
+      console.log(`Returning ${Math.min(recommendations.length, 50)} job recommendations`);
+      return recommendations.slice(0, 50);
     } catch (error) {
       console.error('Error fetching job recommendations:', error);
       throw error;

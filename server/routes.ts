@@ -29,7 +29,6 @@ import {
 import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
 import { db, testDbConnection } from "./db";
 import { seedDatabase } from "./seed.js";
-import { advancedMatchingEngine, EnhancedJobMatch } from "./advanced-matching-engine";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
 import { ExamService } from './services/exam.service';
 import { aiResumeParser } from './ai-resume-parser';
@@ -38,9 +37,7 @@ import { supabaseAdmin } from "./lib/supabase-admin";
 import { CompanyJob } from '../server/company-jobs-aggregator';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
 import { jobIngestionService } from './services/job-ingestion.service';
-import { calculateMLMatchScore, generateCandidateEmbedding, getModelInfo, isModelLoaded } from './ml-matching';
-import { normalizeSkills, getRelatedSkills } from './skill-normalizer';
-import { extractSkillsFromText } from './utils/skill-extractor';
+import { getModelInfo } from './ml-matching';
 import { sendWelcomeEmail, sendEmail } from './email-service';
 import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
 import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
@@ -56,127 +53,6 @@ const ADMIN_EMAILS = new Set(
 );
 function isAdminUser(req: any): boolean {
   return ADMIN_EMAILS.has(req.user?.email?.toLowerCase());
-}
-
-// In-memory cache for RemoteOK jobs (15-min TTL)
-let remoteOkCache: { data: any[]; timestamp: number; key: string } | null = null;
-const REMOTEOK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-
-// In-memory cache for WeWorkRemotely jobs (30-min TTL)
-let wwrCache: { data: any[]; timestamp: number; key: string } | null = null;
-const WWR_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-
-// Skills that are medical/healthcare-specific and should not drive tech job queries
-const MEDICAL_SKILL_SET = new Set([
-  'patient care','bls certified','cpr certified',
-  'hipaa compliance','electronic medical records','phlebotomy'
-]);
-
-// ML-enhanced job scoring (disable with ENABLE_ML_MATCHING=false)
-const mlScoringEnabled = process.env.ENABLE_ML_MATCHING !== 'false';
-
-/**
- * Simple skill-matching fallback (no ML model needed)
- */
-function simpleSkillMatch(candidateSkills: string[], job: any): {
-  matchScore: number;
-  skillMatches: string[];
-  aiExplanation: string;
-  confidenceLevel: number;
-} {
-  const normalizedCand = normalizeSkills(candidateSkills).map(s => s.toLowerCase());
-  const normalizedJob  = normalizeSkills(job.skills || []).map(s => s.toLowerCase());
-  // Floor of 3 prevents a 1-skill job from always scoring 100%
-  const jobSkillsCount = Math.max(normalizedJob.length, 3);
-
-  const exactMatches = normalizedCand.filter(s => normalizedJob.includes(s));
-  const exactMatchSet = new Set(exactMatches);
-
-  // Partial credit for SKILL_PARENTS relationships (e.g. Next.js → React)
-  const partialMatches: string[] = [];
-  for (const skill of candidateSkills) {
-    for (const related of getRelatedSkills(skill)) {
-      const r = related.toLowerCase();
-      if (normalizedJob.includes(r) && !exactMatchSet.has(r)) {
-        partialMatches.push(related);
-      }
-    }
-  }
-
-  const effectiveMatches = exactMatches.length + 0.5 * partialMatches.length;
-  const matchScore = Math.min(100, Math.round((effectiveMatches / jobSkillsCount) * 100));
-
-  return {
-    matchScore,
-    skillMatches: [...exactMatches, ...partialMatches.map(s => `~${s}`)],
-    aiExplanation: effectiveMatches > 0
-      ? `${exactMatches.length} direct + ${partialMatches.length} related skill matches`
-      : 'No skill matches found',
-    confidenceLevel: 1,
-  };
-}
-
-/**
- * Enhanced job scoring using ML embeddings (open-source)
- */
-async function scoreJobWithML(
-  candidateSkills: string[],
-  candidateExperience: string,
-  job: any,
-  precomputedCandidateEmbedding?: number[]
-): Promise<{
-  matchScore: number;
-  skillMatches: string[];
-  aiExplanation: string;
-  confidenceLevel: number;
-}> {
-  // Scraped jobs often have skills: [] — extract from description so explicit matching works.
-  const effectiveJobSkills: string[] = (job.skills && (job.skills as string[]).length > 0)
-    ? job.skills
-    : extractSkillsFromText(job.description || '');
-
-  if (!mlScoringEnabled) {
-    return simpleSkillMatch(candidateSkills, { ...job, skills: effectiveJobSkills });
-  }
-
-  // Only use the HF API when a stored embedding is available — otherwise fall back to
-  // simpleSkillMatch (with description-extracted skills). This lets us score 50+ jobs
-  // per request without chaining N HF API calls and hitting the timeout.
-  let precomputedJobEmbedding: number[] | undefined;
-  if (job.vectorEmbedding && job.embeddingUpdatedAt) {
-    const daysSince = (Date.now() - new Date(job.embeddingUpdatedAt).getTime()) / 86400000;
-    if (daysSince < 7) {
-      try { precomputedJobEmbedding = JSON.parse(job.vectorEmbedding); } catch { /* ignore */ }
-    }
-  }
-
-  if (!precomputedJobEmbedding) {
-    // No stored embedding — skip HF API, use fast skill matching instead.
-    return simpleSkillMatch(candidateSkills, { ...job, skills: effectiveJobSkills });
-  }
-
-  try {
-    const mlResult = await calculateMLMatchScore(
-      candidateSkills,
-      candidateExperience,
-      job.title || '',
-      job.description || '',
-      job.requirements || [],
-      effectiveJobSkills,
-      precomputedCandidateEmbedding,
-      precomputedJobEmbedding
-    );
-
-    return {
-      matchScore: Math.max(0, mlResult.score),
-      skillMatches: mlResult.skillMatches,
-      aiExplanation: mlResult.explanation,
-      confidenceLevel: mlResult.confidence, // 0-100, no division
-    };
-  } catch (error) {
-    console.warn('[ML Scoring] Falling back to simple matching:', error);
-    return simpleSkillMatch(candidateSkills, job);
-  }
 }
 
 type AggregatedJob = (JobPosting | CompanyJob) & { aiCurated: boolean };
@@ -481,387 +357,55 @@ export async function registerRoutes(app: Express): Promise<Express> {
     };
   }
 
-  // AI-powered job matching
+  // AI-powered job matching — single DB query, scored in application code
   app.get('/api/ai-matches', isAuthenticated, asyncHandler(async (req: any, res) => {
-    const MATCHING_TIMEOUT_MS = 45000; // 45 second timeout - increased to allow ML model to load on first request (can take 10-30s)
-    const EARLY_RETURN_THRESHOLD_MS = 30000; // return DB-only results if exceeded after fetches
-    const BATCH_ABORT_THRESHOLD_MS = 20000;  // stop scoring batches if exceeded
+    const TIMEOUT_MS = 10000;
 
-    // Create a timeout controller
     let timeoutId: NodeJS.Timeout;
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Matching timeout')), MATCHING_TIMEOUT_MS);
+      timeoutId = setTimeout(() => reject(new Error('Matching timeout')), TIMEOUT_MS);
     });
-    
     const finish = () => clearTimeout(timeoutId);
-    
+
     try {
       const userId = req.user.id;
-      console.log(`Fetching job recommendations for user: ${userId}`);
+      console.log(`[ai-matches] user=${userId}`);
 
-      const candidate = await storage.getCandidateUser(userId);
-      const candidateSkills = candidate?.skills || [];
-
-      const startTime = Date.now();
-
-      // Add timeout to prevent hanging on database issues
-      const dbTimeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('DB recommendations timeout')), 8000)
-      );
-
-      const dbPromise = Promise.race([
-        storage.getJobRecommendations(userId),
-        dbTimeoutPromise
-      ]).catch((err: Error) => {
-        console.warn('[Matching] DB recommendations failed:', err?.message);
-        return [] as any[];
-      });
-
-      // Also try RemoteOK as fallback (free, no rate limits) — cached for 15 min
-      const topTechSkills = (candidateSkills as string[])
-        .filter((s: string) => !MEDICAL_SKILL_SET.has(s.toLowerCase()))
-        .slice(0, 3);
-      const remoteOkCacheKey = topTechSkills.join(',');
-
-      const remoteOkPromise = (async () => {
-        if (candidateSkills.length === 0) {return [];}
-        // Return cached data if fresh and for the same skill key
-        if (remoteOkCache && remoteOkCache.key === remoteOkCacheKey && Date.now() - remoteOkCache.timestamp < REMOTEOK_CACHE_TTL) {
-          console.log(`[RemoteOK] Cache hit (${remoteOkCache.data.length} jobs, key: ${remoteOkCacheKey})`);
-          return remoteOkCache.data;
-        }
-        try {
-          const { JobAggregator } = await import('./job-aggregator.js');
-          const aggregator = new JobAggregator();
-          const jobs = await aggregator.fetchRemoteOKJobs(topTechSkills.length > 0 ? topTechSkills : undefined);
-          console.log(`[RemoteOK] Got ${jobs.length} jobs for tags: ${remoteOkCacheKey || '(none)'}`);
-          remoteOkCache = { data: jobs, timestamp: Date.now(), key: remoteOkCacheKey };
-          return jobs;
-        } catch (err) {
-          console.warn('[RemoteOK] Failed:', err);
-          // Return stale cache on error
-          if (remoteOkCache) {
-            console.log(`[RemoteOK] Returning stale cache (${remoteOkCache.data.length} jobs)`);
-            return remoteOkCache.data;
-          }
-          return [];
-        }
-      })();
-
-      // Also fetch from WeWorkRemotely (cached 30 min)
-      const wwrCacheKey = candidateSkills.slice(0, 2).join(',');
-      const wwrPromise = (async () => {
-        if (candidateSkills.length === 0) return [];
-        if (wwrCache && wwrCache.key === wwrCacheKey && Date.now() - wwrCache.timestamp < WWR_CACHE_TTL) {
-          console.log(`[WWR] Cache hit (${wwrCache.data.length} jobs)`);
-          return wwrCache.data;
-        }
-        try {
-          const { JobAggregator } = await import('./job-aggregator.js');
-          const aggregator = new JobAggregator();
-          const jobs = await aggregator.fetchWeWorkRemotelyJobs();
-          console.log(`[WWR] Got ${jobs.length} jobs`);
-          wwrCache = { data: jobs, timestamp: Date.now(), key: wwrCacheKey };
-          return jobs;
-        } catch (err) {
-          console.warn('[WWR] Failed:', err);
-          return wwrCache?.data || [];
-        }
-      })();
-
-      // Fetch company career page jobs (Greenhouse/Lever/Ashby/etc.) stored by daily cron
       const filters = {
         jobTitle: (req.query.jobTitle as string) || undefined,
         location: (req.query.location as string) || undefined,
         workType: (req.query.workType as string) || undefined,
       };
-      const companyJobsPromise = Promise.race([
-        storage.getExternalJobs(candidateSkills as string[], filters),
-        new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('Company jobs timeout')), 8000))
-      ]).catch((err: Error) => {
-        console.warn('[CompanyJobs] DB fetch failed:', err?.message);
-        return [] as any[];
-      });
 
-      const [dbResult, remoteOkResult, wwrResult, companyJobsResult] = await Promise.race([
-        Promise.allSettled([dbPromise, remoteOkPromise, wwrPromise, companyJobsPromise]),
-        timeoutPromise
-      ]) as any;
-
-      const recommendations = (dbResult?.status === 'fulfilled' ? dbResult.value : []) as any[];
-      const remoteOkJobs = (remoteOkResult?.status === 'fulfilled' ? remoteOkResult.value : []) as any[];
-      const wwrJobs = (wwrResult?.status === 'fulfilled' ? wwrResult.value : []) as any[];
-      const companyJobs = (companyJobsResult?.status === 'fulfilled' ? companyJobsResult.value : []) as any[];
-
-      // If we've exceeded the early-return threshold, return DB results only without ML scoring
-      if (Date.now() - startTime > EARLY_RETURN_THRESHOLD_MS) {
-        console.log('[Matching] Timeout approaching - returning DB results without external jobs');
-        finish();
-        return res.json(recommendations);
-      }
-
-      const candidateExperience = candidate?.experience || '';
-
-      const useML = mlScoringEnabled && isModelLoaded();
-
-      // Pre-compute candidate embedding once (reused for both internal and external job scoring).
-      let candidateEmbedding: number[] | undefined;
-      if (useML && candidateSkills.length > 0) {
-        try {
-          candidateEmbedding = await generateCandidateEmbedding(candidateSkills, candidateExperience);
-        } catch (err) {
-          console.warn('[ML Scoring] Failed to pre-compute candidate embedding:', err);
-        }
-      }
-      if (!useML) {
-        console.log('[ML Scoring] Model not yet loaded — using simple skill matching (fast path)');
-      }
-
-      // Re-score internal DB jobs with ML matching for semantic title matching
-      let mlScoredRecommendations = recommendations;
-      if (useML && candidateEmbedding && recommendations.length > 0 && candidateSkills.length > 0) {
-        console.log(`[ML] Re-scoring ${recommendations.length} internal jobs with ML for semantic matching`);
-        try {
-          const batchSize = 5;
-          const scored: any[] = [];
-          for (let i = 0; i < recommendations.length; i += batchSize) {
-            if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
-              console.log('[ML] Timeout - stopping internal job scoring');
-              break;
-            }
-            const batch = recommendations.slice(i, i + batchSize);
-            const batchResults = await Promise.allSettled(
-              batch.map(async (job) => {
-                const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-                return {
-                  ...job,
-                  matchScore: mlScore.matchScore,
-                  skillMatches: mlScore.skillMatches,
-                  aiExplanation: mlScore.aiExplanation,
-                  confidenceLevel: mlScore.confidenceLevel,
-                };
-              })
-            );
-            scored.push(...batchResults
-              .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-              .map(r => r.value));
-          }
-          mlScoredRecommendations = scored;
-          const mlPassingCount = mlScoredRecommendations.filter(j => j.matchScore >= 20).length;
-          const originalPassingCount = recommendations.filter(j => j.matchScore >= 20).length;
-          console.log(`[ML] Re-scored internal jobs: ${mlPassingCount} pass 20% threshold (vs ${originalPassingCount} original)`);
-
-          // Fallback: if ML scored fewer jobs than original matching, keep original results
-          if (mlPassingCount < originalPassingCount) {
-            console.log('[ML] Using original matching results (ML scored fewer jobs)');
-            mlScoredRecommendations = recommendations;
-          }
-        } catch (err) {
-          console.warn('[ML] Failed to re-score internal jobs:', err);
-        }
-      }
-
-      const batchSize = 3;
-
-      // Deduplicate RemoteOK against DB results
-      const seenKeys = new Set(
-        recommendations.map((j: any) => `${j.title?.toLowerCase()}|${j.company?.toLowerCase()}`)
-      );
-
-      // Score and add RemoteOK jobs (ML if loaded, otherwise simple matching)
-      let scoredRemoteOkJobs: any[] = [];
-      const remoteOkLimit = remoteOkJobs.slice(0, 25);
-      if (useML) {
-        for (let i = 0; i < remoteOkLimit.length; i += batchSize) {
-          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) {
-            console.log('[Matching] Timeout - stopping RemoteOK job scoring');
-            break;
-          }
-          const batch = remoteOkLimit.slice(i, i + batchSize);
-          const batchResults = await Promise.allSettled(
-            batch.map(async (job: any) => {
-              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-              return {
-                ...job,
-                id: job.id || `remoteok_${job.externalId}`,
-                matchScore: mlScore.matchScore,
-                skillMatches: mlScore.skillMatches,
-                aiExplanation: mlScore.aiExplanation,
-                confidenceLevel: mlScore.confidenceLevel,
-                source: 'remote-ok',
-                trustScore: job.trustScore ?? 50,
-                livenessStatus: job.livenessStatus ?? 'unknown',
-              };
-            })
-          );
-          scoredRemoteOkJobs.push(...batchResults
-            .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-            .map(r => r.value));
-        }
-      } else {
-        // Fast path: synchronous simple skill matching
-        scoredRemoteOkJobs = remoteOkLimit.map((job: any) => {
-          const score = simpleSkillMatch(candidateSkills, job);
-          return {
-            ...job,
-            id: job.id || `remoteok_${job.externalId}`,
-            matchScore: score.matchScore,
-            skillMatches: score.skillMatches,
-            aiExplanation: score.aiExplanation,
-            confidenceLevel: score.confidenceLevel,
-            source: 'remote-ok',
-            trustScore: job.trustScore ?? 50,
-            livenessStatus: job.livenessStatus ?? 'unknown',
-          };
-        });
-      }
-
-      // Filter RemoteOK jobs by match score and deduplication.
-      // Must add each accepted key back to seenKeys so identical jobs in the
-      // RemoteOK list don't both pass (seenKeys is only checked, never updated here otherwise).
-      const filteredRemoteOkJobs = scoredRemoteOkJobs.filter((job: any) => {
-        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
-        if (!seenKeys.has(key)) {
-          if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
-            seenKeys.add(key);
-            return true;
-          }
-        }
-        return false;
-      });
-
-      // Score and add WeWorkRemotely jobs
-      let scoredWwrJobs: any[] = [];
-      const wwrLimit = wwrJobs.filter((job: any) => {
-        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
-        return !seenKeys.has(key);
-      }).slice(0, 25);
-      if (useML) {
-        for (let i = 0; i < wwrLimit.length; i += batchSize) {
-          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) break;
-          const batch = wwrLimit.slice(i, i + batchSize);
-          const batchResults = await Promise.allSettled(
-            batch.map(async (job: any) => {
-              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-              return { ...job, id: job.id, matchScore: mlScore.matchScore, skillMatches: mlScore.skillMatches, aiExplanation: mlScore.aiExplanation, confidenceLevel: mlScore.confidenceLevel, source: 'wwr', trustScore: job.trustScore ?? 80, livenessStatus: 'active' };
-            })
-          );
-          scoredWwrJobs.push(...batchResults.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').map(r => r.value));
-        }
-      } else {
-        scoredWwrJobs = wwrLimit.map((job: any) => {
-          const score = simpleSkillMatch(candidateSkills, job);
-          return { ...job, id: job.id, matchScore: score.matchScore, skillMatches: score.skillMatches, aiExplanation: score.aiExplanation, confidenceLevel: score.confidenceLevel, source: 'wwr', trustScore: job.trustScore ?? 80, livenessStatus: 'active' };
-        });
-      }
-      const filteredWwrJobs = scoredWwrJobs.filter((job: any) => {
-        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
-        if (!seenKeys.has(key)) {
-          if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
-            seenKeys.add(key);
-            return true;
-          }
-        }
-        return false;
-      });
-
-      // Score and add company career page jobs (Greenhouse/Lever/Ashby/etc.)
-      let scoredCompanyJobs: any[] = [];
-      const companyJobsLimit = companyJobs.filter((job: any) => {
-        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
-        return !seenKeys.has(key);
-      }).slice(0, 50);
-      if (useML && companyJobsLimit.length > 0) {
-        for (let i = 0; i < companyJobsLimit.length; i += batchSize) {
-          if (Date.now() - startTime > BATCH_ABORT_THRESHOLD_MS) break;
-          const batch = companyJobsLimit.slice(i, i + batchSize);
-          const batchResults = await Promise.allSettled(
-            batch.map(async (job: any) => {
-              const mlScore = await scoreJobWithML(candidateSkills, candidateExperience, job, candidateEmbedding);
-              return { ...job, matchScore: mlScore.matchScore, skillMatches: mlScore.skillMatches, aiExplanation: mlScore.aiExplanation, confidenceLevel: mlScore.confidenceLevel, trustScore: job.trustScore ?? 75, livenessStatus: 'active' };
-            })
-          );
-          scoredCompanyJobs.push(...batchResults.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').map(r => r.value));
-        }
-      } else {
-        scoredCompanyJobs = companyJobsLimit.map((job: any) => {
-          const score = simpleSkillMatch(candidateSkills, job);
-          return { ...job, matchScore: score.matchScore, skillMatches: score.skillMatches, aiExplanation: score.aiExplanation, confidenceLevel: score.confidenceLevel, trustScore: job.trustScore ?? 75, livenessStatus: 'active' };
-        });
-      }
-      const filteredCompanyJobs = scoredCompanyJobs.filter((job: any) => {
-        const key = `${job.title?.toLowerCase()}|${job.company?.toLowerCase()}`;
-        if (!seenKeys.has(key)) {
-          if (recommendations.length > 0 ? job.matchScore >= 40 : true) {
-            seenKeys.add(key);
-            return true;
-          }
-        }
-        return false;
-      });
-
-      const allRecommendations = [...(mlScoredRecommendations || []), ...filteredRemoteOkJobs, ...filteredWwrJobs, ...filteredCompanyJobs];
+      // Single DB query — scored, filtered, and sorted inside storage layer
+      const allRecommendations = await Promise.race([
+        storage.getJobRecommendations(userId, filters),
+        timeoutPromise,
+      ]) as any[];
 
       finish();
+      console.log(`[ai-matches] ${allRecommendations.length} matched jobs`);
 
-      console.log(`Found ${recommendations?.length || 0} DB + ${filteredRemoteOkJobs.length} RemoteOK + ${filteredWwrJobs.length} WWR + ${filteredCompanyJobs.length} company jobs`);
-
-      // If still no recommendations, fetch recent jobs from DB as fallback (no skill matching)
-      if (allRecommendations.length === 0 && candidateSkills.length > 0) {
-        console.log('No skill-matched jobs found - fetching recent jobs as fallback');
-        
-        const { db } = await import('./db.js');
-        const { jobPostings } = await import('../shared/schema.js');
-        
-        const recentJobs = await db
-          .select()
-          .from(jobPostings)
-          .where(sql`${jobPostings.status} = 'active'`)
-          .orderBy(sql`${jobPostings.createdAt} DESC`)
-          .limit(20);
-          
-        if (recentJobs.length > 0) {
-          // Return sectioned format
-          const applyAndKnowToday = recentJobs
-            .filter((job: any) => job.source === 'platform' || !job.externalUrl)
-            .map((job: any, index: number) => formatJobMatch(job, index, 'Recent job - upload your resume to improve matching'));
-          
-          const matchedForYou = recentJobs
-            .filter((job: any) => job.source !== 'platform' && job.externalUrl)
-            .map((job: any, index: number) => formatJobMatch(job, index, 'Recent job - upload your resume to improve matching'));
-          
-          return res.json({ applyAndKnowToday, matchedForYou });
-        }
-      }
-
-      // Return empty array if still no recommendations
       if (allRecommendations.length === 0) {
-        console.log('No job recommendations found - candidate may have no skills in profile or no matching jobs');
         return res.json({ applyAndKnowToday: [], matchedForYou: [] });
       }
 
-      // Transform into sectioned format
+      // Split into sections (already sorted by composite score from storage)
       const applyAndKnowToday = allRecommendations
         .filter((job: any) => job.source === 'platform' || !job.externalUrl)
         .map((job: any, index: number) => formatJobMatch(job, index));
-
       const matchedForYou = allRecommendations
         .filter((job: any) => job.source !== 'platform' && job.externalUrl)
         .map((job: any, index: number) => formatJobMatch(job, index));
 
-      console.log(`Sectioned: ${applyAndKnowToday.length} applyAndKnowToday, ${matchedForYou.length} matchedForYou`);
-
-      // Return sectioned response
+      console.log(`[ai-matches] Sections: ${applyAndKnowToday.length} apply, ${matchedForYou.length} matched`);
       res.json({ applyAndKnowToday, matchedForYou });
     } catch (error: any) {
-      console.error('Error fetching job matches:', error?.message);
+      console.error('[ai-matches] Error:', error?.message);
       finish();
-
-      // Return empty sections on timeout/connection errors - better UX than 500 error
       if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
         return res.json({ applyAndKnowToday: [], matchedForYou: [] });
       }
-
       res.status(500).json({
         message: "Failed to generate job matches",
         details: process.env.NODE_ENV === 'development' ? error?.message : undefined
@@ -2242,13 +1786,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(403).json({ message: "Unauthorized to view these matches" });
       }
 
-      // Race between matching and timeout
+      // Use the unified matching pipeline
       const matches = await Promise.race([
-        advancedMatchingEngine.getPersonalizedJobFeed(candidateId),
+        storage.getJobRecommendations(candidateId),
         timeoutPromise
-      ]) as EnhancedJobMatch[];
-      
-      res.json({ matches: matches || [], total: matches?.length || 0, algorithm: 'SOTA-10-factor' });
+      ]) as any[];
+
+      res.json({ matches: matches || [], total: matches?.length || 0, algorithm: 'skill-match-v2' });
     } catch (error: any) {
       console.error("Error fetching advanced matches:", error?.message);
       if (error?.message?.includes('timeout')) {
@@ -2261,7 +1805,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
   app.put('/api/candidate/match-preferences', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
       const preferences = req.body;
-      await advancedMatchingEngine.updateMatchPreferences(req.user.id, preferences);
+      // Store preferences on the candidate profile — fetchScoredJobs reads them
+      const { candidateProfiles } = await import('../shared/schema.js');
+      await db.update(candidateProfiles)
+        .set({ jobPreferences: preferences })
+        .where(eq(candidateProfiles.userId, req.user.id));
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating match preferences:", error);
@@ -2668,11 +2216,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Warm in background — fire and forget
       (async () => {
-        const { advancedMatchingEngine } = await import('./advanced-matching-engine.js');
         let warmed = 0;
         for (const candidate of withSkills) {
           try {
-            await advancedMatchingEngine.getPersonalizedJobFeed(candidate.userId);
+            await storage.getJobRecommendations(candidate.userId);
             warmed++;
             await new Promise(r => setTimeout(r, 100));
           } catch (e: any) {

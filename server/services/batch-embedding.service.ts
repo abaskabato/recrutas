@@ -155,17 +155,23 @@ export async function findSimilarJobs(
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('[BatchEmbed] Running as CLI script...');
-  
+
   const limit = parseInt(process.env.BATCH_LIMIT || '500');
   const force = process.argv.includes('--force');
-  
-  batchComputeEmbeddings(limit, force)
-    .then((result) => {
-      console.log('[BatchEmbed] Done:', result);
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error('[BatchEmbed] Failed:', err);
-      process.exit(1);
-    });
+
+  (async () => {
+    // Job embeddings
+    const jobResult = await batchComputeEmbeddings(limit, force);
+    console.log('[BatchEmbed] Jobs done:', jobResult);
+
+    // Candidate embeddings backfill
+    const { backfillCandidateEmbeddings } = await import('./candidate-embedding.service.js');
+    const candidateResult = await backfillCandidateEmbeddings(100);
+    console.log('[BatchEmbed] Candidates done:', candidateResult);
+
+    process.exit(0);
+  })().catch((err) => {
+    console.error('[BatchEmbed] Failed:', err);
+    process.exit(1);
+  });
 }

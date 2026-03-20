@@ -168,34 +168,30 @@ export const profileUpdatedFunction = inngest.createFunction(
 
     // Step 1: warm the match cache and return top matches
     const matchResult = await step.run('warm-matches', async () => {
-      const { advancedMatchingEngine } = await import('./advanced-matching-engine.js');
       const { storage } = await import('./storage.js');
-      const matches = await advancedMatchingEngine.getPersonalizedJobFeed(candidateId);
+      const matches = await storage.getJobRecommendations(candidateId);
       console.log(`[Inngest] Warmed match cache for candidate ${candidateId}`);
 
-      // Fetch job details for top 5 to include in the email
+      // Top 5 matches already have full job data
       const top5 = (matches ?? []).slice(0, 5);
-      const jobDetails = await Promise.all(
-        top5.map(async (m) => {
-          const job = await storage.getJobPosting(m.jobId);
-          if (!job) return null;
+      const jobDetails = top5.map((m: any) => {
+          if (!m.id) return null;
           return {
-            jobId: m.jobId,
-            title: job.title,
-            company: job.company,
-            location: job.location ?? null,
-            workType: job.workType ?? null,
-            salaryMin: job.salaryMin ?? null,
-            salaryMax: job.salaryMax ?? null,
-            matchScore: Math.round(m.finalScore * 100),
+            jobId: m.id,
+            title: m.title,
+            company: m.company,
+            location: m.location ?? null,
+            workType: m.workType ?? null,
+            salaryMin: m.salaryMin ?? null,
+            salaryMax: m.salaryMax ?? null,
+            matchScore: m.matchScore ?? 0,
             skillMatches: m.skillMatches ?? [],
           };
-        })
-      );
+      }).filter(Boolean);
 
       return {
         count: matches?.length ?? 0,
-        jobs: jobDetails.filter(Boolean),
+        jobs: jobDetails,
       };
     });
 

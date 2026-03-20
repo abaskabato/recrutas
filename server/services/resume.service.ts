@@ -4,6 +4,7 @@ import { User } from '@shared/schema';
 import { normalizeSkills } from '../skill-normalizer';
 import { sendInngestEvent } from '../inngest-service.js';
 import { captureException } from '../error-monitoring';
+import { updateCandidateEmbedding } from './candidate-embedding.service';
 
 /**
  * Custom error for resume processing failures
@@ -232,6 +233,12 @@ export class ResumeService {
       await this.storage.upsertCandidateUser(profileUpdate);
       console.log(`[ResumeService] Profile updated for user: ${userId}`);
 
+      // Compute candidate embedding in background (non-blocking)
+      if (extractedSkills.length > 0) {
+        updateCandidateEmbedding(userId, extractedSkills, profileUpdate.experience || '')
+          .catch((e: any) => console.warn('[ResumeService] Embedding failed:', e?.message));
+      }
+
       // Fire match warming in background (non-blocking)
       if (parsingSuccess) {
         sendInngestEvent('candidate/profile-updated', { candidateId: userId }).catch(() => {});
@@ -390,6 +397,12 @@ export class ResumeService {
       }
 
       await this.storage.upsertCandidateUser(profileUpdate);
+
+      // Compute candidate embedding in background (non-blocking)
+      if (extractedSkills.length > 0) {
+        updateCandidateEmbedding(userId, extractedSkills, profileUpdate.experience || '')
+          .catch((e: any) => console.warn('[ResumeService] Embedding failed:', e?.message));
+      }
 
       // Fire match warming on success
       if (parsingSuccess) {

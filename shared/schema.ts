@@ -89,6 +89,9 @@ export const candidateProfiles = pgTable("candidate_users", {
   resumeProcessingStatus: varchar("resume_processing_status", { enum: ["idle", "processing", "completed", "failed"] }).default("idle"),
   parseAttempts: integer("parse_attempts").default(0),
   jobPreferences: jsonb("job_preferences").default({} as any),
+  // Pre-computed vector embedding for semantic matching (JSON array, 1024-dim BGE-M3)
+  vectorEmbedding: text("vector_embedding"),
+  embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
