@@ -26,7 +26,7 @@ import {
   agentTasks,
   JobPosting,
 } from "@shared/schema";
-import { generateJobMatch, generateScreeningQuestions } from "./ai-service";
+import { generateScreeningQuestions } from "./ai-service";
 import { db, testDbConnection } from "./db";
 import { seedDatabase } from "./seed.js";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';

@@ -1079,32 +1079,42 @@ export class DatabaseStorage implements IStorage {
         )
         .limit(50);
 
-      // 2. Score them using AI engine — run in parallel batches of 10
-      const { generateJobMatch } = await import("./ai-service");
+      // 2. Score using the same scoreJob used in the candidate feed — single source of truth
       const matches = [];
-      const SCORE_BATCH = 10;
 
-      for (let i = 0; i < candidates.length; i += SCORE_BATCH) {
-        const batch = (candidates as any[]).slice(i, i + SCORE_BATCH);
-        const results = await Promise.all(
-          batch.map(async ({ candidate_profiles: profile, users: user }) => {
-            const match = await generateJobMatch(profile, job);
-            if (match.score <= 0.4) return null;
-            return {
-              candidateId: user.id,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              email: user.email,
-              profileImageUrl: user.profileImageUrl,
-              skills: profile.skills,
-              experience: profile.experience,
-              matchScore: Math.round(match.score * 100),
-              aiExplanation: match.aiExplanation,
-              skillMatches: match.skillMatches,
-            };
-          })
-        );
-        matches.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
+      for (const { candidate_profiles: profile, users: user } of candidates as any[]) {
+        const candSkills = parseSkillsInput(profile.skills);
+        // Extract previous titles from parsing data
+        const titles: string[] = [];
+        const pd = profile.resumeParsingData as any;
+        if (pd?.positions && Array.isArray(pd.positions)) {
+          for (const pos of pd.positions) {
+            if (pos.title && typeof pos.title === 'string' && pos.title.trim().length > 2) {
+              titles.push(pos.title.trim());
+            }
+          }
+        }
+        // Parse candidate embedding if available
+        let candEmb: number[] | undefined;
+        if (profile.vectorEmbedding) {
+          try { candEmb = JSON.parse(profile.vectorEmbedding); } catch { /* skip */ }
+        }
+
+        const score = scoreJob(candSkills, profile.experienceLevel, job, candEmb, titles);
+        if (score.matchScore < 30) continue;
+
+        matches.push({
+          candidateId: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImageUrl: user.profileImageUrl,
+          skills: profile.skills,
+          experience: profile.experience,
+          matchScore: score.matchScore,
+          aiExplanation: score.aiExplanation,
+          skillMatches: score.skillMatches,
+        });
       }
 
       // 3. Sort by score

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import mammoth from 'mammoth';
-import { generateJobMatch } from './ai-service';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
 import { callAI, callGeminiWithPDF } from './lib/ai-client';

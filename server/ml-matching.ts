@@ -5,8 +5,6 @@
  * No local ONNX/WASM model, no cold-start delays.
  */
 
-import { normalizeSkills } from './skill-normalizer.js';
-
 const HF_MODEL_URL =
   'https://router.huggingface.co/hf-inference/models/BAAI/bge-m3';
 
@@ -143,122 +141,6 @@ export async function generateCandidateEmbedding(
   ].join(' ').trim();
   const result = await generateEmbedding(candidateText);
   return result.embedding;
-}
-
-/**
- * Calculate embedding similarity between candidate and job.
- * Returns score 0-100.
- */
-export async function calculateMLMatchScore(
-  candidateSkills: string[],
-  candidateExperience: string,
-  jobTitle: string,
-  jobDescription: string,
-  jobRequirements: string[],
-  jobSkills: string[],
-  precomputedCandidateEmbedding?: number[],
-  precomputedJobEmbedding?: number[]
-): Promise<{
-  score: number;
-  confidence: number;
-  skillMatches: string[];
-  explanation: string;
-}> {
-  try {
-    // Prepare job text for embedding
-    const jobText = [
-      jobTitle,
-      ...(jobSkills || []),
-      ...(jobRequirements || []),
-      (jobDescription || '').slice(0, 1000),
-    ].join(' ').trim();
-
-    // Reuse pre-computed candidate embedding or generate a new one
-    let candidateEmbeddingVec: number[];
-    if (precomputedCandidateEmbedding && precomputedCandidateEmbedding.length > 0) {
-      candidateEmbeddingVec = precomputedCandidateEmbedding;
-    } else {
-      candidateEmbeddingVec = await generateCandidateEmbedding(candidateSkills, candidateExperience);
-    }
-
-    // Reuse pre-computed job embedding or generate a new one
-    let jobEmbeddingVec: number[];
-    if (precomputedJobEmbedding && precomputedJobEmbedding.length > 0) {
-      jobEmbeddingVec = precomputedJobEmbedding;
-    } else {
-      const jobEmbedding = await generateEmbedding(jobText);
-      jobEmbeddingVec = jobEmbedding.embedding;
-    }
-
-    // Calculate semantic similarity using ML embeddings
-    const baseSimilarity = cosineSimilarity(candidateEmbeddingVec, jobEmbeddingVec);
-
-    // Check explicit skill matches (canonical exact match, no substring false positives)
-    const normalizedCandSkills = normalizeSkills(candidateSkills).map(s => s.toLowerCase());
-    const normalizedJobSkillSet = new Set(
-      normalizeSkills([...(jobSkills || []), ...(jobRequirements || [])]).map(s => s.toLowerCase())
-    );
-    const explicitMatches: string[] = [];
-    for (const skill of normalizedCandSkills) {
-      if (normalizedJobSkillSet.has(skill) && !explicitMatches.includes(skill)) {
-        explicitMatches.push(skill);
-      }
-    }
-
-    // Combine ML similarity with explicit matches
-    // ML similarity: 70%, Explicit matches: 30%
-    const explicitMatchBonus = Math.min(explicitMatches.length * 0.1, 0.3);
-    let finalScore = Math.min((baseSimilarity * 0.7) + explicitMatchBonus, 1.0);
-    // Semantic similarity alone shouldn't rank unrelated jobs highly —
-    // cap at 25% when there is no explicit skill overlap
-    if (explicitMatches.length === 0) { finalScore = Math.min(finalScore, 0.25); }
-
-    // Confidence based on text quality
-    const candidateTextLength = candidateSkills.join(' ').length + (candidateExperience || '').length;
-    const confidence = Math.min(
-      (candidateTextLength / 100 + jobText.length / 500) / 2,
-      1.0
-    );
-
-    // Generate explanation
-    let explanation = '';
-    if (finalScore >= 0.7) {
-      explanation = 'Strong match! Your skills align well with this position.';
-    } else if (finalScore >= 0.5) {
-      explanation = 'Good match based on your experience and skills.';
-    } else if (finalScore >= 0.3) {
-      explanation = 'Partial match - consider applying if you\'re interested in learning this role.';
-    } else {
-      explanation = 'Limited match - this role may require different skills.';
-    }
-
-    if (explicitMatches.length > 0) {
-      explanation += ` Matching skills: ${explicitMatches.slice(0, 5).join(', ')}`;
-    }
-
-    return {
-      score: Math.round(finalScore * 100),
-      confidence: Math.round(confidence * 100),
-      skillMatches: explicitMatches.slice(0, 10),
-      explanation,
-    };
-  } catch (error) {
-    console.error('[ML Matching] Error in match scoring:', error);
-    return {
-      score: 0,
-      confidence: 0,
-      skillMatches: [],
-      explanation: 'Unable to calculate match score',
-    };
-  }
-}
-
-/**
- * Returns true if HuggingFace API key is configured.
- * (Replaces old isModelLoaded check — model is always "loaded" via API.)
- */
-export function isModelLoaded(): boolean {
-  return !!process.env.HF_API_KEY;
 }
 
 /**
