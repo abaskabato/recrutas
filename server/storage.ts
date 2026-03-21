@@ -68,7 +68,7 @@ import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { normalizeSkills, parseSkillsInput } from "./skill-normalizer";
 import { isUSLocation } from "./location-filter";
-import { scoreJob, computeRecencyScore, getFreshnessLabel, inferJobLevel } from "./job-scorer";
+import { scoreJob, computeRecencyScore, getFreshnessLabel, inferJobLevel, getRoleTitleKeywords } from "./job-scorer";
 
 /**
  * Storage Interface Definition
@@ -873,16 +873,25 @@ export class DatabaseStorage implements IStorage {
       extraFilters.push(sql`LOWER(${jobPostings.workType}) = ${filters.workType.toLowerCase()}`);
     }
 
-    // Wide query: match by skills OR title keyword. Scoring happens in application code.
+    // Wide query: match by skills OR title keyword OR role family.
+    // Scoring happens in application code — this is just retrieval.
     // Only use skills with 4+ characters for title matching to avoid false positives
     // (e.g. "IT" matching "Litigation", "Go" matching "Google")
     const titleMatchSkills = candidateSkills.filter(s => s.length >= 4);
+
+    // Expand candidate's role families into title search terms
+    // so "IT Support Specialist" also retrieves "Help Desk Analyst" etc.
+    const roleTitleKeywords = getRoleTitleKeywords(candidateTitles);
+    if (roleTitleKeywords.length > 0) {
+      console.log(`Role title keywords: ${roleTitleKeywords.join(', ')}`);
+    }
+
     const allJobs = await db
       .select()
       .from(jobPostings)
       .where(and(
         eq(jobPostings.status, 'active'),
-        // Match by skills JSONB OR by title containing a candidate skill (4+ chars only)
+        // Match by: (1) skill overlap, (2) skill in title, or (3) role family in title
         or(
           ...candidateSkills.map(skill =>
             sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
@@ -891,7 +900,14 @@ export class DatabaseStorage implements IStorage {
             ? titleMatchSkills.map(skill =>
                 sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
               )
-            : [sql`FALSE`]),
+            : []),
+          ...(roleTitleKeywords.length > 0
+            ? roleTitleKeywords.map(keyword =>
+                sql`LOWER(${jobPostings.title}) LIKE ${'%' + keyword.toLowerCase() + '%'}`
+              )
+            : []),
+          // Fallback: if no skills AND no role keywords, match nothing
+          ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
         ),
         or(
           sql`${jobPostings.expiresAt} IS NULL`,

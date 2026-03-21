@@ -149,6 +149,89 @@ const RELATED_ROLE_FAMILIES: Record<string, string[]> = {
   operations: [],
 };
 
+/**
+ * Given candidate's previous job titles, return title keywords for DB retrieval.
+ * Expands role families into searchable terms so the DB query pulls jobs
+ * the scorer can evaluate — even when skill tags don't overlap.
+ *
+ * Example: "IT Support Specialist" → ["it support", "help desk", "desktop support",
+ *   "technical support", "support engineer", "system admin", "network engineer"]
+ */
+const ROLE_FAMILY_KEYWORDS: Record<string, string[]> = {
+  it_support: ['it support', 'help desk', 'desktop support', 'technical support', 'support specialist', 'support technician', 'support analyst', 'support engineer'],
+  systems_admin: ['system admin', 'sysadmin', 'systems engineer', 'infrastructure'],
+  network_engineer: ['network engineer', 'network admin', 'network technician'],
+  dba: ['database admin', 'dba', 'database engineer'],
+  data_scientist: ['data scientist', 'data science'],
+  data_engineer: ['data engineer', 'data pipeline', 'data platform'],
+  data_analyst: ['data analyst', 'business intelligence', 'bi analyst'],
+  ml_engineer: ['machine learning', 'ml engineer', 'ai engineer'],
+  devops: ['devops', 'site reliability', 'sre', 'platform engineer'],
+  cloud_engineer: ['cloud engineer', 'cloud architect', 'aws engineer', 'azure engineer'],
+  security_engineer: ['security engineer', 'cybersecurity', 'infosec', 'soc analyst', 'security analyst'],
+  qa_engineer: ['qa engineer', 'quality assurance', 'test engineer', 'sdet', 'qa analyst'],
+  mobile_developer: ['mobile developer', 'ios developer', 'android developer', 'mobile engineer'],
+  frontend_developer: ['frontend', 'front-end', 'front end', 'ui developer', 'ui engineer'],
+  backend_developer: ['backend', 'back-end', 'back end', 'server engineer'],
+  fullstack_developer: ['full stack', 'fullstack'],
+  software_engineer: ['software engineer', 'software developer', 'swe'],
+  web_developer: ['web developer', 'web engineer'],
+  product_manager: ['product manager', 'product owner'],
+  product_designer: ['product designer'],
+  ux_designer: ['ux designer', 'ui designer', 'ux/ui', 'interaction designer'],
+  graphic_designer: ['graphic designer', 'visual designer'],
+  engineering_manager: ['engineering manager', 'dev manager'],
+  project_manager: ['project manager', 'project coordinator'],
+  program_manager: ['program manager', 'tpm', 'technical program'],
+  scrum_master: ['scrum master', 'agile coach'],
+  business_analyst: ['business analyst', 'business systems'],
+  solutions_architect: ['solutions architect', 'solution architect', 'enterprise architect'],
+  technical_writer: ['technical writer', 'documentation'],
+  legal: ['general counsel', 'legal counsel', 'attorney', 'lawyer'],
+  finance: ['finance manager', 'accountant', 'controller', 'financial analyst'],
+  hr: ['human resources', 'hr manager', 'recruiter', 'talent acquisition'],
+  marketing: ['marketing manager', 'growth manager', 'brand manager'],
+  sales: ['sales manager', 'account executive', 'sales rep', 'bdr', 'sdr'],
+  operations: ['operations manager', 'office manager'],
+  analyst: ['analyst'],
+  designer: ['designer'],
+  engineer: ['engineer'],
+  developer: ['developer'],
+  manager: ['manager'],
+  architect: ['architect'],
+};
+
+export function getRoleTitleKeywords(candidateTitles: string[]): string[] {
+  if (candidateTitles.length === 0) return [];
+
+  const families = new Set<string>();
+
+  // Extract role families from all candidate titles
+  for (const title of candidateTitles) {
+    const family = extractRoleFamily(title);
+    if (family) {
+      families.add(family);
+      // Also add related families for wider retrieval
+      const related = RELATED_ROLE_FAMILIES[family];
+      if (related) {
+        for (const r of related) families.add(r);
+      }
+    }
+  }
+
+  // Convert families to searchable keywords
+  const keywords = new Set<string>();
+  for (const family of families) {
+    const terms = ROLE_FAMILY_KEYWORDS[family];
+    if (terms) {
+      for (const term of terms) keywords.add(term);
+    }
+  }
+
+  // Limit to prevent query explosion
+  return Array.from(keywords).slice(0, 20);
+}
+
 const SENIORITY_LEVELS = ['intern', 'junior', 'mid', 'senior', 'staff', 'principal', 'lead', 'manager', 'director', 'vp', 'executive'];
 
 function extractSeniority(title: string): string {
