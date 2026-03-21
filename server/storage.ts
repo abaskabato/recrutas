@@ -834,6 +834,20 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
 
+    // Extract candidate's previous job titles from resume parsing data
+    const candidateTitles: string[] = [];
+    const parsingData = (candidate as any).resumeParsingData;
+    if (parsingData?.positions && Array.isArray(parsingData.positions)) {
+      for (const pos of parsingData.positions) {
+        if (pos.title && typeof pos.title === 'string' && pos.title.trim().length > 2) {
+          candidateTitles.push(pos.title.trim());
+        }
+      }
+    }
+    if (candidateTitles.length > 0) {
+      console.log(`Candidate titles: ${candidateTitles.join(', ')}`);
+    }
+
     // Parse pre-computed candidate embedding for semantic scoring (sync — no API call)
     let candidateEmbedding: number[] | undefined;
     if ((candidate as any).vectorEmbedding) {
@@ -860,19 +874,24 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Wide query: match by skills OR title keyword. Scoring happens in application code.
+    // Only use skills with 4+ characters for title matching to avoid false positives
+    // (e.g. "IT" matching "Litigation", "Go" matching "Google")
+    const titleMatchSkills = candidateSkills.filter(s => s.length >= 4);
     const allJobs = await db
       .select()
       .from(jobPostings)
       .where(and(
         eq(jobPostings.status, 'active'),
-        // Match by skills JSONB OR by title containing a candidate skill
+        // Match by skills JSONB OR by title containing a candidate skill (4+ chars only)
         or(
           ...candidateSkills.map(skill =>
             sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
           ),
-          ...candidateSkills.map(skill =>
-            sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
-          ),
+          ...(titleMatchSkills.length > 0
+            ? titleMatchSkills.map(skill =>
+                sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
+              )
+            : [sql`FALSE`]),
         ),
         or(
           sql`${jobPostings.expiresAt} IS NULL`,
@@ -916,7 +935,7 @@ export class DatabaseStorage implements IStorage {
 
     const recommendations = jobsWithSource
       .map(job => {
-        const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding);
+        const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding, candidateTitles);
         const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
 
         return {
@@ -938,7 +957,7 @@ export class DatabaseStorage implements IStorage {
       });
 
       const finalJobs = recommendations
-        .filter(job => job.matchScore >= 20) // 20% minimum
+        .filter(job => job.matchScore >= 30) // 30% minimum — prevents irrelevant jobs
         .filter(job => {
         if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
           // Guard against inverted min/max stored by the frontend
@@ -992,7 +1011,7 @@ export class DatabaseStorage implements IStorage {
         return scoreB - scoreA;
       });
 
-    console.log(`After filtering (20%+ match): ${finalJobs.length} recommendations`);
+    console.log(`After filtering (30%+ match): ${finalJobs.length} recommendations`);
     return finalJobs;
   }
 
