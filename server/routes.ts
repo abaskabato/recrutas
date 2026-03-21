@@ -2471,32 +2471,53 @@ export async function registerRoutes(app: Express): Promise<Express> {
       // Check if this is a Greenhouse job we can submit to directly
       const ghParsed = parseGreenhouseUrl(job.externalUrl);
       if (ghParsed) {
+        // Create application IMMEDIATELY so it shows up in the Applications tab
+        const application = await storage.createJobApplication({
+          jobId,
+          candidateId: userId,
+          status: 'submitting',
+          autoFilled: true,
+          resumeUrl: candidateProfile.resumeUrl,
+          metadata: {
+            agentApply: true,
+            ats: 'greenhouse',
+            startedAt: new Date().toISOString(),
+          },
+        });
+
         // Resolve resume storage path → signed URL
         const resumeSignedUrl = await storage.getResumeSignedUrl(candidateProfile.resumeUrl);
 
         // Submit via Greenhouse embed form (Playwright)
-        const result = await submitToGreenhouse(ghParsed.boardToken, ghParsed.jobId, {
-          firstName: candidateProfile.firstName || '',
-          lastName: candidateProfile.lastName || '',
-          email: candidateProfile.email || '',
-          phone: (candidateProfile as any).phone || '',
-          linkedinUrl: candidateProfile.linkedinUrl || '',
-          portfolioUrl: candidateProfile.portfolioUrl || '',
-          githubUrl: candidateProfile.githubUrl || '',
-          personalWebsite: candidateProfile.personalWebsite || '',
-          resumeUrl: resumeSignedUrl,
-          resumeText: candidateProfile.resumeText || '',
-          location: candidateProfile.location || '',
-        });
+        let result: any;
+        try {
+          result = await submitToGreenhouse(ghParsed.boardToken, ghParsed.jobId, {
+            firstName: candidateProfile.firstName || '',
+            lastName: candidateProfile.lastName || '',
+            email: candidateProfile.email || '',
+            phone: (candidateProfile as any).phone || '',
+            linkedinUrl: candidateProfile.linkedinUrl || '',
+            portfolioUrl: candidateProfile.portfolioUrl || '',
+            githubUrl: candidateProfile.githubUrl || '',
+            personalWebsite: candidateProfile.personalWebsite || '',
+            resumeUrl: resumeSignedUrl,
+            resumeText: candidateProfile.resumeText || '',
+            location: candidateProfile.location || '',
+          });
+        } catch (ghError: any) {
+          // Greenhouse submission threw — remove the placeholder application
+          console.error('[AgentApply] Greenhouse submission threw:', ghError?.message);
+          await db.delete(jobApplications).where(eq(jobApplications.id, application.id));
+          return res.status(502).json({ message: `Application submission failed: ${ghError?.message || 'Unknown error'}` });
+        }
+
+        const candidateName = [candidateProfile.firstName, candidateProfile.lastName].filter(Boolean).join(' ') || 'there';
+        const dashboardUrl = (process.env.FRONTEND_URL || 'https://www.recrutas.ai') + '/candidate-dashboard';
 
         if (!result.success && result.verificationRequired) {
-          // Create application + agent task in awaiting_verification state
-          const application = await storage.createJobApplication({
-            jobId,
-            candidateId: userId,
-            status: 'submitted',
-            autoFilled: true,
-            resumeUrl: candidateProfile.resumeUrl,
+          // Update application metadata with question counts
+          await db.update(jobApplications).set({
+            status: 'submitted' as any,
             metadata: {
               agentApply: true,
               ats: 'greenhouse',
@@ -2504,7 +2525,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
               questionsSkipped: result.questionsSkipped,
               submittedAt: new Date().toISOString(),
             },
-          });
+            updatedAt: new Date(),
+            lastStatusUpdate: new Date(),
+          }).where(eq(jobApplications.id, application.id));
 
           // Create agent task so candidate can provide the verification code
           const [agentTask] = await db.insert(agentTasks).values({
@@ -2538,6 +2561,38 @@ export async function registerRoutes(app: Express): Promise<Express> {
             relatedApplicationId: application.id,
           });
 
+          // Email candidate about verification + what was submitted
+          sendTransactionalEmail({
+            to: candidateProfile.email!,
+            subject: `Action needed: Verify your application for ${job.title} at ${job.company}`,
+            html: `
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+                <div style="background:#f59e0b;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+                  <h1 style="margin:0;font-size:20px;">Verification Code Needed</h1>
+                </div>
+                <div style="padding:24px;background:#f9f9f9;">
+                  <p>Hi ${candidateName},</p>
+                  <p>Agent Apply has filled out your application for <strong>${job.title}</strong> at <strong>${job.company}</strong>, but the company requires an email verification code to complete the submission.</p>
+                  <div style="background:#fff3cd;padding:15px;border-radius:5px;margin:15px 0;border-left:4px solid #f59e0b;">
+                    <strong>Next step:</strong><br/>
+                    1. Check your inbox for a verification code from ${job.company}<br/>
+                    2. Go to your <a href="${dashboardUrl}">Applications dashboard</a><br/>
+                    3. Enter the code to complete your application
+                  </div>
+                  <div style="background:#e8f5e9;padding:15px;border-radius:5px;margin:15px 0;">
+                    <strong>What was prepared:</strong><br/>
+                    &bull; Your resume<br/>
+                    &bull; Name, email, and contact info<br/>
+                    &bull; ${result.questionsAnswered || 0} screening question${(result.questionsAnswered || 0) !== 1 ? 's' : ''} answered automatically
+                  </div>
+                  <div style="text-align:center;margin:20px 0;">
+                    <a href="${dashboardUrl}" style="display:inline-block;padding:12px 30px;background:#000;color:#fff;text-decoration:none;border-radius:5px;">Enter Verification Code</a>
+                  </div>
+                </div>
+                <div style="text-align:center;padding:15px;color:#666;font-size:13px;">Recrutas &mdash; No ghosting, guaranteed.</div>
+              </div>`,
+          }).catch((err: any) => console.error('[AgentApply] Verification email notification failed:', err?.message));
+
           return res.json({
             message: 'Verification code required',
             verificationRequired: true,
@@ -2548,16 +2603,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }
 
         if (!result.success) {
+          // Submission failed — remove the placeholder application
           console.error('[AgentApply] Greenhouse submission failed:', result.error);
+          await db.delete(jobApplications).where(eq(jobApplications.id, application.id));
           return res.status(502).json({ message: `Application submission failed: ${result.error}` });
         }
 
-        const application = await storage.createJobApplication({
-          jobId,
-          candidateId: userId,
-          status: 'submitted',
-          autoFilled: true,
-          resumeUrl: candidateProfile.resumeUrl,
+        // Success — update the application to submitted with full metadata
+        await db.update(jobApplications).set({
+          status: 'submitted' as any,
           metadata: {
             agentApply: true,
             ats: 'greenhouse',
@@ -2566,7 +2620,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
             questionsSkipped: result.questionsSkipped,
             submittedAt: new Date().toISOString(),
           },
-        });
+          updatedAt: new Date(),
+          lastStatusUpdate: new Date(),
+        }).where(eq(jobApplications.id, application.id));
 
         await storage.createActivityLog(userId, "agent_apply_submitted", `Agent applied to job ID: ${jobId} via Greenhouse API`);
 
@@ -2579,8 +2635,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
           relatedApplicationId: application.id,
         });
 
-        const candidateName = [candidateProfile.firstName, candidateProfile.lastName].filter(Boolean).join(' ') || 'there';
-        const dashboardUrl = (process.env.FRONTEND_URL || 'https://www.recrutas.ai') + '/candidate-dashboard';
         sendTransactionalEmail({
           to: candidateProfile.email!,
           subject: `Application submitted: ${job.title} at ${job.company}`,
@@ -2598,7 +2652,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
                   &bull; Name, email, and contact info<br/>
                   &bull; ${result.questionsAnswered || 0} screening question${(result.questionsAnswered || 0) !== 1 ? 's' : ''} answered automatically
                 </div>
-                <p>You'll hear back from ${job.company} directly if they'd like to move forward.</p>
+                <p><strong>What happens next:</strong> You should receive a confirmation email from ${job.company} shortly. They'll reach out directly if they'd like to move forward.</p>
                 <div style="text-align:center;margin:20px 0;">
                   <a href="${dashboardUrl}" style="display:inline-block;padding:12px 30px;background:#000;color:#fff;text-decoration:none;border-radius:5px;">View Your Applications</a>
                 </div>
@@ -2607,7 +2661,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
             </div>`,
         }).catch((err: any) => console.error('[AgentApply] Email notification failed:', err?.message));
 
-        return res.json({ application, status: 'submitted', ats: 'greenhouse' });
+        return res.json({ application: { ...application, status: 'submitted' }, status: 'submitted', ats: 'greenhouse' });
       }
 
       // Unsupported ATS — this shouldn't be reached since the button is
@@ -2682,6 +2736,47 @@ export async function registerRoutes(app: Express): Promise<Express> {
         completedAt: new Date(),
         agentLog: { ...log, verifiedAt: new Date().toISOString() },
       }).where(eq(agentTasks.id, taskId));
+
+      // Send confirmation email after successful verification
+      const job = await storage.getJobPosting(task.jobId);
+      if (job && candidateData.email) {
+        const candidateName = [candidateData.firstName, candidateData.lastName].filter(Boolean).join(' ') || 'there';
+        const dashboardUrl = (process.env.FRONTEND_URL || 'https://www.recrutas.ai') + '/candidate-dashboard';
+
+        await notificationService.createNotification({
+          userId,
+          type: 'application_update',
+          title: 'Application Submitted',
+          message: `Your application for ${job.title} at ${job.company} has been verified and submitted successfully.`,
+          relatedApplicationId: task.applicationId,
+        });
+
+        sendTransactionalEmail({
+          to: candidateData.email,
+          subject: `Application submitted: ${job.title} at ${job.company}`,
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+              <div style="background:#000;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+                <h1 style="margin:0;font-size:20px;">Application Submitted</h1>
+              </div>
+              <div style="padding:24px;background:#f9f9f9;">
+                <p>Hi ${candidateName},</p>
+                <p>Your verification was successful! Your application for <strong>${job.title}</strong> at <strong>${job.company}</strong> has been submitted.</p>
+                <div style="background:#e8f5e9;padding:15px;border-radius:5px;margin:15px 0;">
+                  <strong>What was sent:</strong><br/>
+                  &bull; Your resume<br/>
+                  &bull; Name, email, and contact info<br/>
+                  &bull; Screening questions answered automatically
+                </div>
+                <p><strong>What happens next:</strong> You should receive a confirmation email from ${job.company} shortly. They'll reach out directly if they'd like to move forward.</p>
+                <div style="text-align:center;margin:20px 0;">
+                  <a href="${dashboardUrl}" style="display:inline-block;padding:12px 30px;background:#000;color:#fff;text-decoration:none;border-radius:5px;">View Your Applications</a>
+                </div>
+              </div>
+              <div style="text-align:center;padding:15px;color:#666;font-size:13px;">Recrutas &mdash; No ghosting, guaranteed.</div>
+            </div>`,
+        }).catch((err: any) => console.error('[AgentApply] Verification confirmation email failed:', err?.message));
+      }
 
       return res.json({ success: true, message: 'Application submitted successfully' });
     }

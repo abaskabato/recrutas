@@ -189,6 +189,12 @@ export class ResumeService {
             (aiExtracted.skills?.soft?.length || 0) +
             (aiExtracted.skills?.tools?.length || 0),
           parsingError: parsingSuccess ? null : 'AI parsing failed',
+          // Store structured positions so matching can compare job titles
+          positions: (aiExtracted.experience?.positions || []).slice(0, 6).map((p: any) => ({
+            title: p.title || '',
+            company: p.company || '',
+            duration: p.duration || '',
+          })),
         },
       };
 
@@ -235,7 +241,8 @@ export class ResumeService {
 
       // Compute candidate embedding in background (non-blocking)
       if (extractedSkills.length > 0) {
-        updateCandidateEmbedding(userId, extractedSkills, profileUpdate.experience || '')
+        const jobTitles = positions.map((p: any) => p.title).filter(Boolean) as string[];
+        updateCandidateEmbedding(userId, extractedSkills, profileUpdate.experience || '', jobTitles)
           .catch((e: any) => console.warn('[ResumeService] Embedding failed:', e?.message));
       }
 
@@ -365,6 +372,11 @@ export class ResumeService {
           processingTime: 0,
           extractedSkillsCount: extractedSkills.length,
           parsingError: parsingSuccess ? null : 'AI parsing failed on retry',
+          positions: (aiExtracted.experience?.positions || []).slice(0, 6).map((p: any) => ({
+            title: p.title || '',
+            company: p.company || '',
+            duration: p.duration || '',
+          })),
         },
       };
 
@@ -400,7 +412,8 @@ export class ResumeService {
 
       // Compute candidate embedding in background (non-blocking)
       if (extractedSkills.length > 0) {
-        updateCandidateEmbedding(userId, extractedSkills, profileUpdate.experience || '')
+        const jobTitles = positions.map((p: any) => p.title).filter(Boolean) as string[];
+        updateCandidateEmbedding(userId, extractedSkills, profileUpdate.experience || '', jobTitles)
           .catch((e: any) => console.warn('[ResumeService] Embedding failed:', e?.message));
       }
 

@@ -289,17 +289,27 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       }
       return res.json();
     },
+    onMutate: () => {
+      // Immediately invalidate applications so the "submitting" record appears in the Applications tab
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
+    },
     onSuccess: (data: any) => {
       if (data?.verificationRequired) {
         toast({ title: "Verification Needed", description: `Check your email for a verification code to complete the application.` });
       } else {
-        toast({ title: "Applied!", description: "Your application was submitted automatically." });
+        toast({ title: "Applied!", description: "Your application was submitted automatically. Check your email for confirmation." });
       }
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/agent-tasks'] });
     },
-    onError: (error: any) => toast({ title: "Application Failed", description: error.message, variant: "destructive" }),
+    onError: (error: any) => {
+      toast({ title: "Application Failed", description: error.message, variant: "destructive" });
+      // Re-fetch to clean up any stale optimistic state
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
+    },
   });
 
   const handleAgentApply = (e: React.MouseEvent, match: AIJobMatch) => {

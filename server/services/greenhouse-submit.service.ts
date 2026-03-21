@@ -12,6 +12,7 @@
 
 import { chromium, type Page, type Browser } from 'rebrowser-playwright';
 import { callAI } from '../lib/ai-client';
+import { getCompanyContext } from '../lib/company-context';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -110,6 +111,7 @@ export async function aiAnswerQuestions(
   jobTitle: string,
   jobDescription: string,
   companyName: string,
+  companyContext?: string,
 ): Promise<Record<string, string | number>> {
   const questionItems: Array<{
     fieldName: string;
@@ -135,7 +137,7 @@ export async function aiAnswerQuestions(
   if (questionItems.length === 0) return {};
 
   const systemPrompt = `You are an AI assistant helping a job candidate fill out a job application form.
-You will receive the candidate's resume/profile, the job details, and a list of screening questions.
+You will receive the candidate's resume/profile, the job details, company background info, and a list of screening questions.
 
 Your job: answer each question naturally and honestly using the candidate's real data.
 
@@ -144,7 +146,8 @@ Rules:
 - For input_text fields: write a concise, direct answer (1 sentence max).
 - For textarea fields: write a professional answer (2-4 sentences).
 - Use the candidate's actual information — never fabricate credentials, skills, or experience.
-- For motivation questions ("why do you want to join"): connect the candidate's background to the company and role.
+- For motivation questions ("why do you want to join", "why this company"): reference specific details about the company's mission, products, or values from the Company Background section. Connect those to the candidate's actual experience and interests. Be specific, not generic.
+- For "what interests you about this role" questions: connect the role's responsibilities to the candidate's relevant experience.
 - For location questions: use the candidate's actual location.
 - For name/preferred name: use the candidate's first name.
 - For "how did you hear" / source questions: say "Job board".
@@ -176,6 +179,10 @@ Return JSON: { "answers": { "<fieldName>": <value or null>, ... } }`;
 
   const cleanDescription = jobDescription.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000);
 
+  const companySection = companyContext
+    ? `\n## Company Background\n${companyContext}`
+    : '';
+
   const userPrompt = `## Candidate Profile
 ${candidateContext}
 
@@ -186,6 +193,7 @@ ${resumeSnippet}
 Company: ${companyName}
 Title: ${jobTitle}
 Description: ${cleanDescription}
+${companySection}
 
 ## Questions to Answer
 ${JSON.stringify(questionItems, null, 2)}`;
@@ -251,6 +259,14 @@ export async function submitToGreenhouse(
   const companyName = boardToken.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const jobData = await fetchJobData(boardToken, jobId);
 
+  // Fetch company context for better AI answers (non-blocking — empty string on failure)
+  let companyContext = '';
+  try {
+    companyContext = await getCompanyContext(companyName, boardToken);
+  } catch (err) {
+    console.warn('[greenhouse-submit] Company context fetch failed (continuing without):', (err as Error).message);
+  }
+
   // AI-answer all custom questions
   const aiAnswers = await aiAnswerQuestions(
     jobData.questions,
@@ -258,6 +274,7 @@ export async function submitToGreenhouse(
     jobData.title,
     jobData.content,
     companyName,
+    companyContext,
   );
 
   let questionsAnswered = 0;

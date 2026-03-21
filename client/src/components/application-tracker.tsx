@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X, FileText, ShieldCheck } from "lucide-react";
+import { Calendar, Clock, Eye, MessageSquare, ExternalLink, ChevronRight, Bot, X, FileText, ShieldCheck, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -58,6 +58,7 @@ const agentStatusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const statusConfig: Record<string, { label: string; color: string; progress: number }> = {
+  submitting: { label: "Submitting...", color: "bg-amber-500", progress: 5 },
   applied: { label: "Submitted", color: "bg-blue-500", progress: 10 },
   submitted: { label: "Submitted", color: "bg-blue-500", progress: 10 },
   viewed: { label: "Viewed", color: "bg-yellow-500", progress: 25 },
@@ -75,6 +76,12 @@ export default function ApplicationTracker() {
   const { toast } = useToast();
   const { data: applications, isLoading, isError } = useQuery<ApplicationStatus[]>({
     queryKey: ["/api/candidate/applications"],
+    // Poll every 3s when there are applications still being submitted by the agent
+    refetchInterval: (query) => {
+      const apps = query.state.data;
+      const hasSubmitting = apps?.some(app => app.status === 'submitting');
+      return hasSubmitting ? 3000 : false;
+    },
   });
 
   const { data: agentTasks } = useQuery<AgentTaskStatus[]>({
@@ -150,7 +157,11 @@ export default function ApplicationTracker() {
     const config = statusConfig[status] || statusConfig.submitted;
     return (
       <Badge variant="secondary" className="flex items-center gap-1">
-        <div className={`w-2 h-2 rounded-full ${config.color}`} />
+        {status === 'submitting' ? (
+          <Loader2 className="h-3 w-3 animate-spin text-amber-600" />
+        ) : (
+          <div className={`w-2 h-2 rounded-full ${config.color}`} />
+        )}
         {config.label}
       </Badge>
     );
@@ -333,8 +344,8 @@ export default function ApplicationTracker() {
                         </div>
                       ) : null;
                     })()}
-                    {/* Self-service status update for external jobs */}
-                    {application.job?.externalUrl && (
+                    {/* Self-service status update for external jobs (hidden while agent is still submitting) */}
+                    {application.job?.externalUrl && application.status !== 'submitting' && (
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Update Status:</span>
                         <Select

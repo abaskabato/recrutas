@@ -9,19 +9,20 @@ import { eq } from 'drizzle-orm';
 import { generateCandidateEmbedding } from '../ml-matching';
 
 /**
- * Compute a candidate's embedding from skills + experience and persist it.
+ * Compute a candidate's embedding from skills + experience + job titles and persist it.
  * Non-blocking — callers should fire-and-forget with .catch().
  */
 export async function updateCandidateEmbedding(
   userId: string,
   skills: string[],
   experience: string,
+  previousJobTitles?: string[],
 ): Promise<void> {
   if (!skills || skills.length === 0) return;
   if (!process.env.HF_API_KEY) return;
 
   try {
-    const embedding = await generateCandidateEmbedding(skills, experience);
+    const embedding = await generateCandidateEmbedding(skills, experience, previousJobTitles);
     if (!embedding || embedding.length === 0) return;
 
     await db.update(candidateProfiles)
@@ -57,10 +58,14 @@ export async function backfillCandidateEmbeddings(limit = 100): Promise<{ proces
 
   for (const c of candidates) {
     try {
+      // Extract job titles from resumeParsingData if available
+      const parsingData = c.resumeParsingData as any;
+      const titles = parsingData?.positions?.map((p: any) => p.title).filter(Boolean) || [];
       await updateCandidateEmbedding(
         c.userId,
         (c.skills || []) as string[],
         c.experience || '',
+        titles,
       );
       processed++;
       // Small delay to avoid HF rate limits

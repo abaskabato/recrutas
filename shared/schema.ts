@@ -238,7 +238,7 @@ export const jobApplications = pgTable("job_applications", {
   jobId: integer("job_id").notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
   matchId: integer("match_id").references(() => jobMatches.id, { onDelete: 'set null' }),
   status: varchar("status", {
-    enum: ["pending_exam", "submitted", "viewed", "screening", "interview_scheduled", "interview_completed", "offer", "rejected", "withdrawn"]
+    enum: ["pending_exam", "submitting", "submitted", "viewed", "screening", "interview_scheduled", "interview_completed", "offer", "rejected", "withdrawn"]
   }).default("submitted"),
   appliedAt: timestamp("applied_at").defaultNow(),
   viewedByEmployerAt: timestamp("viewed_by_employer_at"),

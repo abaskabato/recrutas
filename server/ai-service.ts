@@ -165,6 +165,9 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
     }
   }
 
+  // Job title similarity — compare candidate's previous titles to the target job title
+  const titleScore = calculateTitleSimilarity(candidate, job.title);
+
   // Semantic analysis of experience vs job description
   const experienceScore = analyzeExperienceSemantics(candidate.experience, job.description, job.title);
 
@@ -175,14 +178,14 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
   const skillScore = Math.min(totalSimilarity / Math.max(job.skills?.length || 1, 1), 1.0);
 
   // Calculate final score with weights
-  // Skill: 40%, Experience: 30%, Context (Salary/Loc): 30%
-  const finalScore = (skillScore * 0.4) + (experienceScore * 0.3) + (contextScore * 0.3);
+  // Skill: 35%, Title: 15%, Experience: 20%, Context (Salary/Loc): 30%
+  const finalScore = (skillScore * 0.35) + (titleScore * 0.15) + (experienceScore * 0.20) + (contextScore * 0.30);
 
   // Confidence is based on how much data we had to work with
   const confidence = calculateConfidenceLevel(maxSimilarities.length, job.skills?.length || 0, experienceScore);
 
   // Generate intelligent explanation
-  const explanation = generateMLExplanation(maxSimilarities, experienceScore, contextScore, job);
+  const explanation = generateMLExplanation(maxSimilarities, experienceScore, contextScore, job, titleScore);
 
   return {
     score: Math.min(Math.max(finalScore, 0), 1), // Keep score between 0-1
@@ -190,6 +193,204 @@ function generateMLEnhancedMatch(candidate: CandidateProfile, job: JobPosting): 
     skillMatches: maxSimilarities.map(m => m.skill),
     aiExplanation: explanation
   };
+}
+
+/**
+ * Calculate how well the candidate's previous job titles match the target job title.
+ * Returns a score from 0 to 1.
+ *
+ * Uses three signals:
+ * 1. Exact/near-exact title match (strongest)
+ * 2. Role-family match (e.g. "Software Engineer" ↔ "Software Developer")
+ * 3. Seniority alignment (e.g. both "Senior")
+ */
+function calculateTitleSimilarity(candidate: CandidateProfile, jobTitle: string): number {
+  if (!jobTitle) return 0.5;
+
+  // Extract candidate's previous job titles from resumeParsingData or experience text
+  const candidateTitles = extractCandidateTitles(candidate);
+  if (candidateTitles.length === 0) return 0.5; // No data — neutral score
+
+  const normalizedJobTitle = normalizeTitle(jobTitle);
+  const jobTitleWords = new Set(normalizedJobTitle.split(/\s+/));
+  const jobRole = extractRoleFamily(normalizedJobTitle);
+  const jobSeniority = extractSeniority(normalizedJobTitle);
+
+  let bestScore = 0;
+
+  for (const candidateTitle of candidateTitles) {
+    const normalizedCandTitle = normalizeTitle(candidateTitle);
+    const candTitleWords = new Set(normalizedCandTitle.split(/\s+/));
+    const candRole = extractRoleFamily(normalizedCandTitle);
+    const candSeniority = extractSeniority(normalizedCandTitle);
+
+    let titleMatchScore = 0;
+
+    // Signal 1: Word overlap (Jaccard similarity)
+    const intersection = new Set([...jobTitleWords].filter(w => candTitleWords.has(w)));
+    const union = new Set([...jobTitleWords, ...candTitleWords]);
+    const jaccard = union.size > 0 ? intersection.size / union.size : 0;
+    titleMatchScore += jaccard * 0.4;
+
+    // Signal 2: Role family match
+    if (jobRole && candRole && jobRole === candRole) {
+      titleMatchScore += 0.4; // Same role family = strong signal
+    } else if (jobRole && candRole) {
+      // Check for related role families
+      const relatedRoles = RELATED_ROLE_FAMILIES[jobRole];
+      if (relatedRoles?.includes(candRole)) {
+        titleMatchScore += 0.25; // Related role = moderate signal
+      }
+    }
+
+    // Signal 3: Seniority alignment
+    if (jobSeniority && candSeniority) {
+      if (jobSeniority === candSeniority) {
+        titleMatchScore += 0.2; // Same seniority
+      } else if (Math.abs(SENIORITY_LEVELS.indexOf(jobSeniority) - SENIORITY_LEVELS.indexOf(candSeniority)) <= 1) {
+        titleMatchScore += 0.1; // Adjacent seniority (e.g. mid ↔ senior)
+      }
+    } else {
+      titleMatchScore += 0.1; // Unknown seniority — neutral
+    }
+
+    bestScore = Math.max(bestScore, titleMatchScore);
+  }
+
+  return Math.min(bestScore, 1.0);
+}
+
+const SENIORITY_LEVELS = ['intern', 'junior', 'mid', 'senior', 'staff', 'principal', 'lead', 'manager', 'director', 'vp', 'executive'];
+
+function extractSeniority(title: string): string | null {
+  const t = title.toLowerCase();
+  if (/\b(intern|internship)\b/.test(t)) return 'intern';
+  if (/\b(junior|jr|entry)\b/.test(t)) return 'junior';
+  if (/\b(senior|sr)\b/.test(t)) return 'senior';
+  if (/\bstaff\b/.test(t)) return 'staff';
+  if (/\bprincipal\b/.test(t)) return 'principal';
+  if (/\b(lead|team lead)\b/.test(t)) return 'lead';
+  if (/\bmanager\b/.test(t)) return 'manager';
+  if (/\bdirector\b/.test(t)) return 'director';
+  if (/\b(vp|vice president)\b/.test(t)) return 'vp';
+  if (/\b(chief|cto|ceo|coo|cfo)\b/.test(t)) return 'executive';
+  return 'mid'; // default — no modifier typically means mid-level
+}
+
+/**
+ * Extract the core role family from a title, stripping seniority and modifiers.
+ * e.g. "Senior Software Engineer" → "software_engineer"
+ *      "Full Stack Developer" → "software_developer"
+ */
+function extractRoleFamily(title: string): string | null {
+  const t = title.toLowerCase();
+  // Order matters — check more specific patterns first
+  if (/data scientist/.test(t)) return 'data_scientist';
+  if (/data engineer/.test(t)) return 'data_engineer';
+  if (/data analyst/.test(t)) return 'data_analyst';
+  if (/machine learning|ml engineer/.test(t)) return 'ml_engineer';
+  if (/devops|site reliability|sre/.test(t)) return 'devops';
+  if (/cloud engineer|cloud architect/.test(t)) return 'cloud_engineer';
+  if (/security engineer|cybersecurity|infosec/.test(t)) return 'security_engineer';
+  if (/qa|quality assurance|test engineer|sdet/.test(t)) return 'qa_engineer';
+  if (/mobile developer|ios developer|android developer/.test(t)) return 'mobile_developer';
+  if (/frontend|front-end|front end/.test(t)) return 'frontend_developer';
+  if (/backend|back-end|back end/.test(t)) return 'backend_developer';
+  if (/full.?stack/.test(t)) return 'fullstack_developer';
+  if (/software engineer|software developer|swe/.test(t)) return 'software_engineer';
+  if (/web developer/.test(t)) return 'web_developer';
+  if (/product manager|pm\b/.test(t)) return 'product_manager';
+  if (/product designer/.test(t)) return 'product_designer';
+  if (/ux designer|ui designer|ux\/ui/.test(t)) return 'ux_designer';
+  if (/graphic designer/.test(t)) return 'graphic_designer';
+  if (/engineering manager|em\b/.test(t)) return 'engineering_manager';
+  if (/project manager/.test(t)) return 'project_manager';
+  if (/program manager/.test(t)) return 'program_manager';
+  if (/business analyst/.test(t)) return 'business_analyst';
+  if (/solutions architect|solution architect/.test(t)) return 'solutions_architect';
+  if (/system administrator|sysadmin|systems engineer/.test(t)) return 'systems_engineer';
+  if (/network engineer/.test(t)) return 'network_engineer';
+  if (/database administrator|dba/.test(t)) return 'dba';
+  if (/technical writer/.test(t)) return 'technical_writer';
+  if (/scrum master|agile/.test(t)) return 'scrum_master';
+  if (/analyst/.test(t)) return 'analyst';
+  if (/designer/.test(t)) return 'designer';
+  if (/engineer/.test(t)) return 'engineer';
+  if (/developer/.test(t)) return 'developer';
+  if (/manager/.test(t)) return 'manager';
+  if (/architect/.test(t)) return 'architect';
+  return null;
+}
+
+/**
+ * Map of related role families that should get partial credit.
+ */
+const RELATED_ROLE_FAMILIES: Record<string, string[]> = {
+  software_engineer: ['software_developer', 'fullstack_developer', 'backend_developer', 'frontend_developer', 'web_developer', 'developer', 'engineer'],
+  software_developer: ['software_engineer', 'fullstack_developer', 'backend_developer', 'frontend_developer', 'web_developer', 'developer', 'engineer'],
+  fullstack_developer: ['software_engineer', 'software_developer', 'backend_developer', 'frontend_developer', 'web_developer'],
+  frontend_developer: ['software_engineer', 'software_developer', 'fullstack_developer', 'web_developer', 'ux_designer'],
+  backend_developer: ['software_engineer', 'software_developer', 'fullstack_developer', 'devops'],
+  web_developer: ['software_engineer', 'software_developer', 'fullstack_developer', 'frontend_developer'],
+  mobile_developer: ['software_engineer', 'software_developer', 'frontend_developer'],
+  data_scientist: ['data_analyst', 'ml_engineer', 'data_engineer'],
+  data_engineer: ['data_scientist', 'data_analyst', 'backend_developer', 'devops'],
+  data_analyst: ['data_scientist', 'business_analyst', 'analyst'],
+  ml_engineer: ['data_scientist', 'data_engineer', 'software_engineer'],
+  devops: ['cloud_engineer', 'systems_engineer', 'backend_developer', 'sre'],
+  cloud_engineer: ['devops', 'systems_engineer', 'solutions_architect'],
+  product_manager: ['program_manager', 'project_manager'],
+  product_designer: ['ux_designer', 'graphic_designer', 'designer'],
+  ux_designer: ['product_designer', 'graphic_designer', 'frontend_developer', 'designer'],
+  engineering_manager: ['software_engineer', 'manager'],
+  project_manager: ['program_manager', 'product_manager', 'scrum_master'],
+  qa_engineer: ['software_engineer', 'developer'],
+  security_engineer: ['devops', 'systems_engineer', 'network_engineer', 'engineer'],
+  solutions_architect: ['cloud_engineer', 'architect', 'software_engineer'],
+};
+
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Extract candidate's previous job titles from structured parsing data or free-text experience.
+ */
+function extractCandidateTitles(candidate: CandidateProfile): string[] {
+  const titles: string[] = [];
+
+  // Source 1: Structured positions from resumeParsingData (best quality)
+  const parsingData = candidate.resumeParsingData as any;
+  if (parsingData?.positions && Array.isArray(parsingData.positions)) {
+    for (const pos of parsingData.positions) {
+      if (pos.title && typeof pos.title === 'string' && pos.title.trim().length > 2) {
+        titles.push(pos.title.trim());
+      }
+    }
+  }
+
+  // Source 2: Fall back to extracting from free-text experience field
+  if (titles.length === 0 && candidate.experience) {
+    const titlePattern = /\b((?:Senior |Junior |Lead |Staff |Principal |Associate |Chief )?(?:Software Engineer|Software Developer|Web Developer|Full Stack Developer|Frontend Developer|Backend Developer|DevOps Engineer|Data Scientist|Data Engineer|Data Analyst|ML Engineer|Product Manager|Product Designer|UX Designer|UI Designer|QA Engineer|Security Engineer|Solutions Architect|Engineering Manager|Project Manager|Program Manager|Technical Writer|System Administrator|Network Engineer|Cloud Engineer|Mobile Developer|Scrum Master|Business Analyst))\b/gi;
+    const matches = candidate.experience.match(titlePattern);
+    if (matches) {
+      // Deduplicate
+      const seen = new Set<string>();
+      for (const m of matches) {
+        const normalized = m.trim().toLowerCase();
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          titles.push(m.trim());
+        }
+      }
+    }
+  }
+
+  return titles.slice(0, 6); // Limit to most recent 6 positions
 }
 
 function analyzeExperienceSemantics(experience: string, jobDescription: string, jobTitle: string): number {
@@ -310,9 +511,16 @@ function generateMLExplanation(
   skillMatches: Array<{ skill: string; similarity: number; matchedWith: string }>,
   experienceScore: number,
   contextScore: number,
-  job: JobPosting
+  job: JobPosting,
+  titleScore?: number
 ): string {
   const explanations = [];
+
+  if (titleScore && titleScore > 0.7) {
+    explanations.push(`Your previous role closely matches ${job.title}`);
+  } else if (titleScore && titleScore > 0.5) {
+    explanations.push(`Related role experience for ${job.title}`);
+  }
 
   if (skillMatches.length > 0) {
     const topSkills = skillMatches

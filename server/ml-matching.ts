@@ -121,14 +121,23 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 /**
- * Generate a reusable candidate embedding from skills + experience.
+ * Generate a reusable candidate embedding from skills + experience + job titles.
  * Compute once and pass into calculateMLMatchScore for each job.
+ *
+ * Job titles are placed first in the text to give them high prominence in the
+ * embedding — BGE-M3 (and most embedding models) weight earlier tokens more.
  */
 export async function generateCandidateEmbedding(
   candidateSkills: string[],
-  candidateExperience: string
+  candidateExperience: string,
+  previousJobTitles?: string[],
 ): Promise<number[]> {
+  // Front-load job titles so the embedding strongly represents the candidate's role identity
+  const titleBlock = previousJobTitles && previousJobTitles.length > 0
+    ? previousJobTitles.join(', ') + '. '
+    : '';
   const candidateText = [
+    titleBlock,
     ...candidateSkills,
     candidateExperience || '',
   ].join(' ').trim();
