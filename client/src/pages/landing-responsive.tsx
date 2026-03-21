@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Bot, Zap, Shield, CheckCircle2, ArrowRight,
   Sparkles, Menu, X, MessageSquare, FileText,
-  Clock, Eye, Upload,
+  Clock, Eye, Upload, Trophy, BarChart3, Users,
+  Building2,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
@@ -205,7 +206,7 @@ export default function LandingResponsive() {
               </h1>
 
               <p className="text-lg md:text-xl text-gray-500 dark:text-gray-400 leading-relaxed mb-8 max-w-lg">
-                Upload your resume. Our AI matches you to real jobs and applies automatically &mdash; filling out forms, answering screening questions, submitting your application. You wake up to interviews, not silence.
+                Upload your resume. Our AI matches you to real jobs and applies automatically. For jobs posted on Recrutas, take a quick exam, get ranked, and chat directly with the hiring team. <strong className="text-black dark:text-white">Every application gets a real response.</strong>
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -251,50 +252,78 @@ export default function LandingResponsive() {
         </div>
       </section>
 
-      {/* -- How it works -- */}
+      {/* -- Two ways to get hired -- */}
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-black dark:text-white mb-3">
-              How it works
+              Two ways to get hired
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-lg max-w-xl mx-auto">
-              One upload. The AI does the rest.
+            <p className="text-gray-500 dark:text-gray-400 text-lg max-w-2xl mx-auto">
+              External jobs: the AI applies for you. Internal jobs: prove yourself, skip the line.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[
-              {
-                step: "01",
-                icon: Upload,
-                title: "Upload your resume",
-                body: "Our AI extracts your skills, experience, and job titles. No forms to fill out &mdash; your resume is enough.",
-              },
-              {
-                step: "02",
-                icon: Bot,
-                title: "Agent applies for you",
-                body: "The AI finds matching jobs, fills out applications on company career pages, answers screening questions using your real background, and submits. You get an email with exactly what was sent.",
-              },
-              {
-                step: "03",
-                icon: MessageSquare,
-                title: "Companies respond",
-                body: "You'll hear back. Companies get pre-qualified candidates, so they actually review applications. Track every response in your dashboard.",
-              },
-            ].map(({ step, icon: Icon, title, body }) => (
-              <div key={step} className="relative">
-                <div className="text-6xl font-black text-gray-100 dark:text-gray-800 leading-none mb-4 select-none">
-                  {step}
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* External jobs path */}
+            <div className="p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 flex items-center justify-center">
+                  <Bot className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 flex items-center justify-center mb-4">
-                  <Icon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <h3 className="text-lg font-bold text-black dark:text-white">Agent Apply</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">For external jobs</p>
                 </div>
-                <h3 className="text-xl font-bold text-black dark:text-white mb-2">{title}</h3>
-                <p className="text-gray-500 dark:text-gray-400 leading-relaxed text-sm" dangerouslySetInnerHTML={{ __html: body }} />
               </div>
-            ))}
+              <div className="space-y-4">
+                {[
+                  { step: "01", text: "Upload your resume &mdash; AI extracts skills, titles, experience" },
+                  { step: "02", text: "Get matched to live jobs from real company career pages" },
+                  { step: "03", text: "Click one button &mdash; agent fills forms, answers questions, submits" },
+                  { step: "04", text: "Get an email with exactly what was sent" },
+                ].map(({ step, text }) => (
+                  <div key={step} className="flex items-start gap-3">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0 mt-0.5">{step}</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: text }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Internal jobs path */}
+            <div className="p-6 md:p-8 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-900/10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-black dark:text-white">Exam &amp; Chat</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">For jobs posted on Recrutas</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {[
+                  { step: "01", text: "Apply to a role posted directly on Recrutas" },
+                  { step: "02", text: "Take a quick screening exam &mdash; know your score the same day" },
+                  { step: "03", text: "Get ranked against other candidates &mdash; top scorers skip the line" },
+                  { step: "04", text: "Unlock direct chat with the hiring manager &mdash; no middlemen" },
+                ].map(({ step, text }) => (
+                  <div key={step} className="flex items-start gap-3">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0 mt-0.5">{step}</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: text }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* No ghosting promise */}
+          <div className="mt-12 max-w-2xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+              <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Every application gets a real response. No ghosting, guaranteed.</span>
+            </div>
           </div>
         </div>
       </section>
@@ -307,7 +336,7 @@ export default function LandingResponsive() {
               Not another job board
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-lg max-w-xl mx-auto">
-              We don't just list jobs. We apply to them for you.
+              We don't just list jobs. We apply to them for you &mdash; and when companies hire through us, you get a real process with real answers.
             </p>
           </div>
 
@@ -316,7 +345,7 @@ export default function LandingResponsive() {
               {
                 icon: Bot,
                 title: "AI agent applies for you",
-                body: "Click one button. The agent opens the company's career page, fills every field, answers screening questions using your resume, uploads your PDF, and hits submit.",
+                body: "Click one button. The agent opens the company's career page, fills every field, answers screening questions using your resume, and hits submit.",
               },
               {
                 icon: Sparkles,
@@ -325,18 +354,18 @@ export default function LandingResponsive() {
               },
               {
                 icon: Shield,
-                title: "No ghost jobs",
-                body: "Every listing is scraped from live company career pages and verified. We auto-hide stale postings. If a job is on Recrutas, it's real.",
+                title: "No ghost jobs, no ghosting",
+                body: "Every listing is verified live. We auto-hide stale postings. For internal jobs, every candidate gets a real response &mdash; even if it's a no.",
               },
               {
-                icon: Eye,
-                title: "You see what was submitted",
-                body: "After every application, you get an email showing exactly what the agent sent &mdash; your resume, contact info, and every screening answer. Nothing hidden.",
+                icon: Trophy,
+                title: "Prove yourself with exams",
+                body: "For jobs posted on Recrutas, take a quick screening exam. Your score ranks you against other candidates &mdash; top scorers skip the line.",
               },
               {
-                icon: Clock,
-                title: "Track every application",
-                body: "Every job you apply to goes into your dashboard instantly. See status updates, manage applications, and know exactly where you stand.",
+                icon: MessageSquare,
+                title: "Chat directly with hiring managers",
+                body: "Pass the exam and unlock direct messaging with the hiring team. No recruiters in the middle, no phone tag, no weeks of silence.",
               },
               {
                 icon: Zap,
@@ -379,7 +408,7 @@ export default function LandingResponsive() {
                   "Hear back from 3",
                   "No idea if anyone read your resume",
                   "Ghost jobs waste your time",
-                  "Weeks of silence",
+                  "Ghosted — weeks of silence, zero feedback",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
                     <X className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
@@ -394,12 +423,12 @@ export default function LandingResponsive() {
               <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-6">With Recrutas</p>
               <ul className="space-y-4">
                 {[
-                  "Upload resume once",
-                  "AI applies to matched jobs automatically",
+                  "Upload resume once, AI applies automatically",
                   "See exactly what was submitted",
-                  "Track every application in real time",
+                  "Take exams — get ranked on skill, not connections",
+                  "Chat directly with hiring managers",
                   "Only verified, live job listings",
-                  "Responses in your inbox",
+                  "Every application gets a real response",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
@@ -412,25 +441,59 @@ export default function LandingResponsive() {
         </div>
       </section>
 
-      {/* -- For Companies (minimal) -- */}
+      {/* -- For Companies -- */}
       <section className="py-20 md:py-28">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-3xl text-center">
-          <p className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">For Companies</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-black dark:text-white mb-4">
-            Get pre-qualified candidates, not resume spam
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 text-lg leading-relaxed mb-8">
-            Every candidate on Recrutas has a parsed profile, matched skills, and verified interest in your role. No agencies, no placement fees.
-          </p>
-          <Button
-            size="lg"
-            variant="outline"
-            className="rounded-xl text-base font-semibold px-8 h-12 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-            onClick={() => setLocation('/signup/talent-owner')}
-          >
-            Post a Job Free
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">For Companies</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-black dark:text-white mb-4">
+              Get pre-qualified candidates, not resume spam
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-lg leading-relaxed max-w-2xl mx-auto">
+              Post a job. Candidates take a screening exam. You see them ranked by skill. Chat directly with top scorers. Every applicant gets a real response within 24 hours.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto mb-10">
+            {[
+              {
+                icon: BarChart3,
+                title: "Exam-ranked candidates",
+                body: "Set a screening exam. Candidates are ranked by score — you see the best first.",
+              },
+              {
+                icon: Users,
+                title: "Direct chat with top talent",
+                body: "Top exam scorers unlock direct messaging. No agencies, no phone tag.",
+              },
+              {
+                icon: Clock,
+                title: "24-hour response SLA",
+                body: "Every candidate who applies gets a real response within 24 hours. Your employer brand stays strong.",
+              },
+            ].map(({ icon: Icon, title, body }) => (
+              <div key={title} className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-center">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4 mx-auto">
+                  <Icon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <h3 className="font-bold text-black dark:text-white mb-2">{title}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{body}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-xl text-base font-semibold px-8 h-12 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              onClick={() => setLocation('/signup/talent-owner')}
+            >
+              Post a Job Free
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">No agencies. No placement fees.</p>
+          </div>
         </div>
       </section>
 
