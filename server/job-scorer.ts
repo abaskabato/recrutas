@@ -9,6 +9,7 @@
  *   Semantic embedding:   25%  (falls back to keyword-only when no vectors)
  *   Title/role relevance: 25%
  *   Experience level:     15%
+ *   Context bonus:        +0-8 points (location + work type, additive)
  *
  * Hard caps:
  *   - No skill overlap AND no role family match → capped at 25%
@@ -27,6 +28,13 @@ export interface JobLike {
   skills?: string[] | null;
   vectorEmbedding?: string | null;
   embeddingUpdatedAt?: Date | null;
+  location?: string | null;
+  workType?: string | null;
+}
+
+export interface CandidateContext {
+  location?: string | null;
+  workType?: string | null;
 }
 
 export interface JobScore {
@@ -172,6 +180,7 @@ function normalizeTitle(title: string): string {
  * @param job  Must have at least title; skills, description, vectorEmbedding optional
  * @param candidateEmbedding  Pre-parsed candidate vector (1024-dim), or undefined
  * @param candidateTitles  Previous job titles from resume (optional)
+ * @param candidateContext  Location/work type for context bonus (optional)
  */
 export function scoreJob(
   candidateSkills: string[],
@@ -179,6 +188,7 @@ export function scoreJob(
   job: JobLike,
   candidateEmbedding?: number[],
   candidateTitles?: string[],
+  candidateContext?: CandidateContext,
 ): JobScore {
   // ── 1. Keyword matching (35%) ──────────────────────────────────
 
@@ -246,6 +256,46 @@ export function scoreJob(
     experienceScore = Math.round(multiplier * 100);
   }
 
+  // ── 5. Context bonus: location + work type (up to +8 points) ──
+  // Additive bonus, not a percentage weight — rewards good fit without
+  // inflating scores for irrelevant jobs. Max +8 so it can't flip a
+  // bad match into a good one (30% threshold is still the gatekeeper).
+
+  let contextBonus = 0;
+
+  if (candidateContext) {
+    const jobLoc = (job.location || '').toLowerCase();
+    const candLoc = (candidateContext.location || '').toLowerCase();
+    const jobWork = (job.workType || '').toLowerCase();
+    const candWork = (candidateContext.workType || '').toLowerCase();
+
+    // Location: +4 for match or remote job, +2 for same state/region
+    if (jobLoc && candLoc) {
+      const isRemoteJob = jobWork.includes('remote') || jobLoc.includes('remote');
+      if (isRemoteJob) {
+        contextBonus += 4; // remote = fits anyone
+      } else if (candLoc === jobLoc || jobLoc.includes(candLoc) || candLoc.includes(jobLoc)) {
+        contextBonus += 4; // same city/area
+      } else {
+        // Check same state (e.g. "Seattle, WA" and "Bellevue, WA" both contain "wa")
+        const candState = candLoc.split(',').pop()?.trim();
+        const jobState = jobLoc.split(',').pop()?.trim();
+        if (candState && jobState && candState.length <= 3 && candState === jobState) {
+          contextBonus += 2;
+        }
+      }
+    }
+
+    // Work type: +4 for exact match, +2 for hybrid↔remote/onsite
+    if (jobWork && candWork) {
+      if (candWork === jobWork) {
+        contextBonus += 4;
+      } else if (candWork === 'hybrid' || jobWork === 'hybrid') {
+        contextBonus += 2; // hybrid is flexible
+      }
+    }
+  }
+
   // ── Blend ─────────────────────────────────────────────────────
 
   let matchScore: number;
@@ -266,6 +316,9 @@ export function scoreJob(
       0.20 * experienceScore
     );
   }
+
+  // Apply context bonus (additive, capped at 100)
+  matchScore = Math.min(100, matchScore + contextBonus);
 
   // ── Hard cap: no skill overlap AND no role match → max 25% ────
   // Prevents semantic noise from surfacing completely unrelated jobs
@@ -298,6 +351,12 @@ export function scoreJob(
     const idx: Record<string, number> = { entry: 0, mid: 1, senior: 2, lead: 3, executive: 4 };
     const candIdx = idx[candidateExperienceLevel || 'mid'] ?? 1;
     explanationParts.push(candIdx > jobLevel ? 'Slightly above your level' : 'Stretch role');
+  }
+
+  if (contextBonus >= 6) {
+    explanationParts.push('Good location & work type fit');
+  } else if (contextBonus >= 4) {
+    explanationParts.push('Location or work type matches');
   }
 
   if (explanationParts.length === 0) {

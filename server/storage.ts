@@ -935,7 +935,10 @@ export class DatabaseStorage implements IStorage {
 
     const recommendations = jobsWithSource
       .map(job => {
-        const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding, candidateTitles);
+        const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding, candidateTitles, {
+          location: candidate.location,
+          workType: candidate.workType,
+        });
         const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
 
         return {
@@ -1100,7 +1103,10 @@ export class DatabaseStorage implements IStorage {
           try { candEmb = JSON.parse(profile.vectorEmbedding); } catch { /* skip */ }
         }
 
-        const score = scoreJob(candSkills, profile.experienceLevel, job, candEmb, titles);
+        const score = scoreJob(candSkills, profile.experienceLevel, job, candEmb, titles, {
+          location: profile.location,
+          workType: profile.workType,
+        });
         if (score.matchScore < 30) continue;
 
         matches.push({
