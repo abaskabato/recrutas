@@ -28,8 +28,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx rebrowser-playwright install chromium chromium-headless-shell --with-deps
+      - name: Install system deps for Chromium
+        run: npx rebrowser-playwright install-deps chromium
+
+      - name: Download Chromium browsers
+        run: |
+          npx rebrowser-playwright install chromium chromium-headless-shell
+          echo "Installed browsers:"
+          ls -la $HOME/.cache/ms-playwright/ || true
+          ls $HOME/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux/headless_shell && echo "headless_shell OK" || echo "ERROR: headless_shell missing"
 
       - name: Process agent tasks
         env:
