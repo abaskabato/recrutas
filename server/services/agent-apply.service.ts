@@ -212,6 +212,11 @@ export class AgentApplyService {
 
       // Fix 3: Resolve a fresh resume URL at execution time (stored URL may be expired)
       const resumeUrl = await this.getFreshResumeUrl(task.resumeUrl);
+      if (resumeUrl) {
+        addLog('resume_url', `Resume URL resolved (${resumeUrl.substring(0, 60)}...)`);
+      } else {
+        addLog('resume_url', `WARNING: Could not resolve resume URL from stored key: ${task.resumeUrl}`);
+      }
 
       // Navigate to career page
       addLog('navigate', `Navigating to ${task.externalUrl}`);
@@ -340,6 +345,8 @@ export class AgentApplyService {
         if (fieldMap.fileUploadSelector && resumeUrl) {
           addLog(`step_${stepCount}_resume`, 'Uploading resume');
           await this.handleResumeUpload(activePage, fieldMap.fileUploadSelector, resumeUrl);
+        } else if (fieldMap.fileUploadSelector && !resumeUrl) {
+          addLog(`step_${stepCount}_resume_skip`, 'Resume upload selector found but no resume URL available — submission may fail');
         }
 
         // Handle screening questions (knockout questions)
@@ -1384,22 +1391,42 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
   // ==========================================
 
   private async verifySubmission(page: Page): Promise<boolean> {
+    // First, check for validation errors — if the form shows errors, it was NOT submitted
+    const validationErrorIndicators = [
+      '.field-error',
+      '.error-message',
+      '.form-error',
+      '[class*="error"]:visible',
+      'text=is required',
+      'text=Please fill',
+      'text=This field is required',
+      'text=can\'t be blank',
+      // Greenhouse specific validation
+      '#s_alert',
+      '.field--error',
+    ];
+    for (const indicator of validationErrorIndicators) {
+      try {
+        const el = await page.$(indicator);
+        if (el && await el.isVisible()) {return false;}
+      } catch { /* continue */ }
+    }
+
     const successIndicators = [
-      // General
-      'text=thank you',
-      'text=application received',
-      'text=successfully submitted',
-      'text=application has been submitted',
-      'text=we received your application',
-      // Greenhouse specific
+      // Greenhouse specific (check these first — more specific)
       'text=Your application was submitted successfully',
       'text=Application submitted',
       'text=Thanks for applying',
       'text=We have received your application',
+      '#application_confirmation',
+      // General
+      'text=application received',
+      'text=successfully submitted',
+      'text=application has been submitted',
+      'text=we received your application',
       // Common
       '.confirmation',
       '#confirmation',
-      '.success',
       '[data-qa="success-message"]',
     ];
 
@@ -1412,17 +1439,25 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
 
     // Check URL for confirmation patterns
     const url = page.url();
-    if (/confirm|thank|success|submitted|applied/i.test(url)) {return true;}
+    if (/confirm|thank.*you|success|submitted/i.test(url)) {return true;}
 
-    // Check for common success message elements
+    // Check page body for strong confirmation signals (require specific phrases, not loose matches)
     try {
       const bodyText = await page.textContent('body');
       if (bodyText) {
         const lowerText = bodyText.toLowerCase();
-        if (lowerText.includes('thank you') && lowerText.includes('application') ||
-            lowerText.includes('success') && lowerText.includes('submit') ||
-            lowerText.includes('application received')) {
-          return true;
+        // Only match if the confirmation phrase appears as a standalone message
+        // (not as part of a job description that happens to contain these words)
+        const strongConfirmations = [
+          'your application has been submitted',
+          'application submitted successfully',
+          'we received your application',
+          'thanks for applying',
+          'thank you for applying',
+          'your application was submitted',
+        ];
+        for (const phrase of strongConfirmations) {
+          if (lowerText.includes(phrase)) {return true;}
         }
       }
     } catch { /* ignore */ }
