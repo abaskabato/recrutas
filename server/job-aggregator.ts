@@ -9,6 +9,8 @@ export const SOURCE_TRUST_SCORES: Record<string, number> = {
   'JSearch': 75,            // JSearch API - aggregates real jobs
   'The Muse': 70,           // Curated tech jobs from real companies
   'WeWorkRemotely': 80,     // Curated remote jobs with direct URLs - HIGH QUALITY
+  'Adzuna': 72,             // Large UK/US aggregator, wide industry coverage
+  'Jooble': 65,             // Global aggregator, wide industry coverage
   'RemoteOK': 65,           // Remote-focused jobs, generally accurate
   'ArbeitNow': 60,          // European job board aggregator
   'default': 50             // Default for unknown sources
@@ -288,38 +290,66 @@ export class JobAggregator {
 
   async fetchFromJoobleAPI(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
-      console.log('Fetching from Jooble API (free tier)...');
-
-      const keywords = userSkills && userSkills.length > 0
-        ? userSkills.join(' ')
-        : 'software developer programmer';
-
-      const params = new URLSearchParams({
-        keywords: keywords,
-        location: 'USA',
-        radius: '50',
-        page: '1'
-      });
-
-      const response = await this.fetchWithRetry(`https://jooble.org/api/${process.env.JOOBLE_API_KEY || 'demo'}?${params}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'JobPlatform/1.0'
-        }
-      });
-
-      if (response.ok) {
-        const data: JoobleApiResponse = await response.json();
-        const jobs = this.transformJoobleJobs(data.jobs || []);
-        console.log(`Fetched ${jobs.length} real jobs from Jooble`);
-        return jobs;
-      } else {
-        console.log(`Jooble API returned ${response.status}`);
+      const apiKey = process.env.JOOBLE_API_KEY;
+      if (!apiKey) {
+        console.log('[Jooble] JOOBLE_API_KEY not set — skipping');
         return [];
       }
+
+      // Wide industry search queries
+      const searchQueries = [
+        'software engineer', 'IT support', 'data analyst',
+        'nurse', 'healthcare', 'accountant',
+        'marketing', 'project manager', 'sales',
+        'human resources', 'customer service', 'logistics',
+      ];
+
+      // Prepend user skills if available
+      if (userSkills && userSkills.length > 0) {
+        searchQueries.unshift(userSkills.join(' '));
+      }
+
+      const allJobs: ExternalJob[] = [];
+      const seen = new Set<string>();
+
+      for (const keywords of searchQueries) {
+        if (allJobs.length >= 300) break;
+        try {
+          const response = await this.fetchWithRetry(`https://jooble.org/api/${apiKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'RecrutasJobAggregator/1.0'
+            },
+            body: JSON.stringify({
+              keywords,
+              location: 'USA',
+              page: 1,
+              ResultOnPage: 30,
+            }),
+          });
+
+          if (response.ok) {
+            const data: JoobleApiResponse = await response.json();
+            for (const job of this.transformJoobleJobs(data.jobs || [])) {
+              const key = `${job.title}::${job.company}`.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                allJobs.push(job);
+              }
+            }
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+          console.log(`[Jooble] Skipping query "${keywords}":`, (error as Error).message);
+        }
+      }
+
+      console.log(`[Jooble] Fetched ${allJobs.length} jobs across ${searchQueries.length} queries`);
+      return allJobs;
     } catch (error) {
-      console.log('Error fetching from Jooble:', (error as Error).message);
+      console.log('[Jooble] Error:', (error as Error).message);
       return [];
     }
   }
@@ -764,6 +794,16 @@ export class JobAggregator {
         fetchPromises.push(this.fetchFromUSAJobs(userSkills));
       }
 
+      // Adzuna — wide industry coverage (tech, IT, healthcare, finance, etc.)
+      if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) {
+        fetchPromises.push(this.fetchFromAdzuna(userSkills));
+      }
+
+      // Jooble — global aggregator, wide industry coverage
+      if (process.env.JOOBLE_API_KEY) {
+        fetchPromises.push(this.fetchFromJoobleAPI(userSkills));
+      }
+
       // Execute all fetches with error handling
       const results = await Promise.allSettled(fetchPromises);
 
@@ -937,42 +977,61 @@ export class JobAggregator {
     }
   }
 
-  // Adzuna API with demo credentials
-  async fetchFromAdzunaDemo(userSkills?: string[]): Promise<ExternalJob[]> {
+  // Adzuna API — wide industry coverage (tech, IT, healthcare, finance, etc.)
+  async fetchFromAdzuna(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
-      let queries = ['software developer', 'frontend engineer', 'backend developer'];
+      const appId = process.env.ADZUNA_APP_ID;
+      const appKey = process.env.ADZUNA_APP_KEY;
+      if (!appId || !appKey) {
+        console.log('[Adzuna] ADZUNA_APP_ID/ADZUNA_APP_KEY not set — skipping');
+        return [];
+      }
 
-      // Use user skills to create targeted queries
+      // Wide variety of job queries across industries
+      const queries = [
+        'software engineer', 'data analyst', 'product manager',
+        'IT support', 'network administrator', 'cybersecurity',
+        'nurse', 'medical technician', 'healthcare',
+        'accountant', 'financial analyst', 'marketing manager',
+        'project manager', 'human resources', 'operations manager',
+        'sales representative', 'customer service', 'supply chain',
+      ];
+
+      // If user has skills, prepend targeted queries
       if (userSkills && userSkills.length > 0) {
-        queries = userSkills.map(skill => `${skill} developer`);
-        queries.push(...userSkills.map(skill => `${skill} engineer`));
+        queries.unshift(...userSkills.slice(0, 3));
       }
 
       const allJobs: ExternalJob[] = [];
+      const seen = new Set<string>();
 
       for (const query of queries) {
+        if (allJobs.length >= 500) break; // cap per run
         try {
-          // Using demo credentials that are publicly available
-          const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=demo&app_key=demo&results_per_page=50&what=${encodeURIComponent(query)}&content-type=application/json`;
-
-          const response = await fetch(url);
+          const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=50&what=${encodeURIComponent(query)}&content-type=application/json&sort_by=date`;
+          const response = await this.fetchWithRetry(url);
 
           if (response.ok) {
             const data: AdzunaApiResponse = await response.json();
-            const jobs = this.transformAdzunaJobs(data.results || []);
-            allJobs.push(...jobs.slice(0, 3));
+            for (const job of this.transformAdzunaJobs(data.results || [])) {
+              const key = `${job.title}::${job.company}`.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                allJobs.push(job);
+              }
+            }
           }
 
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
-          console.log(`Skipping Adzuna query "${query}":`, error);
+          console.log(`[Adzuna] Skipping query "${query}":`, (error as Error).message);
         }
       }
 
-      console.log(`Fetched ${allJobs.length} real jobs from Adzuna`);
+      console.log(`[Adzuna] Fetched ${allJobs.length} jobs across ${queries.length} queries`);
       return allJobs;
     } catch (error) {
-      console.error('Error fetching from Adzuna:', error);
+      console.error('[Adzuna] Error:', error);
       return [];
     }
   }

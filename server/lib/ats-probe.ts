@@ -1,13 +1,13 @@
 /**
  * ATS Probe Service
  *
- * Probes company slugs against Greenhouse, Lever, and Ashby public APIs
+ * Probes company slugs against Greenhouse, Lever, Ashby, Workable, and Recruitee public APIs
  * to detect which ATS a company uses. Designed for serverless: concurrency
  * is bounded per-invocation, circuit breaker state is persisted in Redis
  * so it survives across Vercel function cold starts.
  *
  * Throttling:
- *  - MAX_CONCURRENT = 5 simultaneous probes
+ *  - MAX_CONCURRENT = 10 simultaneous probes
  *  - BATCH_DELAY_MS = 200ms between batches
  *  - Circuit breaker: 10 consecutive 429s → 60s pause (Redis-backed)
  */
@@ -30,7 +30,7 @@ const REDIS_CIRCUIT_KEY = 'ats-probe:circuit-pause-until';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type AtsType = 'greenhouse' | 'lever' | 'ashby';
+export type AtsType = 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'recruitee';
 
 export interface ProbeResult {
   normalizedName: string;
@@ -153,6 +153,56 @@ async function probeAshby(slug: string): Promise<boolean> {
   }
 }
 
+async function probeWorkable(slug: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), JSON_PROBE_TIMEOUT_MS);
+    const res = await fetch(`https://apply.workable.com/api/v1/widget/accounts/${slug}`, {
+      headers: { 'User-Agent': 'RecrutasJobAggregator/1.0' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.status === 429) { await record429(); return false; }
+    if (res.status === 404) return false;
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      // Workable returns { name, subdomain, ... } for valid accounts
+      if (json && typeof json === 'object' && 'name' in json) {
+        await recordSuccess();
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function probeRecruitee(slug: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), JSON_PROBE_TIMEOUT_MS);
+    const res = await fetch(`https://${slug}.recruitee.com/api/offers`, {
+      headers: { 'User-Agent': 'RecrutasJobAggregator/1.0' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.status === 429) { await record429(); return false; }
+    if (res.status === 404) return false;
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      // Recruitee returns { offers: [...] } for valid accounts
+      if (json && typeof json === 'object' && 'offers' in json) {
+        await recordSuccess();
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // ── Slug generation ───────────────────────────────────────────────────────────
 
 function generateSlugs(normalizedName: string): string[] {
@@ -200,6 +250,22 @@ export async function probeCompany(normalizedName: string): Promise<ProbeResult>
           atsType: 'ashby',
           atsId: slug,
           careerPageUrl: `https://jobs.ashbyhq.com/${slug}`,
+        };
+      }
+      if (await probeWorkable(slug)) {
+        return {
+          normalizedName,
+          atsType: 'workable',
+          atsId: slug,
+          careerPageUrl: `https://apply.workable.com/${slug}`,
+        };
+      }
+      if (await probeRecruitee(slug)) {
+        return {
+          normalizedName,
+          atsType: 'recruitee',
+          atsId: slug,
+          careerPageUrl: `https://${slug}.recruitee.com`,
         };
       }
     }

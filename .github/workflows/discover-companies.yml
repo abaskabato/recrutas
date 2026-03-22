@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: 'Max companies to probe per run (default: 100, max: 100)'
+        description: 'Max companies to probe per run (default: 300, max: 300)'
         required: false
-        default: '100'
+        default: '300'
         type: string
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
       - name: Phase 3 — ATS probe pending companies
         continue-on-error: true
         run: |
-          LIMIT="${{ github.event.inputs.limit || '100' }}"
+          LIMIT="${{ github.event.inputs.limit || '300' }}"
           response=$(curl -s -o /tmp/probe.json -w "%{http_code}" \
             -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=probe&limit=${LIMIT}" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \

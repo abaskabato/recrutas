@@ -2150,7 +2150,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       if (!verifyCronSecret(req, res)) return;
 
       const phase = (req.query.phase as string) || 'discover';
-      const limit = Math.min(parseInt((req.query.limit as string) || '100', 10), 100);
+      const limit = Math.min(parseInt((req.query.limit as string) || '300', 10), 300);
 
       if (phase === 'discover') {
         // Phase 1: mine job postings for new company names → save to discovered_companies
