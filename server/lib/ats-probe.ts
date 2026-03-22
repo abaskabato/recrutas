@@ -19,7 +19,7 @@ import { redis } from './redis.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const MAX_CONCURRENT = 5;
+const MAX_CONCURRENT = 10;
 const BATCH_DELAY_MS = 200;
 const PROBE_TIMEOUT_MS = 8000; // HEAD requests
 const JSON_PROBE_TIMEOUT_MS = 10000; // JSON API requests (Lever/Ashby can be slow)

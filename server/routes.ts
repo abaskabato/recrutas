@@ -2150,7 +2150,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       if (!verifyCronSecret(req, res)) return;
 
       const phase = (req.query.phase as string) || 'discover';
-      const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 20);
+      const limit = Math.min(parseInt((req.query.limit as string) || '100', 10), 100);
 
       if (phase === 'discover') {
         // Phase 1: mine job postings for new company names → save to discovered_companies
@@ -2192,7 +2192,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.json({ phase: 'probe', probed: results.length, approved, rejected });
       }
 
-      return res.status(400).json({ message: 'Invalid phase. Use ?phase=discover or ?phase=probe' });
+      if (phase === 'apollo') {
+        // Phase 3: seed companies from Apollo.io (broad industry coverage)
+        const { runApolloDiscovery } = await import('./services/apollo-discovery.service.js');
+        const apolloResult = await runApolloDiscovery(300);
+        return res.json({ phase: 'apollo', ...apolloResult });
+      }
+
+      return res.status(400).json({ message: 'Invalid phase. Use ?phase=discover, ?phase=probe, or ?phase=apollo' });
     } catch (error: any) {
       console.error('[DiscoverCompanies] Failed:', error?.message);
       res.status(500).json({ message: 'Company discovery failed', error: error?.message });

@@ -7,15 +7,15 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: 'Max companies to probe per run (default: 10, max: 20)'
+        description: 'Max companies to probe per run (default: 100, max: 100)'
         required: false
-        default: '10'
+        default: '100'
         type: string
 
 jobs:
   discover:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
 
     steps:
       - name: Phase 1 — Mine job postings for new companies
@@ -31,10 +31,23 @@ jobs:
             exit 1
           fi
 
-      - name: Phase 2 — ATS probe pending companies
+      - name: Phase 2 — Apollo.io company seeding
         continue-on-error: true
         run: |
-          LIMIT="${{ github.event.inputs.limit || '10' }}"
+          response=$(curl -s -o /tmp/apollo.json -w "%{http_code}" \
+            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=apollo" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "Status: $response"
+          echo "Body: $(cat /tmp/apollo.json)"
+          if [ "$response" != "200" ]; then
+            echo "::warning::Apollo phase returned $response (non-fatal)"
+          fi
+
+      - name: Phase 3 — ATS probe pending companies
+        continue-on-error: true
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '100' }}"
           response=$(curl -s -o /tmp/probe.json -w "%{http_code}" \
             -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=probe&limit=${LIMIT}" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
@@ -50,4 +63,5 @@ jobs:
         run: |
           echo "Company discovery run complete at $(date -u)"
           echo "Discover: $(cat /tmp/discover.json 2>/dev/null || echo 'N/A')"
+          echo "Apollo:   $(cat /tmp/apollo.json 2>/dev/null || echo 'N/A')"
           echo "Probe:    $(cat /tmp/probe.json 2>/dev/null || echo 'N/A')"
