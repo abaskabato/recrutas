@@ -6,6 +6,16 @@ import { sendInngestEvent } from '../inngest-service.js';
 import { captureException } from '../error-monitoring';
 import { updateCandidateEmbedding } from './candidate-embedding.service';
 
+/** Recursively strip PostgreSQL-illegal null bytes (\0) from all strings in a value. */
+function stripNullBytes<T>(val: T): T {
+  if (typeof val === 'string') return val.replace(/\0/g, '') as unknown as T;
+  if (Array.isArray(val)) return val.map(stripNullBytes) as unknown as T;
+  if (val && typeof val === 'object' && !(val instanceof Date)) {
+    for (const k of Object.keys(val)) (val as any)[k] = stripNullBytes((val as any)[k]);
+  }
+  return val;
+}
+
 /**
  * Custom error for resume processing failures
  * @extends Error
@@ -200,8 +210,7 @@ export class ResumeService {
 
       // Only overwrite resumeText if we actually got content — don't nuke existing text on parse failure
       if (parseResult?.text) {
-        // Strip null bytes — PostgreSQL rejects \0 in UTF-8 text columns
-        profileUpdate.resumeText = parseResult.text.replace(/\0/g, '');
+        profileUpdate.resumeText = parseResult.text;
       }
 
       // Skills: always wipe and replace on re-upload — stale skills pollute matches
@@ -223,14 +232,14 @@ export class ResumeService {
       if (positions.length > 0) {
         const summary = positions.slice(0, 4).map((p: any) =>
           [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
-        ).join('. ').replace(/\0/g, '');
+        ).join('. ');
         profileUpdate.experience = summary.slice(0, 1000);
         profileUpdate.resumeParsingData = {
           ...profileUpdate.resumeParsingData,
           positions: positions.slice(0, 6).map((p: any) => ({
-            title: (p.title || '').replace(/\0/g, ''),
-            company: (p.company || '').replace(/\0/g, ''),
-            duration: (p.duration || '').replace(/\0/g, ''),
+            title: p.title || '',
+            company: p.company || '',
+            duration: p.duration || '',
           })),
         };
       }
@@ -243,6 +252,11 @@ export class ResumeService {
       if (aiExtracted.personalInfo?.github) {
         profileUpdate.githubUrl = aiExtracted.personalInfo.github;
       }
+
+      // Strip null bytes from ALL string fields at the boundary — PostgreSQL
+      // rejects \0 in UTF-8 text/jsonb columns. Doing it once here instead of
+      // scattering .replace(/\0/g, '') on individual fields.
+      stripNullBytes(profileUpdate);
 
       await this.storage.upsertCandidateUser(profileUpdate);
       console.log(`[ResumeService] Profile updated for user: ${userId}`);

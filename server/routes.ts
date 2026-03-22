@@ -848,6 +848,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(result);
     } catch (error) {
       console.error("Error processing resume upload:", error);
+      if (res.headersSent) return;
       if (error instanceof ResumeProcessingError) {
         return res.status(500).json({
           message: error.message,

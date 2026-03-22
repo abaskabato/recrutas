@@ -71,6 +71,8 @@ export function errorHandler(
 ): void {
   console.error('[Error Handler]', err);
 
+  if (res.headersSent) return;
+
   if (err instanceof ApiError) {
     res.status(err.statusCode).json({
       error: {
