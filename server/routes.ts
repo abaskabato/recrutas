@@ -45,6 +45,8 @@ import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
 import rateLimit from 'express-rate-limit';
 import { captureException } from './error-monitoring';
+import { recordMatchSignal, joinExamScore } from './services/match-signals.service';
+import { scoreJob } from './job-scorer';
 
 // Admin/owner accounts bypass daily usage limits
 // Set via ADMIN_EMAILS env var (comma-separated): "alice@example.com,bob@example.com"
@@ -828,24 +830,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.json(result);
     } catch (error) {
       console.error("Error processing resume upload:", error);
-      // Record to error_events so it shows in admin dashboard
-      await captureException(error as Error, {
-        userId: req.user?.id,
-        action: `POST /api/candidate/resume`,
-        component: 'resume-upload',
-        metadata: {
-          fileName: req.file?.originalname,
-          fileSize: req.file?.size,
-          mimeType: req.file?.mimetype,
-        },
-      });
       if (error instanceof ResumeProcessingError) {
         return res.status(500).json({
           message: error.message,
           details: process.env.NODE_ENV === 'development' ? error.originalError?.message : undefined
         });
       }
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to upload resume",
         details: process.env.NODE_ENV === 'development' ? (error as Error)?.message : undefined
       });
@@ -917,6 +908,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(400).json({ message: "jobId is required" });
       }
       await storage.saveJob(req.user.id, jobId);
+
+      // Fire-and-forget: record save signal
+      storage.getJobPosting(jobId).then(job => {
+        if (!job) return;
+        storage.getCandidateUser(req.user.id).then(cp => {
+          if (!cp) return;
+          const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
+          const score = scoreJob(skills, cp.experienceLevel, job);
+          recordMatchSignal(req.user.id, jobId, 'save', score).catch(() => {});
+        }).catch(() => {});
+      }).catch(() => {});
+
       res.status(201).json({ message: "Job saved successfully" });
     } catch (error) {
       console.error("Error saving job:", error);
@@ -945,6 +948,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(400).json({ message: "jobId is required" });
       }
       await storage.hideJob(req.user.id, jobId);
+
+      // Fire-and-forget: record hide signal (negative feedback)
+      storage.getJobPosting(jobId).then(job => {
+        if (!job) return;
+        storage.getCandidateUser(req.user.id).then(cp => {
+          if (!cp) return;
+          const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
+          const score = scoreJob(skills, cp.experienceLevel, job);
+          recordMatchSignal(req.user.id, jobId, 'hide', score).catch(() => {});
+        }).catch(() => {});
+      }).catch(() => {});
+
       res.status(201).json({ message: "Job hidden successfully" });
     } catch (error) {
       console.error("Error hiding job:", error);
@@ -1053,6 +1068,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       await storage.incrementDailyUsage(userId, 'application');
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
+
+      // Fire-and-forget: record match signal for feedback loop
+      storage.getCandidateUser(userId).then(cp => {
+        if (!cp) return;
+        const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
+        const score = scoreJob(skills, cp.experienceLevel, job);
+        recordMatchSignal(userId, jobId, 'apply', score).catch(() => {});
+      }).catch(() => {});
 
       if (isInternalJob) {
         // Notify talent owner of new application
@@ -1615,6 +1638,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(400).json({ message: "Answers are required" });
       }
       const result = await examService.submitExam(jobId, req.user.id, answers);
+
+      // Fire-and-forget: join exam score back to match signal
+      joinExamScore(req.user.id, jobId, result.score).catch(() => {});
+
       res.json(result);
     } catch (error) {
       console.error("Error submitting exam:", error);
@@ -2409,6 +2436,34 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // ── End Invite Code Endpoints ──────────────────────────────────────────────
 
+  // ── Feedback Loop / Weight Tuning Endpoints ─────────────────────────────────
+
+  // Correlation stats: how well do current match scores predict exam outcomes?
+  app.get('/api/admin/feedback-loop/stats', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const { getCorrelationStats } = await import('./services/match-signals.service');
+    const stats = await getCorrelationStats();
+    res.json(stats);
+  }));
+
+  // Trigger weight tuning: learn optimal weights from labeled exam data
+  app.post('/api/admin/feedback-loop/tune', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const { tuneWeights } = await import('./services/match-signals.service');
+    const result = await tuneWeights();
+    res.json(result);
+  }));
+
+  // Get current learned weights (or null if no tuning has happened)
+  app.get('/api/admin/feedback-loop/weights', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const { getLearnedWeights } = await import('./services/match-signals.service');
+    const weights = await getLearnedWeights();
+    res.json({ weights, isDefault: weights === null });
+  }));
+
+  // ── End Feedback Loop Endpoints ─────────────────────────────────────────────
+
   // Job quality indicators for candidates
   app.get('/api/jobs/:jobId/quality-indicators', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {
@@ -2625,6 +2680,13 @@ export async function registerRoutes(app: Express): Promise<Express> {
         }).where(eq(jobApplications.id, application.id));
 
         await storage.createActivityLog(userId, "agent_apply_submitted", `Agent applied to job ID: ${jobId} via Greenhouse API`);
+
+        // Fire-and-forget: record agent_apply signal
+        {
+          const skills = Array.isArray(candidateProfile.skills) ? (candidateProfile.skills as string[]) : [];
+          const agentScore = scoreJob(skills, (candidateProfile as any).experienceLevel, job);
+          recordMatchSignal(userId, jobId, 'agent_apply', agentScore).catch(() => {});
+        }
 
         // Notify candidate: in-app + email
         await notificationService.createNotification({

@@ -223,8 +223,16 @@ export class ResumeService {
       if (positions.length > 0) {
         const summary = positions.slice(0, 4).map((p: any) =>
           [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
-        ).join('. ');
+        ).join('. ').replace(/\0/g, '');
         profileUpdate.experience = summary.slice(0, 1000);
+        profileUpdate.resumeParsingData = {
+          ...profileUpdate.resumeParsingData,
+          positions: positions.slice(0, 6).map((p: any) => ({
+            title: (p.title || '').replace(/\0/g, ''),
+            company: (p.company || '').replace(/\0/g, ''),
+            duration: (p.duration || '').replace(/\0/g, ''),
+          })),
+        };
       }
       if (aiExtracted.personalInfo?.location) {
         profileUpdate.location = aiExtracted.personalInfo.location;
