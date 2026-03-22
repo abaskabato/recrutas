@@ -143,6 +143,7 @@ Your job: answer each question naturally and honestly using the candidate's real
 
 Rules:
 - For multi_value_single_select fields: return the numeric "value" of the best matching option.
+- For multi_value_multi_select fields: return a comma-separated string of numeric "value"s to check. For acknowledgment/consent checkboxes, always return the value. For "how did you hear" questions, select "Other" or the most generic option.
 - For input_text fields: write a concise, direct answer (1 sentence max).
 - For textarea fields: write a professional answer (2-4 sentences).
 - Use the candidate's actual information — never fabricate credentials, skills, or experience.
@@ -154,6 +155,7 @@ Rules:
 - For work authorization: default to selecting the "Yes" option if not specified otherwise.
 - For sponsorship: default to selecting the "No" option if not specified otherwise.
 - For acknowledgment/consent: select the affirmative option.
+- For "was this application prepared by AI" questions: answer honestly — select "Yes".
 - For pronouns: skip (return null).
 - For salary/compensation: skip (return null).
 - If you truly cannot answer from the available data, return null for that field.
@@ -344,8 +346,9 @@ export async function submitToGreenhouse(
       if (el) { await el.click(); await el.fill(val); }
     }
 
-    // Handle country dropdown (React Select)
-    await fillReactSelect(page, '#country', candidate.location || 'United States');
+    // Handle country dropdown (React Select) — use "United States" as default
+    // since most Recrutas candidates are US-based; location field has city/state, not country
+    await fillReactSelect(page, '#country', 'United States');
 
     // Handle location (React Select with autocomplete)
     if (candidate.location) {
@@ -363,7 +366,21 @@ export async function submitToGreenhouse(
       const question = jobData.questions.find(q => q.fields.some(f => f.name === fieldName));
       const field = question?.fields.find(f => f.name === fieldName);
 
-      if (field?.type === 'multi_value_single_select' && field.values?.length) {
+      if (field?.type === 'multi_value_multi_select' && field.values?.length) {
+        // Checkboxes — each option has id="${fieldName}_${value}"
+        // AI returns a numeric value ID (or comma-separated for multiple)
+        const valueIds = String(value).split(',').map(v => v.trim());
+        for (const vid of valueIds) {
+          const checkboxId = `${fieldName}_${vid}`;
+          // IDs contain [] which need escaping in CSS selectors
+          const escapedId = checkboxId.replace(/([[\]])/g, '\\$1');
+          const cb = await page.$(`#${escapedId}`);
+          if (cb) {
+            await cb.check();
+            console.log(`[greenhouse-submit] Checked: ${checkboxId}`);
+          }
+        }
+      } else if (field?.type === 'multi_value_single_select' && field.values?.length) {
         // React Select dropdown — find the label for the AI's numeric answer
         const numValue = Number(value);
         const optionLabel = field.values.find(v => v.value === numValue)?.label || String(value);
@@ -386,6 +403,19 @@ export async function submitToGreenhouse(
     if (candidate.portfolioUrl || candidate.personalWebsite) {
       await tryFillByLabel(page, 'Website', candidate.portfolioUrl || candidate.personalWebsite || '');
       await tryFillByLabel(page, 'Portfolio', candidate.portfolioUrl || candidate.personalWebsite || '');
+    }
+
+    // Fill preferred name if present
+    const preferredName = await page.$('#preferred_name');
+    if (preferredName) {
+      await preferredName.click();
+      await preferredName.fill(candidate.firstName);
+    }
+
+    // Check GDPR/consent checkboxes (Greenhouse adds these for EU compliance)
+    const gdprCheckboxes = await page.locator('input[type="checkbox"][name*="gdpr"], input[type="checkbox"][name*="consent"], input[type="checkbox"][name*="data_processing"]').all();
+    for (const cb of gdprCheckboxes) {
+      await cb.check().catch(() => {});
     }
 
     // Upload resume

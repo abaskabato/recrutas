@@ -2518,6 +2518,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
         return res.status(400).json({ message: "Please upload your resume first" });
       }
 
+      // Resolve email and phone — candidate_users.email may be empty, fall back to users table
+      const user = await storage.getUser(userId);
+      const candidateEmail = candidateProfile.email || user?.email || '';
+      const candidatePhone = user?.phone_number || '';
+
       // Check if this is a Greenhouse job we can submit to directly
       const ghParsed = parseGreenhouseUrl(job.externalUrl);
       if (ghParsed) {
@@ -2542,10 +2547,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
         let result: any;
         try {
           result = await submitToGreenhouse(ghParsed.boardToken, ghParsed.jobId, {
-            firstName: candidateProfile.firstName || '',
-            lastName: candidateProfile.lastName || '',
-            email: candidateProfile.email || '',
-            phone: (candidateProfile as any).phone || '',
+            firstName: candidateProfile.firstName || user?.first_name || '',
+            lastName: candidateProfile.lastName || user?.last_name || '',
+            email: candidateEmail,
+            phone: candidatePhone,
             linkedinUrl: candidateProfile.linkedinUrl || '',
             portfolioUrl: candidateProfile.portfolioUrl || '',
             githubUrl: candidateProfile.githubUrl || '',
@@ -2587,10 +2592,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
             externalUrl: job.externalUrl,
             status: 'awaiting_verification' as any,
             candidateData: {
-              firstName: candidateProfile.firstName,
-              lastName: candidateProfile.lastName,
-              email: candidateProfile.email,
-              phone: (candidateProfile as any).phone,
+              firstName: candidateProfile.firstName || user?.first_name,
+              lastName: candidateProfile.lastName || user?.last_name,
+              email: candidateEmail,
+              phone: candidatePhone,
               location: candidateProfile.location,
               linkedinUrl: candidateProfile.linkedinUrl,
               resumeUrl: candidateProfile.resumeUrl,
@@ -2613,7 +2618,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
           // Email candidate about verification + what was submitted
           sendTransactionalEmail({
-            to: candidateProfile.email!,
+            to: candidateEmail,
             subject: `Action needed: Verify your application for ${job.title} at ${job.company}`,
             html: `
               <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
