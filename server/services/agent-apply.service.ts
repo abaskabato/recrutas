@@ -1100,66 +1100,60 @@ For each field, provide the best value based on the candidate data. For yes/no o
 Return ONLY a JSON object mapping selectors to values. Example:
 {"#field1": "value1", "[name=\\"field2\\"]": "value2"}`;
 
-      // Try Gemini first (available in GH Actions), then fall back to Groq, then Ollama
-      const geminiKey = process.env.GEMINI_API_KEY;
+      // Try Groq first (most reliable), then Gemini, then Ollama
       const groqKey = process.env.GROQ_API_KEY;
+      const geminiKey = process.env.GEMINI_API_KEY;
+      let aiText = '';
 
-      if (geminiKey) {
-        console.log(`[AgentApply] Using Gemini for ${fieldDescriptions.length} unmatched fields`);
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-          {
+      // Helper to extract and parse JSON from AI response
+      const parseAiResponse = (text: string) => {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch (e: any) {
+            console.log(`[AgentApply] AI JSON parse error: ${e.message} — raw: ${jsonMatch[0].substring(0, 200)}`);
+          }
+        }
+      };
+
+      if (groqKey && Object.keys(result).length === 0) {
+        try {
+          console.log(`[AgentApply] Using Groq for ${fieldDescriptions.length} unmatched fields`);
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
             signal: AbortSignal.timeout(15000),
+          });
+          if (response.ok) {
+            aiText = (await response.json() as any)?.choices?.[0]?.message?.content || '';
+            console.log(`[AgentApply] Groq response (${aiText.length} chars): ${aiText.substring(0, 300)}`);
+            parseAiResponse(aiText);
+          } else {
+            console.log(`[AgentApply] Groq API error: ${response.status}`);
           }
-        );
-        if (response.ok) {
-          const data = await response.json() as any;
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          console.log(`[AgentApply] Gemini response (${text.length} chars): ${text.substring(0, 300)}`);
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch (e: any) {
-              console.log(`[AgentApply] Gemini JSON parse error: ${e.message} — raw: ${jsonMatch[0].substring(0, 200)}`);
+        } catch (e: any) { console.log(`[AgentApply] Groq failed: ${e.message}`); }
+      }
+
+      if (geminiKey && Object.keys(result).length === 0) {
+        try {
+          console.log(`[AgentApply] Using Gemini for ${fieldDescriptions.length} unmatched fields`);
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+              signal: AbortSignal.timeout(15000),
             }
+          );
+          if (response.ok) {
+            aiText = (await response.json() as any)?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            console.log(`[AgentApply] Gemini response (${aiText.length} chars): ${aiText.substring(0, 300)}`);
+            parseAiResponse(aiText);
+          } else {
+            console.log(`[AgentApply] Gemini API error: ${response.status}`);
           }
-        } else {
-          console.log(`[AgentApply] Gemini API error: ${response.status} ${await response.text().catch(() => '')}`);
-        }
-      } else if (groqKey) {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (response.ok) {
-          const data = await response.json() as any;
-          const text = data?.choices?.[0]?.message?.content || '';
-          const jsonMatch = text.match(/\{[^}]*\}/s);
-          if (jsonMatch) {
-            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch {}
-          }
-        }
-      } else {
-        // Fall back to local Ollama
-        const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-        const response = await fetch(`${ollamaUrl}/api/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'llama3.2', prompt, stream: false }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (response.ok) {
-          const data = await response.json() as { response?: string };
-          const text = data.response || '';
-          const jsonMatch = text.match(/\{[^}]*\}/s);
-          if (jsonMatch) {
-            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch {}
-          }
-        }
+        } catch (e: any) { console.log(`[AgentApply] Gemini failed: ${e.message}`); }
       }
     } catch (e: any) {
       console.log('[AgentApply] AI form analysis failed:', e.message);
