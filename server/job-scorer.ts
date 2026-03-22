@@ -20,6 +20,33 @@ import { parseSkillsInput, getRelatedSkills } from './skill-normalizer';
 import { extractSkillsFromText } from './utils/skill-extractor';
 import { cosineSimilarity } from './ml-matching';
 
+// ── Learned weights (loaded from DB, refreshed every 10min) ──────────
+
+interface LearnedWeights { keyword: number; semantic: number; title: number; experience: number }
+let _cachedWeights: LearnedWeights | null = null;
+let _weightsLoadedAt = 0;
+const WEIGHTS_TTL = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Load learned weights from DB if available. Non-blocking — returns cached
+ * value if fresh, triggers async refresh otherwise. Falls back to defaults.
+ */
+function getWeights(): LearnedWeights {
+  const defaults: LearnedWeights = { keyword: 0.35, semantic: 0.25, title: 0.25, experience: 0.15 };
+
+  // Trigger async refresh if stale
+  if (Date.now() - _weightsLoadedAt > WEIGHTS_TTL) {
+    _weightsLoadedAt = Date.now(); // prevent thundering herd
+    import('./services/match-signals.service').then(mod =>
+      mod.getLearnedWeights().then(w => {
+        if (w) _cachedWeights = w;
+      })
+    ).catch(() => {});
+  }
+
+  return _cachedWeights || defaults;
+}
+
 // ── Types ──────────────────────────────────────────────────────────
 
 export interface JobLike {
@@ -44,6 +71,15 @@ export interface JobScore {
   partialSkillMatches: string[];
   aiExplanation: string;
   confidenceLevel: number;
+  // Component scores for signal capture / feedback loop
+  components: {
+    keywordScore: number;
+    semanticScore: number;
+    titleScore: number;
+    experienceScore: number;
+    contextBonus: number;
+    hasSemanticSignal: boolean;
+  };
 }
 
 // ── Role family extraction ─────────────────────────────────────────
@@ -379,24 +415,26 @@ export function scoreJob(
     }
   }
 
-  // ── Blend ─────────────────────────────────────────────────────
+  // ── Blend (uses learned weights when available) ──────────────
 
+  const w = getWeights();
   let matchScore: number;
 
   if (hasSemanticSignal) {
-    // Full blend: keyword 35% + semantic 25% + title 25% + experience 15%
+    // Full blend with all 4 components
     matchScore = Math.round(
-      0.35 * keywordScore +
-      0.25 * semanticScore +
-      0.25 * titleScore +
-      0.15 * experienceScore
+      w.keyword * keywordScore +
+      w.semantic * semanticScore +
+      w.title * titleScore +
+      w.experience * experienceScore
     );
   } else {
-    // No embeddings: keyword 50% + title 30% + experience 20%
+    // No embeddings: redistribute semantic weight proportionally
+    const noSemTotal = w.keyword + w.title + w.experience;
     matchScore = Math.round(
-      0.50 * keywordScore +
-      0.30 * titleScore +
-      0.20 * experienceScore
+      (w.keyword / noSemTotal) * keywordScore +
+      (w.title / noSemTotal) * titleScore +
+      (w.experience / noSemTotal) * experienceScore
     );
   }
 
@@ -455,6 +493,14 @@ export function scoreJob(
     partialSkillMatches: partialMatches,
     aiExplanation: explanation,
     confidenceLevel: hasSemanticSignal ? 2 : 1,
+    components: {
+      keywordScore,
+      semanticScore,
+      titleScore,
+      experienceScore,
+      contextBonus,
+      hasSemanticSignal,
+    },
   };
 }
 

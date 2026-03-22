@@ -47,6 +47,24 @@ import rateLimit from 'express-rate-limit';
 import { captureException } from './error-monitoring';
 import { recordMatchSignal, joinExamScore } from './services/match-signals.service';
 import { scoreJob } from './job-scorer';
+import type { SignalAction } from './services/match-signals.service';
+
+/**
+ * Fire-and-forget: record a match signal with the full feature snapshot.
+ * Never blocks the request path — errors are swallowed.
+ */
+function recordSignal(candidateId: string, jobId: number, action: SignalAction, job?: any): void {
+  const resolve = job ? Promise.resolve(job) : storage.getJobPosting(jobId);
+  resolve.then(j => {
+    if (!j) return;
+    storage.getCandidateUser(candidateId).then(cp => {
+      if (!cp) return;
+      const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
+      const score = scoreJob(skills, cp.experienceLevel, j);
+      recordMatchSignal(candidateId, jobId, action, score).catch(() => {});
+    }).catch(() => {});
+  }).catch(() => {});
+}
 
 // Admin/owner accounts bypass daily usage limits
 // Set via ADMIN_EMAILS env var (comma-separated): "alice@example.com,bob@example.com"
@@ -909,16 +927,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       await storage.saveJob(req.user.id, jobId);
 
-      // Fire-and-forget: record save signal
-      storage.getJobPosting(jobId).then(job => {
-        if (!job) return;
-        storage.getCandidateUser(req.user.id).then(cp => {
-          if (!cp) return;
-          const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
-          const score = scoreJob(skills, cp.experienceLevel, job);
-          recordMatchSignal(req.user.id, jobId, 'save', score).catch(() => {});
-        }).catch(() => {});
-      }).catch(() => {});
+      recordSignal(req.user.id, jobId, 'save');
 
       res.status(201).json({ message: "Job saved successfully" });
     } catch (error) {
@@ -949,16 +958,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
       await storage.hideJob(req.user.id, jobId);
 
-      // Fire-and-forget: record hide signal (negative feedback)
-      storage.getJobPosting(jobId).then(job => {
-        if (!job) return;
-        storage.getCandidateUser(req.user.id).then(cp => {
-          if (!cp) return;
-          const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
-          const score = scoreJob(skills, cp.experienceLevel, job);
-          recordMatchSignal(req.user.id, jobId, 'hide', score).catch(() => {});
-        }).catch(() => {});
-      }).catch(() => {});
+      recordSignal(req.user.id, jobId, 'hide');
 
       res.status(201).json({ message: "Job hidden successfully" });
     } catch (error) {
@@ -1069,13 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       await storage.incrementDailyUsage(userId, 'application');
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
-      // Fire-and-forget: record match signal for feedback loop
-      storage.getCandidateUser(userId).then(cp => {
-        if (!cp) return;
-        const skills = Array.isArray(cp.skills) ? (cp.skills as string[]) : [];
-        const score = scoreJob(skills, cp.experienceLevel, job);
-        recordMatchSignal(userId, jobId, 'apply', score).catch(() => {});
-      }).catch(() => {});
+      recordSignal(userId, jobId, 'apply', job);
 
       if (isInternalJob) {
         // Notify talent owner of new application
@@ -2681,12 +2675,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
         await storage.createActivityLog(userId, "agent_apply_submitted", `Agent applied to job ID: ${jobId} via Greenhouse API`);
 
-        // Fire-and-forget: record agent_apply signal
-        {
-          const skills = Array.isArray(candidateProfile.skills) ? (candidateProfile.skills as string[]) : [];
-          const agentScore = scoreJob(skills, (candidateProfile as any).experienceLevel, job);
-          recordMatchSignal(userId, jobId, 'agent_apply', agentScore).catch(() => {});
-        }
+        recordSignal(userId, jobId, 'agent_apply', job);
 
         // Notify candidate: in-app + email
         await notificationService.createNotification({

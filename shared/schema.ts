@@ -958,4 +958,53 @@ export const discoveredCompanies = pgTable("discovered_companies", {
   }
 });
 
+/**
+ * Match signals — training data for the feedback loop.
+ *
+ * Every candidate×job interaction is recorded with the full feature snapshot
+ * that produced the match score. When an exam score arrives, it's joined back
+ * to the signal, creating a labeled data point for weight tuning.
+ */
+export const matchSignals = pgTable("match_signals", {
+  id: serial("id").primaryKey(),
+  candidateId: varchar("candidate_id", { length: 255 }).notNull(),
+  jobId: integer("job_id").notNull(),
+  action: varchar("action", { length: 30 }).notNull(), // apply, agent_apply, hide, save, skip, exam
 
+  // Feature snapshot at the time of interaction
+  keywordScore: integer("keyword_score"),       // 0-100
+  semanticScore: integer("semantic_score"),      // 0-100
+  titleScore: integer("title_score"),            // 0-100
+  experienceScore: integer("experience_score"),  // 0-100
+  contextBonus: integer("context_bonus"),        // 0-8
+  matchScore: integer("match_score"),            // 0-100 (final blended score)
+  hasSemanticSignal: boolean("has_semantic_signal").default(false),
+
+  // Outcome — filled when exam score arrives
+  examScore: integer("exam_score"),              // 0-100, nullable until exam taken
+  examJoinedAt: timestamp("exam_joined_at"),     // when the exam score was linked
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table: any) => ({
+  idx_signals_candidate: index("idx_signals_candidate").on(table.candidateId),
+  idx_signals_job: index("idx_signals_job").on(table.jobId),
+  idx_signals_action: index("idx_signals_action").on(table.action),
+  idx_signals_exam: index("idx_signals_exam_score").on(table.examScore),
+}));
+
+/**
+ * Learned scoring weights — persisted output of the weight tuner.
+ * scoreJob() reads the latest row on startup; admin cron writes new rows.
+ */
+export const scoringWeights = pgTable("scoring_weights", {
+  id: serial("id").primaryKey(),
+  keywordWeight: numeric("keyword_weight").notNull(),
+  semanticWeight: numeric("semantic_weight").notNull(),
+  titleWeight: numeric("title_weight").notNull(),
+  experienceWeight: numeric("experience_weight").notNull(),
+  // Metadata
+  trainingSamples: integer("training_samples").notNull(),
+  meanAbsoluteError: numeric("mean_absolute_error"),  // MAE vs exam scores
+  correlation: numeric("correlation"),                  // Pearson r vs exam scores
+  createdAt: timestamp("created_at").defaultNow(),
+});
