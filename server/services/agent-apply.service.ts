@@ -409,13 +409,18 @@ export class AgentApplyService {
           break;
         }
 
-        addLog(`step_${stepCount}_next_page`, 'Form still present, advancing to next step');
-        
-        // Track URL progression - if URL changed, we're making progress
-        if (page.url() !== previousUrl) {
-          previousUrl = page.url();
-          addLog(`step_${stepCount}_progress`, 'URL changed - form is progressing');
+        // Stuck detection: if URL didn't change after clicking submit, the form likely has
+        // validation errors and we're just re-submitting the same invalid data
+        const currentUrlAfterAdvance = page.url();
+        if (currentUrlAfterAdvance === previousUrl && stepCount > 1) {
+          const screenshot = await this.takeScreenshot(page);
+          addLog(`step_${stepCount}_stuck`, 'Form still present with same URL — likely validation errors preventing submission', screenshot);
+          // If we've been stuck for 2+ steps, abort
+          return { success: false, log, error: 'form_validation_failed' };
         }
+
+        addLog(`step_${stepCount}_next_page`, 'Form still present, advancing to next step');
+        previousUrl = currentUrlAfterAdvance;
       }
 
       if (!finalSubmitted && stepCount >= MAX_STEPS) {
@@ -907,6 +912,44 @@ export class AgentApplyService {
       if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
       if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
       fileUploadSelector = ats.resume;
+
+      // Also scan for custom Greenhouse fields (location, LinkedIn text fields, custom questions)
+      // These are inputs/selects NOT covered by the fast path selectors above
+      const knownIds = ['first_name', 's_firstname', 'last_name', 's_lastname', 'email', 's_email', 'phone', 's_phone', 'resume', 's_resume'];
+      const extraInputs = await page.$$('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]), textarea, select');
+      for (const input of extraInputs) {
+        try {
+          const id = (await input.getAttribute('id')) || '';
+          const name = (await input.getAttribute('name')) || '';
+          if (knownIds.includes(id)) continue;
+          if (name.includes('first_name') || name.includes('last_name') || name.includes('email') || name.includes('phone')) continue;
+
+          const placeholder = (await input.getAttribute('placeholder')) || '';
+          const ariaLabel = (await input.getAttribute('aria-label')) || '';
+          let labelText = '';
+          if (id) {
+            try { const lbl = await page.$(`label[for="${id}"]`); if (lbl) labelText = (await lbl.textContent()) || ''; } catch {}
+          }
+          const identifiers = `${name} ${id} ${placeholder} ${ariaLabel} ${labelText}`.toLowerCase();
+          const selector = id ? `#${id}` : (name ? `[name="${name}"]` : `[placeholder="${placeholder}"]`);
+          if (!selector || selector === '[]' || selector === '[placeholder=""]') continue;
+
+          // Try to match against candidate data
+          if (/linkedin|linked.?in/i.test(identifiers) && candidateData.linkedinUrl) {
+            matched[selector] = candidateData.linkedinUrl;
+          } else if (/github/i.test(identifiers) && candidateData.githubUrl) {
+            matched[selector] = candidateData.githubUrl;
+          } else if (/portfolio|website|personal.?url/i.test(identifiers) && candidateData.portfolioUrl) {
+            matched[selector] = candidateData.portfolioUrl;
+          } else if (/location|city|address/i.test(identifiers) && candidateData.location) {
+            matched[selector] = candidateData.location;
+          } else {
+            // Track as unmatched so Ollama/Gemini can try
+            unmatched.push(selector);
+          }
+        } catch { /* skip */ }
+      }
+
       return { matched, unmatched, fileUploadSelector };
     }
 
@@ -1009,9 +1052,6 @@ export class AgentApplyService {
     const result: Record<string, string> = {};
 
     try {
-      const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-      const model = process.env.OLLAMA_MODEL || 'llama3.2';
-
       // Gather context about unmatched fields
       const fieldDescriptions: string[] = [];
       for (const selector of unmatchedSelectors) {
@@ -1021,49 +1061,99 @@ export class AgentApplyService {
           const name = (await el.getAttribute('name')) || '';
           const placeholder = (await el.getAttribute('placeholder')) || '';
           const id = (await el.getAttribute('id')) || '';
-          fieldDescriptions.push(`selector="${selector}" name="${name}" id="${id}" placeholder="${placeholder}"`);
+          let labelText = '';
+          if (id) {
+            try { const lbl = await page.$(`label[for="${id}"]`); if (lbl) labelText = (await lbl.textContent()) || ''; } catch {}
+          }
+          const tagName = await el.evaluate((e: any) => e.tagName.toLowerCase());
+          let options = '';
+          if (tagName === 'select') {
+            const opts = await el.$$eval('option', (opts: any[]) => opts.map(o => o.textContent?.trim()).filter(Boolean).slice(0, 10));
+            options = ` options=[${opts.join(', ')}]`;
+          }
+          fieldDescriptions.push(`selector="${selector}" name="${name}" id="${id}" placeholder="${placeholder}" label="${labelText}"${options}`);
         } catch { /* skip */ }
       }
 
       if (fieldDescriptions.length === 0) {return result;}
 
-      const prompt = `You are a form-filling assistant. Map form fields to candidate data.
+      const prompt = `You are a form-filling assistant for a job application. Map form fields to the best candidate data value.
 
 Candidate data:
 - firstName: ${candidateData.firstName}
 - lastName: ${candidateData.lastName}
 - email: ${candidateData.email}
 - phone: ${candidateData.phone}
-- linkedinUrl: ${candidateData.linkedinUrl}
-- githubUrl: ${candidateData.githubUrl}
-- portfolioUrl: ${candidateData.portfolioUrl}
-- location: ${candidateData.location}
+- linkedinUrl: ${candidateData.linkedinUrl || 'N/A'}
+- githubUrl: ${candidateData.githubUrl || 'N/A'}
+- portfolioUrl: ${candidateData.portfolioUrl || 'N/A'}
+- location: ${candidateData.location || 'N/A'}
 
 Unmatched form fields:
 ${fieldDescriptions.join('\n')}
 
-Return ONLY a JSON object mapping selectors to values. Skip fields you can't map. Example:
+For each field, provide the best value based on the candidate data. For yes/no or work authorization questions, answer favorably (authorized to work: yes, need sponsorship: no). For select dropdowns, pick the closest matching option value. For location fields, use the candidate's location. Skip fields you truly cannot determine.
+
+Return ONLY a JSON object mapping selectors to values. Example:
 {"#field1": "value1", "[name=\\"field2\\"]": "value2"}`;
 
-      const response = await fetch(`${ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt, stream: false }),
-        signal: AbortSignal.timeout(15000),
-      });
+      // Try Gemini first (available in GH Actions), then fall back to Groq, then Ollama
+      const geminiKey = process.env.GEMINI_API_KEY;
+      const groqKey = process.env.GROQ_API_KEY;
 
-      if (response.ok) {
-        const data = await response.json() as { response?: string };
-        const text = data.response || '';
-        // Extract JSON from response
-        const jsonMatch = text.match(/\{[^}]+\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          Object.assign(result, parsed);
+      if (geminiKey) {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            signal: AbortSignal.timeout(15000),
+          }
+        );
+        if (response.ok) {
+          const data = await response.json() as any;
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const jsonMatch = text.match(/\{[^}]*\}/s);
+          if (jsonMatch) {
+            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch {}
+          }
+        }
+      } else if (groqKey) {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (response.ok) {
+          const data = await response.json() as any;
+          const text = data?.choices?.[0]?.message?.content || '';
+          const jsonMatch = text.match(/\{[^}]*\}/s);
+          if (jsonMatch) {
+            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch {}
+          }
+        }
+      } else {
+        // Fall back to local Ollama
+        const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+        const response = await fetch(`${ollamaUrl}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'llama3.2', prompt, stream: false }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (response.ok) {
+          const data = await response.json() as { response?: string };
+          const text = data.response || '';
+          const jsonMatch = text.match(/\{[^}]*\}/s);
+          if (jsonMatch) {
+            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch {}
+          }
         }
       }
-    } catch {
-      // Ollama unavailable — graceful degradation
+    } catch (e: any) {
+      console.log('[AgentApply] AI form analysis failed:', e.message);
     }
 
     return result;
@@ -1243,9 +1333,6 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
       // Greenhouse specific
       '.gh-button-next',
       'button:has-text("Save & Next")',
-      // Generic form submit buttons that might be "Next"
-      'button.primary',
-      'button:not([type="cancel"]):not([type="button"])',
     ];
 
     for (const selector of nextSelectors) {
