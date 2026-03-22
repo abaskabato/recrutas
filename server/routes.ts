@@ -2493,16 +2493,33 @@ export async function registerRoutes(app: Express): Promise<Express> {
   // AGENT APPLY ENDPOINTS
   // ==========================================
 
-  app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, asyncHandler(async (req: any, res) => {
+  const agentApplyLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many applications. Please try again later.' },
+  });
+
+  app.post('/api/candidate/agent-apply/:jobId', isAuthenticated, agentApplyLimiter, asyncHandler(async (req: any, res) => {
     try {
       const userId = req.user.id;
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
 
-      // Duplicate check
+      // Duplicate check — allow retry if previous attempt is a stale placeholder (>5 min old)
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
       if (existingApplication) {
-        return res.status(400).json({ message: "Already applied to this job" });
+        if (existingApplication.status === 'submitting') {
+          const age = Date.now() - new Date(existingApplication.createdAt).getTime();
+          if (age < 5 * 60 * 1000) {
+            return res.status(400).json({ message: "Application is still being submitted. Please wait." });
+          }
+          // Stale placeholder from crash — delete and allow retry
+          await db.delete(jobApplications).where(eq(jobApplications.id, existingApplication.id));
+        } else {
+          return res.status(400).json({ message: "Already applied to this job" });
+        }
       }
 
       // Validate job is external

@@ -434,15 +434,18 @@ export default function ApplicationTracker() {
                             <span className="font-medium text-sm">Verification code needed</span>
                           </div>
                           <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">
-                            Check <strong>{email}</strong> for an 8-character code from the employer, then paste it below.
+                            Check <strong>{email}</strong> for a verification code from the employer, then paste it below.
                           </p>
                           <div className="flex gap-2">
                             <Input
                               placeholder="Enter code"
                               className="h-8 text-sm font-mono tracking-wider"
-                              maxLength={8}
+                              maxLength={12}
                               value={verifyCode[task.id] || ''}
-                              onChange={(e) => setVerifyCode(prev => ({ ...prev, [task.id]: e.target.value }))}
+                              onChange={(e) => {
+                                const cleaned = e.target.value.replace(/[\s<>\[\]]/g, '');
+                                setVerifyCode(prev => ({ ...prev, [task.id]: cleaned }));
+                              }}
                             />
                             <Button
                               size="sm"

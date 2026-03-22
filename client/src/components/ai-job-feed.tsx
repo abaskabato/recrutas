@@ -11,6 +11,7 @@ import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, Ey
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
 
@@ -304,9 +305,13 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/agent-tasks'] });
     },
-    onError: (error: any) => {
-      toast({ title: "Application Failed", description: error.message, variant: "destructive" });
-      // Re-fetch to clean up any stale optimistic state
+    onError: (error: any, jobId: number) => {
+      toast({
+        title: "Application Failed",
+        description: error.message,
+        variant: "destructive",
+        action: <ToastAction altText="Retry" onClick={() => agentApplyMutation.mutate(jobId)}>Retry</ToastAction>,
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
     },

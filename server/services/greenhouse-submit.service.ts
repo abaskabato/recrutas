@@ -225,6 +225,44 @@ ${JSON.stringify(questionItems, null, 2)}`;
 }
 
 // ==========================================
+// COVER LETTER GENERATION
+// ==========================================
+
+async function generateCoverLetter(
+  candidate: CandidateSubmission,
+  jobTitle: string,
+  jobDescription: string,
+  companyName: string,
+  companyContext?: string,
+): Promise<string | null> {
+  const systemPrompt = `Write a concise cover letter (3-4 paragraphs, under 250 words) for a job application.
+Use the candidate's actual experience from their resume. Be specific about the company and role.
+Do not fabricate credentials. Write in first person. No salutation or sign-off — just the body text.`;
+
+  const cleanDescription = jobDescription.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1500);
+  const resumeSnippet = candidate.resumeText?.slice(0, 2000) || '';
+
+  const userPrompt = `Candidate: ${candidate.firstName} ${candidate.lastName}
+Resume: ${resumeSnippet}
+Company: ${companyName}
+Role: ${jobTitle}
+Description: ${cleanDescription}
+${companyContext ? `Company background: ${companyContext}` : ''}`;
+
+  try {
+    return await callAI(systemPrompt, userPrompt, {
+      priority: 'medium',
+      estimatedTokens: 800,
+      temperature: 0.4,
+      maxOutputTokens: 500,
+    });
+  } catch (err) {
+    console.warn('[greenhouse-submit] Cover letter generation failed:', (err as Error).message);
+    return null;
+  }
+}
+
+// ==========================================
 // PLAYWRIGHT FORM SUBMISSION
 // ==========================================
 
@@ -249,6 +287,13 @@ export async function submitToGreenhouse(
       return { success: false, error: `Failed to fetch resume: HTTP ${resumeRes.status}` };
     }
     const resumeBuffer = Buffer.from(await resumeRes.arrayBuffer());
+
+    // Validate: expired signed URLs return tiny HTML/JSON errors, not real documents
+    const contentType = resumeRes.headers.get('content-type') || '';
+    if (resumeBuffer.length < 500 && !contentType.includes('pdf')) {
+      return { success: false, error: 'Resume URL may have expired — downloaded file is too small' };
+    }
+
     const urlPath = candidate.resumeUrl.split('?')[0];
     const ext = path.extname(urlPath.split('/').pop() || '') || '.pdf';
     resumeTmpPath = path.join(os.tmpdir(), `resume-${Date.now()}${ext}`);
@@ -317,6 +362,7 @@ export async function submitToGreenhouse(
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--single-process',
+        '--disable-blink-features=AutomationControlled',
       ],
     });
 
@@ -324,6 +370,19 @@ export async function submitToGreenhouse(
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 900 },
     });
+
+    // Stealth: hide automation signals from Greenhouse's bot detection
+    await context.addInitScript(`
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+      delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+      delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+      delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+      if (!window.chrome) {
+        window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
+      }
+    `);
 
     const page = await context.newPage();
 
@@ -405,6 +464,17 @@ export async function submitToGreenhouse(
       await tryFillByLabel(page, 'Portfolio', candidate.portfolioUrl || candidate.personalWebsite || '');
     }
 
+    // Fill cover letter if the form has one
+    const coverLetterEl = await page.$('#cover_letter_text, textarea[name*="cover_letter"]');
+    if (coverLetterEl && candidate.resumeText) {
+      const coverLetter = await generateCoverLetter(candidate, jobData.title, jobData.content, companyName, companyContext);
+      if (coverLetter) {
+        await coverLetterEl.click();
+        await coverLetterEl.fill(coverLetter);
+        console.log('[greenhouse-submit] Cover letter filled');
+      }
+    }
+
     // Fill preferred name if present
     const preferredName = await page.$('#preferred_name');
     if (preferredName) {
@@ -420,7 +490,9 @@ export async function submitToGreenhouse(
 
     // Upload resume
     if (resumeTmpPath) {
-      const fileInput = await page.$('input[type="file"]#resume, input[type="file"]');
+      const fileInput = await page.$('input[type="file"]#resume')
+        || await page.$('input[type="file"][name*="resume"]')
+        || await page.$('input[type="file"]:first-of-type');
       if (fileInput) {
         await fileInput.setInputFiles(resumeTmpPath);
         console.log('[greenhouse-submit] Resume uploaded');
@@ -437,8 +509,11 @@ export async function submitToGreenhouse(
     await submitBtn.click();
     console.log('[greenhouse-submit] Clicked submit');
 
-    // Wait for response (may navigate or show inline confirmation)
-    await page.waitForTimeout(5000);
+    // Wait for navigation/confirmation (Greenhouse may redirect or show inline success)
+    await Promise.race([
+      page.waitForLoadState('networkidle', { timeout: 12000 }),
+      page.waitForTimeout(12000),
+    ]).catch(() => {});
 
     // Check for email verification code step (Greenhouse anti-bot measure)
     const bodyTextRaw = await page.textContent('body').catch(() => '') || '';
