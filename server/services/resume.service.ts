@@ -230,10 +230,10 @@ export class ResumeService {
       const positions: Array<{ title?: string; company?: string; duration?: string; description?: string }> =
         aiExtracted.experience?.positions || [];
       if (positions.length > 0) {
-        const summary = positions.slice(0, 4).map((p: any) =>
+        const summary = positions.slice(0, 6).map((p: any) =>
           [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
         ).join('. ');
-        profileUpdate.experience = summary.slice(0, 1000);
+        profileUpdate.experience = summary.slice(0, 2000);
         profileUpdate.resumeParsingData = {
           ...profileUpdate.resumeParsingData,
           positions: positions.slice(0, 6).map((p: any) => ({
@@ -415,10 +415,10 @@ export class ResumeService {
       const positions: Array<{ title?: string; company?: string; duration?: string; description?: string }> =
         aiExtracted.experience?.positions || [];
       if (positions.length > 0) {
-        const summary = positions.slice(0, 4).map((p: any) =>
+        const summary = positions.slice(0, 6).map((p: any) =>
           [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
         ).join('. ');
-        profileUpdate.experience = summary.slice(0, 1000);
+        profileUpdate.experience = summary.slice(0, 2000);
       }
       if (aiExtracted.personalInfo?.location) {
         profileUpdate.location = aiExtracted.personalInfo.location;

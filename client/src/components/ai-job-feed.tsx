@@ -298,6 +298,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     onSuccess: (data: any) => {
       if (data?.verificationRequired) {
         toast({ title: "Verification Needed", description: `Check your email for a verification code to complete the application.` });
+      } else if (data?.status === 'queued') {
+        toast({ title: "Application Queued", description: "We'll fill out and submit your application within ~5 minutes. You'll get an email when it's done." });
       } else {
         toast({ title: "Applied!", description: "Your application was submitted automatically. Check your email for confirmation." });
       }

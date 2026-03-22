@@ -40,7 +40,7 @@ import { jobIngestionService } from './services/job-ingestion.service';
 import { getModelInfo } from './ml-matching';
 import { sendWelcomeEmail, sendEmail } from './email-service';
 import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
-import { parseGreenhouseUrl, submitToGreenhouse } from './services/greenhouse-submit.service';
+import { parseGreenhouseUrl } from './services/greenhouse-submit.service';
 import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
 import rateLimit from 'express-rate-limit';
@@ -2514,16 +2514,18 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const jobId = parseIntParam(req.params.jobId);
       if (!jobId) {return res.status(400).json({ message: "Invalid jobId" });}
 
-      // Duplicate check — allow retry if previous attempt is a stale placeholder (>5 min old)
+      // Duplicate check — allow retry if previous attempt is stale (>15 min old)
       const existingApplication = await storage.getApplicationByJobAndCandidate(jobId, userId);
       if (existingApplication) {
-        if (existingApplication.status === 'submitting') {
+        if (existingApplication.status === 'submitting' || existingApplication.status === 'queued') {
           const age = Date.now() - new Date(existingApplication.createdAt).getTime();
-          if (age < 5 * 60 * 1000) {
-            return res.status(400).json({ message: "Application is still being submitted. Please wait." });
+          if (age < 15 * 60 * 1000) {
+            return res.status(400).json({ message: "Your application is queued and will be submitted shortly. Please wait." });
           }
           // Stale placeholder from crash — delete and allow retry
           await db.delete(jobApplications).where(eq(jobApplications.id, existingApplication.id));
+          // Also clean up any orphaned agent tasks
+          await db.delete(agentTasks).where(eq(agentTasks.applicationId, existingApplication.id)).catch(() => {});
         } else {
           return res.status(400).json({ message: "Already applied to this job" });
         }
@@ -2547,209 +2549,71 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const candidateEmail = candidateProfile.email || user?.email || '';
       const candidatePhone = user?.phone_number || '';
 
-      // Check if this is a Greenhouse job we can submit to directly
+      // Check if this is a Greenhouse job we can submit to
       const ghParsed = parseGreenhouseUrl(job.externalUrl);
-      if (ghParsed) {
-        // Create application IMMEDIATELY so it shows up in the Applications tab
-        const application = await storage.createJobApplication({
-          jobId,
-          candidateId: userId,
-          status: 'submitting',
-          autoFilled: true,
-          resumeUrl: candidateProfile.resumeUrl,
-          metadata: {
-            agentApply: true,
-            ats: 'greenhouse',
-            startedAt: new Date().toISOString(),
-          },
+      if (!ghParsed) {
+        return res.status(422).json({
+          message: "Automated application is not supported for this job's platform. Please apply directly.",
+          unsupported: true,
         });
-
-        // Resolve resume storage path → signed URL
-        const resumeSignedUrl = await storage.getResumeSignedUrl(candidateProfile.resumeUrl);
-
-        // Submit via Greenhouse embed form (Playwright)
-        let result: any;
-        try {
-          result = await submitToGreenhouse(ghParsed.boardToken, ghParsed.jobId, {
-            firstName: candidateProfile.firstName || user?.first_name || '',
-            lastName: candidateProfile.lastName || user?.last_name || '',
-            email: candidateEmail,
-            phone: candidatePhone,
-            linkedinUrl: candidateProfile.linkedinUrl || '',
-            portfolioUrl: candidateProfile.portfolioUrl || '',
-            githubUrl: candidateProfile.githubUrl || '',
-            personalWebsite: candidateProfile.personalWebsite || '',
-            resumeUrl: resumeSignedUrl,
-            resumeText: candidateProfile.resumeText || '',
-            location: candidateProfile.location || '',
-          });
-        } catch (ghError: any) {
-          // Greenhouse submission threw — remove the placeholder application
-          console.error('[AgentApply] Greenhouse submission threw:', ghError?.message);
-          await db.delete(jobApplications).where(eq(jobApplications.id, application.id));
-          return res.status(502).json({ message: `Application submission failed: ${ghError?.message || 'Unknown error'}` });
-        }
-
-        const candidateName = [candidateProfile.firstName, candidateProfile.lastName].filter(Boolean).join(' ') || 'there';
-        const dashboardUrl = (process.env.FRONTEND_URL || 'https://www.recrutas.ai') + '/candidate-dashboard';
-
-        if (!result.success && result.verificationRequired) {
-          // Update application metadata with question counts
-          await db.update(jobApplications).set({
-            status: 'submitted' as any,
-            metadata: {
-              agentApply: true,
-              ats: 'greenhouse',
-              questionsAnswered: result.questionsAnswered,
-              questionsSkipped: result.questionsSkipped,
-              submittedAt: new Date().toISOString(),
-            },
-            updatedAt: new Date(),
-            lastStatusUpdate: new Date(),
-          }).where(eq(jobApplications.id, application.id));
-
-          // Create agent task so candidate can provide the verification code
-          const [agentTask] = await db.insert(agentTasks).values({
-            applicationId: application.id,
-            candidateId: userId,
-            jobId,
-            externalUrl: job.externalUrl,
-            status: 'awaiting_verification' as any,
-            candidateData: {
-              firstName: candidateProfile.firstName || user?.first_name,
-              lastName: candidateProfile.lastName || user?.last_name,
-              email: candidateEmail,
-              phone: candidatePhone,
-              location: candidateProfile.location,
-              linkedinUrl: candidateProfile.linkedinUrl,
-              resumeUrl: candidateProfile.resumeUrl,
-              resumeText: candidateProfile.resumeText,
-            },
-            agentLog: {
-              verificationEmail: result.verificationEmail,
-              boardToken: ghParsed.boardToken,
-              ghJobId: ghParsed.jobId,
-            },
-          }).returning();
-
-          await notificationService.createNotification({
-            userId,
-            type: 'application_update',
-            title: 'Verification Code Needed',
-            message: `${job.company} requires an email verification code. Check your email (${result.verificationEmail}) and enter the code to complete your application.`,
-            relatedApplicationId: application.id,
-          });
-
-          // Email candidate about verification + what was submitted
-          sendTransactionalEmail({
-            to: candidateEmail,
-            subject: `Action needed: Verify your application for ${job.title} at ${job.company}`,
-            html: `
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                <div style="background:#f59e0b;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
-                  <h1 style="margin:0;font-size:20px;">Verification Code Needed</h1>
-                </div>
-                <div style="padding:24px;background:#f9f9f9;">
-                  <p>Hi ${candidateName},</p>
-                  <p>Agent Apply has filled out your application for <strong>${job.title}</strong> at <strong>${job.company}</strong>, but the company requires an email verification code to complete the submission.</p>
-                  <div style="background:#fff3cd;padding:15px;border-radius:5px;margin:15px 0;border-left:4px solid #f59e0b;">
-                    <strong>Next step:</strong><br/>
-                    1. Check your inbox for a verification code from ${job.company}<br/>
-                    2. Go to your <a href="${dashboardUrl}">Applications dashboard</a><br/>
-                    3. Enter the code to complete your application
-                  </div>
-                  <div style="background:#e8f5e9;padding:15px;border-radius:5px;margin:15px 0;">
-                    <strong>What was prepared:</strong><br/>
-                    &bull; Your resume<br/>
-                    &bull; Name, email, and contact info<br/>
-                    &bull; ${result.questionsAnswered || 0} screening question${(result.questionsAnswered || 0) !== 1 ? 's' : ''} answered automatically
-                  </div>
-                  <div style="text-align:center;margin:20px 0;">
-                    <a href="${dashboardUrl}" style="display:inline-block;padding:12px 30px;background:#000;color:#fff;text-decoration:none;border-radius:5px;">Enter Verification Code</a>
-                  </div>
-                </div>
-                <div style="text-align:center;padding:15px;color:#666;font-size:13px;">Recrutas &mdash; No ghosting, guaranteed.</div>
-              </div>`,
-          }).catch((err: any) => console.error('[AgentApply] Verification email notification failed:', err?.message));
-
-          return res.json({
-            message: 'Verification code required',
-            verificationRequired: true,
-            agentTaskId: agentTask.id,
-            verificationEmail: result.verificationEmail,
-            applicationId: application.id,
-          });
-        }
-
-        if (!result.success) {
-          // Submission failed — remove the placeholder application
-          console.error('[AgentApply] Greenhouse submission failed:', result.error);
-          await db.delete(jobApplications).where(eq(jobApplications.id, application.id));
-          return res.status(502).json({ message: `Application submission failed: ${result.error}` });
-        }
-
-        // Success — update the application to submitted with full metadata
-        await db.update(jobApplications).set({
-          status: 'submitted' as any,
-          metadata: {
-            agentApply: true,
-            ats: 'greenhouse',
-            greenhouseApplicationId: result.applicationId,
-            questionsAnswered: result.questionsAnswered,
-            questionsSkipped: result.questionsSkipped,
-            submittedAt: new Date().toISOString(),
-          },
-          updatedAt: new Date(),
-          lastStatusUpdate: new Date(),
-        }).where(eq(jobApplications.id, application.id));
-
-        await storage.createActivityLog(userId, "agent_apply_submitted", `Agent applied to job ID: ${jobId} via Greenhouse API`);
-
-        recordSignal(userId, jobId, 'agent_apply', job);
-
-        // Notify candidate: in-app + email
-        await notificationService.createNotification({
-          userId,
-          type: 'application_update',
-          title: 'Application Submitted',
-          message: `Your application for ${job.title} at ${job.company} was submitted successfully via Agent Apply.`,
-          relatedApplicationId: application.id,
-        });
-
-        sendTransactionalEmail({
-          to: candidateProfile.email!,
-          subject: `Application submitted: ${job.title} at ${job.company}`,
-          html: `
-            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-              <div style="background:#000;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
-                <h1 style="margin:0;font-size:20px;">Application Submitted</h1>
-              </div>
-              <div style="padding:24px;background:#f9f9f9;">
-                <p>Hi ${candidateName},</p>
-                <p>Agent Apply has successfully submitted your application for <strong>${job.title}</strong> at <strong>${job.company}</strong>.</p>
-                <div style="background:#e8f5e9;padding:15px;border-radius:5px;margin:15px 0;">
-                  <strong>What was sent:</strong><br/>
-                  &bull; Your resume<br/>
-                  &bull; Name, email, and contact info<br/>
-                  &bull; ${result.questionsAnswered || 0} screening question${(result.questionsAnswered || 0) !== 1 ? 's' : ''} answered automatically
-                </div>
-                <p><strong>What happens next:</strong> You should receive a confirmation email from ${job.company} shortly. They'll reach out directly if they'd like to move forward.</p>
-                <div style="text-align:center;margin:20px 0;">
-                  <a href="${dashboardUrl}" style="display:inline-block;padding:12px 30px;background:#000;color:#fff;text-decoration:none;border-radius:5px;">View Your Applications</a>
-                </div>
-              </div>
-              <div style="text-align:center;padding:15px;color:#666;font-size:13px;">Recrutas &mdash; No ghosting, guaranteed.</div>
-            </div>`,
-        }).catch((err: any) => console.error('[AgentApply] Email notification failed:', err?.message));
-
-        return res.json({ application: { ...application, status: 'submitted' }, status: 'submitted', ats: 'greenhouse' });
       }
 
-      // Unsupported ATS — this shouldn't be reached since the button is
-      // only shown for Greenhouse/Lever URLs, but handle gracefully
-      return res.status(422).json({
-        message: "Automated application is not supported for this job's platform. Please apply directly.",
-        unsupported: true,
+      // Create application with 'queued' status — shows immediately in Applications tab
+      const application = await storage.createJobApplication({
+        jobId,
+        candidateId: userId,
+        status: 'queued' as any,
+        autoFilled: true,
+        resumeUrl: candidateProfile.resumeUrl,
+        metadata: {
+          agentApply: true,
+          ats: 'greenhouse',
+          queuedAt: new Date().toISOString(),
+        },
+      });
+
+      // Create agent task — GitHub Actions worker picks this up
+      const [agentTask] = await db.insert(agentTasks).values({
+        applicationId: application.id,
+        candidateId: userId,
+        jobId,
+        externalUrl: job.externalUrl,
+        status: 'queued' as any,
+        candidateData: {
+          firstName: candidateProfile.firstName || user?.first_name || '',
+          lastName: candidateProfile.lastName || user?.last_name || '',
+          email: candidateEmail,
+          phone: candidatePhone,
+          location: candidateProfile.location || '',
+          linkedinUrl: candidateProfile.linkedinUrl || '',
+          githubUrl: candidateProfile.githubUrl || '',
+          portfolioUrl: candidateProfile.portfolioUrl || '',
+          personalWebsite: candidateProfile.personalWebsite || '',
+          resumeUrl: candidateProfile.resumeUrl,
+          resumeText: candidateProfile.resumeText || '',
+        },
+        resumeUrl: candidateProfile.resumeUrl,
+      }).returning();
+
+      recordSignal(userId, jobId, 'agent_apply', job);
+
+      await notificationService.createNotification({
+        userId,
+        type: 'application_update',
+        title: 'Application Queued',
+        message: `Your application for ${job.title} at ${job.company} has been queued. We'll submit it within ~5 minutes and email you when it's done.`,
+        relatedApplicationId: application.id,
+      });
+
+      // GH Actions cron picks up queued tasks every 5 min — no per-click dispatch
+      // to avoid race conditions with parallel runs
+
+      return res.json({
+        application: { ...application, status: 'queued' },
+        status: 'queued',
+        ats: 'greenhouse',
+        agentTaskId: agentTask.id,
+        message: 'Your application has been queued and will be submitted within ~5 minutes.',
       });
     } catch (error: any) {
       console.error("Error in agent apply:", error?.message);
@@ -2791,25 +2655,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
       return res.status(400).json({ message: 'Task is missing Greenhouse metadata' });
     }
 
-    // Resolve resume signed URL
-    const resumeSignedUrl = await storage.getResumeSignedUrl(candidateData.resumeUrl);
+    // Store the verification code and re-queue the task for the GH Actions worker
+    await db.update(agentTasks).set({
+      status: 'queued' as any,
+      agentLog: { ...log, verificationCode: code, verificationProvidedAt: new Date().toISOString() },
+      updatedAt: new Date(),
+    }).where(eq(agentTasks.id, taskId));
 
-    // Re-submit with the verification code callback
-    const result = await submitToGreenhouse(
-      log.boardToken,
-      log.ghJobId,
-      {
-        firstName: candidateData.firstName || '',
-        lastName: candidateData.lastName || '',
-        email: candidateData.email || '',
-        phone: candidateData.phone || '',
-        linkedinUrl: candidateData.linkedinUrl || '',
-        resumeUrl: resumeSignedUrl,
-        resumeText: candidateData.resumeText || '',
-        location: candidateData.location || '',
-      },
-      async () => code, // verification code callback
-    );
+    // GH Actions cron picks this up within 5 min
+    const result = { success: true } as any;
 
     if (result.success) {
       await db.update(agentTasks).set({

@@ -373,7 +373,7 @@ English (Native), Spanish (Conversational)`;
 }
 
 Resume text:
-${text.slice(0, 4000)}` }
+${text.slice(0, 8000)}` }
           ],
           max_tokens: 2000,
           temperature: 0.7,
@@ -520,10 +520,10 @@ Return JSON with this exact structure:
   }
 
   private async extractWithGroq(text: string): Promise<AIExtractedData> {
-    // Truncate large resumes to keep prompt size manageable (~4000 chars covers all relevant info)
-    const truncatedText = text.length > 4000 ? text.substring(0, 4000) : text;
-    if (text.length > 4000) {
-      console.log(`[AIResumeParser] Truncated resume text from ${text.length} to 4000 chars`);
+    // Truncate large resumes to keep prompt size manageable (~8000 chars covers multi-page resumes)
+    const truncatedText = text.length > 8000 ? text.substring(0, 8000) : text;
+    if (text.length > 8000) {
+      console.log(`[AIResumeParser] Truncated resume text from ${text.length} to 8000 chars`);
     }
 
     console.log('[AIResumeParser] Calling AI provider (Gemini/Groq)...');
@@ -586,7 +586,7 @@ Return JSON with this exact structure:
 
 Resume text:
 ${truncatedText}`,
-        { priority: 'high', estimatedTokens: 2500, temperature: 0.1, maxOutputTokens: 2000 }
+        { priority: 'high', estimatedTokens: 4000, temperature: 0.1, maxOutputTokens: 2500 }
       ),
       timeoutPromise
     ]);

@@ -226,16 +226,23 @@ export class AgentApplyService {
       await this.randomDelay(800, 1500);
 
       // Check for CAPTCHA after initial load
+      // Invisible reCAPTCHA (Enterprise or v3) doesn't block form interaction —
+      // it scores on submit. Only block on visible CAPTCHAs (hcaptcha, cloudflare, etc.)
       const captcha = await this.detectCaptcha(page);
       if (captcha.detected) {
-        addLog('captcha_detected', `CAPTCHA detected: ${captcha.type}`);
-        const solved = await this.solveCaptcha(page, captcha.type, task.externalUrl, addLog);
-        if (!solved) {
-          const screenshot = await this.takeScreenshot(page);
-          addLog('captcha_blocked', `Failed to solve ${captcha.type}`, screenshot);
-          return { success: false, log, error: `captcha_blocked_${captcha.type}` };
+        const isInvisible = await this.isInvisibleRecaptcha(page);
+        if (isInvisible) {
+          addLog('captcha_detected', `Invisible reCAPTCHA detected — proceeding (scores on submit)`);
+        } else {
+          addLog('captcha_detected', `CAPTCHA detected: ${captcha.type}`);
+          const solved = await this.solveCaptcha(page, captcha.type, task.externalUrl, addLog);
+          if (!solved) {
+            const screenshot = await this.takeScreenshot(page);
+            addLog('captcha_blocked', `Failed to solve ${captcha.type}`, screenshot);
+            return { success: false, log, error: `captcha_blocked_${captcha.type}` };
+          }
+          addLog('captcha_solved', `Successfully solved ${captcha.type}`);
         }
-        addLog('captcha_solved', `Successfully solved ${captcha.type}`);
       }
 
       // Fix 5: Dismiss cookie banners/consent overlays before interacting
@@ -356,8 +363,9 @@ export class AgentApplyService {
         await this.randomDelay(1500, 2500);
 
         // Check for CAPTCHA that appears after clicking submit
+        // Skip invisible reCAPTCHA — it scored silently during submit
         const postSubmitCaptcha = await this.detectCaptcha(page);
-        if (postSubmitCaptcha.detected) {
+        if (postSubmitCaptcha.detected && !(await this.isInvisibleRecaptcha(page))) {
           addLog(`step_${stepCount}_captcha`, `CAPTCHA appeared after submit: ${postSubmitCaptcha.type}`);
           const solved = await this.solveCaptcha(page, postSubmitCaptcha.type, page.url(), addLog);
           if (solved) {
@@ -437,27 +445,33 @@ export class AgentApplyService {
     if (!storedUrl) {return null;}
 
     try {
-      // Extract storage path from the URL
-      // Format: .../storage/v1/object/(sign|public)/resumes/<path>
-      const match = storedUrl.match(/\/object\/(?:sign|public)\/([^?]+)/);
-      if (!match) {return storedUrl;} // Can't parse — use as-is
-
-      const fullPath = match[1]; // e.g. "resumes/user-id/resume.pdf"
-      const [bucket, ...pathParts] = fullPath.split('/');
-      const filePath = pathParts.join('/');
-
       const { getSupabaseAdmin } = await import('../lib/supabase-admin.js');
       const supabase = getSupabaseAdmin();
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(filePath, 300); // 5 min TTL — enough for the automation
 
-      if (error || !data?.signedUrl) {
+      // Case 1: Full URL — extract storage path from it
+      // Format: .../storage/v1/object/(sign|public)/resumes/<path>
+      const match = storedUrl.match(/\/object\/(?:sign|public)\/([^?]+)/);
+      if (match) {
+        const fullPath = match[1]; // e.g. "resumes/user-id/resume.pdf"
+        const [bucket, ...pathParts] = fullPath.split('/');
+        const filePath = pathParts.join('/');
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(filePath, 300);
+        if (!error && data?.signedUrl) return data.signedUrl;
         return storedUrl; // Fall back to original URL
       }
-      return data.signedUrl;
+
+      // Case 2: Storage key only (e.g. "resume-1773728149253-mtkql4a73f")
+      // Try the "resumes" bucket with the key as the file path
+      const { data, error } = await supabase.storage
+        .from('resumes')
+        .createSignedUrl(storedUrl, 300);
+      if (!error && data?.signedUrl) return data.signedUrl;
+
+      return null;
     } catch {
-      return storedUrl;
+      return null;
     }
   }
 
@@ -505,6 +519,30 @@ export class AgentApplyService {
     }
 
     return { type: 'none', detected: false };
+  }
+
+  /**
+   * Check if the reCAPTCHA on the page is invisible (Enterprise/v3/invisible v2).
+   * Invisible reCAPTCHA doesn't block form interaction — it scores on submit.
+   */
+  private async isInvisibleRecaptcha(page: Page): Promise<boolean> {
+    return page.evaluate(() => {
+      // Check for grecaptcha-badge (invisible reCAPTCHA indicator)
+      if (document.querySelector('.grecaptcha-badge')) return true;
+      // Check for invisible iframe (size=invisible in src)
+      const iframes = document.querySelectorAll('iframe[src*="recaptcha"]');
+      for (const f of iframes) {
+        if ((f as HTMLIFrameElement).src.includes('size=invisible') ||
+            (f as HTMLIFrameElement).src.includes('size=invisibl')) return true;
+      }
+      // Check for reCAPTCHA Enterprise script (render= mode is always invisible)
+      const scripts = document.querySelectorAll('script[src*="recaptcha/enterprise"]');
+      if (scripts.length > 0) return true;
+      // Check data-size="invisible" on g-recaptcha element
+      const el = document.querySelector('.g-recaptcha[data-size="invisible"]');
+      if (el) return true;
+      return false;
+    });
   }
 
   // ==========================================

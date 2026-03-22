@@ -58,6 +58,7 @@ const agentStatusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const statusConfig: Record<string, { label: string; color: string; progress: number }> = {
+  queued: { label: "Queued — submitting in ~5 min", color: "bg-amber-500", progress: 3 },
   submitting: { label: "Submitting...", color: "bg-amber-500", progress: 5 },
   applied: { label: "Submitted", color: "bg-blue-500", progress: 10 },
   submitted: { label: "Submitted", color: "bg-blue-500", progress: 10 },
@@ -79,8 +80,8 @@ export default function ApplicationTracker() {
     // Poll every 3s when there are applications still being submitted by the agent
     refetchInterval: (query) => {
       const apps = query.state.data;
-      const hasSubmitting = apps?.some(app => app.status === 'submitting');
-      return hasSubmitting ? 3000 : false;
+      const hasPending = apps?.some(app => app.status === 'submitting' || app.status === 'queued');
+      return hasPending ? 5000 : false;
     },
   });
 
@@ -157,7 +158,7 @@ export default function ApplicationTracker() {
     const config = statusConfig[status] || statusConfig.submitted;
     return (
       <Badge variant="secondary" className="flex items-center gap-1">
-        {status === 'submitting' ? (
+        {(status === 'submitting' || status === 'queued') ? (
           <Loader2 className="h-3 w-3 animate-spin text-amber-600" />
         ) : (
           <div className={`w-2 h-2 rounded-full ${config.color}`} />
@@ -344,8 +345,8 @@ export default function ApplicationTracker() {
                         </div>
                       ) : null;
                     })()}
-                    {/* Self-service status update for external jobs (hidden while agent is still submitting) */}
-                    {application.job?.externalUrl && application.status !== 'submitting' && (
+                    {/* Self-service status update for external jobs (hidden while agent is still queued/submitting) */}
+                    {application.job?.externalUrl && application.status !== 'submitting' && application.status !== 'queued' && (
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Update Status:</span>
                         <Select
