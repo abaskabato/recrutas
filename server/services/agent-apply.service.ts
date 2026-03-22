@@ -466,6 +466,7 @@ export class AgentApplyService {
           .from(bucket)
           .createSignedUrl(filePath, 300);
         if (!error && data?.signedUrl) return data.signedUrl;
+        console.log(`[AgentApply] getFreshResumeUrl Case 1 error: ${error?.message}`);
         return storedUrl; // Fall back to original URL
       }
 
@@ -475,9 +476,11 @@ export class AgentApplyService {
         .from('resumes')
         .createSignedUrl(storedUrl, 300);
       if (!error && data?.signedUrl) return data.signedUrl;
+      console.log(`[AgentApply] getFreshResumeUrl Case 2 error: ${error?.message}`);
 
       return null;
-    } catch {
+    } catch (e: any) {
+      console.error(`[AgentApply] getFreshResumeUrl exception: ${e.message}`);
       return null;
     }
   }
