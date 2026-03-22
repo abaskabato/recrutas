@@ -330,10 +330,13 @@ export class AgentApplyService {
         addLog(`step_${stepCount}_analysis`, `Matched ${Object.keys(fieldMap.matched).length} fields, ${fieldMap.unmatched.length} unmatched`);
 
         if (fieldMap.unmatched.length > 0) {
+          addLog(`step_${stepCount}_unmatched`, `Unmatched fields: ${fieldMap.unmatched.slice(0, 10).join(', ')}`);
           const ollamaMap = await this.analyzeFormOllama(activePage, fieldMap.unmatched, candidateData);
           Object.assign(fieldMap.matched, ollamaMap);
           if (Object.keys(ollamaMap).length > 0) {
-            addLog(`step_${stepCount}_ollama`, `Ollama resolved ${Object.keys(ollamaMap).length} additional fields`);
+            addLog(`step_${stepCount}_ai_fill`, `AI resolved ${Object.keys(ollamaMap).length} additional fields: ${Object.keys(ollamaMap).join(', ')}`);
+          } else {
+            addLog(`step_${stepCount}_ai_none`, `AI could not resolve any of ${fieldMap.unmatched.length} unmatched fields`);
           }
         }
 
@@ -1102,6 +1105,7 @@ Return ONLY a JSON object mapping selectors to values. Example:
       const groqKey = process.env.GROQ_API_KEY;
 
       if (geminiKey) {
+        console.log(`[AgentApply] Using Gemini for ${fieldDescriptions.length} unmatched fields`);
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
           {
@@ -1114,10 +1118,15 @@ Return ONLY a JSON object mapping selectors to values. Example:
         if (response.ok) {
           const data = await response.json() as any;
           const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          const jsonMatch = text.match(/\{[^}]*\}/s);
+          console.log(`[AgentApply] Gemini response (${text.length} chars): ${text.substring(0, 300)}`);
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
-            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch {}
+            try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch (e: any) {
+              console.log(`[AgentApply] Gemini JSON parse error: ${e.message} — raw: ${jsonMatch[0].substring(0, 200)}`);
+            }
           }
+        } else {
+          console.log(`[AgentApply] Gemini API error: ${response.status} ${await response.text().catch(() => '')}`);
         }
       } else if (groqKey) {
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
