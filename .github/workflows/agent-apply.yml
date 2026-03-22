@@ -28,8 +28,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npx rebrowser-playwright install chromium --with-deps
+      - name: Install Playwright browsers
+        run: npx rebrowser-playwright install chromium chromium-headless-shell --with-deps
 
       - name: Process agent tasks
         env:
