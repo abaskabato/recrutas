@@ -74,6 +74,7 @@ async function main() {
           timestamp: new Date().toISOString(),
           action: 'completed',
           result: 'Application submitted successfully',
+          log: result.log,
         });
 
         // Update application status

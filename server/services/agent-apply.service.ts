@@ -1172,40 +1172,40 @@ Return ONLY a JSON object mapping selectors to values. Skip fields you can't map
   // ==========================================
 
   private async advanceForm(page: Page | any, atsType: string | null): Promise<boolean> {
-    // First, check for iframes that might contain the form
-    try {
-      const frames = page.frames();
-      if (frames.length > 1) {
-        console.log(`[AgentApply] Found ${frames.length} frames, checking for form in each...`);
-        for (const frame of frames) {
-          try {
-            const frameUrl = frame.url();
-            if (frameUrl && !frameUrl.startsWith('about:')) {
-              console.log(`[AgentApply] Checking frame: ${frameUrl.substring(0, 50)}...`);
-              const frameButtons = await frame.$$('button, a, [role="button"], input[type="submit"]');
-              for (const btn of frameButtons) {
-                try {
-                  const text = await btn.textContent();
-                  const isVisible = await btn.isVisible();
-                  if (isVisible && text && text.trim()) {
-                    const lower = text.toLowerCase();
-                    if (lower.includes('next') || lower.includes('continue') || 
-                        lower.includes('submit') || lower.includes('apply') ||
-                        lower.includes('send')) {
-                      console.log(`[AgentApply] Found button in frame: "${text.trim()}"`);
-                      await this.randomDelay(400, 800);
-                      await btn.click();
-                      return true;
+    // Only check iframes for Workday (where form lives inside an iframe)
+    // Skip for other ATS — their iframes are usually reCAPTCHA/analytics, not forms
+    if (atsType === 'workday') {
+      try {
+        const frames = page.frames();
+        if (frames.length > 1) {
+          for (const frame of frames) {
+            try {
+              const frameUrl = frame.url();
+              if (frameUrl && !frameUrl.startsWith('about:') && !frameUrl.includes('recaptcha') && !frameUrl.includes('google.com')) {
+                const frameButtons = await frame.$$('button, a, [role="button"], input[type="submit"]');
+                for (const btn of frameButtons) {
+                  try {
+                    const text = await btn.textContent();
+                    const isVisible = await btn.isVisible();
+                    if (isVisible && text && text.trim()) {
+                      const lower = text.toLowerCase();
+                      if (lower.includes('next') || lower.includes('continue') ||
+                          lower.includes('submit') || lower.includes('send')) {
+                        console.log(`[AgentApply] Found button in Workday frame: "${text.trim()}"`);
+                        await this.randomDelay(400, 800);
+                        await btn.click();
+                        return true;
+                      }
                     }
-                  }
-                } catch { continue; }
+                  } catch { continue; }
+                }
               }
-            }
-          } catch { continue; }
+            } catch { continue; }
+          }
         }
+      } catch (e) {
+        console.log('[AgentApply] Frame detection error:', e);
       }
-    } catch (e) {
-      console.log('[AgentApply] Frame detection error:', e);
     }
 
     // "Next" buttons come first — prefer advancing over submitting prematurely
