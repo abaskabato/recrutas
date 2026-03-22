@@ -28,15 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install system deps for Chromium
-        run: npx rebrowser-playwright install-deps chromium
-
-      - name: Download Chromium browsers
+      - name: Install Playwright browsers
         run: |
-          npx rebrowser-playwright install chromium chromium-headless-shell
+          # rebrowser-playwright@1.52 needs browser revision 1169
+          # Must use its own CLI (not @playwright/test's CLI which installs rev 1208)
+          node node_modules/rebrowser-playwright/cli.js install --with-deps chromium chromium-headless-shell
           echo "Installed browsers:"
-          ls -la $HOME/.cache/ms-playwright/ || true
-          ls $HOME/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux/headless_shell && echo "headless_shell OK" || echo "ERROR: headless_shell missing"
+          ls $HOME/.cache/ms-playwright/
+          ls $HOME/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux/headless_shell && echo "headless_shell OK"
 
       - name: Process agent tasks
         env:
