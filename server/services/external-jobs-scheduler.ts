@@ -59,7 +59,7 @@ export class ExternalJobsScheduler {
       const startTime = Date.now();
 
       // Scrape jobs with a timeout to prevent hanging
-      const scrapingTimeoutMs = 30000; // 30 second timeout
+      const scrapingTimeoutMs = 120000; // 2 minute timeout (Adzuna + Jooble make ~30 API calls)
       const scrapePromise = jobAggregator.getAllJobs([]);
 
       const jobs = await Promise.race([
