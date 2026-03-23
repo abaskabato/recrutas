@@ -575,14 +575,18 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     }
   }
 
-  /** Minimal fallback if AI is unavailable */
+  /** Smart fallback when AI is unavailable — handles common form patterns */
   private fallbackMapping(fields: FormField[], candidate: CandidateData): FillAction[] {
     const actions: FillAction[] = [];
+    // Extract city from location (e.g., "Seattle, WA" → "Seattle")
+    const city = candidate.location?.split(',')[0]?.trim() || '';
+
     for (const f of fields) {
       const id = `${f.label} ${f.id} ${f.name} ${f.placeholder}`.toLowerCase();
       let value = '';
-      let type: FillAction['type'] = 'fill';
+      let type: FillAction['type'] = f.type === 'react-select' ? 'react-select' : 'fill';
 
+      // === Identity fields ===
       if (/first.?name|fname|given/i.test(id)) value = candidate.firstName;
       else if (/last.?name|lname|surname|family/i.test(id)) value = candidate.lastName;
       else if (/^name$|full.?name/i.test(id)) value = `${candidate.firstName} ${candidate.lastName}`;
@@ -590,15 +594,119 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
       else if (/phone|tel/i.test(id)) { value = candidate.phone; type = f.type === 'phone-widget' ? 'phone' : 'fill'; }
       else if (/linkedin/i.test(id)) value = candidate.linkedinUrl;
       else if (/github/i.test(id)) value = candidate.githubUrl;
-      else if (/portfolio|website/i.test(id)) value = candidate.portfolioUrl;
-      else if (/location|city|address/i.test(id)) value = candidate.location;
+      else if (/portfolio|website|personal/i.test(id)) value = candidate.portfolioUrl;
+
+      // === Location fields ===
+      else if (/\bcountry\b/i.test(id)) {
+        value = 'United States';
+        if (f.type === 'select' && f.options?.length) {
+          const match = f.options.find(o => /united states|usa|us/i.test(o));
+          if (match) value = match;
+          type = 'select';
+        }
+      }
+      else if (/location|city/i.test(id)) value = city || candidate.location || 'Seattle';
+      else if (/state|province/i.test(id)) {
+        value = candidate.location?.split(',')[1]?.trim() || 'WA';
+        if (f.type === 'select') type = 'select';
+      }
+      else if (/zip|postal/i.test(id)) value = '98101'; // Seattle default
+
+      // === Work authorization ===
+      else if (/authorized.*work|legally.*work|eligible.*work|right to work/i.test(id)) {
+        value = 'Yes';
+        if (f.type === 'react-select') type = 'react-select';
+        else if (f.type === 'radio' || f.type === 'select') type = f.type as any;
+      }
+      else if (/sponsor|visa.*sponsor/i.test(id)) {
+        value = 'No';
+        if (f.type === 'react-select') type = 'react-select';
+        else if (f.type === 'radio' || f.type === 'select') type = f.type as any;
+      }
+      else if (/currently located|currently.*(reside|live|based)/i.test(id)) {
+        value = 'Yes';
+        if (f.type === 'react-select') type = 'react-select';
+        else if (f.type === 'radio' || f.type === 'select') type = f.type as any;
+      }
+      else if (/relocat/i.test(id)) {
+        value = 'Yes';
+        if (f.type === 'react-select') type = 'react-select';
+        else if (f.type === 'radio' || f.type === 'select') type = f.type as any;
+      }
+
+      // === EEO / Demographics — always decline ===
+      else if (/gender|sex(?!perience)/i.test(id)) {
+        value = this.findDeclineOption(f) || 'Decline to Self Identify';
+        type = f.type === 'react-select' ? 'react-select' : f.type === 'select' ? 'select' : 'fill';
+      }
+      else if (/race|ethnic/i.test(id)) {
+        value = this.findDeclineOption(f) || 'Decline to Self Identify';
+        type = f.type === 'react-select' ? 'react-select' : f.type === 'select' ? 'select' : 'fill';
+      }
+      else if (/veteran/i.test(id)) {
+        value = this.findDeclineOption(f) || 'I am not a protected veteran';
+        type = f.type === 'react-select' ? 'react-select' : f.type === 'select' ? 'select' : 'fill';
+      }
+      else if (/disabil/i.test(id)) {
+        value = this.findDeclineOption(f) || "I don't wish to answer";
+        type = f.type === 'react-select' ? 'react-select' : f.type === 'select' ? 'select' : 'fill';
+      }
+
+      // === Source / referral ===
+      else if (/how.*hear|how.*find|where.*hear|referral.*source|source/i.test(id)) {
+        if (f.options?.length) {
+          const match = f.options.find(o => /job.?board|other|internet|online/i.test(o));
+          value = match || f.options[f.options.length > 1 ? 1 : 0] || 'Job Board';
+        } else {
+          value = 'Job Board';
+        }
+        if (f.type === 'select') type = 'select';
+        else if (f.type === 'react-select') type = 'react-select';
+      }
+
+      // === Textarea questions (cover letter, why this company, etc.) ===
+      else if (f.tag === 'textarea' || f.type === 'textarea') {
+        if (/cover.?letter/i.test(id)) {
+          value = `I am excited to apply for this position. With my background in ${candidate.skills?.slice(0, 3).join(', ') || 'software engineering'} and ${candidate.experienceLevel || 'relevant'} experience, I believe I would be a strong addition to the team. I am eager to contribute my skills and grow with the organization.`;
+        } else if (/why.*want.*work|why.*interest|why.*apply|why.*this.*role/i.test(id)) {
+          value = `I am drawn to this opportunity because it aligns with my skills in ${candidate.skills?.slice(0, 3).join(', ') || 'technology'}. I am passionate about contributing to innovative work and believe my ${candidate.experienceLevel || 'professional'} experience would make me a valuable team member.`;
+        } else if (f.required && !f.currentValue) {
+          // Generic required textarea — provide a reasonable answer
+          value = `I am interested in this opportunity and look forward to discussing how my experience can contribute to your team.`;
+        }
+        type = 'fill';
+      }
+
+      // === Consent / agree checkboxes ===
+      else if (/consent|agree|accept|gdpr|privacy|terms/i.test(id) && f.type === 'checkbox') {
+        type = 'check';
+        value = 'true';
+      }
+
+      // === Salary ===
+      else if (/salary|compensation|pay/i.test(id) && f.required) {
+        if (candidate.salaryMin) value = String(candidate.salaryMin);
+        else value = '0'; // Let company decide
+      }
+
       else continue;
 
       if (value) {
-        actions.push({ selector: f.selector, value, type: f.type === 'react-select' ? 'react-select' : type });
+        actions.push({ selector: f.selector, value, type });
       }
     }
     return actions;
+  }
+
+  /** Find a "decline" or "don't wish to answer" option in field's option list */
+  private findDeclineOption(field: FormField): string {
+    if (!field.options?.length) return '';
+    const patterns = [/decline/i, /don.?t wish/i, /prefer not/i, /not.?specified/i, /choose not/i];
+    for (const pattern of patterns) {
+      const match = field.options.find(o => pattern.test(o));
+      if (match) return match;
+    }
+    return '';
   }
 
   // ==========================================
