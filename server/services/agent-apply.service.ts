@@ -872,56 +872,31 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — page.$ returned null`);
           return;
         }
-        console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — element found`);
+        console.log(`[AgentApply] fillReactSelect: input-direct ${selector}`);
 
-        // Check element state
-        const elState = await page.evaluate((sel) => {
+        // Get the field's ID for scoped listbox selector
+        const fieldId = await input.getAttribute('id') || '';
+
+        // Use JS to scroll, focus, and click — avoids Playwright actionability timeout on 4px input
+        await page.evaluate((sel) => {
           const el = document.querySelector(sel) as HTMLInputElement;
-          if (!el) return { exists: false };
-          const rect = el.getBoundingClientRect();
-          return {
-            exists: true,
-            disabled: el.disabled,
-            readOnly: el.readOnly,
-            visible: rect.width > 0 && rect.height > 0,
-            width: rect.width,
-            height: rect.height,
-            top: rect.top,
-          };
-        }, selector).catch(() => ({ exists: false }));
-        console.log(`[AgentApply] fillReactSelect: ${selector} state: ${JSON.stringify(elState)}`);
+          if (!el) return;
+          el.scrollIntoView({ block: 'center' });
+          el.focus();
+          el.click();
+        }, selector);
+        await this.randomDelay(300, 500);
 
-        // If element is not visible/disabled, try to enable it
-        if (elState.exists && (!elState.visible || elState.disabled)) {
-          console.log(`[AgentApply] fillReactSelect: ${selector} not interactable, trying JS click+dispatch`);
-          // Use JS to force interaction
-          await page.evaluate((args) => {
-            const el = document.querySelector(args.sel) as HTMLInputElement;
-            if (!el) return;
-            // Scroll into view
-            el.scrollIntoView({ block: 'center' });
-            // Focus and click
-            el.focus();
-            el.click();
-            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-          }, { sel: selector });
-          await this.randomDelay(400, 600);
-        } else {
-          // Normal interaction
-          await input.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-          await page.keyboard.press('Escape');
-          await this.randomDelay(100, 200);
-          // Use short timeout to prevent hanging
-          await Promise.race([
-            input.click({ force: true }),
-            new Promise(r => setTimeout(r, 5000)),
-          ]);
-          await this.randomDelay(300, 500);
-        }
+        // Use scoped listbox selector if we have a field ID
+        const scopedSel = fieldId
+          ? `#react-select-${fieldId}-listbox [class*="select__option"], #react-select-${CSS.escape(fieldId)}-listbox [class*="option"]`
+          : '[class*="select__option"]:not([class*="disabled"])';
+        const globalSel = '[class*="select__option"]:not([class*="disabled"])';
 
-        // Check if options appeared (non-searchable dropdown)
-        let earlyOptions = await page.$$('[class*="select__option"]:not([class*="disabled"])');
+        // Check for options (non-searchable dropdown opens on focus)
+        let earlyOptions = await page.$$(scopedSel).catch(() => [] as any[]);
+        if (earlyOptions.length === 0) earlyOptions = await page.$$(globalSel);
+
         if (earlyOptions.length > 0) {
           console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options after click`);
           const best = await this.findBestOption(earlyOptions, searchText);
@@ -934,15 +909,19 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           }
         }
 
-        // Type to search
-        await input.fill('');
+        // Type to search/filter
+        await input.fill('').catch(() => {});
         await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
         console.log(`[AgentApply] fillReactSelect: typed into input-direct`);
 
-        await page.waitForSelector('[class*="select__option"]', { timeout: 3000 }).catch(() => {});
+        await page.waitForSelector(scopedSel, { timeout: 3000 }).catch(() =>
+          page.waitForSelector(globalSel, { timeout: 2000 }).catch(() => {})
+        );
         await this.randomDelay(300, 500);
 
-        const options = await page.$$('[class*="select__option"]:not([class*="disabled"])');
+        let options = await page.$$(scopedSel).catch(() => [] as any[]);
+        if (options.length === 0) options = await page.$$(globalSel);
+
         if (options.length > 0) {
           const best = await this.findBestOption(options, searchText);
           const target = best || options[0];
