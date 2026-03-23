@@ -863,10 +863,23 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     // Strategy: find the React Select control and its input
     // Case A: selector IS the input itself (e.g., <input id="gender" class="select__input">)
     if (elInfo.tag === 'INPUT' && (elInfo.classes?.includes('select__input') || elInfo.classes?.includes('select__'))) {
-      const input = await page.$(selector);
-      if (input) {
-        await input.click();
-        await this.randomDelay(200, 400);
+      try {
+        const input = await page.$(selector);
+        if (!input) {
+          console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — page.$ returned null`);
+          return;
+        }
+
+        // Scroll into view and ensure it's visible
+        await input.scrollIntoViewIfNeeded().catch(() => {});
+        await this.randomDelay(200, 300);
+
+        // Close any previously open dropdown by pressing Escape
+        await page.keyboard.press('Escape');
+        await this.randomDelay(100, 200);
+
+        await input.click({ force: true });
+        await this.randomDelay(300, 500);
 
         // Check if options appeared (non-searchable dropdown)
         let earlyOptions = await page.$$('[class*="select__option"]:not([class*="disabled"])');
@@ -899,9 +912,12 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
         } else {
           await page.keyboard.press('Enter');
+          console.log(`[AgentApply] fillReactSelect: no options after typing, pressed Enter`);
         }
         await this.randomDelay(200, 400);
         return;
+      } catch (e: any) {
+        console.log(`[AgentApply] fillReactSelect: input-direct error for ${selector}: ${e.message}`);
       }
     }
 
