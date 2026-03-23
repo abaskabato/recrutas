@@ -874,29 +874,31 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         }
         console.log(`[AgentApply] fillReactSelect: input-direct ${selector}`);
 
-        // Pure JS approach — no Playwright fill/click (avoids 30s actionability timeout on 4px input)
-        const fieldId = await page.evaluate((sel) => {
-          const el = document.querySelector(sel) as HTMLInputElement;
-          if (!el) return '';
-          // Scroll, focus, and trigger React Select's menu open
-          el.scrollIntoView({ block: 'center' });
-          el.focus();
-          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-          return el.id || '';
+        // Scroll into view via JS (instant, no timeout)
+        await page.evaluate((sel) => {
+          document.querySelector(sel)?.scrollIntoView({ block: 'center' });
         }, selector);
-        console.log(`[AgentApply] fillReactSelect: input-direct focused, id="${fieldId}"`);
-        await this.randomDelay(400, 600);
+        await this.randomDelay(200, 300);
 
-        // Check for open menu — use scoped selector if possible
-        const escapedId = fieldId.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
-        const scopedSel = fieldId ? `#react-select-${escapedId}-listbox [class*="option"]` : '';
+        // Close any open dropdown first
+        await page.keyboard.press('Escape');
+        await this.randomDelay(100, 200);
+
+        // Click the input with a 5s timeout (default is 30s which causes hangs)
+        await input.click({ timeout: 5000 }).catch(() => {
+          console.log(`[AgentApply] fillReactSelect: click timed out for ${selector}, using focus`);
+          return page.evaluate((sel) => {
+            (document.querySelector(sel) as HTMLElement)?.focus();
+          }, selector);
+        });
+        await this.randomDelay(300, 500);
+
+        // Check for options (non-searchable dropdown opens on click)
         const globalSel = '[class*="select__option"]:not([class*="disabled"])';
-
-        let earlyOptions = scopedSel ? await page.$$(scopedSel).catch(() => [] as any[]) : [];
-        if (earlyOptions.length === 0) earlyOptions = await page.$$(globalSel);
+        let earlyOptions = await page.$$(globalSel);
 
         if (earlyOptions.length > 0) {
-          console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options visible`);
+          console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options after click`);
           const best = await this.findBestOption(earlyOptions, searchText);
           if (best) {
             const text = await best.textContent();
@@ -907,24 +909,14 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           }
         }
 
-        // Type via JS (no Playwright fill — it times out on tiny inputs)
-        await page.evaluate(({ sel, text }) => {
-          const el = document.querySelector(sel) as HTMLInputElement;
-          if (!el) return;
-          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-          if (setter) setter.call(el, text);
-          else el.value = text;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }, { sel: selector, text: searchText.substring(0, 30) });
-        console.log(`[AgentApply] fillReactSelect: typed via JS`);
+        // Type to search (use keyboard.type, not input.fill which can timeout)
+        await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
+        console.log(`[AgentApply] fillReactSelect: typed "${searchText.substring(0, 20)}..."`);
 
-        await page.waitForSelector(scopedSel || globalSel, { timeout: 3000 }).catch(() => {});
+        await page.waitForSelector(globalSel, { timeout: 3000 }).catch(() => {});
         await this.randomDelay(300, 500);
 
-        let options = scopedSel ? await page.$$(scopedSel).catch(() => [] as any[]) : [];
-        if (options.length === 0) options = await page.$$(globalSel);
-
+        const options = await page.$$(globalSel);
         if (options.length > 0) {
           const best = await this.findBestOption(options, searchText);
           const target = best || options[0];
