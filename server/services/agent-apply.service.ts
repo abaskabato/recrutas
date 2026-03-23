@@ -101,32 +101,61 @@ function getNextProxy(): { server: string; username?: string; password?: string 
 // AI CALL
 // ==========================================
 
-async function callGroq(prompt: string, systemPrompt?: string): Promise<string> {
+async function callAIForForm(prompt: string, systemPrompt?: string): Promise<string> {
+  // Try Groq first, then Gemini fallback
   const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) throw new Error('No GROQ_API_KEY');
+  const geminiKey = process.env.GEMINI_API_KEY;
 
-  const messages: any[] = [];
-  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-  messages.push({ role: 'user', content: prompt });
+  if (groqKey) {
+    try {
+      const messages: any[] = [];
+      if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+      messages.push({ role: 'user', content: prompt });
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages,
-      temperature: 0,
-      response_format: { type: 'json_object' },
-    }),
-    signal: AbortSignal.timeout(20000),
-  });
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          temperature: 0,
+          response_format: { type: 'json_object' },
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Groq ${response.status}: ${text.substring(0, 200)}`);
+      if (response.ok) {
+        return (await response.json() as any)?.choices?.[0]?.message?.content || '';
+      }
+      const errText = await response.text().catch(() => '');
+      console.log(`[AgentApply] Groq ${response.status}, trying Gemini fallback`);
+    } catch (e: any) {
+      console.log(`[AgentApply] Groq failed: ${e.message}, trying Gemini`);
+    }
   }
 
-  return (await response.json() as any)?.choices?.[0]?.message?.content || '';
+  if (geminiKey) {
+    const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt + '\n\nRespond with JSON only.' }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0 },
+        }),
+        signal: AbortSignal.timeout(20000),
+      }
+    );
+    if (response.ok) {
+      return (await response.json() as any)?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Gemini ${response.status}: ${errText.substring(0, 200)}`);
+  }
+
+  throw new Error('No AI API key available (GROQ_API_KEY or GEMINI_API_KEY)');
 }
 
 // ==========================================
@@ -535,7 +564,7 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     }
 
     try {
-      const raw = await callGroq(prompt, systemPrompt);
+      const raw = await callAIForForm(prompt, systemPrompt);
       const parsed = JSON.parse(raw);
       const actions: FillAction[] = (parsed.actions || []).filter((a: any) => a.type !== 'skip' && a.value);
       return actions;
@@ -630,30 +659,61 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
   }
 
   private async fillReactSelect(page: Page, selector: string, searchText: string): Promise<void> {
-    // Click the React Select control to open it
-    const control = await page.$(`${selector} [class*="select__control"], ${selector}[class*="select__control"]`);
-    const clickTarget = control || await page.$(selector);
-    if (!clickTarget) return;
+    // Find the React Select input — it's a hidden input inside the control
+    const inputSel = `${selector} input[role="combobox"], ${selector} input[class*="select__input"], ${selector} input:not([type="hidden"])`;
+    let input = await page.$(inputSel);
 
-    await clickTarget.click();
-    await this.randomDelay(200, 400);
+    // Fallback: click the control div to focus, then find the active input
+    if (!input) {
+      const control = await page.$(`${selector} [class*="select__control"], ${selector}[class*="select__control"]`);
+      const clickTarget = control || await page.$(selector);
+      if (!clickTarget) return;
+      await clickTarget.click();
+      await this.randomDelay(300, 500);
+      // After clicking, the input should be focusable
+      input = await page.$(`${selector} input`);
+    }
 
-    // Type to search/filter
-    await page.keyboard.type(searchText, { delay: 50 });
-    await this.randomDelay(500, 800);
+    if (input) {
+      await input.click();
+      await this.randomDelay(100, 200);
+      // Clear and type
+      await input.fill('');
+      await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
+    } else {
+      // Last resort: click container and type
+      const el = await page.$(selector);
+      if (!el) return;
+      await el.click();
+      await this.randomDelay(200, 300);
+      await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
+    }
+
+    // Wait for dropdown options to appear (async search)
+    await page.waitForSelector('[class*="select__option"]', { timeout: 3000 }).catch(() => {});
+    await this.randomDelay(300, 500);
 
     // Click the first matching option
-    const option = await page.$('[class*="select__option"]:not([class*="disabled"])');
-    if (option) {
-      const text = await option.textContent();
-      await option.click();
+    const options = await page.$$('[class*="select__option"]:not([class*="disabled"])');
+    if (options.length > 0) {
+      // Try to find best match
+      let best = options[0];
+      for (const opt of options) {
+        const text = await opt.textContent();
+        if (text?.toLowerCase().includes(searchText.toLowerCase())) {
+          best = opt;
+          break;
+        }
+      }
+      const text = await best.textContent();
+      await best.click();
       console.log(`[AgentApply] React Select ${selector}: "${text?.trim()}"`);
     } else {
-      // Press Enter to select first option
+      // Press Enter to select whatever is highlighted
       await page.keyboard.press('Enter');
-      console.log(`[AgentApply] React Select ${selector}: pressed Enter for "${searchText}"`);
+      console.log(`[AgentApply] React Select ${selector}: Enter for "${searchText}"`);
     }
-    await this.randomDelay(200, 300);
+    await this.randomDelay(200, 400);
   }
 
   private async fillCheckbox(page: Page, selector: string): Promise<void> {
