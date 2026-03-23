@@ -657,7 +657,7 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           type = 'react-select';
         }
       }
-      else if (/location|city/i.test(id)) value = city || candidate.location || 'Seattle';
+      else if (/\blocation\b|\bcity\b/i.test(id) && !/ethnic|race|hispanic/i.test(id)) value = city || candidate.location || 'Seattle';
       else if (/\bstate\b|province/i.test(id) && !/united states/i.test(id)) {
         value = candidate.location?.split(',')[1]?.trim() || 'WA';
         if (f.type === 'select') type = 'select';
