@@ -877,11 +877,30 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
       await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
       console.log(`[AgentApply] fillReactSelect: typed "${searchText.substring(0, 30)}" into input`);
     } else {
-      console.log(`[AgentApply] fillReactSelect: no input found for "${selector}", trying keyboard.type`);
-      const el = await page.$(selector);
-      if (!el) return;
-      await el.click();
-      await this.randomDelay(200, 300);
+      console.log(`[AgentApply] fillReactSelect: no input found for "${selector}", clicking container`);
+      // Click the control or container to open the dropdown
+      const control = await page.$(`${selector} [class*="select__control"]`) ||
+                      await page.$(`${selector} [class*="css-"][class*="control"]`) ||
+                      await page.$(selector);
+      if (!control) return;
+      await control.click();
+      await this.randomDelay(400, 600);
+
+      // Check if options appeared after click (non-searchable dropdown)
+      let earlyOptions = await page.$$('[class*="select__option"]:not([class*="disabled"]), [class*="option"]:not([class*="disabled"])');
+      if (earlyOptions.length > 0) {
+        console.log(`[AgentApply] fillReactSelect: non-searchable dropdown, ${earlyOptions.length} options visible`);
+        const best = await this.findBestOption(earlyOptions, searchText);
+        if (best) {
+          const text = await best.textContent();
+          await best.click();
+          console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
+          await this.randomDelay(200, 400);
+          return;
+        }
+      }
+
+      // If no options or no match, try typing to search
       await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
     }
 
@@ -894,23 +913,40 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     console.log(`[AgentApply] fillReactSelect: found ${options.length} options`);
 
     if (options.length > 0) {
-      let best = options[0];
-      const searchLower = searchText.toLowerCase();
-      for (const opt of options) {
-        const text = await opt.textContent();
-        if (text?.toLowerCase().includes(searchLower)) {
-          best = opt;
-          break;
-        }
-      }
-      const text = await best.textContent();
-      await best.click();
+      const best = await this.findBestOption(options, searchText);
+      const target = best || options[0];
+      const text = await target.textContent();
+      await target.click();
       console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
     } else {
       await page.keyboard.press('Enter');
       console.log(`[AgentApply] fillReactSelect: no options visible, pressed Enter`);
     }
     await this.randomDelay(200, 400);
+  }
+
+  /** Find the best matching option from a list of option elements */
+  private async findBestOption(options: any[], searchText: string): Promise<any | null> {
+    const searchLower = searchText.toLowerCase();
+    // Exact match first
+    for (const opt of options) {
+      const text = (await opt.textContent())?.trim()?.toLowerCase();
+      if (text === searchLower) return opt;
+    }
+    // Contains match
+    for (const opt of options) {
+      const text = (await opt.textContent())?.trim()?.toLowerCase();
+      if (text?.includes(searchLower) || searchLower.includes(text || '')) return opt;
+    }
+    // Keyword match for common EEO patterns
+    const declineKeywords = ['decline', "don't wish", 'prefer not', 'not specified'];
+    if (declineKeywords.some(k => searchLower.includes(k))) {
+      for (const opt of options) {
+        const text = (await opt.textContent())?.trim()?.toLowerCase();
+        if (declineKeywords.some(k => text?.includes(k))) return opt;
+      }
+    }
+    return null;
   }
 
   /** Find a React Select by searching for its label text in the DOM */
