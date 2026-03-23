@@ -888,8 +888,10 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         await this.randomDelay(300, 500);
 
         // Use scoped listbox selector if we have a field ID
+        // Escape fieldId for CSS selector (simple: replace special chars)
+        const escapedId = fieldId.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
         const scopedSel = fieldId
-          ? `#react-select-${fieldId}-listbox [class*="select__option"], #react-select-${CSS.escape(fieldId)}-listbox [class*="option"]`
+          ? `#react-select-${escapedId}-listbox [class*="select__option"], #react-select-${escapedId}-listbox [class*="option"]`
           : '[class*="select__option"]:not([class*="disabled"])';
         const globalSel = '[class*="select__option"]:not([class*="disabled"])';
 
