@@ -832,13 +832,29 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
   private async fillReactSelect(page: Page, selector: string, searchText: string): Promise<void> {
     console.log(`[AgentApply] fillReactSelect: selector="${selector}" text="${searchText}"`);
 
-    // Check if this is actually a native <select> disguised as react-select
-    const isNativeSelect = await page.evaluate(
-      (sel) => document.querySelector(sel)?.tagName === 'SELECT',
-      selector
-    ).catch(() => false);
+    // Check what type of element this selector points to
+    const elInfo = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { found: false };
+      return {
+        found: true,
+        tag: el.tagName,
+        classes: el.className?.toString().substring(0, 100) || '',
+        childCount: el.children.length,
+        hasSelectControl: !!el.querySelector('[class*="select__control"]'),
+        hasOptions: el.querySelectorAll('option').length,
+      };
+    }, selector).catch(() => ({ found: false }));
 
-    if (isNativeSelect) {
+    console.log(`[AgentApply] fillReactSelect: element info for "${selector}": ${JSON.stringify(elInfo)}`);
+
+    if (!elInfo.found) {
+      console.log(`[AgentApply] fillReactSelect: "${selector}" not found in DOM`);
+      return;
+    }
+
+    // Native <select> — use selectOption
+    if (elInfo.tag === 'SELECT') {
       console.log(`[AgentApply] fillReactSelect: "${selector}" is native <select>, using selectOption`);
       await this.fillNativeSelect(page, selector, searchText);
       return;
