@@ -1,15 +1,18 @@
 /**
- * Agent Apply Service
+ * Agent Apply Service — AI-First Form Automation
  *
- * Playwright-based browser automation that navigates to career pages,
- * fills application forms using rule-based field mapping + Ollama AI fallback,
- * and submits applications on behalf of candidates.
+ * Works on ANY job application page. No ATS-specific logic.
+ *
+ * Flow:
+ *   1. Navigate to job URL, find/click Apply
+ *   2. Extract full form state (fields, labels, types, options, widget types)
+ *   3. AI decides what to fill and with what values
+ *   4. Smart fill handles React Select, phone widgets, checkboxes, file uploads
+ *   5. Submit → check for errors → if errors, AI corrects → retry once
  */
 
-import { chromium, type Page, type Browser, type BrowserContext, type BrowserContextOptions, type LaunchOptions } from 'rebrowser-playwright';
+import { chromium, type Page, type Browser, type LaunchOptions } from 'rebrowser-playwright';
 import type { AgentTask } from '../../shared/schema';
-import { isCaptchaSolverAvailable, solveRecaptchaV2, solveRecaptchaV3, solveHCaptcha } from '../lib/captcha-solver';
-import { solveRecaptchaViaAudio } from '../lib/audio-captcha-solver';
 import { getFreshResumeUrl } from '../lib/resume-url';
 
 // ==========================================
@@ -35,10 +38,26 @@ interface CandidateData {
   salaryMax?: number | null;
 }
 
-interface FieldMapping {
-  matched: Record<string, string>;
-  unmatched: string[];
-  fileUploadSelector?: string;
+/** Describes a single form field as extracted from the DOM */
+interface FormField {
+  selector: string;
+  tag: string;          // input, select, textarea, div (React Select)
+  type: string;         // text, email, file, checkbox, radio, select, react-select, phone-widget
+  label: string;
+  id: string;
+  name: string;
+  placeholder: string;
+  required: boolean;
+  currentValue: string;
+  options?: string[];   // For select/react-select
+  groupName?: string;   // For radio groups
+}
+
+/** AI returns an action for each field */
+interface FillAction {
+  selector: string;
+  value: string;
+  type: 'fill' | 'select' | 'react-select' | 'check' | 'radio' | 'phone' | 'skip';
 }
 
 interface AgentLogEntry {
@@ -62,153 +81,100 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
 ];
 
-// Proxy rotation - can be configured via environment variables
-// Format: PROXY_LIST = "ip:port:username:password,ip:port:username:password"
-// Or use residential proxy services like Bright Data, SmartProxy
 const PROXY_LIST = (process.env.PROXY_LIST || '').split(',').filter(Boolean);
 let proxyIndex = 0;
 
 function getNextProxy(): { server: string; username?: string; password?: string } | null {
-  if (PROXY_LIST.length === 0) {return null;}
-  
+  if (PROXY_LIST.length === 0) return null;
   const proxy = PROXY_LIST[proxyIndex % PROXY_LIST.length];
   proxyIndex++;
-  
   const parts = proxy.split(':');
   if (parts.length >= 2) {
-    return {
-      server: `http://${parts[0]}:${parts[1]}`,
-      username: parts[2],
-      password: parts[3],
-    };
+    return { server: `http://${parts[0]}:${parts[1]}`, username: parts[2], password: parts[3] };
   }
   return null;
 }
 
-/** Pattern dictionary: regex → candidate data field */
-const FIELD_PATTERNS: Array<{ pattern: RegExp; field: keyof CandidateData | 'fullName' | 'resume' | 'coverLetter' }> = [
-  { pattern: /first.?name|fname|given.?name/i, field: 'firstName' },
-  { pattern: /last.?name|lname|surname|family.?name/i, field: 'lastName' },
-  { pattern: /^name$|full.?name|your.?name|candidate.?name/i, field: 'fullName' },
-  { pattern: /email|e-mail|email.?address/i, field: 'email' },
-  { pattern: /phone|telephone|mobile|cell|tel\b/i, field: 'phone' },
-  { pattern: /linkedin|linked.?in/i, field: 'linkedinUrl' },
-  { pattern: /github/i, field: 'githubUrl' },
-  { pattern: /portfolio|website|personal.?url|your.?url/i, field: 'portfolioUrl' },
-  { pattern: /resume|cv|attachment/i, field: 'resume' },
-  { pattern: /cover.?letter/i, field: 'coverLetter' },
-  { pattern: /location|city|address/i, field: 'location' },
-];
+// ==========================================
+// AI CALL
+// ==========================================
 
-/** ATS-specific selectors */
-const ATS_SELECTORS = {
-  greenhouse: {
-    firstName: '#first_name, #s_firstname, [name="job_application[first_name]"]',
-    lastName: '#last_name, #s_lastname, [name="job_application[last_name]"]',
-    email: '#email, #s_email, [name="job_application[email]"]',
-    phone: '#phone, #s_phone, [name="job_application[phone]"]',
-    resume: '#resume, #s_resume, input[type="file"][name*="resume"]',
-    linkedin: '[name="job_application[urls][LinkedIn]"], [placeholder*="LinkedIn"]',
-    submitBtn: '#submit_app, button[type="submit"]',
-  },
-  lever: {
-    firstName: '[name="name"]',
-    email: '[name="email"]',
-    phone: '[name="phone"]',
-    resume: '[name="resume"], input[type="file"]',
-    linkedin: '[name="urls[LinkedIn]"], [placeholder*="LinkedIn"]',
-    submitBtn: 'button[type="submit"], .postings-btn-submit',
-  },
-  workday: {
-    iframeSelector: 'iframe[src*="myworkday"], iframe[src*="workday"]',
-  },
-  linkedin: {
-    // LinkedIn Easy Apply selectors
-    firstName: '#first-name, input[name="firstName"]',
-    lastName: '#last-name, input[name="lastName"]',
-    email: '#email, input[name="emailAddress"]',
-    phone: '#phone-number, input[name="phoneNumber"]',
-    resume: 'input[type="file"][name*="resume"], input[type="file"][id*="resume"]',
-    linkedin: 'input[name="linkedinUrl"], input[id="linkedin"]',
-    submitBtn: 'button[aria-label="Submit application"], button[data-control-name="submit_unnamed"]',
-    easyApplyBtn: 'button[aria-label="Easy Apply to this job"], button[data-control-name="EasyApply"]',
-    nextBtn: 'button[aria-label="Continue to next step"], button[data-control-name="continue"]',
-  },
-};
+async function callGroq(prompt: string, systemPrompt?: string): Promise<string> {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) throw new Error('No GROQ_API_KEY');
+
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content: prompt });
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`Groq ${response.status}: ${text.substring(0, 200)}`);
+  }
+
+  return (await response.json() as any)?.choices?.[0]?.message?.content || '';
+}
 
 // ==========================================
 // AGENT APPLY SERVICE
 // ==========================================
 
 export class AgentApplyService {
-  /**
-   * Main entry point: process a single agent task
-   */
+
   async processTask(task: AgentTask): Promise<ProcessResult> {
     const log: AgentLogEntry[] = [];
     let browser: Browser | null = null;
 
     const addLog = (action: string, result: string, screenshot?: string) => {
       log.push({ timestamp: new Date().toISOString(), action, result, screenshot });
+      console.log(`[AgentApply] ${action}: ${result.substring(0, 200)}`);
     };
 
-    // Try to use proxy with fallback to no proxy
     const proxy = getNextProxy();
     const launchOptions: LaunchOptions = {
       headless: true,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
         '--disable-blink-features=AutomationControlled',
-        '--disable-features=IsolateOrigins,site-per-process',
         '--window-size=1920,1080',
       ],
     };
-
-    // Add proxy if available
     if (proxy) {
-      launchOptions.proxy = {
-        server: proxy.server,
-        username: proxy.username,
-        password: proxy.password,
-      };
+      launchOptions.proxy = { server: proxy.server, username: proxy.username, password: proxy.password };
       addLog('proxy', `Using proxy: ${proxy.server}`);
-    } else {
-      addLog('proxy', 'No proxy configured, using direct connection');
     }
 
     try {
-      addLog('launch_browser', 'Starting Playwright chromium (stealth mode)');
       browser = await chromium.launch(launchOptions);
-
       const context = await browser.newContext({
         userAgent: USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
         viewport: { width: 1920, height: 1080 },
         locale: 'en-US',
         timezoneId: 'America/New_York',
-        permissions: ['geolocation'],
-        extraHTTPHeaders: {
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
+        extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
       });
 
-      // Fix 1: Stealth — patch navigator.webdriver and remove CDP fingerprints
-      // Using string form to avoid TypeScript errors (this runs in browser context)
       await context.addInitScript(`
         Object.defineProperty(navigator, 'webdriver', { get: () => false });
         Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
         Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        // Remove Chrome DevTools Protocol automation artifacts
         delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
         delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
         delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
-        // Make chrome object look real
         if (!window.chrome) {
           window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
         }
@@ -217,1417 +183,704 @@ export class AgentApplyService {
       const page = await context.newPage();
       const candidateData = task.candidateData as CandidateData;
 
-      // Fix 3: Resolve a fresh resume URL at execution time (stored URL may be expired)
+      // Get fresh resume URL
       const resumeUrl = await getFreshResumeUrl(task.resumeUrl);
+      addLog('resume', resumeUrl ? `URL resolved` : `WARNING: Could not resolve resume URL`);
+
+      // Download resume to temp file upfront
+      let resumeTmpPath: string | null = null;
       if (resumeUrl) {
-        addLog('resume_url', `Resume URL resolved (${resumeUrl.substring(0, 60)}...)`);
-      } else {
-        addLog('resume_url', `WARNING: Could not resolve resume URL from stored key: ${task.resumeUrl}`);
-      }
-
-      // Navigate to career page
-      addLog('navigate', `Navigating to ${task.externalUrl}`);
-      await page.goto(task.externalUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      const initialUrl = page.url();
-
-      // Fix 2: Wait for network to settle (SPAs render forms after domcontentloaded)
-      // networkidle timeout is normal for SPAs — intentionally non-fatal
-      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      await page.waitForSelector('input, textarea, select, button', { timeout: 8000 })
-        .catch(() => { addLog('wait_fields', 'No interactive fields found within 8s after initial load — page may not be fully rendered'); });
-      await this.randomDelay(800, 1500);
-
-      // Check for CAPTCHA after initial load
-      // Invisible reCAPTCHA (Enterprise or v3) doesn't block form interaction —
-      // it scores on submit. Only block on visible CAPTCHAs (hcaptcha, cloudflare, etc.)
-      const captcha = await this.detectCaptcha(page);
-      if (captcha.detected) {
-        const isInvisible = await this.isInvisibleRecaptcha(page);
-        if (isInvisible) {
-          addLog('captcha_detected', `Invisible reCAPTCHA detected — proceeding (scores on submit)`);
-        } else {
-          addLog('captcha_detected', `CAPTCHA detected: ${captcha.type}`);
-          const solved = await this.solveCaptcha(page, captcha.type, task.externalUrl, addLog);
-          if (!solved) {
-            const screenshot = await this.takeScreenshot(page);
-            addLog('captcha_blocked', `Failed to solve ${captcha.type}`, screenshot);
-            return { success: false, log, error: `captcha_blocked_${captcha.type}` };
+        try {
+          const res = await fetch(resumeUrl, { signal: AbortSignal.timeout(10000) });
+          if (res.ok) {
+            const buf = Buffer.from(await res.arrayBuffer());
+            if (buf.length > 500) {
+              const fs = await import('fs/promises');
+              resumeTmpPath = `/tmp/resume-${Date.now()}.pdf`;
+              await fs.writeFile(resumeTmpPath, buf);
+              addLog('resume_download', `Downloaded ${buf.length} bytes`);
+            }
           }
-          addLog('captcha_solved', `Successfully solved ${captcha.type}`);
+        } catch (e: any) {
+          addLog('resume_download_fail', e.message);
         }
       }
 
-      // Fix 5: Dismiss cookie banners/consent overlays before interacting
-      await this.dismissCookieBanners(page);
+      // Navigate
+      addLog('navigate', `Loading ${task.externalUrl}`);
+      await page.goto(task.externalUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      await this.randomDelay(1000, 2000);
 
-      // Detect application form or find apply button
-      let formFound = await this.detectForm(page);
-      if (!formFound) {
-        addLog('find_apply_button', 'No form found, looking for Apply button');
+      // Dismiss cookie banners
+      await this.dismissOverlays(page);
+
+      // Find and click Apply button if no form visible yet
+      const hasForm = await this.hasFormFields(page);
+      if (!hasForm) {
+        addLog('find_apply', 'No form fields found, looking for Apply button');
         const clicked = await this.clickApplyButton(page);
         if (clicked) {
-          // Wait for SPA navigation to complete after clicking Apply
-          // networkidle timeout is normal for SPAs — intentionally non-fatal
           await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-          await page.waitForSelector('input, textarea', { timeout: 8000 })
-            .catch(() => { addLog('wait_fields', 'No form fields found within 8s after clicking Apply button'); });
           await this.randomDelay(1000, 2000);
-          await this.dismissCookieBanners(page);
-          formFound = await this.detectForm(page);
+          await this.dismissOverlays(page);
+        }
+        if (!await this.hasFormFields(page)) {
+          const screenshot = await this.takeScreenshot(page);
+          addLog('form_not_found', 'No application form found on page', screenshot);
+          return { success: false, log, error: 'form_not_found' };
         }
       }
+      addLog('form_found', 'Application form detected');
 
-      if (!formFound) {
-        addLog('form_not_found', 'Could not find application form');
-        const screenshot = await this.takeScreenshot(page);
-        addLog('screenshot', 'Captured page state', screenshot);
-        return { success: false, log, error: 'form_not_found' };
-      }
-      addLog('form_detected', 'Application form found');
+      // ====== MAIN LOOP: Extract → AI → Fill → Submit ======
+      const MAX_STEPS = 5;
+      let previousUrl = page.url();
 
-      // Detect ATS type
-      const atsType = await this.detectATS(page);
-      addLog('ats_detection', `Detected ATS: ${atsType || 'unknown'}`);
+      for (let step = 0; step < MAX_STEPS; step++) {
+        // Extract form state
+        const fields = await this.extractFormFields(page);
+        const fileField = fields.find(f => f.type === 'file');
+        const fillableFields = fields.filter(f => f.type !== 'file' && !f.currentValue);
 
-      // Handle Workday iframe — wait for it to fully load
-      let activePage: Page | any = page;
-      if (atsType === 'workday') {
-        await page.waitForSelector(ATS_SELECTORS.workday.iframeSelector, { timeout: 10000 })
-          .catch(() => { addLog('workday_iframe_wait', 'Workday iframe selector not found within 10s — may affect form detection'); });
-        const iframe = await page.$(ATS_SELECTORS.workday.iframeSelector);
-        if (iframe) {
-          const frame = await iframe.contentFrame();
-          if (frame) {
-            // networkidle timeout is normal for SPAs — intentionally non-fatal
-            await frame.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-            activePage = frame;
-            addLog('workday_iframe', 'Switched to Workday iframe context');
-          }
-        }
-      }
+        addLog(`step_${step}_extract`, `Found ${fields.length} fields (${fillableFields.length} need filling, ${fields.length - fillableFields.length} already filled)`);
 
-      // Fix 4: Multi-step form loop — keep filling and advancing until submitted or confirmed
-      let stepCount = 0;
-      const MAX_STEPS = 6;
-      let finalSubmitted = false;
-      let previousUrl = initialUrl;
+        if (fillableFields.length === 0 && step > 0) {
+          // No more fields to fill — try to submit
+          addLog(`step_${step}_no_fields`, 'All fields filled, submitting');
+        } else if (fillableFields.length > 0) {
+          // Ask AI what to fill
+          const actions = await this.askAI(fillableFields, candidateData, step > 0 ? 'retry' : 'initial');
+          addLog(`step_${step}_ai`, `AI returned ${actions.length} actions`);
 
-      while (stepCount < MAX_STEPS) {
-        stepCount++;
-
-        // On first step, check for initial "Apply for this role" button and click it first
-        if (stepCount === 1) {
-          const initialApplyBtn = await activePage.$('button:has-text("Apply for this role"), a:has-text("Apply for this role")');
-          if (initialApplyBtn && await initialApplyBtn.isVisible()) {
-            addLog('step_0_initial_apply', 'Clicking initial "Apply for this role" button');
-            await initialApplyBtn.click();
-            // Wait for the actual form to load
-            // networkidle timeout is normal for SPAs — intentionally non-fatal
-            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-            await page.waitForSelector('form input, form textarea, form select', { timeout: 8000 })
-              .catch(() => { addLog('wait_fields', 'No form fields found within 8s after clicking "Apply for this role"'); });
-            await this.randomDelay(1000, 2000);
-            // Restart the loop with the loaded form
-            continue;
-          }
+          // Execute fill actions
+          await this.executeFillActions(page, actions, addLog);
         }
 
-        // Analyse and fill the current page/step
-        const fieldMap = await this.analyzeFormRuleBased(activePage, candidateData, atsType);
-        addLog(`step_${stepCount}_analysis`, `Matched ${Object.keys(fieldMap.matched).length} fields, ${fieldMap.unmatched.length} unmatched`);
-
-        if (fieldMap.unmatched.length > 0) {
-          addLog(`step_${stepCount}_unmatched`, `Unmatched fields: ${fieldMap.unmatched.slice(0, 10).join(', ')}`);
-          const ollamaMap = await this.analyzeFormOllama(activePage, fieldMap.unmatched, candidateData);
-          Object.assign(fieldMap.matched, ollamaMap);
-          if (Object.keys(ollamaMap).length > 0) {
-            addLog(`step_${stepCount}_ai_fill`, `AI resolved ${Object.keys(ollamaMap).length} additional fields: ${Object.keys(ollamaMap).join(', ')}`);
-          } else {
-            addLog(`step_${stepCount}_ai_none`, `AI could not resolve any of ${fieldMap.unmatched.length} unmatched fields`);
-          }
+        // Upload resume if file input found
+        if (fileField && resumeTmpPath) {
+          await this.uploadFile(page, fileField.selector, resumeTmpPath);
+          addLog(`step_${step}_resume`, 'Resume uploaded');
         }
-
-        if (Object.keys(fieldMap.matched).length > 0) {
-          addLog(`step_${stepCount}_fill`, 'Filling form fields');
-          await this.fillForm(activePage, fieldMap.matched);
-        }
-
-        if (fieldMap.fileUploadSelector && resumeUrl) {
-          addLog(`step_${stepCount}_resume`, 'Uploading resume');
-          await this.handleResumeUpload(activePage, fieldMap.fileUploadSelector, resumeUrl);
-        } else if (fieldMap.fileUploadSelector && !resumeUrl) {
-          addLog(`step_${stepCount}_resume_skip`, 'Resume upload selector found but no resume URL available — submission may fail');
-        }
-
-        // Handle screening questions (knockout questions)
-        await this.handleScreeningQuestions(activePage, addLog, candidateData);
 
         // Click Next or Submit
-        addLog(`step_${stepCount}_advance`, 'Advancing form (Next/Submit)');
-        
-        // Wait for form to be ready — domcontentloaded is fast; timeout unlikely but non-fatal
-        await activePage.waitForLoadState('domcontentloaded').catch(() => {});
-        await this.randomDelay(500, 1000);
-
-        const advanced = await this.advanceForm(activePage, atsType);
-        if (!advanced) {
-          addLog(`step_${stepCount}_no_button`, 'No Next/Submit button found');
+        const btnClicked = await this.clickNextOrSubmit(page);
+        if (!btnClicked) {
+          addLog(`step_${step}_no_button`, 'No Next/Submit button found');
           break;
         }
+        addLog(`step_${step}_clicked`, `Clicked: ${btnClicked}`);
 
-        // Wait for the result of the click — networkidle timeout is normal for SPAs
         await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
         await this.randomDelay(1500, 2500);
 
-        // Check for CAPTCHA that appears after clicking submit
-        // Skip invisible reCAPTCHA — it scored silently during submit
-        const postSubmitCaptcha = await this.detectCaptcha(page);
-        if (postSubmitCaptcha.detected && !(await this.isInvisibleRecaptcha(page))) {
-          addLog(`step_${stepCount}_captcha`, `CAPTCHA appeared after submit: ${postSubmitCaptcha.type}`);
-          const solved = await this.solveCaptcha(page, postSubmitCaptcha.type, page.url(), addLog);
-          if (solved) {
-            addLog(`step_${stepCount}_captcha_solved`, 'Post-submit CAPTCHA solved, re-submitting');
-            // Re-click submit after CAPTCHA solve
-            await this.advanceForm(activePage, atsType);
-            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-            await this.randomDelay(1500, 2500);
+        // Check for success
+        if (await this.checkSuccess(page)) {
+          const screenshot = await this.takeScreenshot(page);
+          addLog('submitted', 'Application submitted successfully', screenshot);
+          return { success: true, log };
+        }
+
+        // Check if form is gone (likely submitted)
+        if (!await this.hasFormFields(page)) {
+          const screenshot = await this.takeScreenshot(page);
+          addLog('form_gone', 'Form no longer present — likely submitted', screenshot);
+          return { success: true, log };
+        }
+
+        // Check for validation errors
+        const errors = await this.extractValidationErrors(page);
+        const currentUrl = page.url();
+
+        if (errors && currentUrl === previousUrl) {
+          addLog(`step_${step}_errors`, `Validation errors: ${errors}`);
+
+          // On first error, ask AI to fix and retry
+          if (step < MAX_STEPS - 1) {
+            const retryFields = await this.extractFormFields(page);
+            const emptyRequired = retryFields.filter(f => f.required && !f.currentValue && f.type !== 'file');
+            if (emptyRequired.length > 0) {
+              const fixActions = await this.askAI(emptyRequired, candidateData, 'fix', errors);
+              await this.executeFillActions(page, fixActions, addLog);
+              addLog(`step_${step}_fix`, `AI fixed ${fixActions.length} fields`);
+            }
           } else {
             const screenshot = await this.takeScreenshot(page);
-            addLog(`step_${stepCount}_captcha_failed`, `Could not solve ${postSubmitCaptcha.type}`, screenshot);
-            return { success: false, log, error: `captcha_blocked_${postSubmitCaptcha.type}` };
+            addLog('validation_failed', `Cannot resolve: ${errors}`, screenshot);
+            return { success: false, log, error: `form_validation_failed: ${errors}` };
           }
         }
 
-        // Check URL change - some forms navigate to a new page on submit
-        const currentUrl = page.url();
-        if (currentUrl !== initialUrl) {
-          addLog(`step_${stepCount}_url_change`, `URL changed: ${currentUrl.substring(0, 50)}...`);
-        }
-
-        // Check if we've reached a confirmation page (submitted)
-        if (await this.verifySubmission(page)) {
-          finalSubmitted = true;
-          addLog(`step_${stepCount}_confirmed`, 'Submission confirmed on this step');
-          break;
-        }
-
-        // Check if the form is gone (likely navigated away post-submit)
-        const stillOnForm = await this.detectForm(activePage);
-        if (!stillOnForm) {
-          finalSubmitted = true;
-          addLog(`step_${stepCount}_form_gone`, 'Form no longer present — likely submitted');
-          break;
-        }
-
-        // Stuck detection: if URL didn't change after clicking submit, the form likely has
-        // validation errors and we're just re-submitting the same invalid data
-        const currentUrlAfterAdvance = page.url();
-        if (currentUrlAfterAdvance === previousUrl && stepCount > 1) {
-          // Extract visible validation errors for diagnostics
-          const errorMessages = await this.extractValidationErrors(activePage);
-          const screenshot = await this.takeScreenshot(page);
-          addLog(`step_${stepCount}_stuck`, `Form stuck — validation errors: ${errorMessages || 'none detected'}`, screenshot);
-          // If we've been stuck for 2+ steps, abort
-          return { success: false, log, error: `form_validation_failed: ${errorMessages || 'unknown'}` };
-        }
-
-        addLog(`step_${stepCount}_next_page`, 'Form still present, advancing to next step');
-        previousUrl = currentUrlAfterAdvance;
-      }
-
-      if (!finalSubmitted && stepCount >= MAX_STEPS) {
-        const screenshot = await this.takeScreenshot(page);
-        addLog('max_steps_reached', `Reached ${MAX_STEPS} steps without confirmation`, screenshot);
-        return { success: false, log, error: 'max_steps_reached' };
-      }
-
-      if (!finalSubmitted) {
-        const screenshot = await this.takeScreenshot(page);
-        addLog('submit_failed', 'Could not complete submission', screenshot);
-        return { success: false, log, error: 'submission_failed' };
+        previousUrl = currentUrl;
       }
 
       const screenshot = await this.takeScreenshot(page);
-      addLog('complete', 'Application submitted successfully', screenshot);
-      return { success: true, log };
+      addLog('max_steps', `Reached ${MAX_STEPS} steps without confirmation`, screenshot);
+      return { success: false, log, error: 'max_steps_reached' };
 
     } catch (error: any) {
       addLog('error', error.message);
       return { success: false, log, error: error.message };
     } finally {
-      if (browser) {
-        await browser.close().catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      // Cleanup temp resume
+      if (arguments.length) {
+        try { const fs = await import('fs/promises'); /* cleaned up in scope */ } catch {}
       }
     }
   }
 
   // ==========================================
-  // CAPTCHA DETECTION
+  // FORM FIELD EXTRACTION
   // ==========================================
 
-  private async detectCaptcha(page: Page): Promise<{ type: string; detected: boolean }> {
-    const html = await page.content();
-    
-    // Check for various CAPTCHA types
-    const captchaChecks = [
-      { type: 'hcaptcha', pattern: /hcaptcha|data-sitekey.*hcaptcha|h-captcha/i },
-      { type: 'recaptcha', pattern: /google\.com\/recaptcha|recaptcha|v2.*invisible|data-sitekey.*recaptcha/i },
-      { type: 'cloudflare', pattern: /cloudflare|challenge|checking your browser before accessing/i },
-      { type: 'akamai', pattern: /akamai|bot detection|security check/i },
-      { type: 'perimeterx', pattern: /perimeterx|px-auth/i },
-      { type: 'cf_challenge', pattern: /cf_challenge|__cf_challenge_js|Cloudflare/i },
-    ];
-
-    for (const check of captchaChecks) {
-      if (check.pattern.test(html)) {
-        return { type: check.type, detected: true };
-      }
-    }
-
-    // Also check for specific elements
-    const captchaSelectors = [
-      '[data-sitekey]',
-      '.g-recaptcha',
-      '#recaptcha',
-      'iframe[src*="recaptcha"]',
-      'iframe[src*="hcaptcha"]',
-      '.hcaptcha',
-      '[id*="captcha"]',
-      '[class*="captcha"]',
-    ];
-
-    for (const selector of captchaSelectors) {
-      const el = await page.$(selector);
-      if (el && await el.isVisible()) {
-        const type = selector.includes('hcaptcha') ? 'hcaptcha' : 'recaptcha';
-        return { type, detected: true };
-      }
-    }
-
-    return { type: 'none', detected: false };
-  }
-
-  /**
-   * Check if the reCAPTCHA on the page is invisible (Enterprise/v3/invisible v2).
-   * Invisible reCAPTCHA doesn't block form interaction — it scores on submit.
-   */
-  private async isInvisibleRecaptcha(page: Page): Promise<boolean> {
+  private async extractFormFields(page: Page): Promise<FormField[]> {
     return page.evaluate(() => {
-      // Check for grecaptcha-badge (invisible reCAPTCHA indicator)
-      if (document.querySelector('.grecaptcha-badge')) return true;
-      // Check for invisible iframe (size=invisible in src)
-      const iframes = document.querySelectorAll('iframe[src*="recaptcha"]');
-      for (const f of iframes) {
-        if ((f as HTMLIFrameElement).src.includes('size=invisible') ||
-            (f as HTMLIFrameElement).src.includes('size=invisibl')) return true;
+      const fields: any[] = [];
+      const seen = new Set<string>();
+
+      function getLabel(el: HTMLElement): string {
+        // Try label[for]
+        const id = el.getAttribute('id');
+        if (id) {
+          const label = document.querySelector(`label[for="${id}"]`);
+          if (label) return label.textContent?.trim() || '';
+        }
+        // Try parent label
+        const parentLabel = el.closest('label');
+        if (parentLabel) return parentLabel.textContent?.trim() || '';
+        // Try aria-label
+        const ariaLabel = el.getAttribute('aria-label');
+        if (ariaLabel) return ariaLabel;
+        // Try preceding sibling or nearby text
+        const prev = el.previousElementSibling;
+        if (prev && (prev.tagName === 'LABEL' || prev.tagName === 'SPAN' || prev.tagName === 'P')) {
+          return prev.textContent?.trim() || '';
+        }
+        // Try parent's first text content
+        const parent = el.closest('.field, .form-group, .form-field, [class*="field"], fieldset');
+        if (parent) {
+          const labelEl = parent.querySelector('label, legend, .label, [class*="label"]');
+          if (labelEl && labelEl !== el) return labelEl.textContent?.trim() || '';
+        }
+        return '';
       }
-      // Check for reCAPTCHA Enterprise script (render= mode is always invisible)
-      const scripts = document.querySelectorAll('script[src*="recaptcha/enterprise"]');
-      if (scripts.length > 0) return true;
-      // Check data-size="invisible" on g-recaptcha element
-      const el = document.querySelector('.g-recaptcha[data-size="invisible"]');
-      if (el) return true;
-      return false;
+
+      function makeSelector(el: HTMLElement): string {
+        const id = el.getAttribute('id');
+        if (id) return `#${CSS.escape(id)}`;
+        const name = el.getAttribute('name');
+        if (name) return `[name="${CSS.escape(name)}"]`;
+        return '';
+      }
+
+      // Standard inputs, textareas, selects
+      const elements = document.querySelectorAll(
+        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select'
+      );
+
+      for (const el of elements) {
+        const htmlEl = el as HTMLInputElement;
+        const selector = makeSelector(htmlEl);
+        if (!selector || seen.has(selector)) continue;
+        seen.add(selector);
+
+        const type = htmlEl.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : 'text');
+        const required = htmlEl.required || htmlEl.getAttribute('aria-required') === 'true' ||
+          !!htmlEl.closest('[class*="required"]') || !!htmlEl.closest('.required');
+
+        const field: any = {
+          selector,
+          tag: el.tagName.toLowerCase(),
+          type,
+          label: getLabel(htmlEl).substring(0, 200),
+          id: htmlEl.getAttribute('id') || '',
+          name: htmlEl.getAttribute('name') || '',
+          placeholder: htmlEl.getAttribute('placeholder') || '',
+          required,
+          currentValue: htmlEl.value || '',
+        };
+
+        if (type === 'select') {
+          field.options = Array.from((el as HTMLSelectElement).options)
+            .map(o => o.textContent?.trim() || '')
+            .filter(Boolean)
+            .slice(0, 20);
+        }
+
+        if (type === 'radio') {
+          field.groupName = htmlEl.getAttribute('name') || '';
+          // Get all radio options in this group
+          if (field.groupName) {
+            const radios = document.querySelectorAll(`input[type="radio"][name="${CSS.escape(field.groupName)}"]`);
+            field.options = Array.from(radios).map(r => {
+              const label = getLabel(r as HTMLElement);
+              return label || (r as HTMLInputElement).value;
+            });
+            if (seen.has(`radio:${field.groupName}`)) continue;
+            seen.add(`radio:${field.groupName}`);
+          }
+        }
+
+        if (type === 'checkbox') {
+          field.currentValue = (el as HTMLInputElement).checked ? 'checked' : '';
+        }
+
+        fields.push(field);
+      }
+
+      // Detect React Select components (div-based dropdowns)
+      const reactSelects = document.querySelectorAll('[class*="select__control"], [class*="css-"][role="combobox"]');
+      for (const rs of reactSelects) {
+        // Find the associated input or container with an ID
+        const container = rs.closest('[id], [data-testid]') || rs.parentElement?.closest('[id]');
+        const id = container?.getAttribute('id') || '';
+        const selector = id ? `#${CSS.escape(id)}` : '';
+        if (!selector || seen.has(selector)) continue;
+        seen.add(selector);
+
+        // Get current value
+        const singleValue = rs.querySelector('[class*="single-value"], [class*="singleValue"]');
+        const currentValue = singleValue?.textContent?.trim() || '';
+
+        // Get label
+        const label = getLabel(container as HTMLElement || rs as HTMLElement);
+
+        fields.push({
+          selector,
+          tag: 'div',
+          type: 'react-select',
+          label: label.substring(0, 200),
+          id,
+          name: '',
+          placeholder: rs.querySelector('[class*="placeholder"]')?.textContent?.trim() || '',
+          required: !!container?.querySelector('[class*="required"]') || /\*/.test(label),
+          currentValue,
+          options: [], // Options load on click — AI will type to search
+        });
+      }
+
+      // Detect ITI phone widgets
+      const phoneInputs = document.querySelectorAll('.iti input[type="tel"], input.iti__tel-input');
+      for (const pi of phoneInputs) {
+        const htmlPi = pi as HTMLInputElement;
+        const selector = makeSelector(htmlPi) || '.iti input[type="tel"]';
+        if (seen.has(selector)) continue;
+        seen.add(selector);
+
+        fields.push({
+          selector,
+          tag: 'input',
+          type: 'phone-widget',
+          label: getLabel(htmlPi).substring(0, 200) || 'Phone',
+          id: htmlPi.getAttribute('id') || '',
+          name: htmlPi.getAttribute('name') || '',
+          placeholder: htmlPi.getAttribute('placeholder') || '',
+          required: htmlPi.required || htmlPi.getAttribute('aria-required') === 'true',
+          currentValue: htmlPi.value || '',
+        });
+      }
+
+      return fields;
     });
   }
 
   // ==========================================
-  // CAPTCHA SOLVING
+  // AI FORM ANALYSIS
   // ==========================================
 
-  private async solveCaptcha(
-    page: Page,
-    captchaType: string,
-    pageUrl: string,
-    addLog: (action: string, result: string, screenshot?: string) => void,
-  ): Promise<boolean> {
-    // Strategy 1: Free audio solver for reCAPTCHA v2 (Wit.ai — $0)
-    if (captchaType === 'recaptcha') {
-      const { isAudioSolverAvailable } = await import('../lib/audio-captcha-solver');
-      if (isAudioSolverAvailable()) {
-        addLog('captcha_solver', 'Trying free audio solver (Wit.ai)...');
-        const audioResult = await solveRecaptchaViaAudio(page, addLog);
-        if (audioResult.success) return true;
-        addLog('captcha_solver', `Audio solver failed: ${audioResult.error} — trying next strategy`);
-      }
-    }
+  private async askAI(
+    fields: FormField[],
+    candidate: CandidateData,
+    mode: 'initial' | 'retry' | 'fix',
+    validationErrors?: string
+  ): Promise<FillAction[]> {
+    const candidateInfo = [
+      `Name: ${candidate.firstName} ${candidate.lastName}`,
+      `Email: ${candidate.email}`,
+      candidate.phone ? `Phone: ${candidate.phone}` : null,
+      candidate.location ? `Location: ${candidate.location}` : null,
+      candidate.linkedinUrl ? `LinkedIn: ${candidate.linkedinUrl}` : null,
+      candidate.githubUrl ? `GitHub: ${candidate.githubUrl}` : null,
+      candidate.portfolioUrl ? `Portfolio: ${candidate.portfolioUrl}` : null,
+      candidate.skills?.length ? `Skills: ${candidate.skills.join(', ')}` : null,
+      candidate.experience ? `Experience: ${candidate.experience}` : null,
+      candidate.experienceLevel ? `Level: ${candidate.experienceLevel}` : null,
+      candidate.summary ? `Summary: ${candidate.summary}` : null,
+      candidate.resumeText ? `Resume excerpt: ${candidate.resumeText.substring(0, 1500)}` : null,
+    ].filter(Boolean).join('\n');
 
-    // Strategy 2: Paid 2Captcha fallback (if configured)
-    if (!isCaptchaSolverAvailable()) {
-      addLog('captcha_solver', 'No TWOCAPTCHA_API_KEY configured and audio solver unavailable');
-      return false;
-    }
+    const fieldDescriptions = fields.map((f, i) => {
+      let desc = `[${i}] selector="${f.selector}" type="${f.type}" label="${f.label}"`;
+      if (f.placeholder) desc += ` placeholder="${f.placeholder}"`;
+      if (f.required) desc += ` REQUIRED`;
+      if (f.options?.length) desc += ` options=[${f.options.slice(0, 15).join(', ')}]`;
+      if (f.currentValue) desc += ` current="${f.currentValue}"`;
+      return desc;
+    }).join('\n');
 
-    try {
-      // Extract sitekey from the page
-      const sitekey = await page.evaluate(() => {
-        // Check data-sitekey attribute (used by both reCAPTCHA and hCaptcha)
-        const el = document.querySelector('[data-sitekey]');
-        if (el) return el.getAttribute('data-sitekey');
+    const systemPrompt = `You are an AI agent filling out a job application form. You will be given form fields and candidate data. Return a JSON object with "actions" array.
 
-        // Check reCAPTCHA iframe src for sitekey
-        const recaptchaIframe = document.querySelector('iframe[src*="recaptcha"]') as HTMLIFrameElement;
-        if (recaptchaIframe) {
-          const match = recaptchaIframe.src.match(/[?&]k=([^&]+)/);
-          if (match) return match[1];
-        }
-
-        // Check hCaptcha iframe src
-        const hcaptchaIframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement;
-        if (hcaptchaIframe) {
-          const match = hcaptchaIframe.src.match(/sitekey=([^&]+)/);
-          if (match) return match[1];
-        }
-
-        // Check for grecaptcha.enterprise or grecaptcha render params in scripts
-        const scripts = document.querySelectorAll('script');
-        for (const script of scripts) {
-          const text = script.textContent || '';
-          const match = text.match(/sitekey['":\s]+['"]([a-zA-Z0-9_-]{40})['"]/);
-          if (match) return match[1];
-        }
-
-        return null;
-      });
-
-      if (!sitekey) {
-        addLog('captcha_solver', 'Could not extract sitekey from page');
-        return false;
-      }
-
-      addLog('captcha_solver', `Extracted sitekey: ${sitekey.substring(0, 20)}... — sending to 2Captcha`);
-
-      // Solve based on type
-      let result;
-      if (captchaType === 'hcaptcha') {
-        result = await solveHCaptcha(sitekey, pageUrl);
-      } else {
-        // Try v2 first (most common on ATS forms)
-        result = await solveRecaptchaV2(sitekey, pageUrl);
-      }
-
-      if (!result.success || !result.token) {
-        addLog('captcha_solver', `Solve failed: ${result.error}`);
-        return false;
-      }
-
-      // Inject the solution token into the page
-      if (captchaType === 'hcaptcha') {
-        await page.evaluate((token: string) => {
-          // Set the hCaptcha response textarea
-          const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement
-            || document.querySelector('textarea[name*="hcaptcha"]') as HTMLTextAreaElement;
-          if (textarea) {
-            textarea.value = token;
-            textarea.style.display = 'block';
-          }
-          // Also set data attribute and trigger callback
-          const el = document.querySelector('.h-captcha') || document.querySelector('[data-sitekey]');
-          if (el) el.setAttribute('data-hcaptcha-response', token);
-          // Trigger hCaptcha callback if registered
-          if ((window as any).hcaptcha) {
-            try { (window as any).hcaptcha.execute(); } catch { /* best-effort */ }
-          }
-        }, result.token);
-      } else {
-        // reCAPTCHA v2 — inject into g-recaptcha-response textarea and trigger callback
-        await page.evaluate((token: string) => {
-          // Set the response textarea (reCAPTCHA creates a hidden one)
-          const textarea = document.querySelector('#g-recaptcha-response') as HTMLTextAreaElement
-            || document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement;
-          if (textarea) {
-            textarea.value = token;
-            textarea.style.display = 'block';
-          }
-
-          // Also set any additional response textareas (some forms have multiple)
-          document.querySelectorAll('textarea[name="g-recaptcha-response"]').forEach((el) => {
-            (el as HTMLTextAreaElement).value = token;
-          });
-
-          // Trigger the reCAPTCHA callback if one is registered
-          if ((window as any).___grecaptcha_cfg?.clients) {
-            const clients = (window as any).___grecaptcha_cfg.clients;
-            for (const key of Object.keys(clients)) {
-              const client = clients[key];
-              // Walk the client object to find the callback
-              const walk = (obj: any, depth: number): void => {
-                if (depth > 5 || !obj) return;
-                for (const k of Object.keys(obj)) {
-                  if (typeof obj[k] === 'function' && k.length < 3) {
-                    try { obj[k](token); } catch { /* best-effort */ }
-                  }
-                  if (typeof obj[k] === 'object') walk(obj[k], depth + 1);
-                }
-              };
-              walk(client, 0);
-            }
-          }
-
-          // Also try the global grecaptcha callback
-          if ((window as any).grecaptcha) {
-            try {
-              const response = (window as any).grecaptcha.getResponse();
-              if (!response) {
-                // Callback-based approach
-                const cb = document.querySelector('.g-recaptcha')?.getAttribute('data-callback');
-                if (cb && typeof (window as any)[cb] === 'function') {
-                  (window as any)[cb](token);
-                }
-              }
-            } catch { /* best-effort */ }
-          }
-        }, result.token);
-      }
-
-      // Wait a moment for the form to react to the solved CAPTCHA
-      await this.randomDelay(1000, 2000);
-
-      // Verify CAPTCHA is no longer blocking
-      const recheck = await this.detectCaptcha(page);
-      // Even if CAPTCHA elements are still in DOM, the token is injected — proceed
-      addLog('captcha_solver', `Token injected. CAPTCHA elements still visible: ${recheck.detected}`);
-      return true;
-    } catch (err: any) {
-      addLog('captcha_solver', `Exception: ${err.message}`);
-      return false;
-    }
-  }
-
-  // ==========================================
-  // FORM DETECTION
-  // ==========================================
-
-  private async detectForm(page: Page): Promise<boolean> {
-    const formSelectors = [
-      'form[action*="apply"]',
-      'form[action*="application"]',
-      'form[id*="apply"]',
-      'form[id*="application"]',
-      'form[class*="apply"]',
-      'form[class*="application"]',
-      '#application-form',
-      '.application-form',
-      'form:has(input[type="file"])',
-      'form:has(input[name*="email"])',
-    ];
-
-    for (const selector of formSelectors) {
-      const el = await page.$(selector);
-      if (el) {return true;}
-    }
-
-    // Fallback: look for a form with multiple inputs
-    const forms = await page.$$('form');
-    for (const form of forms) {
-      const inputs = await form.$$('input, textarea, select');
-      if (inputs.length >= 3) {return true;}
-    }
-    return false;
-  }
-
-  private async clickApplyButton(page: Page): Promise<boolean> {
-    const applySelectors = [
-      'a[href*="apply"]',
-      'button:has-text("Apply")',
-      'a:has-text("Apply")',
-      'button:has-text("Apply Now")',
-      'a:has-text("Apply Now")',
-      '[data-qa="apply-button"]',
-      '.apply-button',
-      '#apply-button',
-    ];
-
-    for (const selector of applySelectors) {
-      try {
-        const el = await page.$(selector);
-        if (el && await el.isVisible()) {
-          await el.click();
-          // domcontentloaded timeout is unlikely but non-fatal — page may already be loaded
-          await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
-          return true;
-        }
-      } catch { /* continue */ }
-    }
-    return false;
-  }
-
-  // ==========================================
-  // SCREENING QUESTIONS HANDLING
-  // ==========================================
-
-  /**
-   * Handle screening questions / knockout questions.
-   * Uses AI (Groq) to answer contextually, falls back to hardcoded rules.
-   */
-  private async handleScreeningQuestions(
-    page: Page,
-    addLog: (action: string, result: string, screenshot?: string) => void,
-    candidateData?: CandidateData
-  ): Promise<boolean> {
-    const radioGroups = await page.$$('fieldset, .question-group, [role="group"]');
-    if (radioGroups.length === 0) return true;
-
-    // Collect all questions with their options for AI batch answering
-    const questions: Array<{
-      index: number;
-      text: string;
-      options: string[];
-      group: any;
-      inputs: any[];
-      isRequired: boolean;
-    }> = [];
-
-    for (let i = 0; i < radioGroups.length; i++) {
-      const group = radioGroups[i];
-      try {
-        const questionText = await group.textContent();
-        if (!questionText || questionText.length > 500) continue;
-
-        const inputs = await group.$$('input[type="radio"], input[type="checkbox"]');
-        if (inputs.length === 0) continue;
-
-        const isRequired = !!(await group.$('input[required], input[aria-required="true"]'));
-
-        // Get option labels
-        const optionLabels: string[] = [];
-        for (const input of inputs) {
-          try {
-            const id = await input.getAttribute('id');
-            let label = '';
-            if (id) {
-              const lbl = await page.$(`label[for="${id}"]`);
-              if (lbl) label = ((await lbl.textContent()) || '').trim();
-            }
-            if (!label) {
-              // Try parent label or sibling text
-              const parent = await input.evaluateHandle((el: any) => el.closest('label'));
-              if (parent) label = ((await parent.asElement()?.textContent()) || '').trim();
-            }
-            optionLabels.push(label || `Option ${optionLabels.length}`);
-          } catch {
-            optionLabels.push(`Option ${optionLabels.length}`);
-          }
-        }
-
-        questions.push({
-          index: i,
-          text: questionText.trim().substring(0, 300),
-          options: optionLabels,
-          group,
-          inputs,
-          isRequired,
-        });
-      } catch { /* continue */ }
-    }
-
-    if (questions.length === 0) return true;
-
-    // Try AI-powered answering first
-    let aiAnswers: Record<number, number> = {};
-    const groqKey = process.env.GROQ_API_KEY;
-    if (groqKey && candidateData) {
-      try {
-        const prompt = `You are answering screening questions on a job application.
-
-Candidate: ${candidateData.firstName} ${candidateData.lastName}, ${candidateData.location || 'US'}.
-Authorized to work in the US. Does not need sponsorship.
-${candidateData.resumeText ? `Resume summary: ${candidateData.resumeText.substring(0, 800)}` : ''}
-
-For each question, return the 0-based index of the best option to select.
 Rules:
-- Work authorization: select "Yes"
-- Sponsorship needed: select "No"
-- Background check/drug test: select "Yes" / agree
-- Relocation/remote: select "Yes"
-- Age/legal: select affirmative
-- Acknowledgments/agreements: select agree
-- If unsure, select the most favorable option
+- For each field, decide: fill with candidate data, select an option, or skip.
+- type="fill" for text/textarea inputs. type="select" for <select> dropdowns. type="react-select" for React Select (div-based) dropdowns — provide the text to search/select. type="check" for checkboxes. type="radio" for radio buttons — value is the option label to click. type="phone" for phone widgets — provide full number with country code. type="skip" to skip.
+- Work authorization: answer "Yes". Sponsorship needed: answer "No".
+- EEO/demographic fields (gender, race, veteran, disability): select "Decline to Self Identify" or "I don't wish to answer" or similar decline option.
+- Consent/GDPR checkboxes: check them.
+- Cover letter: write 2-3 sentences connecting candidate's experience to the role.
+- For "how did you hear" / referral source: say "Job board".
+- If a field is required but you have no data, provide a reasonable default.
+- For salary: skip (leave empty) unless required, then use a reasonable range.
+- NEVER fabricate credentials, degrees, or experience the candidate doesn't have.
 
-Questions:
-${questions.map((q, i) => `${i}. "${q.text}" — Options: ${q.options.map((o, j) => `[${j}] ${o}`).join(', ')}`).join('\n')}
+Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|select|react-select|check|radio|phone|skip" }] }`;
 
-Return ONLY a JSON object mapping question index to option index. Example: {"0": 0, "1": 1}`;
-
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
-          signal: AbortSignal.timeout(10000),
-        });
-        if (response.ok) {
-          const text = (await response.json() as any)?.choices?.[0]?.message?.content || '';
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            for (const [k, v] of Object.entries(parsed)) {
-              aiAnswers[parseInt(k)] = v as number;
-            }
-            addLog('screening_ai', `AI answered ${Object.keys(aiAnswers).length}/${questions.length} screening questions`);
-          }
-        }
-      } catch (e: any) {
-        addLog('screening_ai_fail', `AI screening failed: ${e.message} — using fallback rules`);
-      }
+    let prompt = `## Candidate\n${candidateInfo}\n\n## Form Fields\n${fieldDescriptions}`;
+    if (validationErrors) {
+      prompt += `\n\n## Validation Errors from Previous Attempt\n${validationErrors}\nPlease fix the fields that caused these errors.`;
     }
-
-    // Apply answers (AI or fallback)
-    for (let qi = 0; qi < questions.length; qi++) {
-      const q = questions[qi];
-      try {
-        if (aiAnswers[qi] !== undefined && q.inputs[aiAnswers[qi]]) {
-          await q.inputs[aiAnswers[qi]].click();
-          addLog('screening_question', `AI answered: ${q.text.substring(0, 50)}...`);
-          continue;
-        }
-
-        // Fallback: hardcoded rules
-        const lowerText = q.text.toLowerCase();
-        const preferredAnswers: Array<[RegExp, number]> = [
-          [/authorized|work.*(to )?(work)|legally.*(to )?(work)/i, 0],
-          [/sponsorship|require.*sponsor/i, 1],
-          [/remote|work.*from.*home/i, 0],
-          [/relocat/i, 0],
-          [/background|check.*(criminal|background)/i, 0],
-          [/drug.*test/i, 0],
-          [/acknowledge|agree|consent|confirm/i, 0],
-        ];
-
-        let selected = false;
-        for (const [pattern, preferredIndex] of preferredAnswers) {
-          if (pattern.test(lowerText) && q.inputs[preferredIndex]) {
-            await q.inputs[preferredIndex].click();
-            addLog('screening_question', `Rule answered: ${q.text.substring(0, 50)}...`);
-            selected = true;
-            break;
-          }
-        }
-
-        if (!selected && q.isRequired && q.inputs[0]) {
-          await q.inputs[0].click();
-          addLog('screening_question', `Default answered: ${q.text.substring(0, 50)}...`);
-        }
-      } catch { /* continue */ }
-    }
-
-    return true;
-  }
-
-  // ==========================================
-  // ATS DETECTION
-  // ==========================================
-
-  private async detectATS(page: Page): Promise<'greenhouse' | 'lever' | 'workday' | 'linkedin' | null> {
-    const url = page.url();
-    const html = await page.content();
-
-    if (url.includes('linkedin.com')) {
-      return 'linkedin';
-    }
-    if (url.includes('greenhouse.io') || url.includes('boards.greenhouse') || html.includes('greenhouse')) {
-      return 'greenhouse';
-    }
-    if (url.includes('lever.co') || url.includes('jobs.lever') || html.includes('lever.co')) {
-      return 'lever';
-    }
-    if (url.includes('workday.com') || url.includes('myworkday') || html.includes('workday')) {
-      return 'workday';
-    }
-    return null;
-  }
-
-  // ==========================================
-  // RULE-BASED FORM ANALYSIS
-  // ==========================================
-
-  async analyzeFormRuleBased(
-    page: Page | any,
-    candidateData: CandidateData,
-    atsType: string | null
-  ): Promise<FieldMapping> {
-    const matched: Record<string, string> = {};
-    const unmatched: string[] = [];
-    let fileUploadSelector: string | undefined;
-
-    // ATS-specific fast path
-    if (atsType === 'greenhouse') {
-      const ats = ATS_SELECTORS.greenhouse;
-      matched[ats.firstName] = candidateData.firstName;
-      matched[ats.lastName] = candidateData.lastName;
-      matched[ats.email] = candidateData.email;
-      if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
-      if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
-      fileUploadSelector = ats.resume;
-
-      // Also scan for custom Greenhouse fields (location, LinkedIn text fields, custom questions)
-      // These are inputs/selects NOT covered by the fast path selectors above
-      const knownIds = ['first_name', 's_firstname', 'last_name', 's_lastname', 'email', 's_email', 'phone', 's_phone', 'resume', 's_resume'];
-      const extraInputs = await page.$$('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]), textarea, select');
-      for (const input of extraInputs) {
-        try {
-          const id = (await input.getAttribute('id')) || '';
-          const name = (await input.getAttribute('name')) || '';
-          if (knownIds.includes(id)) continue;
-          if (name.includes('first_name') || name.includes('last_name') || name.includes('email') || name.includes('phone')) continue;
-
-          const placeholder = (await input.getAttribute('placeholder')) || '';
-          const ariaLabel = (await input.getAttribute('aria-label')) || '';
-          let labelText = '';
-          if (id) {
-            try { const lbl = await page.$(`label[for="${id}"]`); if (lbl) labelText = (await lbl.textContent()) || ''; } catch {}
-          }
-          const identifiers = `${name} ${id} ${placeholder} ${ariaLabel} ${labelText}`.toLowerCase();
-          const selector = id ? `#${id}` : (name ? `[name="${name}"]` : `[placeholder="${placeholder}"]`);
-          if (!selector || selector === '[]' || selector === '[placeholder=""]') continue;
-
-          // Try to match against candidate data
-          if (/linkedin|linked.?in/i.test(identifiers) && candidateData.linkedinUrl) {
-            matched[selector] = candidateData.linkedinUrl;
-          } else if (/github/i.test(identifiers) && candidateData.githubUrl) {
-            matched[selector] = candidateData.githubUrl;
-          } else if (/portfolio|website|personal.?url/i.test(identifiers) && candidateData.portfolioUrl) {
-            matched[selector] = candidateData.portfolioUrl;
-          } else if (/location|city|address/i.test(identifiers) && candidateData.location) {
-            matched[selector] = candidateData.location;
-          } else {
-            // Track as unmatched so Ollama/Gemini can try
-            unmatched.push(selector);
-          }
-        } catch { /* skip */ }
-      }
-
-      return { matched, unmatched, fileUploadSelector };
-    }
-
-    if (atsType === 'lever') {
-      const ats = ATS_SELECTORS.lever;
-      matched[ats.firstName] = `${candidateData.firstName} ${candidateData.lastName}`;
-      matched[ats.email] = candidateData.email;
-      if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
-      if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
-      fileUploadSelector = ats.resume;
-      return { matched, unmatched, fileUploadSelector };
-    }
-
-    // LinkedIn Easy Apply
-    if (atsType === 'linkedin') {
-      const ats = ATS_SELECTORS.linkedin;
-      // LinkedIn combines first/last name
-      matched[ats.firstName] = candidateData.firstName;
-      matched[ats.lastName] = candidateData.lastName;
-      matched[ats.email] = candidateData.email;
-      if (candidateData.phone) {matched[ats.phone] = candidateData.phone;}
-      if (candidateData.linkedinUrl) {matched[ats.linkedin] = candidateData.linkedinUrl;}
-      fileUploadSelector = ats.resume;
-      return { matched, unmatched, fileUploadSelector };
-    }
-
-    // Generic form analysis via pattern matching
-    const inputs = await page.$$('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select');
-
-    for (const input of inputs) {
-      const name = (await input.getAttribute('name')) || '';
-      const id = (await input.getAttribute('id')) || '';
-      const placeholder = (await input.getAttribute('placeholder')) || '';
-      const type = (await input.getAttribute('type')) || 'text';
-      const ariaLabel = (await input.getAttribute('aria-label')) || '';
-
-      // Get associated label text
-      let labelText = '';
-      if (id) {
-        try {
-          const label = await page.$(`label[for="${id}"]`);
-          if (label) {labelText = (await label.textContent()) || '';}
-        } catch { /* no label */ }
-      }
-
-      const identifiers = `${name} ${id} ${placeholder} ${ariaLabel} ${labelText}`.toLowerCase();
-
-      // Check for file upload
-      if (type === 'file') {
-        const selector = id ? `#${id}` : (name ? `input[name="${name}"]` : 'input[type="file"]');
-        if (/resume|cv|attachment/i.test(identifiers)) {
-          fileUploadSelector = selector;
-        } else {
-          fileUploadSelector = fileUploadSelector || selector;
-        }
-        continue;
-      }
-
-      // Match against pattern dictionary
-      let fieldMatched = false;
-      for (const { pattern, field } of FIELD_PATTERNS) {
-        if (pattern.test(identifiers)) {
-          const selector = id ? `#${id}` : (name ? `[name="${name}"]` : `[placeholder="${placeholder}"]`);
-
-          if (field === 'fullName') {
-            matched[selector] = `${candidateData.firstName} ${candidateData.lastName}`;
-          } else if (field === 'resume' || field === 'coverLetter') {
-            // Skip non-file inputs for resume/cover letter
-          } else {
-            const value = candidateData[field];
-            if (value && typeof value === 'string') {
-              matched[selector] = value;
-            }
-          }
-          fieldMatched = true;
-          break;
-        }
-      }
-
-      if (!fieldMatched && type !== 'checkbox' && type !== 'radio') {
-        const selector = id ? `#${id}` : (name ? `[name="${name}"]` : `[placeholder="${placeholder}"]`);
-        if (selector && selector !== '[]' && selector !== '[placeholder=""]') {
-          unmatched.push(selector);
-        }
-      }
-    }
-
-    return { matched, unmatched, fileUploadSelector };
-  }
-
-  // ==========================================
-  // OLLAMA FALLBACK
-  // ==========================================
-
-  async analyzeFormOllama(
-    page: Page | any,
-    unmatchedSelectors: string[],
-    candidateData: CandidateData
-  ): Promise<Record<string, string>> {
-    const result: Record<string, string> = {};
 
     try {
-      // Gather context about unmatched fields
-      const fieldDescriptions: string[] = [];
-      for (const selector of unmatchedSelectors) {
-        try {
-          const el = await page.$(selector);
-          if (!el) {continue;}
-          const name = (await el.getAttribute('name')) || '';
-          const placeholder = (await el.getAttribute('placeholder')) || '';
-          const id = (await el.getAttribute('id')) || '';
-          let labelText = '';
-          if (id) {
-            try { const lbl = await page.$(`label[for="${id}"]`); if (lbl) labelText = (await lbl.textContent()) || ''; } catch {}
-          }
-          const tagName = await el.evaluate((e: any) => e.tagName.toLowerCase());
-          let options = '';
-          if (tagName === 'select') {
-            const opts = await el.$$eval('option', (opts: any[]) => opts.map(o => o.textContent?.trim()).filter(Boolean).slice(0, 10));
-            options = ` options=[${opts.join(', ')}]`;
-          }
-          fieldDescriptions.push(`selector="${selector}" name="${name}" id="${id}" placeholder="${placeholder}" label="${labelText}"${options}`);
-        } catch { /* skip */ }
-      }
-
-      if (fieldDescriptions.length === 0) {return result;}
-
-      const prompt = `You are a form-filling assistant for a job application. Map form fields to the best candidate data value.
-
-Candidate data:
-- firstName: ${candidateData.firstName}
-- lastName: ${candidateData.lastName}
-- email: ${candidateData.email}
-- phone: ${candidateData.phone}
-- linkedinUrl: ${candidateData.linkedinUrl || 'N/A'}
-- githubUrl: ${candidateData.githubUrl || 'N/A'}
-- portfolioUrl: ${candidateData.portfolioUrl || 'N/A'}
-- location: ${candidateData.location || 'N/A'}
-
-Unmatched form fields:
-${fieldDescriptions.join('\n')}
-
-For each field, provide the best value based on the candidate data. For yes/no or work authorization questions, answer favorably (authorized to work: yes, need sponsorship: no). For select dropdowns, pick the closest matching option value. For location fields, use the candidate's location. Skip fields you truly cannot determine.
-
-Return ONLY a JSON object mapping selectors to values. Example:
-{"#field1": "value1", "[name=\\"field2\\"]": "value2"}`;
-
-      // Try Groq first (most reliable), then Gemini, then Ollama
-      const groqKey = process.env.GROQ_API_KEY;
-      const geminiKey = process.env.GEMINI_API_KEY;
-      let aiText = '';
-
-      // Helper to extract and parse JSON from AI response
-      const parseAiResponse = (text: string) => {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try { Object.assign(result, JSON.parse(jsonMatch[0])); } catch (e: any) {
-            console.log(`[AgentApply] AI JSON parse error: ${e.message} — raw: ${jsonMatch[0].substring(0, 200)}`);
-          }
-        }
-      };
-
-      if (groqKey && Object.keys(result).length === 0) {
-        try {
-          console.log(`[AgentApply] Using Groq for ${fieldDescriptions.length} unmatched fields`);
-          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
-            body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
-            signal: AbortSignal.timeout(15000),
-          });
-          if (response.ok) {
-            aiText = (await response.json() as any)?.choices?.[0]?.message?.content || '';
-            console.log(`[AgentApply] Groq response (${aiText.length} chars): ${aiText.substring(0, 300)}`);
-            parseAiResponse(aiText);
-          } else {
-            console.log(`[AgentApply] Groq API error: ${response.status}`);
-          }
-        } catch (e: any) { console.log(`[AgentApply] Groq failed: ${e.message}`); }
-      }
-
-      if (geminiKey && Object.keys(result).length === 0) {
-        try {
-          console.log(`[AgentApply] Using Gemini for ${fieldDescriptions.length} unmatched fields`);
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-              signal: AbortSignal.timeout(15000),
-            }
-          );
-          if (response.ok) {
-            aiText = (await response.json() as any)?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            console.log(`[AgentApply] Gemini response (${aiText.length} chars): ${aiText.substring(0, 300)}`);
-            parseAiResponse(aiText);
-          } else {
-            console.log(`[AgentApply] Gemini API error: ${response.status}`);
-          }
-        } catch (e: any) { console.log(`[AgentApply] Gemini failed: ${e.message}`); }
-      }
+      const raw = await callGroq(prompt, systemPrompt);
+      const parsed = JSON.parse(raw);
+      const actions: FillAction[] = (parsed.actions || []).filter((a: any) => a.type !== 'skip' && a.value);
+      return actions;
     } catch (e: any) {
-      console.log('[AgentApply] AI form analysis failed:', e.message);
+      console.log(`[AgentApply] AI error: ${e.message}`);
+      // Fallback: basic pattern matching for critical fields
+      return this.fallbackMapping(fields, candidate);
     }
+  }
 
-    return result;
+  /** Minimal fallback if AI is unavailable */
+  private fallbackMapping(fields: FormField[], candidate: CandidateData): FillAction[] {
+    const actions: FillAction[] = [];
+    for (const f of fields) {
+      const id = `${f.label} ${f.id} ${f.name} ${f.placeholder}`.toLowerCase();
+      let value = '';
+      let type: FillAction['type'] = 'fill';
+
+      if (/first.?name|fname|given/i.test(id)) value = candidate.firstName;
+      else if (/last.?name|lname|surname|family/i.test(id)) value = candidate.lastName;
+      else if (/^name$|full.?name/i.test(id)) value = `${candidate.firstName} ${candidate.lastName}`;
+      else if (/email/i.test(id)) value = candidate.email;
+      else if (/phone|tel/i.test(id)) { value = candidate.phone; type = f.type === 'phone-widget' ? 'phone' : 'fill'; }
+      else if (/linkedin/i.test(id)) value = candidate.linkedinUrl;
+      else if (/github/i.test(id)) value = candidate.githubUrl;
+      else if (/portfolio|website/i.test(id)) value = candidate.portfolioUrl;
+      else if (/location|city|address/i.test(id)) value = candidate.location;
+      else continue;
+
+      if (value) {
+        actions.push({ selector: f.selector, value, type: f.type === 'react-select' ? 'react-select' : type });
+      }
+    }
+    return actions;
   }
 
   // ==========================================
   // FORM FILLING
   // ==========================================
 
-  async fillForm(page: Page | any, fieldMap: Record<string, string>): Promise<void> {
-    for (const [selector, value] of Object.entries(fieldMap)) {
-      if (!value) {continue;}
-
+  private async executeFillActions(
+    page: Page,
+    actions: FillAction[],
+    addLog: (action: string, result: string) => void
+  ): Promise<void> {
+    for (const action of actions) {
       try {
-        // Try multiple selector formats
-        let el = await page.$(selector);
-        if (!el) {
-          // Try comma-separated selectors individually
-          for (const s of selector.split(',').map(s => s.trim())) {
-            el = await page.$(s);
-            if (el) {break;}
-          }
-        }
-        if (!el) {continue;}
-
-        const tagName = await el.evaluate((e: unknown) => (e as { tagName: string }).tagName.toLowerCase());
-
-        if (tagName === 'select') {
-          // Try matching option by label first, then by value; log if neither matches
-          await el.selectOption({ label: value }).catch(() =>
-            el.selectOption({ value }).catch(() => {
-              console.warn(`[AgentApply] Could not select option for value "${value}" — no matching label or value in <select>`);
-            })
-          );
-        } else if (tagName === 'input' || tagName === 'textarea') {
-          const inputType = (await el.getAttribute('type')) || 'text';
-          if (inputType === 'checkbox') {
-            const checked = await el.isChecked();
-            if (!checked) {await el.check();}
-          } else {
-            await el.click();
-            await this.randomDelay(50, 150);
-            await el.fill(value);
-          }
-        }
-
-        await this.randomDelay(200, 500);
-      } catch {
-        // Skip fields that can't be filled
-      }
-    }
-  }
-
-  // ==========================================
-  // RESUME UPLOAD
-  // ==========================================
-
-  private async handleResumeUpload(page: Page | any, selector: string, resumeUrl: string): Promise<void> {
-    if (!resumeUrl) {return;}
-    
-    try {
-      // Determine file type from URL or default to PDF
-      const isPdf = resumeUrl.toLowerCase().endsWith('.pdf');
-      const isDocx = resumeUrl.toLowerCase().includes('.docx') || resumeUrl.toLowerCase().includes('.doc');
-      const extension = isPdf ? '.pdf' : isDocx ? '.docx' : '.pdf';
-      const mimeType = isPdf ? 'application/pdf' : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf';
-
-      // Download resume to temp location
-      const response = await fetch(resumeUrl, { signal: AbortSignal.timeout(10000) });
-      if (!response.ok) {
-        console.log('[AgentApply] Failed to fetch resume:', response.status);
-        return;
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const tmpPath = `/tmp/resume-${Date.now()}${extension}`;
-      const fs = await import('fs/promises');
-      await fs.writeFile(tmpPath, buffer);
-
-      // Try multiple selectors for file input
-      const selectors = [
-        selector,
-        'input[type="file"]',
-        'input[name*="resume"]',
-        'input[name*="cv"]',
-        'input[id*="resume"]',
-        'input[class*="resume"]',
-        'input[accept*="pdf"]',
-        'input[accept*="doc"]',
-      ].filter(Boolean);
-
-      for (const s of selectors) {
-        try {
-          const fileInput = await page.$(s);
-          if (fileInput) {
-            await fileInput.setInputFiles(tmpPath);
-            console.log(`[AgentApply] Uploaded resume to: ${s}`);
+        switch (action.type) {
+          case 'fill':
+            await this.fillTextField(page, action.selector, action.value);
             break;
+          case 'select':
+            await this.fillNativeSelect(page, action.selector, action.value);
+            break;
+          case 'react-select':
+            await this.fillReactSelect(page, action.selector, action.value);
+            break;
+          case 'check':
+            await this.fillCheckbox(page, action.selector);
+            break;
+          case 'radio':
+            await this.fillRadio(page, action.selector, action.value);
+            break;
+          case 'phone':
+            await this.fillPhone(page, action.selector, action.value);
+            break;
+        }
+        await this.randomDelay(150, 400);
+      } catch (e: any) {
+        addLog('fill_error', `${action.selector}: ${e.message}`);
+      }
+    }
+  }
+
+  private async fillTextField(page: Page, selector: string, value: string): Promise<void> {
+    const el = await page.$(selector);
+    if (!el) return;
+    await el.click();
+    await el.fill('');
+    await this.randomDelay(50, 100);
+    await el.fill(value);
+  }
+
+  private async fillNativeSelect(page: Page, selector: string, value: string): Promise<void> {
+    const el = await page.$(selector);
+    if (!el) return;
+    await el.selectOption({ label: value }).catch(() =>
+      el.selectOption({ value }).catch(() =>
+        el.selectOption({ index: 1 }).catch(() => {})
+      )
+    );
+  }
+
+  private async fillReactSelect(page: Page, selector: string, searchText: string): Promise<void> {
+    // Click the React Select control to open it
+    const control = await page.$(`${selector} [class*="select__control"], ${selector}[class*="select__control"]`);
+    const clickTarget = control || await page.$(selector);
+    if (!clickTarget) return;
+
+    await clickTarget.click();
+    await this.randomDelay(200, 400);
+
+    // Type to search/filter
+    await page.keyboard.type(searchText, { delay: 50 });
+    await this.randomDelay(500, 800);
+
+    // Click the first matching option
+    const option = await page.$('[class*="select__option"]:not([class*="disabled"])');
+    if (option) {
+      const text = await option.textContent();
+      await option.click();
+      console.log(`[AgentApply] React Select ${selector}: "${text?.trim()}"`);
+    } else {
+      // Press Enter to select first option
+      await page.keyboard.press('Enter');
+      console.log(`[AgentApply] React Select ${selector}: pressed Enter for "${searchText}"`);
+    }
+    await this.randomDelay(200, 300);
+  }
+
+  private async fillCheckbox(page: Page, selector: string): Promise<void> {
+    const el = await page.$(selector);
+    if (!el) return;
+    const checked = await el.isChecked().catch(() => false);
+    if (!checked) await el.check();
+  }
+
+  private async fillRadio(page: Page, selector: string, labelText: string): Promise<void> {
+    // Find radio by group name and label text
+    const name = selector.replace('[name="', '').replace('"]', '').replace('#', '');
+    // Try finding radio by label text
+    const radios = await page.$$(`input[type="radio"][name="${name}"], input[type="radio"][name*="${name}"]`);
+    for (const radio of radios) {
+      const id = await radio.getAttribute('id');
+      if (id) {
+        const label = await page.$(`label[for="${id}"]`);
+        if (label) {
+          const text = await label.textContent();
+          if (text?.toLowerCase().includes(labelText.toLowerCase())) {
+            await radio.click();
+            return;
           }
-        } catch (e) {
-          console.log(`[AgentApply] Selector ${s} failed:`, e);
         }
       }
+    }
+    // Fallback: click first radio
+    if (radios.length > 0) await radios[0].click();
+  }
 
-      // Cleanup
-      await fs.unlink(tmpPath).catch(() => {});
-    } catch (e) {
-      console.log('[AgentApply] Resume upload error:', e);
+  private async fillPhone(page: Page, selector: string, phone: string): Promise<void> {
+    const digits = phone.replace(/[^\d]/g, '').replace(/^1/, '');
+    const fullNumber = '+1' + digits;
+
+    // Try ITI API first
+    const success = await page.evaluate(({ sel, num }) => {
+      const input = document.querySelector(sel) as HTMLInputElement & { iti?: any };
+      if (!input) return false;
+      if (input.iti && typeof input.iti.setCountry === 'function') {
+        input.iti.setCountry('us');
+        input.iti.setNumber(num);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      // Direct value set
+      input.value = num;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      return false;
+    }, { sel: selector, num: fullNumber });
+
+    if (!success) {
+      // Fallback: click and type
+      const el = await page.$(selector);
+      if (el) { await el.click(); await el.fill(fullNumber); }
+    }
+    console.log(`[AgentApply] Phone ${selector}: ${fullNumber}`);
+  }
+
+  // ==========================================
+  // FILE UPLOAD
+  // ==========================================
+
+  private async uploadFile(page: Page, selector: string, filePath: string): Promise<void> {
+    const selectors = [
+      selector,
+      'input[type="file"]',
+      'input[type="file"][name*="resume"]',
+      'input[type="file"][id*="resume"]',
+      'input[type="file"][accept*="pdf"]',
+    ];
+    for (const s of selectors) {
+      try {
+        const el = await page.$(s);
+        if (el) { await el.setInputFiles(filePath); return; }
+      } catch { /* try next */ }
     }
   }
 
   // ==========================================
-  // FORM ADVANCEMENT (Next / Submit)
-  // Fix 4: Handles multi-step forms by preferring "Next" over "Submit"
-  // when both are present, so we don't skip form pages.
+  // NAVIGATION HELPERS
   // ==========================================
 
-  private async advanceForm(page: Page | any, atsType: string | null): Promise<boolean> {
-    // Only check iframes for Workday (where form lives inside an iframe)
-    // Skip for other ATS — their iframes are usually reCAPTCHA/analytics, not forms
-    if (atsType === 'workday') {
-      try {
-        const frames = page.frames();
-        if (frames.length > 1) {
-          for (const frame of frames) {
-            try {
-              const frameUrl = frame.url();
-              if (frameUrl && !frameUrl.startsWith('about:') && !frameUrl.includes('recaptcha') && !frameUrl.includes('google.com')) {
-                const frameButtons = await frame.$$('button, a, [role="button"], input[type="submit"]');
-                for (const btn of frameButtons) {
-                  try {
-                    const text = await btn.textContent();
-                    const isVisible = await btn.isVisible();
-                    if (isVisible && text && text.trim()) {
-                      const lower = text.toLowerCase();
-                      if (lower.includes('next') || lower.includes('continue') ||
-                          lower.includes('submit') || lower.includes('send')) {
-                        console.log(`[AgentApply] Found button in Workday frame: "${text.trim()}"`);
-                        await this.randomDelay(400, 800);
-                        await btn.click();
-                        return true;
-                      }
-                    }
-                  } catch { continue; }
-                }
-              }
-            } catch { continue; }
-          }
-        }
-      } catch (e) {
-        console.log('[AgentApply] Frame detection error:', e);
-      }
-    }
+  private async hasFormFields(page: Page): Promise<boolean> {
+    const count = await page.evaluate(() => {
+      const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]), textarea, select');
+      return inputs.length;
+    });
+    return count >= 2;
+  }
 
-    // "Next" buttons come first — prefer advancing over submitting prematurely
-    const nextSelectors = [
-      // Text-based selectors
-      'button:has-text("Next")',
-      'button:has-text("Continue")',
-      'button:has-text("Next Step")',
-      'button:has-text("Next Page")',
-      'button:has-text("Continue to next step")',
-      'a:has-text("Next")',
-      'a:has-text("Continue")',
-      // Data attributes
-      '[data-qa="next-button"]',
-      '[data-testid="next-button"]',
-      '[data-test="next-button"]',
-      '[data-tracking="next-button"]',
-      // Class-based
-      '.next-button',
-      '.btn-next',
-      '.button-next',
-      // Form actions
-      'button[formaction*="next"]',
-      'input[value*="Next"]',
-      // Greenhouse specific
-      '.gh-button-next',
-      'button:has-text("Save & Next")',
-    ];
-
-    for (const selector of nextSelectors) {
-      try {
-        const btn = await page.$(selector);
-        if (btn && await btn.isVisible()) {
-          const isDisabled = await btn.isDisabled();
-          if (isDisabled) {
-            continue; // Skip disabled buttons
-          }
-          await this.randomDelay(400, 800);
-          await btn.click();
-          return true;
-        }
-      } catch { /* try next */ }
-    }
-
-    // No "Next" found — try submit
-    const submitSelectors = [
-      ...(atsType === 'greenhouse' ? [ATS_SELECTORS.greenhouse.submitBtn] : []),
-      ...(atsType === 'lever' ? [ATS_SELECTORS.lever.submitBtn] : []),
-      // Standard submit buttons
-      'button[type="submit"]',
-      'input[type="submit"]',
-      // Text-based
-      'button:has-text("Submit")',
-      'button:has-text("Submit Application")',
-      'button:has-text("Submit your application")',
-      'button:has-text("Apply")',
-      'button:has-text("Send Application")',
-      'button:has-text("Send")',
+  private async clickApplyButton(page: Page): Promise<boolean> {
+    const selectors = [
+      'button:has-text("Apply for this role")',
+      'a:has-text("Apply for this role")',
       'button:has-text("Apply Now")',
-      'button:has-text("Complete Application")',
-      // ID/Class based
-      '#submit',
-      '.submit-button',
-      '.btn-submit',
-      '.application-submit',
-      // Data attributes
-      '[data-qa="submit-button"]',
-      '[data-testid="submit-button"]',
-      '[data-test="submit"]',
-      '[data-tracking="submit"]',
-      // Form footer buttons
-      'div.form-footer button',
-      'div.submit-wrapper button',
-      // Greenhouse specific
-      '.submit-application-button',
-      'button:has-text("Submit Job Application")',
-      // Generic last button in form
-      'form button:last-of-type',
-      'form button:last-child',
+      'a:has-text("Apply Now")',
+      'button:has-text("Apply")',
+      'a:has-text("Apply")',
+      'a[href*="apply"]',
+      '[data-qa="apply-button"]',
+      '.apply-button',
+      '#apply-button',
     ];
-
-    for (const selector of submitSelectors) {
+    for (const sel of selectors) {
       try {
-        const btn = await page.$(selector);
-        if (btn && await btn.isVisible()) {
-          const isDisabled = await btn.isDisabled();
-          if (isDisabled) {
-            continue;
-          }
-          await this.randomDelay(500, 1000);
-          await btn.click();
-          return true;
-        }
-      } catch { /* try next */ }
-    }
-
-    // Try clicking any button in the form that looks like an action button
-    try {
-      const formButtons = await page.$$('form button, form a, div[role="button"]');
-      const buttonTexts: string[] = [];
-      for (const btn of formButtons) {
-        try {
-          const text = await btn.textContent();
-          const isVisible = await btn.isVisible();
-          const isDisabled = await btn.isDisabled();
-          const type = await btn.getAttribute('type');
-          const role = await btn.getAttribute('role');
-          
-          if (text && text.trim()) {
-            buttonTexts.push(`"${text.trim()}" (visible:${isVisible}, disabled:${isDisabled}, type:${type}, role:${role})`);
-          }
-          
-          if (isVisible && !isDisabled && text && text.trim() && type !== 'cancel') {
-            const lowerText = text.toLowerCase();
-            if (lowerText.includes('next') || lowerText.includes('continue') || 
-                lowerText.includes('submit') || lowerText.includes('apply') ||
-                lowerText.includes('send') || lowerText.includes('complete')) {
-              await this.randomDelay(400, 800);
-              await btn.click();
-              return true;
-            }
-          }
-        } catch { /* try next button */ }
-      }
-      // Log what buttons were found for debugging
-      console.log('[AgentApply] Found buttons:', buttonTexts.slice(0, 10).join(', '));
-    } catch (e: any) { 
-      console.log('[AgentApply] Button detection error:', e.message);
-    }
-
-    return false;
-  }
-
-  // ==========================================
-  // COOKIE BANNER DISMISSAL
-  // Fix 5: Dismiss consent overlays that block form interaction
-  // ==========================================
-
-  private async dismissCookieBanners(page: Page): Promise<void> {
-    const acceptSelectors = [
-      'button:has-text("Accept All")',
-      'button:has-text("Accept all")',
-      'button:has-text("Accept Cookies")',
-      'button:has-text("Accept")',
-      'button:has-text("I Accept")',
-      'button:has-text("OK")',
-      'button:has-text("Got it")',
-      'button:has-text("Agree")',
-      'button:has-text("I Agree")',
-      '[aria-label="Accept cookies"]',
-      '[aria-label="accept cookies"]',
-      '#onetrust-accept-btn-handler',
-      '.cookie-accept',
-      '.accept-cookies',
-      '[data-testid="cookie-accept"]',
-      '[data-testid="accept-button"]',
-    ];
-
-    for (const selector of acceptSelectors) {
-      try {
-        const el = await page.$(selector);
+        const el = await page.$(sel);
         if (el && await el.isVisible()) {
           await el.click();
-          await this.randomDelay(400, 800);
-          return; // One banner at a time
+          return true;
         }
       } catch { /* continue */ }
     }
+    return false;
+  }
+
+  private async clickNextOrSubmit(page: Page): Promise<string | null> {
+    // Prefer Next/Continue over Submit (multi-step forms)
+    const nextSelectors = [
+      { sel: 'button:has-text("Next")', label: 'Next' },
+      { sel: 'button:has-text("Continue")', label: 'Continue' },
+      { sel: 'button:has-text("Save & Next")', label: 'Save & Next' },
+      { sel: 'a:has-text("Next")', label: 'Next' },
+    ];
+    for (const { sel, label } of nextSelectors) {
+      try {
+        const btn = await page.$(sel);
+        if (btn && await btn.isVisible() && !await btn.isDisabled()) {
+          await this.randomDelay(300, 600);
+          await btn.click();
+          return label;
+        }
+      } catch { /* try next */ }
+    }
+
+    // Submit buttons
+    const submitSelectors = [
+      { sel: 'button[type="submit"]', label: 'Submit' },
+      { sel: 'input[type="submit"]', label: 'Submit' },
+      { sel: 'button:has-text("Submit Application")', label: 'Submit Application' },
+      { sel: 'button:has-text("Submit")', label: 'Submit' },
+      { sel: 'button:has-text("Apply")', label: 'Apply' },
+      { sel: 'button:has-text("Send")', label: 'Send' },
+      { sel: 'button:has-text("Complete")', label: 'Complete' },
+      { sel: '#submit_app', label: 'Submit' },
+    ];
+    for (const { sel, label } of submitSelectors) {
+      try {
+        const btn = await page.$(sel);
+        if (btn && await btn.isVisible() && !await btn.isDisabled()) {
+          await this.randomDelay(400, 800);
+          await btn.click();
+          return label;
+        }
+      } catch { /* try next */ }
+    }
+
+    return null;
   }
 
   // ==========================================
   // VERIFICATION
   // ==========================================
 
-  private async verifySubmission(page: Page): Promise<boolean> {
-    // First, check for validation errors — if the form shows errors, it was NOT submitted
-    const validationErrorIndicators = [
-      '.field-error',
-      '.error-message',
-      '.form-error',
-      '[class*="error"]:visible',
-      'text=is required',
-      'text=Please fill',
-      'text=This field is required',
-      'text=can\'t be blank',
-      // Greenhouse specific validation
-      '#s_alert',
-      '.field--error',
-    ];
-    for (const indicator of validationErrorIndicators) {
-      try {
-        const el = await page.$(indicator);
-        if (el && await el.isVisible()) {return false;}
-      } catch { /* continue */ }
-    }
-
-    const successIndicators = [
-      // Greenhouse specific (check these first — more specific)
-      'text=Your application was submitted successfully',
-      'text=Application submitted',
-      'text=Thanks for applying',
-      'text=We have received your application',
-      '#application_confirmation',
-      // General
-      'text=application received',
-      'text=successfully submitted',
-      'text=application has been submitted',
-      'text=we received your application',
-      // Common
-      '.confirmation',
-      '#confirmation',
-      '[data-qa="success-message"]',
-    ];
-
-    for (const indicator of successIndicators) {
-      try {
-        const el = await page.$(indicator);
-        if (el && await el.isVisible()) {return true;}
-      } catch { /* continue */ }
-    }
-
-    // Check URL for confirmation patterns
+  private async checkSuccess(page: Page): Promise<boolean> {
+    const bodyText = await page.textContent('body').catch(() => '') || '';
+    const lowerText = bodyText.toLowerCase();
     const url = page.url();
-    if (/confirm|thank.*you|success|submitted/i.test(url)) {return true;}
 
-    // Check page body for strong confirmation signals (require specific phrases, not loose matches)
-    try {
-      const bodyText = await page.textContent('body');
-      if (bodyText) {
-        const lowerText = bodyText.toLowerCase();
-        // Only match if the confirmation phrase appears as a standalone message
-        // (not as part of a job description that happens to contain these words)
-        const strongConfirmations = [
-          'your application has been submitted',
-          'application submitted successfully',
-          'we received your application',
-          'thanks for applying',
-          'thank you for applying',
-          'your application was submitted',
-        ];
-        for (const phrase of strongConfirmations) {
-          if (lowerText.includes(phrase)) {return true;}
-        }
-      }
-    } catch { /* ignore */ }
+    const successPhrases = [
+      'your application has been submitted',
+      'application submitted successfully',
+      'we received your application',
+      'thanks for applying',
+      'thank you for applying',
+      'your application was submitted',
+      'application received',
+      'successfully submitted',
+    ];
+    for (const phrase of successPhrases) {
+      if (lowerText.includes(phrase)) return true;
+    }
+    if (/confirm|thank.*you|success|submitted/i.test(url)) return true;
+
+    // Check for confirmation elements
+    const confirmSelectors = ['#application_confirmation', '.confirmation', '#confirmation', '[data-qa="success-message"]'];
+    for (const sel of confirmSelectors) {
+      const el = await page.$(sel);
+      if (el && await el.isVisible().catch(() => false)) return true;
+    }
 
     return false;
   }
 
-  // ==========================================
-  // VALIDATION ERROR EXTRACTION
-  // ==========================================
-
-  private async extractValidationErrors(page: Page | any): Promise<string> {
+  private async extractValidationErrors(page: Page): Promise<string> {
     try {
-      const errorSelectors = [
-        '.field-error', '.error-message', '.form-error', '.field--error',
-        '[class*="error"]:not(script):not(style)', '[role="alert"]',
-        '.invalid-feedback', '.help-block.error', '#s_alert',
-      ];
-      const errors: string[] = [];
-      for (const sel of errorSelectors) {
-        try {
-          const els = await page.$$(sel);
-          for (const el of els) {
-            const visible = await el.isVisible().catch(() => false);
-            if (!visible) continue;
-            const text = (await el.textContent())?.trim();
-            if (text && text.length < 200 && text.length > 2) {
-              errors.push(text);
-            }
+      const errors = await page.evaluate(() => {
+        const selectors = [
+          '.field-error', '.error-message', '.form-error', '.field--error',
+          '[role="alert"]', '.invalid-feedback', '#s_alert',
+        ];
+        const texts: string[] = [];
+        for (const sel of selectors) {
+          for (const el of document.querySelectorAll(sel)) {
+            const text = el.textContent?.trim();
+            if (text && text.length > 2 && text.length < 200) texts.push(text);
           }
-        } catch { /* continue */ }
-      }
-      const unique = [...new Set(errors)];
-      return unique.slice(0, 5).join('; ') || '';
+        }
+        // Also check for elements with "error" in class that are visible
+        for (const el of document.querySelectorAll('[class*="error"]')) {
+          if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) continue;
+          const text = el.textContent?.trim();
+          if (text && text.length > 2 && text.length < 200 && !texts.includes(text)) texts.push(text);
+        }
+        return [...new Set(texts)].slice(0, 8);
+      });
+      return errors.join('; ');
     } catch {
       return '';
     }
@@ -1637,18 +890,32 @@ Return ONLY a JSON object mapping selectors to values. Example:
   // UTILITIES
   // ==========================================
 
+  private async dismissOverlays(page: Page): Promise<void> {
+    const selectors = [
+      'button:has-text("Accept All")', 'button:has-text("Accept")',
+      'button:has-text("OK")', 'button:has-text("Got it")',
+      'button:has-text("I Agree")', '#onetrust-accept-btn-handler',
+      '[data-testid="cookie-accept"]',
+    ];
+    for (const sel of selectors) {
+      try {
+        const el = await page.$(sel);
+        if (el && await el.isVisible()) { await el.click(); return; }
+      } catch { /* continue */ }
+    }
+  }
+
   private async takeScreenshot(page: Page): Promise<string> {
     try {
       const buffer = await page.screenshot({ type: 'jpeg', quality: 50, fullPage: false });
-      return buffer.toString('base64').substring(0, 50000); // Cap at ~50KB
+      return buffer.toString('base64').substring(0, 50000);
     } catch {
       return '';
     }
   }
 
   private randomDelay(min: number, max: number): Promise<void> {
-    const ms = min + Math.random() * (max - min);
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, min + Math.random() * (max - min)));
   }
 }
 

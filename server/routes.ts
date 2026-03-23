@@ -40,7 +40,7 @@ import { jobIngestionService } from './services/job-ingestion.service';
 import { getModelInfo } from './ml-matching';
 import { sendWelcomeEmail, sendEmail } from './email-service';
 import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
-import { parseGreenhouseUrl } from './services/greenhouse-submit.service';
+// greenhouse-submit.service.ts kept for future use (verification code flow, etc.)
 import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
 import rateLimit from 'express-rate-limit';
@@ -2549,11 +2549,10 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const candidateEmail = candidateProfile.email || user?.email || '';
       const candidatePhone = user?.phone_number || '';
 
-      // Check if this is a Greenhouse job we can submit to
-      const ghParsed = parseGreenhouseUrl(job.externalUrl);
-      if (!ghParsed) {
+      // Validate the job has an external URL we can navigate to
+      if (!job.externalUrl) {
         return res.status(422).json({
-          message: "Automated application is not supported for this job's platform. Please apply directly.",
+          message: "This job does not have an external application URL.",
           unsupported: true,
         });
       }
@@ -2567,7 +2566,6 @@ export async function registerRoutes(app: Express): Promise<Express> {
         resumeUrl: candidateProfile.resumeUrl,
         metadata: {
           agentApply: true,
-          ats: 'greenhouse',
           queuedAt: new Date().toISOString(),
         },
       });

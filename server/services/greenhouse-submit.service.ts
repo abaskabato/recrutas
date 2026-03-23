@@ -496,6 +496,50 @@ export async function submitToGreenhouse(
       await cb.check().catch(() => {});
     }
 
+    // Handle EEO demographic fields (Gender, Race, Veteran, Disability)
+    // These are React Select dropdowns that aren't in the Boards API.
+    // Default to "Decline to Self Identify" / "I don't wish to answer".
+    const eeoFields = [
+      { selector: '#demographic_gender', answer: 'Decline' },
+      { selector: '#demographic_race', answer: 'Decline' },
+      { selector: '#demographic_veteran', answer: 'not a' }, // "I am not a protected veteran"
+      { selector: '#demographic_disability', answer: 'don\'t wish' }, // "I don't wish to answer"
+    ];
+    for (const { selector, answer } of eeoFields) {
+      const el = await page.$(selector);
+      if (el) {
+        await fillReactSelect(page, selector, answer);
+      }
+    }
+
+    // Handle any remaining unfilled required React Select dropdowns
+    // (catches EEO fields with non-standard IDs)
+    const allSelects = await page.$$('[class*="select__control"]');
+    for (const selectControl of allSelects) {
+      try {
+        // Check if this select already has a value
+        const hasValue = await selectControl.$('[class*="select__single-value"]');
+        if (hasValue) continue; // Already filled
+
+        // Check if it's inside a required field
+        const container = await selectControl.evaluateHandle((el: any) => el.closest('[class*="required"], .field'));
+        if (!container) continue;
+
+        // Try to open and select "Decline" or first option
+        await selectControl.click();
+        await page.waitForTimeout(300);
+        const declineOpt = await page.$('[class*="select__option"]:has-text("Decline"), [class*="select__option"]:has-text("don\'t wish"), [class*="select__option"]:has-text("not a")');
+        if (declineOpt) {
+          await declineOpt.click();
+        } else {
+          // Select the last option (usually "Decline" / "Prefer not to say")
+          const opts = await page.$$('[class*="select__option"]');
+          if (opts.length > 0) await opts[opts.length - 1].click();
+        }
+        await page.waitForTimeout(200);
+      } catch { /* continue */ }
+    }
+
     // Upload resume
     if (resumeTmpPath) {
       const fileInput = await page.$('input[type="file"]#resume')
