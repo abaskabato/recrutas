@@ -720,6 +720,7 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
   ): Promise<void> {
     for (const action of actions) {
       try {
+        console.log(`[AgentApply] fill: type=${action.type} sel="${action.selector}" val="${action.value?.substring(0, 50)}"`);
         switch (action.type) {
           case 'fill':
             await this.fillTextField(page, action.selector, action.value);
@@ -767,29 +768,44 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
   }
 
   private async fillReactSelect(page: Page, selector: string, searchText: string): Promise<void> {
-    // Find the React Select input — it's a hidden input inside the control
-    const inputSel = `${selector} input[role="combobox"], ${selector} input[class*="select__input"], ${selector} input:not([type="hidden"])`;
-    let input = await page.$(inputSel);
+    console.log(`[AgentApply] fillReactSelect: selector="${selector}" text="${searchText}"`);
 
-    // Fallback: click the control div to focus, then find the active input
+    // Strategy: find the React Select control and its input
+    // Greenhouse uses containers with IDs like "s2id_...", or class-based selectors
+    let input = await page.$(`${selector} input[role="combobox"]`);
+    if (!input) input = await page.$(`${selector} input[class*="select__input"]`);
+    if (!input) input = await page.$(`${selector} input:not([type="hidden"])`);
+
     if (!input) {
-      const control = await page.$(`${selector} [class*="select__control"], ${selector}[class*="select__control"]`);
-      const clickTarget = control || await page.$(selector);
-      if (!clickTarget) return;
-      await clickTarget.click();
-      await this.randomDelay(300, 500);
-      // After clicking, the input should be focusable
-      input = await page.$(`${selector} input`);
+      // Try clicking the control area to activate the input
+      const control = await page.$(`${selector} [class*="select__control"]`);
+      if (!control) {
+        const container = await page.$(selector);
+        if (!container) {
+          console.log(`[AgentApply] fillReactSelect: selector "${selector}" not found in DOM`);
+          // Try broader search: find React Select by nearby label text
+          input = await this.findReactSelectByLabel(page, searchText, selector);
+          if (!input) return;
+        } else {
+          await container.click();
+          await this.randomDelay(300, 500);
+          input = await page.$(`${selector} input`);
+        }
+      } else {
+        await control.click();
+        await this.randomDelay(300, 500);
+        input = await page.$(`${selector} input`) || await page.$('input:focus');
+      }
     }
 
     if (input) {
       await input.click();
       await this.randomDelay(100, 200);
-      // Clear and type
       await input.fill('');
       await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
+      console.log(`[AgentApply] fillReactSelect: typed "${searchText.substring(0, 30)}" into input`);
     } else {
-      // Last resort: click container and type
+      console.log(`[AgentApply] fillReactSelect: no input found for "${selector}", trying keyboard.type`);
       const el = await page.$(selector);
       if (!el) return;
       await el.click();
@@ -797,31 +813,51 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
       await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
     }
 
-    // Wait for dropdown options to appear (async search)
-    await page.waitForSelector('[class*="select__option"]', { timeout: 3000 }).catch(() => {});
+    // Wait for dropdown options
+    await page.waitForSelector('[class*="select__option"], [class*="option"]', { timeout: 3000 }).catch(() => {});
     await this.randomDelay(300, 500);
 
-    // Click the first matching option
+    // Click matching option
     const options = await page.$$('[class*="select__option"]:not([class*="disabled"])');
+    console.log(`[AgentApply] fillReactSelect: found ${options.length} options`);
+
     if (options.length > 0) {
-      // Try to find best match
       let best = options[0];
+      const searchLower = searchText.toLowerCase();
       for (const opt of options) {
         const text = await opt.textContent();
-        if (text?.toLowerCase().includes(searchText.toLowerCase())) {
+        if (text?.toLowerCase().includes(searchLower)) {
           best = opt;
           break;
         }
       }
       const text = await best.textContent();
       await best.click();
-      console.log(`[AgentApply] React Select ${selector}: "${text?.trim()}"`);
+      console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
     } else {
-      // Press Enter to select whatever is highlighted
       await page.keyboard.press('Enter');
-      console.log(`[AgentApply] React Select ${selector}: Enter for "${searchText}"`);
+      console.log(`[AgentApply] fillReactSelect: no options visible, pressed Enter`);
     }
     await this.randomDelay(200, 400);
+  }
+
+  /** Find a React Select by searching for its label text in the DOM */
+  private async findReactSelectByLabel(page: Page, labelHint: string, originalSelector: string): Promise<any> {
+    // Dump all React Select containers for debugging
+    const reactSelectInfo = await page.evaluate(() => {
+      const selects = document.querySelectorAll('[class*="select__control"]');
+      return Array.from(selects).map(s => {
+        const container = s.closest('[id]');
+        const label = container?.closest('.field, .form-group, [class*="field"]')?.querySelector('label');
+        return {
+          id: container?.getAttribute('id') || 'no-id',
+          label: label?.textContent?.trim() || 'no-label',
+          classes: s.className.substring(0, 100),
+        };
+      });
+    });
+    console.log(`[AgentApply] All React Selects on page: ${JSON.stringify(reactSelectInfo)}`);
+    return null;
   }
 
   private async fillCheckbox(page: Page, selector: string): Promise<void> {
