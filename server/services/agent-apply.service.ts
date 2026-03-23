@@ -884,13 +884,19 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         await page.keyboard.press('Escape');
         await this.randomDelay(100, 200);
 
-        // Click the input with a 5s timeout (default is 30s which causes hangs)
-        await input.click({ timeout: 5000 }).catch(() => {
-          console.log(`[AgentApply] fillReactSelect: click timed out for ${selector}, using focus`);
-          return page.evaluate((sel) => {
-            (document.querySelector(sel) as HTMLElement)?.focus();
+        // Click the input with a 3s race timeout (Playwright default is 30s)
+        const clickResult = await Promise.race([
+          input.click().then(() => 'clicked' as const),
+          new Promise<'timeout'>(r => setTimeout(() => r('timeout'), 3000)),
+        ]).catch(() => 'error' as const);
+
+        if (clickResult !== 'clicked') {
+          console.log(`[AgentApply] fillReactSelect: click ${clickResult} for ${selector}, using JS focus`);
+          await page.evaluate((sel) => {
+            const el = document.querySelector(sel) as HTMLElement;
+            if (el) { el.focus(); el.click(); }
           }, selector);
-        });
+        }
         await this.randomDelay(300, 500);
 
         // Check for options (non-searchable dropdown opens on click)
