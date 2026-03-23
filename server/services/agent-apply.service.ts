@@ -872,38 +872,53 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — page.$ returned null`);
           return;
         }
-        console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — element found, scrolling+clicking`);
+        console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — element found`);
 
-        // Check if the element is inside a disabled/collapsed section
-        const isDisabled = await page.evaluate((sel) => {
+        // Check element state
+        const elState = await page.evaluate((sel) => {
           const el = document.querySelector(sel) as HTMLInputElement;
-          return el?.disabled || el?.readOnly || el?.offsetHeight === 0;
-        }, selector).catch(() => false);
+          if (!el) return { exists: false };
+          const rect = el.getBoundingClientRect();
+          return {
+            exists: true,
+            disabled: el.disabled,
+            readOnly: el.readOnly,
+            visible: rect.width > 0 && rect.height > 0,
+            width: rect.width,
+            height: rect.height,
+            top: rect.top,
+          };
+        }, selector).catch(() => ({ exists: false }));
+        console.log(`[AgentApply] fillReactSelect: ${selector} state: ${JSON.stringify(elState)}`);
 
-        if (isDisabled) {
-          console.log(`[AgentApply] fillReactSelect: ${selector} is disabled/hidden, checking for consent checkbox`);
-          // Look for a consent checkbox nearby and check it
-          await page.evaluate((sel) => {
-            const el = document.querySelector(sel);
-            const section = el?.closest('fieldset, .field-group, section, [class*="disability"], [class*="voluntary"]');
-            if (section) {
-              const checkbox = section.querySelector('input[type="checkbox"]:not(:checked)');
-              if (checkbox) (checkbox as HTMLInputElement).click();
-            }
-          }, selector);
-          await this.randomDelay(500, 800);
+        // If element is not visible/disabled, try to enable it
+        if (elState.exists && (!elState.visible || elState.disabled)) {
+          console.log(`[AgentApply] fillReactSelect: ${selector} not interactable, trying JS click+dispatch`);
+          // Use JS to force interaction
+          await page.evaluate((args) => {
+            const el = document.querySelector(args.sel) as HTMLInputElement;
+            if (!el) return;
+            // Scroll into view
+            el.scrollIntoView({ block: 'center' });
+            // Focus and click
+            el.focus();
+            el.click();
+            el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+          }, { sel: selector });
+          await this.randomDelay(400, 600);
+        } else {
+          // Normal interaction
+          await input.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await page.keyboard.press('Escape');
+          await this.randomDelay(100, 200);
+          // Use short timeout to prevent hanging
+          await Promise.race([
+            input.click({ force: true }),
+            new Promise(r => setTimeout(r, 5000)),
+          ]);
+          await this.randomDelay(300, 500);
         }
-
-        // Scroll into view and ensure it's visible
-        await input.scrollIntoViewIfNeeded().catch(() => {});
-        await this.randomDelay(200, 300);
-
-        // Close any previously open dropdown by pressing Escape
-        await page.keyboard.press('Escape');
-        await this.randomDelay(100, 200);
-
-        await input.click({ force: true });
-        await this.randomDelay(300, 500);
 
         // Check if options appeared (non-searchable dropdown)
         let earlyOptions = await page.$$('[class*="select__option"]:not([class*="disabled"])');
