@@ -829,268 +829,121 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     }
   }
 
+  /**
+   * Fill a React Select dropdown. Based on the proven greenhouse-submit.service.ts pattern:
+   * 1. Get the input element via page.$()
+   * 2. Click it to open dropdown
+   * 3. Fill with search text
+   * 4. Use scoped listbox selector (#react-select-{id}-listbox) to find options
+   * 5. Click matching option
+   */
   private async fillReactSelect(page: Page, selector: string, searchText: string): Promise<void> {
-    console.log(`[AgentApply] fillReactSelect: selector="${selector}" text="${searchText}"`);
+    console.log(`[AgentApply] fillReactSelect: ${selector} → "${searchText}"`);
 
-    // Check what type of element this selector points to
+    // Check element type
     const elInfo = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
-      if (!el) return { found: false };
-      return {
-        found: true,
-        tag: el.tagName,
-        classes: el.className?.toString().substring(0, 100) || '',
-        childCount: el.children.length,
-        hasSelectControl: !!el.querySelector('[class*="select__control"]'),
-        hasOptions: el.querySelectorAll('option').length,
-      };
-    }, selector).catch(() => ({ found: false }));
-
-    console.log(`[AgentApply] fillReactSelect: element info for "${selector}": ${JSON.stringify(elInfo)}`);
+      if (!el) return { found: false, tag: '', id: '' };
+      return { found: true, tag: el.tagName, id: el.getAttribute('id') || '' };
+    }, selector).catch(() => ({ found: false, tag: '', id: '' }));
 
     if (!elInfo.found) {
-      console.log(`[AgentApply] fillReactSelect: "${selector}" not found in DOM`);
+      console.log(`[AgentApply] fillReactSelect: "${selector}" not found`);
       return;
     }
 
-    // Native <select> — use selectOption
+    // Native <select> — delegate
     if (elInfo.tag === 'SELECT') {
-      console.log(`[AgentApply] fillReactSelect: "${selector}" is native <select>, using selectOption`);
       await this.fillNativeSelect(page, selector, searchText);
       return;
     }
 
-    // Strategy: find the React Select control and its input
-    // Case A: selector IS the input itself (e.g., <input id="gender" class="select__input">)
-    const isInputDirect = elInfo.tag === 'INPUT' && (elInfo.classes?.includes('select__input') || elInfo.classes?.includes('select__'));
-    console.log(`[AgentApply] fillReactSelect: isInputDirect=${isInputDirect} for "${selector}"`);
+    // Get the input element
+    const input = await page.$(selector);
+    if (!input) return;
 
-    if (isInputDirect) {
-      try {
-        // Extract field ID for scoped listbox selector (e.g., "#disability_status" → "disability_status")
-        const fieldId = selector.replace(/^#/, '');
-        const escapedId = fieldId.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
-        const scopedSel = `#react-select-${escapedId}-listbox [class*="select__option"]`;
-        const globalSel = '[class*="select__option"]:not([class*="disabled"])';
+    const fieldId = elInfo.id || selector.replace(/^#/, '');
+    // Scoped listbox selector: React Select renders #react-select-{id}-listbox
+    const listboxSel = `#react-select-${fieldId}-listbox .select__option`;
 
-        // Close any previously open dropdowns first (click body)
-        await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); });
-        await this.randomDelay(100, 200);
-
-        // Click the React Select control to open THIS dropdown
-        const controlClicked = await page.evaluate((sel) => {
-          const input = document.querySelector(sel) as HTMLElement;
-          if (!input) return false;
-          input.scrollIntoView({ block: 'center' });
-          const control = input.closest('[class*="select__control"]') ||
-                          input.parentElement?.closest('[class*="select__control"]') ||
-                          input.parentElement;
-          if (control) {
-            (control as HTMLElement).click();
-            return true;
-          }
-          input.focus();
-          input.click();
-          return true;
-        }, selector);
-        console.log(`[AgentApply] fillReactSelect: input-direct ${selector}, controlClicked=${controlClicked}`);
-        await this.randomDelay(300, 500);
-
-        // Try scoped selector first, fall back to global
-        let earlyOptions = await page.$$(scopedSel);
-        let usedScoped = earlyOptions.length > 0;
-        if (!usedScoped) earlyOptions = await page.$$(globalSel);
-        console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options (scoped=${usedScoped})`);
-
-        // Try to match visible options WITHOUT typing (works for non-searchable dropdowns)
-        if (earlyOptions.length > 0) {
-          // Log actual option texts for debugging
-          const optTexts: string[] = [];
-          for (const o of earlyOptions.slice(0, 8)) {
-            optTexts.push((await o.textContent())?.trim() || '?');
-          }
-          console.log(`[AgentApply] fillReactSelect: option texts: ${JSON.stringify(optTexts)}`);
-
-          const best = await this.findBestOption(earlyOptions, searchText);
-          if (best) {
-            const text = await best.textContent();
-            await best.click();
-            console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}" (pre-type)`);
-            await this.randomDelay(200, 400);
-            return;
-          }
-          console.log(`[AgentApply] fillReactSelect: no pre-type match, will type to search`);
-        }
-
-        // Type to search (searchable dropdowns)
-        await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
-        console.log(`[AgentApply] fillReactSelect: typed "${searchText.substring(0, 20)}..."`);
-
-        await page.waitForSelector(globalSel, { timeout: 3000 }).catch(() => {});
-        await this.randomDelay(300, 500);
-
-        const options = await page.$$(scopedSel).then(o => o.length > 0 ? o : page.$$(globalSel));
-        if (options.length > 0) {
-          const best = await this.findBestOption(options, searchText);
-          const target = best || options[0];
-          const text = await target.textContent();
-          await target.click();
-          console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}" (post-type)`);
-        } else {
-          // No options after typing — maybe non-searchable. Re-open and pick first/last option.
-          console.log(`[AgentApply] fillReactSelect: no options after typing, re-opening dropdown`);
-          await page.keyboard.press('Escape');
-          await this.randomDelay(200, 300);
-          await page.evaluate((sel) => {
-            const input = document.querySelector(sel) as HTMLElement;
-            const control = input?.closest('[class*="select__control"]') ||
-                            input?.parentElement?.closest('[class*="select__control"]');
-            if (control) (control as HTMLElement).click();
-          }, selector);
-          await this.randomDelay(300, 500);
-          const reopenedOptions = await page.$$(scopedSel).then(o => o.length > 0 ? o : page.$$(globalSel));
-          if (reopenedOptions.length > 0) {
-            const best = await this.findBestOption(reopenedOptions, searchText);
-            const target = best || reopenedOptions[reopenedOptions.length - 1]; // last option often "decline"
-            const text = await target.textContent();
-            await target.click();
-            console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}" (reopened)`);
-          } else {
-            await page.keyboard.press('Enter');
-            console.log(`[AgentApply] fillReactSelect: no options, pressed Enter`);
-          }
-        }
-        await this.randomDelay(200, 400);
-        return;
-      } catch (e: any) {
-        console.log(`[AgentApply] fillReactSelect: input-direct error for ${selector}: ${e.message}`);
-      }
-    }
-
-    // Case B: selector is a container that holds the React Select
-    let input = await page.$(`${selector} input[role="combobox"]`);
-    if (!input) input = await page.$(`${selector} input[class*="select__input"]`);
-    if (!input) input = await page.$(`${selector} input:not([type="hidden"])`);
-
-    if (!input) {
-      // Try clicking the control area to activate the input
-      const control = await page.$(`${selector} [class*="select__control"]`);
-      if (!control) {
-        const container = await page.$(selector);
-        if (!container) {
-          console.log(`[AgentApply] fillReactSelect: selector "${selector}" not found in DOM`);
-          input = await this.findReactSelectByLabel(page, searchText, selector);
-          if (!input) return;
-        } else {
-          await container.click();
-          await this.randomDelay(300, 500);
-          input = await page.$(`${selector} input`);
-        }
-      } else {
-        await control.click();
-        await this.randomDelay(300, 500);
-        input = await page.$(`${selector} input`) || await page.$('input:focus');
-      }
-    }
-
-    if (input) {
+    try {
+      // Step 1: Click to open, scroll into view
+      await input.scrollIntoViewIfNeeded();
       await input.click();
-      await this.randomDelay(100, 200);
-      await input.fill('');
-      await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
-      console.log(`[AgentApply] fillReactSelect: typed "${searchText.substring(0, 30)}" into input`);
-    } else {
-      console.log(`[AgentApply] fillReactSelect: no input found for "${selector}", clicking container`);
-      // Click the control or container to open the dropdown
-      const control = await page.$(`${selector} [class*="select__control"]`) ||
-                      await page.$(`${selector} [class*="css-"][class*="control"]`) ||
-                      await page.$(selector);
-      if (!control) return;
-      await control.click();
-      await this.randomDelay(400, 600);
+      await this.randomDelay(300, 500);
 
-      // Check if options appeared after click (non-searchable dropdown)
-      let earlyOptions = await page.$$('[class*="select__option"]:not([class*="disabled"]), [class*="option"]:not([class*="disabled"])');
-      if (earlyOptions.length > 0) {
-        console.log(`[AgentApply] fillReactSelect: non-searchable dropdown, ${earlyOptions.length} options visible`);
-        const best = await this.findBestOption(earlyOptions, searchText);
-        if (best) {
-          const text = await best.textContent();
-          await best.click();
-          console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
+      // Step 2: Check if options appeared without typing (non-searchable selects)
+      let options = await page.locator(listboxSel).all();
+      if (options.length === 0) {
+        // Fallback to global selector
+        options = await page.locator('[class*="select__option"]').all();
+      }
+      console.log(`[AgentApply] fillReactSelect: ${fieldId} → ${options.length} options after click`);
+
+      if (options.length > 0 && options.length <= 10) {
+        // Small option list — try to match without typing (EEO, Yes/No fields)
+        const match = await this.findBestLocatorOption(options, searchText);
+        if (match) {
+          const text = await match.textContent().catch(() => '');
+          await match.click();
+          console.log(`[AgentApply] fillReactSelect: ${fieldId} → selected "${text?.trim()}" (no-type)`);
           await this.randomDelay(200, 400);
           return;
         }
       }
 
-      // If no options or no match, try typing to search
-      await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
+      // Step 3: Type to search (for searchable selects like country, location)
+      await input.fill(searchText);
+      await this.randomDelay(800, 1200); // Wait for async options (location API)
+
+      // Step 4: Find options in scoped listbox
+      options = await page.locator(listboxSel).all();
+      if (options.length === 0) {
+        options = await page.locator('[class*="select__option"]').all();
+      }
+      console.log(`[AgentApply] fillReactSelect: ${fieldId} → ${options.length} options after type`);
+
+      if (options.length > 0) {
+        const match = await this.findBestLocatorOption(options, searchText);
+        const target = match || options[0];
+        const text = await target.textContent().catch(() => '');
+        await target.click();
+        console.log(`[AgentApply] fillReactSelect: ${fieldId} → selected "${text?.trim()}"`);
+      } else {
+        await page.keyboard.press('Enter');
+        console.log(`[AgentApply] fillReactSelect: ${fieldId} → no options, pressed Enter`);
+      }
+      await this.randomDelay(200, 400);
+    } catch (e: any) {
+      console.log(`[AgentApply] fillReactSelect: ${fieldId} error: ${e.message}`);
     }
-
-    // Wait for dropdown options
-    await page.waitForSelector('[class*="select__option"], [class*="option"]', { timeout: 3000 }).catch(() => {});
-    await this.randomDelay(300, 500);
-
-    // Click matching option
-    const options = await page.$$('[class*="select__option"]:not([class*="disabled"])');
-    console.log(`[AgentApply] fillReactSelect: found ${options.length} options`);
-
-    if (options.length > 0) {
-      const best = await this.findBestOption(options, searchText);
-      const target = best || options[0];
-      const text = await target.textContent();
-      await target.click();
-      console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
-    } else {
-      await page.keyboard.press('Enter');
-      console.log(`[AgentApply] fillReactSelect: no options visible, pressed Enter`);
-    }
-    await this.randomDelay(200, 400);
   }
 
-  /** Find the best matching option from a list of option elements */
-  private async findBestOption(options: any[], searchText: string): Promise<any | null> {
+  /** Find best matching option from Playwright Locator elements */
+  private async findBestLocatorOption(options: any[], searchText: string): Promise<any | null> {
     const searchLower = searchText.toLowerCase();
-    // Exact match first
+    // Pass 1: exact match
     for (const opt of options) {
-      const text = (await opt.textContent())?.trim()?.toLowerCase();
+      const text = (await opt.textContent().catch(() => ''))?.trim()?.toLowerCase();
       if (text === searchLower) return opt;
     }
-    // Contains match
+    // Pass 2: contains match
     for (const opt of options) {
-      const text = (await opt.textContent())?.trim()?.toLowerCase();
+      const text = (await opt.textContent().catch(() => ''))?.trim()?.toLowerCase();
       if (text?.includes(searchLower) || searchLower.includes(text || '')) return opt;
     }
-    // Keyword match for common EEO patterns
-    const declineKeywords = ['decline', "don't wish", 'prefer not', 'not specified'];
+    // Pass 3: keyword match for EEO decline patterns
+    const declineKeywords = ['decline', "don't wish", 'prefer not', 'not specified', 'choose not'];
     if (declineKeywords.some(k => searchLower.includes(k))) {
       for (const opt of options) {
-        const text = (await opt.textContent())?.trim()?.toLowerCase();
+        const text = (await opt.textContent().catch(() => ''))?.trim()?.toLowerCase();
         if (declineKeywords.some(k => text?.includes(k))) return opt;
       }
     }
     return null;
   }
 
-  /** Find a React Select by searching for its label text in the DOM */
-  private async findReactSelectByLabel(page: Page, labelHint: string, originalSelector: string): Promise<any> {
-    // Dump all React Select containers for debugging
-    const reactSelectInfo = await page.evaluate(() => {
-      const selects = document.querySelectorAll('[class*="select__control"]');
-      return Array.from(selects).map(s => {
-        const container = s.closest('[id]');
-        const label = container?.closest('.field, .form-group, [class*="field"]')?.querySelector('label');
-        return {
-          id: container?.getAttribute('id') || 'no-id',
-          label: label?.textContent?.trim() || 'no-label',
-          classes: s.className.substring(0, 100),
-        };
-      });
-    });
-    console.log(`[AgentApply] All React Selects on page: ${JSON.stringify(reactSelectInfo)}`);
-    return null;
-  }
-
+  /** Find the best matching option from a list of option elements */
   private async fillCheckbox(page: Page, selector: string): Promise<void> {
     const el = await page.$(selector);
     if (!el) return;
