@@ -421,16 +421,16 @@ export class AgentApplyService {
 
         let type = el.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : 'text');
 
-        // Detect if this input is inside a React Select container
-        const isInsideReactSelect = !!el.closest('[class*="select__control"], [class*="select__container"], [class*="css-"][class*="-container"]');
-        // Also check for Select2 (used by some Greenhouse forms)
-        const isInsideSelect2 = !!el.closest('.select2-container, .s2-container, [class*="select2"]');
-        if ((isInsideReactSelect || isInsideSelect2) && type !== 'select') {
-          type = 'react-select';
-        }
-        // Check if this is a combobox (autocomplete dropdown)
-        if (el.getAttribute('role') === 'combobox' || el.getAttribute('aria-autocomplete')) {
-          type = 'react-select';
+        // Detect if this input is inside a React Select container (not for native <select> or phone/iti elements)
+        if (el.tagName !== 'SELECT' && !el.closest('.iti, [class*="iti__"]')) {
+          const isInsideReactSelect = !!el.closest('[class*="select__control"], [class*="select__container"], [class*="css-"][class*="-container"]');
+          const isInsideSelect2 = !!el.closest('.select2-container, .s2-container, [class*="select2"]');
+          if (isInsideReactSelect || isInsideSelect2) {
+            type = 'react-select';
+          }
+          if (el.getAttribute('role') === 'combobox' || el.getAttribute('aria-autocomplete')) {
+            type = 'react-select';
+          }
         }
 
         const required = el.required || el.getAttribute('aria-required') === 'true' ||
@@ -480,7 +480,13 @@ export class AgentApplyService {
       // Detect React Select components (div-based dropdowns)
       const reactSelects = document.querySelectorAll('[class*="select__control"], [class*="css-"][role="combobox"]');
       for (const rs of reactSelects) {
-        const container = rs.closest('[id], [data-testid]') || (rs.parentElement ? rs.parentElement.closest('[id]') : null);
+        // Walk up to find the closest meaningful container (skip form/section/main)
+        let container = rs.closest('[id], [data-testid]');
+        if (!container) container = rs.parentElement ? rs.parentElement.closest('[id]') : null;
+        // Skip if container is too broad (form, section, main, etc.)
+        if (container && /^(FORM|SECTION|MAIN|BODY|ARTICLE|HEADER|FOOTER)$/i.test(container.tagName)) {
+          container = null;
+        }
         const id = container ? (container.getAttribute('id') || '') : '';
         const selector = id ? '#' + CSS.escape(id) : '';
         if (!selector || seen.has(selector)) continue;
@@ -618,25 +624,7 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
       else if (/github/i.test(id)) value = candidate.githubUrl;
       else if (/portfolio|website|personal/i.test(id)) value = candidate.portfolioUrl;
 
-      // === Location fields ===
-      else if (/\bcountry\b/i.test(id)) {
-        value = 'United States';
-        if (f.type === 'select' && f.options?.length) {
-          const match = f.options.find(o => /united states|usa|us/i.test(o));
-          if (match) value = match;
-          type = 'select';
-        } else if (f.type === 'react-select') {
-          type = 'react-select';
-        }
-      }
-      else if (/location|city/i.test(id)) value = city || candidate.location || 'Seattle';
-      else if (/state|province/i.test(id)) {
-        value = candidate.location?.split(',')[1]?.trim() || 'WA';
-        if (f.type === 'select') type = 'select';
-      }
-      else if (/zip|postal/i.test(id)) value = '98101'; // Seattle default
-
-      // === Work authorization ===
+      // === Work authorization (BEFORE location — "state" in "United States" would false-match) ===
       else if (/authorized.*work|legally.*work|eligible.*work|right to work/i.test(id)) {
         value = 'Yes';
         if (f.type === 'react-select') type = 'react-select';
@@ -652,11 +640,29 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         if (f.type === 'react-select') type = 'react-select';
         else if (f.type === 'radio' || f.type === 'select') type = f.type as any;
       }
-      else if (/relocat/i.test(id)) {
+      else if (/relocat|willing.*come|come.*office|in.?person|on.?site|hybrid/i.test(id)) {
         value = 'Yes';
         if (f.type === 'react-select') type = 'react-select';
         else if (f.type === 'radio' || f.type === 'select') type = f.type as any;
       }
+
+      // === Location fields ===
+      else if (/\bcountry\b/i.test(id)) {
+        value = 'United States';
+        if (f.type === 'select' && f.options?.length) {
+          const match = f.options.find(o => /united states|usa|us/i.test(o));
+          if (match) value = match;
+          type = 'select';
+        } else if (f.type === 'react-select') {
+          type = 'react-select';
+        }
+      }
+      else if (/location|city/i.test(id)) value = city || candidate.location || 'Seattle';
+      else if (/\bstate\b|province/i.test(id) && !/united states/i.test(id)) {
+        value = candidate.location?.split(',')[1]?.trim() || 'WA';
+        if (f.type === 'select') type = 'select';
+      }
+      else if (/zip|postal/i.test(id)) value = '98101'; // Seattle default
 
       // === EEO / Demographics — always decline ===
       else if (/gender|sex(?!perience)/i.test(id)) {
