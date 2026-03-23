@@ -272,6 +272,15 @@ export class AgentApplyService {
         const fileField = fields.find(f => f.type === 'file');
         const fillableFields = fields.filter(f => f.type !== 'file' && !f.currentValue);
 
+        // Log field types for debugging
+        if (step === 0) {
+          const typeSummary = fields.reduce((acc, f) => { acc[f.type] = (acc[f.type] || 0) + 1; return acc; }, {} as Record<string, number>);
+          const reactSelects = fields.filter(f => f.type === 'react-select').map(f => `${f.selector}:"${f.label.substring(0, 30)}"`);
+          console.log(`[AgentApply] field_types: ${JSON.stringify(typeSummary)}`);
+          if (reactSelects.length > 0) console.log(`[AgentApply] react_selects: ${reactSelects.join(', ')}`);
+          const unfilled = fillableFields.map(f => `${f.type}:${f.selector}`);
+          console.log(`[AgentApply] unfilled: ${unfilled.join(', ')}`);
+        }
         addLog(`step_${step}_extract`, `Found ${fields.length} fields (${fillableFields.length} need filling, ${fields.length - fillableFields.length} already filled)`);
 
         if (fillableFields.length === 0 && step > 0) {
@@ -410,7 +419,20 @@ export class AgentApplyService {
         if (!selector || seen.has(selector)) continue;
         seen.add(selector);
 
-        const type = el.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : 'text');
+        let type = el.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : 'text');
+
+        // Detect if this input is inside a React Select container
+        const isInsideReactSelect = !!el.closest('[class*="select__control"], [class*="select__container"], [class*="css-"][class*="-container"]');
+        // Also check for Select2 (used by some Greenhouse forms)
+        const isInsideSelect2 = !!el.closest('.select2-container, .s2-container, [class*="select2"]');
+        if ((isInsideReactSelect || isInsideSelect2) && type !== 'select') {
+          type = 'react-select';
+        }
+        // Check if this is a combobox (autocomplete dropdown)
+        if (el.getAttribute('role') === 'combobox' || el.getAttribute('aria-autocomplete')) {
+          type = 'react-select';
+        }
+
         const required = el.required || el.getAttribute('aria-required') === 'true' ||
           !!el.closest('[class*="required"]') || !!el.closest('.required');
 
@@ -603,6 +625,8 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           const match = f.options.find(o => /united states|usa|us/i.test(o));
           if (match) value = match;
           type = 'select';
+        } else if (f.type === 'react-select') {
+          type = 'react-select';
         }
       }
       else if (/location|city/i.test(id)) value = city || candidate.location || 'Seattle';
