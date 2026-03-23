@@ -2591,6 +2591,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
           personalWebsite: candidateProfile.personalWebsite || '',
           resumeUrl: candidateProfile.resumeUrl,
           resumeText: candidateProfile.resumeText || '',
+          skills: (candidateProfile as any).skills || [],
+          experience: (candidateProfile as any).experience || '',
+          experienceLevel: (candidateProfile as any).experienceLevel || '',
+          summary: (candidateProfile as any).summary || '',
+          workType: (candidateProfile as any).workType || '',
         },
         resumeUrl: candidateProfile.resumeUrl,
       }).returning();

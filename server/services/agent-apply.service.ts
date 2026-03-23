@@ -10,6 +10,7 @@ import { chromium, type Page, type Browser, type BrowserContext, type BrowserCon
 import type { AgentTask } from '../../shared/schema';
 import { isCaptchaSolverAvailable, solveRecaptchaV2, solveRecaptchaV3, solveHCaptcha } from '../lib/captcha-solver';
 import { solveRecaptchaViaAudio } from '../lib/audio-captcha-solver';
+import { getFreshResumeUrl } from '../lib/resume-url';
 
 // ==========================================
 // TYPES
@@ -26,6 +27,12 @@ interface CandidateData {
   skills: string[];
   experience: string;
   location: string;
+  resumeText?: string;
+  experienceLevel?: string;
+  summary?: string;
+  workType?: string;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
 }
 
 interface FieldMapping {
@@ -211,7 +218,7 @@ export class AgentApplyService {
       const candidateData = task.candidateData as CandidateData;
 
       // Fix 3: Resolve a fresh resume URL at execution time (stored URL may be expired)
-      const resumeUrl = await this.getFreshResumeUrl(task.resumeUrl);
+      const resumeUrl = await getFreshResumeUrl(task.resumeUrl);
       if (resumeUrl) {
         addLog('resume_url', `Resume URL resolved (${resumeUrl.substring(0, 60)}...)`);
       } else {
@@ -353,7 +360,7 @@ export class AgentApplyService {
         }
 
         // Handle screening questions (knockout questions)
-        await this.handleScreeningQuestions(activePage, addLog);
+        await this.handleScreeningQuestions(activePage, addLog, candidateData);
 
         // Click Next or Submit
         addLog(`step_${stepCount}_advance`, 'Advancing form (Next/Submit)');
@@ -416,10 +423,12 @@ export class AgentApplyService {
         // validation errors and we're just re-submitting the same invalid data
         const currentUrlAfterAdvance = page.url();
         if (currentUrlAfterAdvance === previousUrl && stepCount > 1) {
+          // Extract visible validation errors for diagnostics
+          const errorMessages = await this.extractValidationErrors(activePage);
           const screenshot = await this.takeScreenshot(page);
-          addLog(`step_${stepCount}_stuck`, 'Form still present with same URL — likely validation errors preventing submission', screenshot);
+          addLog(`step_${stepCount}_stuck`, `Form stuck — validation errors: ${errorMessages || 'none detected'}`, screenshot);
           // If we've been stuck for 2+ steps, abort
-          return { success: false, log, error: 'form_validation_failed' };
+          return { success: false, log, error: `form_validation_failed: ${errorMessages || 'unknown'}` };
         }
 
         addLog(`step_${stepCount}_next_page`, 'Form still present, advancing to next step');
@@ -449,47 +458,6 @@ export class AgentApplyService {
       if (browser) {
         await browser.close().catch(() => {});
       }
-    }
-  }
-
-  /**
-   * Fix 3: Generate a fresh Supabase signed URL for the resume.
-   * The stored URL may have an expired token (signed URLs have short TTLs).
-   */
-  private async getFreshResumeUrl(storedUrl: string | null | undefined): Promise<string | null> {
-    if (!storedUrl) {return null;}
-
-    try {
-      const { getSupabaseAdmin } = await import('../lib/supabase-admin.js');
-      const supabase = getSupabaseAdmin();
-
-      // Case 1: Full URL — extract storage path from it
-      // Format: .../storage/v1/object/(sign|public)/resumes/<path>
-      const match = storedUrl.match(/\/object\/(?:sign|public)\/([^?]+)/);
-      if (match) {
-        const fullPath = match[1]; // e.g. "resumes/user-id/resume.pdf"
-        const [bucket, ...pathParts] = fullPath.split('/');
-        const filePath = pathParts.join('/');
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .createSignedUrl(filePath, 300);
-        if (!error && data?.signedUrl) return data.signedUrl;
-        console.log(`[AgentApply] getFreshResumeUrl Case 1 error: ${error?.message}`);
-        return storedUrl; // Fall back to original URL
-      }
-
-      // Case 2: Storage key only (e.g. "resume-1773728149253-mtkql4a73f")
-      // Try the "resumes" bucket with the key as the file path
-      const { data, error } = await supabase.storage
-        .from('resumes')
-        .createSignedUrl(storedUrl, 300);
-      if (!error && data?.signedUrl) return data.signedUrl;
-      console.log(`[AgentApply] getFreshResumeUrl Case 2 error: ${error?.message}`);
-
-      return null;
-    } catch (e: any) {
-      console.error(`[AgentApply] getFreshResumeUrl exception: ${e.message}`);
-      return null;
     }
   }
 
@@ -789,82 +757,157 @@ export class AgentApplyService {
   // ==========================================
 
   /**
-   * Handle screening questions / knockout questions
-   * These are typically yes/no or multiple choice questions that can disqualify you
+   * Handle screening questions / knockout questions.
+   * Uses AI (Groq) to answer contextually, falls back to hardcoded rules.
    */
   private async handleScreeningQuestions(
     page: Page,
-    addLog: (action: string, result: string, screenshot?: string) => void
+    addLog: (action: string, result: string, screenshot?: string) => void,
+    candidateData?: CandidateData
   ): Promise<boolean> {
-    // Look for common screening question patterns
-    const questionSelectors = [
-      'label:has(input[type="radio"])',
-      'label:has(input[type="checkbox"])',
-      '.screening-question',
-      '[data-screening]',
-      '.knockout-question',
-    ];
-
     const radioGroups = await page.$$('fieldset, .question-group, [role="group"]');
-    
-    for (const group of radioGroups) {
+    if (radioGroups.length === 0) return true;
+
+    // Collect all questions with their options for AI batch answering
+    const questions: Array<{
+      index: number;
+      text: string;
+      options: string[];
+      group: any;
+      inputs: any[];
+      isRequired: boolean;
+    }> = [];
+
+    for (let i = 0; i < radioGroups.length; i++) {
+      const group = radioGroups[i];
       try {
-        // Get question text
         const questionText = await group.textContent();
-        if (!questionText) {continue;}
+        if (!questionText || questionText.length > 500) continue;
 
-        // Check if it's a knockout question
-        const isRequired = await group.$('input[required], input[aria-required="true"]');
-        
-        // Look for radio buttons or checkboxes
-        const options = await group.$$('input[type="radio"], input[type="checkbox"]');
-        
-        if (options.length > 0 && questionText.length < 500) {
-          // Try to find the "safe" answer
-          const lowerText = questionText.toLowerCase();
-          
-          // Common screening questions - try to answer yes/true where it helps
-          const preferredAnswers: Array<[RegExp, number]> = [
-            // Work authorization - say yes
-            [/authorized|work.*(to )?(work)|legally.*(to )?(work)/i, 0], // First option usually "Yes"
-            // Require sponsorship - say no
-            [/sponsorship|require.*sponsor/i, 1], // Second option usually "No"
-            // Remote - say yes
-            [/remote|work.*from.*home/i, 0],
-            // Relocation - say yes
-            [/relocat/i, 0],
-            // Background check - say yes
-            [/background|check.*(criminal|background)/i, 0],
-            // Drug test - say yes
-            [/drug.*test/i, 0],
-          ];
+        const inputs = await group.$$('input[type="radio"], input[type="checkbox"]');
+        if (inputs.length === 0) continue;
 
-          let selected = false;
-          for (const [pattern, preferredIndex] of preferredAnswers) {
-            if (pattern.test(lowerText)) {
-              // Try to click the preferred option
-              const inputs = await group.$$('input[type="radio"], input[type="checkbox"]');
-              if (inputs[preferredIndex]) {
-                await inputs[preferredIndex].click();
-                addLog('screening_question', `Answered: ${questionText.substring(0, 50)}...`);
-                selected = true;
-                break;
-              }
+        const isRequired = !!(await group.$('input[required], input[aria-required="true"]'));
+
+        // Get option labels
+        const optionLabels: string[] = [];
+        for (const input of inputs) {
+          try {
+            const id = await input.getAttribute('id');
+            let label = '';
+            if (id) {
+              const lbl = await page.$(`label[for="${id}"]`);
+              if (lbl) label = ((await lbl.textContent()) || '').trim();
             }
-          }
-
-          // If no preferred answer found, select first option (usually "Yes"/"I agree")
-          if (!selected && isRequired) {
-            const inputs = await group.$$('input[type="radio"], input[type="checkbox"]');
-            if (inputs[0]) {
-              await inputs[0].click();
-              addLog('screening_question', `Default answered: ${questionText.substring(0, 50)}...`);
+            if (!label) {
+              // Try parent label or sibling text
+              const parent = await input.evaluateHandle((el: any) => el.closest('label'));
+              if (parent) label = ((await parent.asElement()?.textContent()) || '').trim();
             }
+            optionLabels.push(label || `Option ${optionLabels.length}`);
+          } catch {
+            optionLabels.push(`Option ${optionLabels.length}`);
           }
         }
-      } catch (e) {
-        // Continue to next question
+
+        questions.push({
+          index: i,
+          text: questionText.trim().substring(0, 300),
+          options: optionLabels,
+          group,
+          inputs,
+          isRequired,
+        });
+      } catch { /* continue */ }
+    }
+
+    if (questions.length === 0) return true;
+
+    // Try AI-powered answering first
+    let aiAnswers: Record<number, number> = {};
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey && candidateData) {
+      try {
+        const prompt = `You are answering screening questions on a job application.
+
+Candidate: ${candidateData.firstName} ${candidateData.lastName}, ${candidateData.location || 'US'}.
+Authorized to work in the US. Does not need sponsorship.
+${candidateData.resumeText ? `Resume summary: ${candidateData.resumeText.substring(0, 800)}` : ''}
+
+For each question, return the 0-based index of the best option to select.
+Rules:
+- Work authorization: select "Yes"
+- Sponsorship needed: select "No"
+- Background check/drug test: select "Yes" / agree
+- Relocation/remote: select "Yes"
+- Age/legal: select affirmative
+- Acknowledgments/agreements: select agree
+- If unsure, select the most favorable option
+
+Questions:
+${questions.map((q, i) => `${i}. "${q.text}" — Options: ${q.options.map((o, j) => `[${j}] ${o}`).join(', ')}`).join('\n')}
+
+Return ONLY a JSON object mapping question index to option index. Example: {"0": 0, "1": 1}`;
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (response.ok) {
+          const text = (await response.json() as any)?.choices?.[0]?.message?.content || '';
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            for (const [k, v] of Object.entries(parsed)) {
+              aiAnswers[parseInt(k)] = v as number;
+            }
+            addLog('screening_ai', `AI answered ${Object.keys(aiAnswers).length}/${questions.length} screening questions`);
+          }
+        }
+      } catch (e: any) {
+        addLog('screening_ai_fail', `AI screening failed: ${e.message} — using fallback rules`);
       }
+    }
+
+    // Apply answers (AI or fallback)
+    for (let qi = 0; qi < questions.length; qi++) {
+      const q = questions[qi];
+      try {
+        if (aiAnswers[qi] !== undefined && q.inputs[aiAnswers[qi]]) {
+          await q.inputs[aiAnswers[qi]].click();
+          addLog('screening_question', `AI answered: ${q.text.substring(0, 50)}...`);
+          continue;
+        }
+
+        // Fallback: hardcoded rules
+        const lowerText = q.text.toLowerCase();
+        const preferredAnswers: Array<[RegExp, number]> = [
+          [/authorized|work.*(to )?(work)|legally.*(to )?(work)/i, 0],
+          [/sponsorship|require.*sponsor/i, 1],
+          [/remote|work.*from.*home/i, 0],
+          [/relocat/i, 0],
+          [/background|check.*(criminal|background)/i, 0],
+          [/drug.*test/i, 0],
+          [/acknowledge|agree|consent|confirm/i, 0],
+        ];
+
+        let selected = false;
+        for (const [pattern, preferredIndex] of preferredAnswers) {
+          if (pattern.test(lowerText) && q.inputs[preferredIndex]) {
+            await q.inputs[preferredIndex].click();
+            addLog('screening_question', `Rule answered: ${q.text.substring(0, 50)}...`);
+            selected = true;
+            break;
+          }
+        }
+
+        if (!selected && q.isRequired && q.inputs[0]) {
+          await q.inputs[0].click();
+          addLog('screening_question', `Default answered: ${q.text.substring(0, 50)}...`);
+        }
+      } catch { /* continue */ }
     }
 
     return true;
@@ -1556,6 +1599,38 @@ Return ONLY a JSON object mapping selectors to values. Example:
     } catch { /* ignore */ }
 
     return false;
+  }
+
+  // ==========================================
+  // VALIDATION ERROR EXTRACTION
+  // ==========================================
+
+  private async extractValidationErrors(page: Page | any): Promise<string> {
+    try {
+      const errorSelectors = [
+        '.field-error', '.error-message', '.form-error', '.field--error',
+        '[class*="error"]:not(script):not(style)', '[role="alert"]',
+        '.invalid-feedback', '.help-block.error', '#s_alert',
+      ];
+      const errors: string[] = [];
+      for (const sel of errorSelectors) {
+        try {
+          const els = await page.$$(sel);
+          for (const el of els) {
+            const visible = await el.isVisible().catch(() => false);
+            if (!visible) continue;
+            const text = (await el.textContent())?.trim();
+            if (text && text.length < 200 && text.length > 2) {
+              errors.push(text);
+            }
+          }
+        } catch { /* continue */ }
+      }
+      const unique = [...new Set(errors)];
+      return unique.slice(0, 5).join('; ') || '';
+    } catch {
+      return '';
+    }
   }
 
   // ==========================================

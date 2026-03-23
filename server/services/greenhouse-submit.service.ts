@@ -31,6 +31,10 @@ export interface CandidateSubmission {
   location?: string;
   workAuthorized?: boolean;
   needsSponsorship?: boolean;
+  skills?: string[];
+  experience?: string;
+  experienceLevel?: string;
+  summary?: string;
 }
 
 export interface GreenhouseSubmitResult {
@@ -173,6 +177,10 @@ Return JSON: { "answers": { "<fieldName>": <value or null>, ... } }`;
     candidate.personalWebsite ? `Website: ${candidate.personalWebsite}` : null,
     candidate.workAuthorized !== undefined ? `Work authorized: ${candidate.workAuthorized}` : null,
     candidate.needsSponsorship !== undefined ? `Needs sponsorship: ${candidate.needsSponsorship}` : null,
+    candidate.experienceLevel ? `Experience level: ${candidate.experienceLevel}` : null,
+    candidate.skills?.length ? `Skills: ${candidate.skills.join(', ')}` : null,
+    candidate.experience ? `Experience: ${candidate.experience}` : null,
+    candidate.summary ? `Summary: ${candidate.summary}` : null,
   ].filter(Boolean).join('\n');
 
   const resumeSnippet = candidate.resumeText
