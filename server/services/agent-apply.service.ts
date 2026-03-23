@@ -862,12 +862,36 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
 
     // Strategy: find the React Select control and its input
     // Case A: selector IS the input itself (e.g., <input id="gender" class="select__input">)
-    if (elInfo.tag === 'INPUT' && (elInfo.classes?.includes('select__input') || elInfo.classes?.includes('select__'))) {
+    const isInputDirect = elInfo.tag === 'INPUT' && (elInfo.classes?.includes('select__input') || elInfo.classes?.includes('select__'));
+    console.log(`[AgentApply] fillReactSelect: isInputDirect=${isInputDirect} for "${selector}"`);
+
+    if (isInputDirect) {
       try {
         const input = await page.$(selector);
         if (!input) {
           console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — page.$ returned null`);
           return;
+        }
+        console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — element found, scrolling+clicking`);
+
+        // Check if the element is inside a disabled/collapsed section
+        const isDisabled = await page.evaluate((sel) => {
+          const el = document.querySelector(sel) as HTMLInputElement;
+          return el?.disabled || el?.readOnly || el?.offsetHeight === 0;
+        }, selector).catch(() => false);
+
+        if (isDisabled) {
+          console.log(`[AgentApply] fillReactSelect: ${selector} is disabled/hidden, checking for consent checkbox`);
+          // Look for a consent checkbox nearby and check it
+          await page.evaluate((sel) => {
+            const el = document.querySelector(sel);
+            const section = el?.closest('fieldset, .field-group, section, [class*="disability"], [class*="voluntary"]');
+            if (section) {
+              const checkbox = section.querySelector('input[type="checkbox"]:not(:checked)');
+              if (checkbox) (checkbox as HTMLInputElement).click();
+            }
+          }, selector);
+          await this.randomDelay(500, 800);
         }
 
         // Scroll into view and ensure it's visible
