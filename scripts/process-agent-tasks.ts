@@ -14,7 +14,7 @@
 import { storage } from '../server/storage.js';
 import { agentApplyService } from '../server/services/agent-apply.service.js';
 import { parseGreenhouseUrl, submitToGreenhouse, type CandidateSubmission, type GreenhouseSubmitResult } from '../server/services/greenhouse-submit.service.js';
-import { getFreshResumeUrl } from '../server/lib/resume-url.js';
+import { getFreshResumeUrlWithFallback } from '../server/lib/resume-url.js';
 import { db } from '../server/db.js';
 import { jobApplications } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
@@ -41,8 +41,8 @@ async function processGreenhouseTask(task: any): Promise<ProcessResult | null> {
 
   const candidateData = task.candidateData as any;
 
-  // Get a fresh signed resume URL
-  const freshResumeUrl = await getFreshResumeUrl(task.resumeUrl || candidateData?.resumeUrl);
+  // Get a fresh signed resume URL (falls back to candidate's current profile resume)
+  const freshResumeUrl = await getFreshResumeUrlWithFallback(task.resumeUrl || candidateData?.resumeUrl, task.candidateId);
   if (!freshResumeUrl) {
     return { success: false, error: 'Could not resolve resume URL — signed URL may have expired' };
   }

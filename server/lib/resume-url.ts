@@ -39,3 +39,34 @@ export async function getFreshResumeUrl(storedUrl: string | null | undefined): P
     return null;
   }
 }
+
+/**
+ * Get a fresh resume URL with fallback to the candidate's current profile resume.
+ * Use this when the stored task resume key might be stale/deleted.
+ */
+export async function getFreshResumeUrlWithFallback(
+  storedUrl: string | null | undefined,
+  candidateId: string | null | undefined
+): Promise<string | null> {
+  // Try the stored URL first
+  const url = await getFreshResumeUrl(storedUrl);
+  if (url) return url;
+
+  // Fallback: look up the candidate's current profile resume
+  if (!candidateId) return null;
+  try {
+    const { db } = await import('../db.js');
+    const { candidateProfiles } = await import('../../shared/schema.js');
+    const { eq } = await import('drizzle-orm');
+    const [profile] = await db.select({ resumeUrl: candidateProfiles.resumeUrl })
+      .from(candidateProfiles)
+      .where(eq(candidateProfiles.userId, candidateId));
+    if (profile?.resumeUrl && profile.resumeUrl !== storedUrl) {
+      console.log(`[resume-url] Stored key failed, trying candidate profile resume: ${profile.resumeUrl}`);
+      return getFreshResumeUrl(profile.resumeUrl);
+    }
+  } catch (e: any) {
+    console.log(`[resume-url] Profile fallback failed: ${e.message}`);
+  }
+  return null;
+}
