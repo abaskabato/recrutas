@@ -890,6 +890,14 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           await this.randomDelay(200, 400);
           return;
         }
+        // Non-searchable dropdown: typing will filter options to zero.
+        // Pick last option as fallback (often "decline"/"I don't wish to answer")
+        const fallback = options[options.length - 1];
+        const fbText = await fallback.textContent().catch(() => '');
+        await fallback.click();
+        console.log(`[AgentApply] fillReactSelect: ${fieldId} → selected "${fbText?.trim()}" (fallback-last)`);
+        await this.randomDelay(200, 400);
+        return;
       }
 
       // Step 3: Type to search (for searchable selects like country, location)
@@ -919,24 +927,30 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     }
   }
 
+  /** Normalize smart quotes/apostrophes to straight ASCII for comparison */
+  private normalizeQuotes(s: string): string {
+    return s.replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+            .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"');
+  }
+
   /** Find best matching option from Playwright Locator elements */
   private async findBestLocatorOption(options: any[], searchText: string): Promise<any | null> {
-    const searchLower = searchText.toLowerCase();
+    const searchLower = this.normalizeQuotes(searchText.toLowerCase());
     // Pass 1: exact match
     for (const opt of options) {
-      const text = (await opt.textContent().catch(() => ''))?.trim()?.toLowerCase();
+      const text = this.normalizeQuotes((await opt.textContent().catch(() => ''))?.trim()?.toLowerCase() || '');
       if (text === searchLower) return opt;
     }
     // Pass 2: contains match
     for (const opt of options) {
-      const text = (await opt.textContent().catch(() => ''))?.trim()?.toLowerCase();
+      const text = this.normalizeQuotes((await opt.textContent().catch(() => ''))?.trim()?.toLowerCase() || '');
       if (text?.includes(searchLower) || searchLower.includes(text || '')) return opt;
     }
     // Pass 3: keyword match for EEO decline patterns
     const declineKeywords = ['decline', "don't wish", 'prefer not', 'not specified', 'choose not'];
     if (declineKeywords.some(k => searchLower.includes(k))) {
       for (const opt of options) {
-        const text = (await opt.textContent().catch(() => ''))?.trim()?.toLowerCase();
+        const text = this.normalizeQuotes((await opt.textContent().catch(() => ''))?.trim()?.toLowerCase() || '');
         if (declineKeywords.some(k => text?.includes(k))) return opt;
       }
     }
