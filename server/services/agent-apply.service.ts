@@ -861,6 +861,51 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
     }
 
     // Strategy: find the React Select control and its input
+    // Case A: selector IS the input itself (e.g., <input id="gender" class="select__input">)
+    if (elInfo.tag === 'INPUT' && (elInfo.classes?.includes('select__input') || elInfo.classes?.includes('select__'))) {
+      const input = await page.$(selector);
+      if (input) {
+        await input.click();
+        await this.randomDelay(200, 400);
+
+        // Check if options appeared (non-searchable dropdown)
+        let earlyOptions = await page.$$('[class*="select__option"]:not([class*="disabled"])');
+        if (earlyOptions.length > 0) {
+          console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options after click`);
+          const best = await this.findBestOption(earlyOptions, searchText);
+          if (best) {
+            const text = await best.textContent();
+            await best.click();
+            console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
+            await this.randomDelay(200, 400);
+            return;
+          }
+        }
+
+        // Type to search
+        await input.fill('');
+        await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
+        console.log(`[AgentApply] fillReactSelect: typed into input-direct`);
+
+        await page.waitForSelector('[class*="select__option"]', { timeout: 3000 }).catch(() => {});
+        await this.randomDelay(300, 500);
+
+        const options = await page.$$('[class*="select__option"]:not([class*="disabled"])');
+        if (options.length > 0) {
+          const best = await this.findBestOption(options, searchText);
+          const target = best || options[0];
+          const text = await target.textContent();
+          await target.click();
+          console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
+        } else {
+          await page.keyboard.press('Enter');
+        }
+        await this.randomDelay(200, 400);
+        return;
+      }
+    }
+
+    // Case B: selector is a container that holds the React Select
     let input = await page.$(`${selector} input[role="combobox"]`);
     if (!input) input = await page.$(`${selector} input[class*="select__input"]`);
     if (!input) input = await page.$(`${selector} input:not([type="hidden"])`);
