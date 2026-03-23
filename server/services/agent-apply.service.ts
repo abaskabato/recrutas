@@ -874,33 +874,29 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         }
         console.log(`[AgentApply] fillReactSelect: input-direct ${selector}`);
 
-        // Get the field's ID for scoped listbox selector
-        const fieldId = await input.getAttribute('id') || '';
-
-        // Use JS to scroll, focus, and click — avoids Playwright actionability timeout on 4px input
-        await page.evaluate((sel) => {
+        // Pure JS approach — no Playwright fill/click (avoids 30s actionability timeout on 4px input)
+        const fieldId = await page.evaluate((sel) => {
           const el = document.querySelector(sel) as HTMLInputElement;
-          if (!el) return;
+          if (!el) return '';
+          // Scroll, focus, and trigger React Select's menu open
           el.scrollIntoView({ block: 'center' });
           el.focus();
-          el.click();
+          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          return el.id || '';
         }, selector);
-        await this.randomDelay(300, 500);
+        console.log(`[AgentApply] fillReactSelect: input-direct focused, id="${fieldId}"`);
+        await this.randomDelay(400, 600);
 
-        // Use scoped listbox selector if we have a field ID
-        // Escape fieldId for CSS selector (simple: replace special chars)
+        // Check for open menu — use scoped selector if possible
         const escapedId = fieldId.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
-        const scopedSel = fieldId
-          ? `#react-select-${escapedId}-listbox [class*="select__option"], #react-select-${escapedId}-listbox [class*="option"]`
-          : '[class*="select__option"]:not([class*="disabled"])';
+        const scopedSel = fieldId ? `#react-select-${escapedId}-listbox [class*="option"]` : '';
         const globalSel = '[class*="select__option"]:not([class*="disabled"])';
 
-        // Check for options (non-searchable dropdown opens on focus)
-        let earlyOptions = await page.$$(scopedSel).catch(() => [] as any[]);
+        let earlyOptions = scopedSel ? await page.$$(scopedSel).catch(() => [] as any[]) : [];
         if (earlyOptions.length === 0) earlyOptions = await page.$$(globalSel);
 
         if (earlyOptions.length > 0) {
-          console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options after click`);
+          console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options visible`);
           const best = await this.findBestOption(earlyOptions, searchText);
           if (best) {
             const text = await best.textContent();
@@ -911,17 +907,22 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           }
         }
 
-        // Type to search/filter
-        await input.fill('').catch(() => {});
-        await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
-        console.log(`[AgentApply] fillReactSelect: typed into input-direct`);
+        // Type via JS (no Playwright fill — it times out on tiny inputs)
+        await page.evaluate(({ sel, text }) => {
+          const el = document.querySelector(sel) as HTMLInputElement;
+          if (!el) return;
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+          if (setter) setter.call(el, text);
+          else el.value = text;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }, { sel: selector, text: searchText.substring(0, 30) });
+        console.log(`[AgentApply] fillReactSelect: typed via JS`);
 
-        await page.waitForSelector(scopedSel, { timeout: 3000 }).catch(() =>
-          page.waitForSelector(globalSel, { timeout: 2000 }).catch(() => {})
-        );
+        await page.waitForSelector(scopedSel || globalSel, { timeout: 3000 }).catch(() => {});
         await this.randomDelay(300, 500);
 
-        let options = await page.$$(scopedSel).catch(() => [] as any[]);
+        let options = scopedSel ? await page.$$(scopedSel).catch(() => [] as any[]) : [];
         if (options.length === 0) options = await page.$$(globalSel);
 
         if (options.length > 0) {
@@ -932,7 +933,7 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
           console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
         } else {
           await page.keyboard.press('Enter');
-          console.log(`[AgentApply] fillReactSelect: no options after typing, pressed Enter`);
+          console.log(`[AgentApply] fillReactSelect: no options, pressed Enter`);
         }
         await this.randomDelay(200, 400);
         return;
