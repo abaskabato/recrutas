@@ -867,13 +867,21 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
 
     if (isInputDirect) {
       try {
-        // Use locator-based click (more reliable than page.$ for tiny inputs)
-        // Navigate from input to its parent React Select control for clicking
+        // Extract field ID for scoped listbox selector (e.g., "#disability_status" → "disability_status")
+        const fieldId = selector.replace(/^#/, '');
+        const escapedId = fieldId.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+        const scopedSel = `#react-select-${escapedId}-listbox [class*="select__option"]`;
+        const globalSel = '[class*="select__option"]:not([class*="disabled"])';
+
+        // Close any previously open dropdowns first (click body)
+        await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); });
+        await this.randomDelay(100, 200);
+
+        // Click the React Select control to open THIS dropdown
         const controlClicked = await page.evaluate((sel) => {
           const input = document.querySelector(sel) as HTMLElement;
           if (!input) return false;
           input.scrollIntoView({ block: 'center' });
-          // Find the React Select control wrapper (parent of input)
           const control = input.closest('[class*="select__control"]') ||
                           input.parentElement?.closest('[class*="select__control"]') ||
                           input.parentElement;
@@ -888,39 +896,69 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         console.log(`[AgentApply] fillReactSelect: input-direct ${selector}, controlClicked=${controlClicked}`);
         await this.randomDelay(300, 500);
 
-        // Check for options (non-searchable dropdown opens on click)
-        const globalSel = '[class*="select__option"]:not([class*="disabled"])';
-        let earlyOptions = await page.$$(globalSel);
+        // Try scoped selector first, fall back to global
+        let earlyOptions = await page.$$(scopedSel);
+        let usedScoped = earlyOptions.length > 0;
+        if (!usedScoped) earlyOptions = await page.$$(globalSel);
+        console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options (scoped=${usedScoped})`);
 
+        // Try to match visible options WITHOUT typing (works for non-searchable dropdowns)
         if (earlyOptions.length > 0) {
-          console.log(`[AgentApply] fillReactSelect: input-direct, ${earlyOptions.length} options after click`);
+          // Log actual option texts for debugging
+          const optTexts: string[] = [];
+          for (const o of earlyOptions.slice(0, 8)) {
+            optTexts.push((await o.textContent())?.trim() || '?');
+          }
+          console.log(`[AgentApply] fillReactSelect: option texts: ${JSON.stringify(optTexts)}`);
+
           const best = await this.findBestOption(earlyOptions, searchText);
           if (best) {
             const text = await best.textContent();
             await best.click();
-            console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
+            console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}" (pre-type)`);
             await this.randomDelay(200, 400);
             return;
           }
+          console.log(`[AgentApply] fillReactSelect: no pre-type match, will type to search`);
         }
 
-        // Type to search (use keyboard.type, not input.fill which can timeout)
+        // Type to search (searchable dropdowns)
         await page.keyboard.type(searchText.substring(0, 30), { delay: 40 });
         console.log(`[AgentApply] fillReactSelect: typed "${searchText.substring(0, 20)}..."`);
 
         await page.waitForSelector(globalSel, { timeout: 3000 }).catch(() => {});
         await this.randomDelay(300, 500);
 
-        const options = await page.$$(globalSel);
+        const options = await page.$$(scopedSel).then(o => o.length > 0 ? o : page.$$(globalSel));
         if (options.length > 0) {
           const best = await this.findBestOption(options, searchText);
           const target = best || options[0];
           const text = await target.textContent();
           await target.click();
-          console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}"`);
+          console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}" (post-type)`);
         } else {
-          await page.keyboard.press('Enter');
-          console.log(`[AgentApply] fillReactSelect: no options, pressed Enter`);
+          // No options after typing — maybe non-searchable. Re-open and pick first/last option.
+          console.log(`[AgentApply] fillReactSelect: no options after typing, re-opening dropdown`);
+          await page.keyboard.press('Escape');
+          await this.randomDelay(200, 300);
+          await page.evaluate((sel) => {
+            const input = document.querySelector(sel) as HTMLElement;
+            const control = input?.closest('[class*="select__control"]') ||
+                            input?.parentElement?.closest('[class*="select__control"]');
+            if (control) (control as HTMLElement).click();
+          }, selector);
+          await this.randomDelay(300, 500);
+          const reopenedOptions = await page.$$(scopedSel).then(o => o.length > 0 ? o : page.$$(globalSel));
+          if (reopenedOptions.length > 0) {
+            const best = await this.findBestOption(reopenedOptions, searchText);
+            const target = best || reopenedOptions[reopenedOptions.length - 1]; // last option often "decline"
+            const text = await target.textContent();
+            await target.click();
+            console.log(`[AgentApply] fillReactSelect: selected "${text?.trim()}" (reopened)`);
+          } else {
+            await page.keyboard.press('Enter');
+            console.log(`[AgentApply] fillReactSelect: no options, pressed Enter`);
+          }
         }
         await this.randomDelay(200, 400);
         return;
