@@ -335,44 +335,41 @@ export class AgentApplyService {
   // ==========================================
 
   private async extractFormFields(page: Page): Promise<FormField[]> {
-    return page.evaluate(() => {
-      const fields: any[] = [];
-      const seen = new Set<string>();
+    // String-form evaluate to prevent esbuild __name() transformation in browser context
+    const extractScript = `
+    (() => {
+      const fields = [];
+      const seen = new Set();
 
-      function getLabel(el: HTMLElement): string {
-        // Try label[for]
+      const getLabel = (el) => {
         const id = el.getAttribute('id');
         if (id) {
-          const label = document.querySelector(`label[for="${id}"]`);
+          const label = document.querySelector('label[for="' + CSS.escape(id) + '"]');
           if (label) return label.textContent?.trim() || '';
         }
-        // Try parent label
         const parentLabel = el.closest('label');
         if (parentLabel) return parentLabel.textContent?.trim() || '';
-        // Try aria-label
         const ariaLabel = el.getAttribute('aria-label');
         if (ariaLabel) return ariaLabel;
-        // Try preceding sibling or nearby text
         const prev = el.previousElementSibling;
         if (prev && (prev.tagName === 'LABEL' || prev.tagName === 'SPAN' || prev.tagName === 'P')) {
           return prev.textContent?.trim() || '';
         }
-        // Try parent's first text content
         const parent = el.closest('.field, .form-group, .form-field, [class*="field"], fieldset');
         if (parent) {
           const labelEl = parent.querySelector('label, legend, .label, [class*="label"]');
           if (labelEl && labelEl !== el) return labelEl.textContent?.trim() || '';
         }
         return '';
-      }
+      };
 
-      function makeSelector(el: HTMLElement): string {
+      const makeSelector = (el) => {
         const id = el.getAttribute('id');
-        if (id) return `#${CSS.escape(id)}`;
+        if (id) return '#' + CSS.escape(id);
         const name = el.getAttribute('name');
-        if (name) return `[name="${CSS.escape(name)}"]`;
+        if (name) return '[name="' + CSS.escape(name) + '"]';
         return '';
-      }
+      };
 
       // Standard inputs, textareas, selects
       const elements = document.querySelectorAll(
@@ -380,50 +377,50 @@ export class AgentApplyService {
       );
 
       for (const el of elements) {
-        const htmlEl = el as HTMLInputElement;
-        const selector = makeSelector(htmlEl);
+        const selector = makeSelector(el);
         if (!selector || seen.has(selector)) continue;
         seen.add(selector);
 
-        const type = htmlEl.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : 'text');
-        const required = htmlEl.required || htmlEl.getAttribute('aria-required') === 'true' ||
-          !!htmlEl.closest('[class*="required"]') || !!htmlEl.closest('.required');
+        const type = el.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : 'text');
+        const required = el.required || el.getAttribute('aria-required') === 'true' ||
+          !!el.closest('[class*="required"]') || !!el.closest('.required');
 
-        const field: any = {
+        const field = {
           selector,
           tag: el.tagName.toLowerCase(),
           type,
-          label: getLabel(htmlEl).substring(0, 200),
-          id: htmlEl.getAttribute('id') || '',
-          name: htmlEl.getAttribute('name') || '',
-          placeholder: htmlEl.getAttribute('placeholder') || '',
+          label: getLabel(el).substring(0, 200),
+          id: el.getAttribute('id') || '',
+          name: el.getAttribute('name') || '',
+          placeholder: el.getAttribute('placeholder') || '',
           required,
-          currentValue: htmlEl.value || '',
+          currentValue: el.value || '',
+          options: undefined,
+          groupName: undefined,
         };
 
         if (type === 'select') {
-          field.options = Array.from((el as HTMLSelectElement).options)
+          field.options = Array.from(el.options || [])
             .map(o => o.textContent?.trim() || '')
             .filter(Boolean)
             .slice(0, 20);
         }
 
         if (type === 'radio') {
-          field.groupName = htmlEl.getAttribute('name') || '';
-          // Get all radio options in this group
+          field.groupName = el.getAttribute('name') || '';
           if (field.groupName) {
-            const radios = document.querySelectorAll(`input[type="radio"][name="${CSS.escape(field.groupName)}"]`);
+            if (seen.has('radio:' + field.groupName)) continue;
+            seen.add('radio:' + field.groupName);
+            const radios = document.querySelectorAll('input[type="radio"][name="' + CSS.escape(field.groupName) + '"]');
             field.options = Array.from(radios).map(r => {
-              const label = getLabel(r as HTMLElement);
-              return label || (r as HTMLInputElement).value;
+              const label = getLabel(r);
+              return label || r.value;
             });
-            if (seen.has(`radio:${field.groupName}`)) continue;
-            seen.add(`radio:${field.groupName}`);
           }
         }
 
         if (type === 'checkbox') {
-          field.currentValue = (el as HTMLInputElement).checked ? 'checked' : '';
+          field.currentValue = el.checked ? 'checked' : '';
         }
 
         fields.push(field);
@@ -432,19 +429,15 @@ export class AgentApplyService {
       // Detect React Select components (div-based dropdowns)
       const reactSelects = document.querySelectorAll('[class*="select__control"], [class*="css-"][role="combobox"]');
       for (const rs of reactSelects) {
-        // Find the associated input or container with an ID
-        const container = rs.closest('[id], [data-testid]') || rs.parentElement?.closest('[id]');
-        const id = container?.getAttribute('id') || '';
-        const selector = id ? `#${CSS.escape(id)}` : '';
+        const container = rs.closest('[id], [data-testid]') || (rs.parentElement ? rs.parentElement.closest('[id]') : null);
+        const id = container ? (container.getAttribute('id') || '') : '';
+        const selector = id ? '#' + CSS.escape(id) : '';
         if (!selector || seen.has(selector)) continue;
         seen.add(selector);
 
-        // Get current value
         const singleValue = rs.querySelector('[class*="single-value"], [class*="singleValue"]');
-        const currentValue = singleValue?.textContent?.trim() || '';
-
-        // Get label
-        const label = getLabel(container as HTMLElement || rs as HTMLElement);
+        const currentValue = singleValue ? (singleValue.textContent?.trim() || '') : '';
+        const label = getLabel(container || rs);
 
         fields.push({
           selector,
@@ -453,18 +446,17 @@ export class AgentApplyService {
           label: label.substring(0, 200),
           id,
           name: '',
-          placeholder: rs.querySelector('[class*="placeholder"]')?.textContent?.trim() || '',
-          required: !!container?.querySelector('[class*="required"]') || /\*/.test(label),
+          placeholder: (rs.querySelector('[class*="placeholder"]')?.textContent?.trim()) || '',
+          required: !!(container && container.querySelector('[class*="required"]')) || /\\*/.test(label),
           currentValue,
-          options: [], // Options load on click — AI will type to search
+          options: [],
         });
       }
 
       // Detect ITI phone widgets
       const phoneInputs = document.querySelectorAll('.iti input[type="tel"], input.iti__tel-input');
       for (const pi of phoneInputs) {
-        const htmlPi = pi as HTMLInputElement;
-        const selector = makeSelector(htmlPi) || '.iti input[type="tel"]';
+        const selector = makeSelector(pi) || '.iti input[type="tel"]';
         if (seen.has(selector)) continue;
         seen.add(selector);
 
@@ -472,17 +464,19 @@ export class AgentApplyService {
           selector,
           tag: 'input',
           type: 'phone-widget',
-          label: getLabel(htmlPi).substring(0, 200) || 'Phone',
-          id: htmlPi.getAttribute('id') || '',
-          name: htmlPi.getAttribute('name') || '',
-          placeholder: htmlPi.getAttribute('placeholder') || '',
-          required: htmlPi.required || htmlPi.getAttribute('aria-required') === 'true',
-          currentValue: htmlPi.value || '',
+          label: getLabel(pi).substring(0, 200) || 'Phone',
+          id: pi.getAttribute('id') || '',
+          name: pi.getAttribute('name') || '',
+          placeholder: pi.getAttribute('placeholder') || '',
+          required: pi.required || pi.getAttribute('aria-required') === 'true',
+          currentValue: pi.value || '',
         });
       }
 
       return fields;
-    });
+    })()`;
+
+    return page.evaluate(extractScript) as Promise<FormField[]>;
   }
 
   // ==========================================
