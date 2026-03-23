@@ -867,36 +867,25 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
 
     if (isInputDirect) {
       try {
-        const input = await page.$(selector);
-        if (!input) {
-          console.log(`[AgentApply] fillReactSelect: input-direct ${selector} — page.$ returned null`);
-          return;
-        }
-        console.log(`[AgentApply] fillReactSelect: input-direct ${selector}`);
-
-        // Scroll into view via JS (instant, no timeout)
-        await page.evaluate((sel) => {
-          document.querySelector(sel)?.scrollIntoView({ block: 'center' });
+        // Use locator-based click (more reliable than page.$ for tiny inputs)
+        // Navigate from input to its parent React Select control for clicking
+        const controlClicked = await page.evaluate((sel) => {
+          const input = document.querySelector(sel) as HTMLElement;
+          if (!input) return false;
+          input.scrollIntoView({ block: 'center' });
+          // Find the React Select control wrapper (parent of input)
+          const control = input.closest('[class*="select__control"]') ||
+                          input.parentElement?.closest('[class*="select__control"]') ||
+                          input.parentElement;
+          if (control) {
+            (control as HTMLElement).click();
+            return true;
+          }
+          input.focus();
+          input.click();
+          return true;
         }, selector);
-        await this.randomDelay(200, 300);
-
-        // Close any open dropdown first
-        await page.keyboard.press('Escape');
-        await this.randomDelay(100, 200);
-
-        // Click the input with a 3s race timeout (Playwright default is 30s)
-        const clickResult = await Promise.race([
-          input.click().then(() => 'clicked' as const),
-          new Promise<'timeout'>(r => setTimeout(() => r('timeout'), 3000)),
-        ]).catch(() => 'error' as const);
-
-        if (clickResult !== 'clicked') {
-          console.log(`[AgentApply] fillReactSelect: click ${clickResult} for ${selector}, using JS focus`);
-          await page.evaluate((sel) => {
-            const el = document.querySelector(sel) as HTMLElement;
-            if (el) { el.focus(); el.click(); }
-          }, selector);
-        }
+        console.log(`[AgentApply] fillReactSelect: input-direct ${selector}, controlClicked=${controlClicked}`);
         await this.randomDelay(300, 500);
 
         // Check for options (non-searchable dropdown opens on click)
