@@ -790,18 +790,61 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
   private async fillNativeSelect(page: Page, selector: string, value: string): Promise<void> {
     const el = await page.$(selector);
     if (!el) return;
-    await el.selectOption({ label: value }).catch(() =>
-      el.selectOption({ value }).catch(() =>
-        el.selectOption({ index: 1 }).catch(() => {})
-      )
-    );
+
+    // Try exact label match, then exact value match
+    const selected = await el.selectOption({ label: value }).catch(() => null);
+    if (selected?.length) return;
+
+    const selectedByVal = await el.selectOption({ value }).catch(() => null);
+    if (selectedByVal?.length) return;
+
+    // Try partial label match (case-insensitive)
+    const bestOption = await page.evaluate(({ sel, searchText }) => {
+      const select = document.querySelector(sel) as HTMLSelectElement;
+      if (!select) return null;
+      const lower = searchText.toLowerCase();
+      for (const opt of Array.from(select.options)) {
+        if (opt.text.toLowerCase().includes(lower) || lower.includes(opt.text.toLowerCase())) {
+          return opt.value;
+        }
+      }
+      // Try keywords
+      const keywords = ['decline', "don't wish", 'prefer not', 'not specified', 'choose not'];
+      for (const kw of keywords) {
+        for (const opt of Array.from(select.options)) {
+          if (opt.text.toLowerCase().includes(kw)) return opt.value;
+        }
+      }
+      // Last resort: pick the last non-empty option (usually "Decline")
+      const opts = Array.from(select.options).filter(o => o.value);
+      return opts.length > 0 ? opts[opts.length - 1].value : null;
+    }, { sel: selector, searchText: value });
+
+    if (bestOption) {
+      await el.selectOption({ value: bestOption }).catch(() => {});
+      console.log(`[AgentApply] fillNativeSelect: partial match for "${selector}" → "${bestOption}"`);
+    } else {
+      // Fallback: select first non-empty option
+      await el.selectOption({ index: 1 }).catch(() => {});
+    }
   }
 
   private async fillReactSelect(page: Page, selector: string, searchText: string): Promise<void> {
     console.log(`[AgentApply] fillReactSelect: selector="${selector}" text="${searchText}"`);
 
+    // Check if this is actually a native <select> disguised as react-select
+    const isNativeSelect = await page.evaluate(
+      (sel) => document.querySelector(sel)?.tagName === 'SELECT',
+      selector
+    ).catch(() => false);
+
+    if (isNativeSelect) {
+      console.log(`[AgentApply] fillReactSelect: "${selector}" is native <select>, using selectOption`);
+      await this.fillNativeSelect(page, selector, searchText);
+      return;
+    }
+
     // Strategy: find the React Select control and its input
-    // Greenhouse uses containers with IDs like "s2id_...", or class-based selectors
     let input = await page.$(`${selector} input[role="combobox"]`);
     if (!input) input = await page.$(`${selector} input[class*="select__input"]`);
     if (!input) input = await page.$(`${selector} input:not([type="hidden"])`);
@@ -813,7 +856,6 @@ Return format: { "actions": [{ "selector": "...", "value": "...", "type": "fill|
         const container = await page.$(selector);
         if (!container) {
           console.log(`[AgentApply] fillReactSelect: selector "${selector}" not found in DOM`);
-          // Try broader search: find React Select by nearby label text
           input = await this.findReactSelectByLabel(page, searchText, selector);
           if (!input) return;
         } else {
