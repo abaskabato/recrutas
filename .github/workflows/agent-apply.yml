@@ -3,7 +3,7 @@ name: Agent Apply Worker
 on:
   workflow_dispatch:  # Manual trigger from admin
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes — batches all queued tasks
+    - cron: '*/15 * * * *'  # Every 15 minutes — Browser Use takes 5-10 min per task
 
 # Only one run at a time — prevents race conditions when multiple users queue tasks
 concurrency:
