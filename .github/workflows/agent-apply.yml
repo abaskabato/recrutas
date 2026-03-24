@@ -5,15 +5,10 @@ on:
   schedule:
     - cron: '*/15 * * * *'  # Every 15 minutes — Browser Use takes 5-10 min per task
 
-# Only one run at a time — prevents race conditions when multiple users queue tasks
-concurrency:
-  group: agent-apply
-  cancel-in-progress: false  # Don't cancel running jobs, queue them instead
-
 jobs:
   process:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # Increased — Browser Use takes longer per task
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
