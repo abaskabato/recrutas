@@ -380,6 +380,7 @@ export class GhostJobDetectionService {
     flaggedJobs: number;
     criticalRiskJobs: number;
     avgGhostScore: number;
+    lastRun: string | null;
   }> {
     const stats = await db
       .select({
@@ -387,6 +388,7 @@ export class GhostJobDetectionService {
         flagged: sql<number>`count(case when ${jobPostings.ghostJobScore} > 50 then 1 end)`,
         critical: sql<number>`count(case when ${jobPostings.ghostJobScore} > 80 then 1 end)`,
         avgScore: sql<number>`avg(${jobPostings.ghostJobScore})`,
+        lastRun: sql<string>`max(${jobPostings.lastGhostCheck})`,
       })
       .from(jobPostings)
       .where(eq(jobPostings.status, 'active'));
@@ -396,6 +398,7 @@ export class GhostJobDetectionService {
       flaggedJobs: Number(stats[0].flagged),
       criticalRiskJobs: Number(stats[0].critical),
       avgGhostScore: parseFloat(Number(stats[0].avgScore || 0).toFixed(2)),
+      lastRun: stats[0].lastRun || null,
     };
   }
 }

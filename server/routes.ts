@@ -2299,8 +2299,15 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const { ghostJobDetectionService } = await import('./ghost-job-detection.service');
       const stats = await ghostJobDetectionService.getStatistics();
       const flaggedJobs = await ghostJobDetectionService.getFlaggedJobs(50);
-      
-      res.json({ stats, flaggedJobs });
+
+      // Map to match admin UI field names
+      res.json({
+        totalChecked: stats.totalJobs,
+        ghostsFound: stats.flaggedJobs,
+        deactivated: stats.criticalRiskJobs,
+        lastRun: stats.lastRun || null,
+        flaggedJobs,
+      });
     } catch (error: any) {
       console.error("Error fetching ghost job stats:", error?.message);
       res.status(500).json({ message: "Failed to fetch ghost job stats", error: error?.message });
@@ -2338,8 +2345,14 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       const { companyVerificationService } = await import('./company-verification.service');
       const stats = await companyVerificationService.getStatistics();
-      
-      res.json(stats);
+
+      // Map to match admin UI field names
+      res.json({
+        totalCompanies: stats.totalJobs,
+        verified: stats.verifiedJobs,
+        unverified: stats.thirdPartyJobs,
+        lastRun: stats.lastRun || null,
+      });
     } catch (error: any) {
       console.error("Error fetching company verification stats:", error?.message);
       res.status(500).json({ message: "Failed to fetch company verification stats", error: error?.message });

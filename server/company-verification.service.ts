@@ -336,12 +336,14 @@ export class CompanyVerificationService {
     verifiedJobs: number;
     thirdPartyJobs: number;
     verificationRate: number;
+    lastRun: string | null;
   }> {
     const stats = await db
       .select({
         total: sql<number>`count(*)`,
         verified: sql<number>`count(case when ${jobPostings.companyVerified} = true then 1 end)`,
         thirdParty: sql<number>`count(case when ${jobPostings.recruiterEmailDomain} is not null then 1 end)`,
+        lastRun: sql<string>`max(case when ${jobPostings.companyVerified} = true then ${jobPostings.updatedAt} end)`,
       })
       .from(jobPostings)
       .where(eq(jobPostings.status, 'active'));
@@ -354,6 +356,7 @@ export class CompanyVerificationService {
       verifiedJobs: verified,
       thirdPartyJobs: Number(stats[0].thirdParty),
       verificationRate: total > 0 ? parseFloat(((verified / total) * 100).toFixed(2)) : 0,
+      lastRun: stats[0].lastRun || null,
     };
   }
 }

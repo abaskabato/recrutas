@@ -198,19 +198,16 @@ export class JobLivenessService {
    */
   private async getJobsToCheck(): Promise<Array<{ id: number; externalUrl: string; createdAt: Date; lastLivenessCheck: Date | null }>> {
     const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-    const seventyTwoHoursAgo = new Date(now.getTime() - 72 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Get all external jobs with URLs
+    // Get all active external jobs with URLs
     const externalJobs = await db.select({
       id: jobPostings.id,
       externalUrl: jobPostings.externalUrl,
       createdAt: jobPostings.createdAt,
       source: jobPostings.source,
-      status: jobPostings.status
+      lastLivenessCheck: jobPostings.lastLivenessCheck,
     })
     .from(jobPostings)
     .where(
@@ -220,16 +217,27 @@ export class JobLivenessService {
       )
     );
 
-    // Filter based on tiered schedule
-    // Note: In a real implementation, we'd track lastLivenessCheck in the DB
-    // For now, we'll check all external jobs
+    // Filter based on tiered schedule using lastLivenessCheck
     return externalJobs
-      .filter(job => job.externalUrl && job.source !== 'platform')
+      .filter(job => {
+        if (!job.externalUrl || job.source === 'platform') return false;
+
+        const lastCheck = job.lastLivenessCheck;
+        if (!lastCheck) return true; // Never checked — check now
+
+        const hoursSinceCheck = (now.getTime() - new Date(lastCheck).getTime()) / (1000 * 60 * 60);
+        const createdAt = job.createdAt ? new Date(job.createdAt) : now;
+
+        // Tiered schedule: newer jobs checked more frequently
+        if (createdAt > sevenDaysAgo) return hoursSinceCheck >= 24;
+        if (createdAt > thirtyDaysAgo) return hoursSinceCheck >= 48;
+        return hoursSinceCheck >= 72;
+      })
       .map(job => ({
         id: job.id,
         externalUrl: job.externalUrl!,
         createdAt: job.createdAt!,
-        lastLivenessCheck: null
+        lastLivenessCheck: job.lastLivenessCheck,
       }));
   }
 
@@ -431,19 +439,26 @@ export class JobLivenessService {
   }
 
   /**
-   * Mark a job as stale (decreases trust score significantly)
+   * Mark a job as stale (decreases trust score significantly).
+   * If trust score drops to 0, close the job entirely.
    */
   private async markJobAsStale(jobId: number, reason?: string, checkedAt?: Date): Promise<void> {
     try {
-      // Get current trust score
-      const job = await db.select({ trustScore: jobPostings.trustScore })
+      const job = await db.select({ trustScore: jobPostings.trustScore, livenessStatus: jobPostings.livenessStatus })
         .from(jobPostings)
         .where(eq(jobPostings.id, jobId))
         .limit(1);
 
       const currentTrustScore = job[0]?.trustScore ?? 50;
-      // Decrease trust score significantly for stale jobs
+      const wasAlreadyStale = job[0]?.livenessStatus === 'stale';
       const newTrustScore = Math.max(0, currentTrustScore - 30);
+
+      // Close the job if trust score hits 0 OR it was already stale (consecutive stale checks)
+      if (newTrustScore === 0 || (wasAlreadyStale && currentTrustScore <= 20)) {
+        await this.markJobAsInactive(jobId, reason);
+        console.log(`[LivenessService] CLOSED job ${jobId} — trust dropped to ${newTrustScore}: ${reason}`);
+        return;
+      }
 
       await db.update(jobPostings)
         .set({
