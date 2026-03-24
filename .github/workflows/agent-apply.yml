@@ -33,21 +33,16 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r python/requirements.txt
 
-      - name: Install Chromium for Playwright
+      - name: Install Chromium
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: stable
 
-      - name: Set Chromium path for Browser Use
+      - name: Verify Chrome and set path
         run: |
-          CHROME_PATH=$(which chrome || which google-chrome || which google-chrome-stable || which chromium-browser || which chromium || echo "")
-          if [ -z "$CHROME_PATH" ]; then
-            echo "Chrome not found, trying default location..."
-            CHROME_PATH="/usr/bin/google-chrome-stable"
-          fi
-          echo "CHROMIUM_PATH=$CHROME_PATH" >> $GITHUB_ENV
-          echo "Using Chrome at: $CHROME_PATH"
-          $CHROME_PATH --version || true
+          CHROME=$(which chrome || which google-chrome-stable || echo "/opt/hostedtoolcache/setup-chrome/chromium/stable/x64/chrome")
+          echo "CHROMIUM_PATH=$CHROME" >> $GITHUB_ENV
+          echo "Chrome: $($CHROME --version)"
 
       - name: Process agent tasks
         env:
@@ -61,4 +56,5 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           FRONTEND_URL: https://www.recrutas.ai
           CHROMIUM_PATH: ${{ env.CHROMIUM_PATH }}
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: npx tsx scripts/process-agent-tasks.ts
