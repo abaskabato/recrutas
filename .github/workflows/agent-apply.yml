@@ -39,11 +39,8 @@ jobs:
         run: pip install -r python/requirements.txt
 
       - name: Install Playwright browsers
-        run: |
-          # Install system deps via apt (same for Node and Python Playwright)
-          sudo npx playwright install-deps chromium
-          # Install Chromium browser for Python Playwright
-          python -m playwright install chromium
+        timeout-minutes: 5
+        run: python -m playwright install --with-deps chromium
 
       - name: Process agent tasks
         env:
