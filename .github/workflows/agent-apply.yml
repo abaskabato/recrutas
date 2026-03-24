@@ -40,7 +40,13 @@ jobs:
 
       - name: Install Playwright browsers
         timeout-minutes: 5
-        run: python -m playwright install --with-deps chromium
+        run: |
+          echo "Python Playwright version:"
+          python -m playwright --version || true
+          echo "Installing Chromium via npx..."
+          npx playwright install --with-deps chromium
+          echo "Checking installed browsers..."
+          ls -la $HOME/.cache/ms-playwright/ || true
 
       - name: Process agent tasks
         env:
