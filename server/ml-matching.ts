@@ -1,12 +1,12 @@
 /**
  * ML-Based Job Matching Service
- * Uses HuggingFace Inference API (BAAI/bge-m3) for semantic embeddings
- * — 384-dim multilingual model, SOTA for retrieval/matching tasks.
+ * Uses HuggingFace Inference API (BAAI/bge-small-en-v1.5) for semantic embeddings
+ * — 384-dim English model, fast and reliable via HF Inference API.
  * No local ONNX/WASM model, no cold-start delays.
  */
 
 const HF_MODEL_URL =
-  'https://router.huggingface.co/hf-inference/models/BAAI/bge-m3';
+  'https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5';
 
 interface EmbeddingResult {
   embedding: number[];
@@ -148,8 +148,8 @@ export async function generateCandidateEmbedding(
  */
 export function getModelInfo() {
   return {
-    model: 'BAAI/bge-m3',
-    description: 'BGE-M3 via HuggingFace Inference API — 384-dim, multilingual, SOTA retrieval',
+    model: 'BAAI/bge-small-en-v1.5',
+    description: 'BGE-small-en-v1.5 via HuggingFace Inference API — 384-dim, English, fast retrieval',
     dimensions: 384,
     maxTokens: 8192,
     type: 'HuggingFace Inference API',
