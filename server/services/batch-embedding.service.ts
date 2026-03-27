@@ -45,6 +45,10 @@ export async function updateJobEmbedding(jobId: number): Promise<void> {
   }
 
   const embedding = await computeJobEmbedding(job);
+  if (!embedding || embedding.length === 0) {
+    console.warn(`[BatchEmbed] Empty embedding for job ${jobId} — skipping`);
+    return;
+  }
   const vectorStr = `[${embedding.join(',')}]`;
 
   // Dual-write: TEXT column (legacy) + native pgvector column
