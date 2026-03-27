@@ -1,7 +1,7 @@
 /**
  * ML-Based Job Matching Service
  * Uses HuggingFace Inference API (BAAI/bge-m3) for semantic embeddings
- * — 1024-dim multilingual model, SOTA for retrieval/matching tasks.
+ * — 384-dim multilingual model, SOTA for retrieval/matching tasks.
  * No local ONNX/WASM model, no cold-start delays.
  */
 
@@ -149,8 +149,8 @@ export async function generateCandidateEmbedding(
 export function getModelInfo() {
   return {
     model: 'BAAI/bge-m3',
-    description: 'BGE-M3 via HuggingFace Inference API — 1024-dim, multilingual, SOTA retrieval',
-    dimensions: 1024,
+    description: 'BGE-M3 via HuggingFace Inference API — 384-dim, multilingual, SOTA retrieval',
+    dimensions: 384,
     maxTokens: 8192,
     type: 'HuggingFace Inference API',
     endpoint: HF_MODEL_URL,

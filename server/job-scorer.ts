@@ -5,15 +5,16 @@
  * relevance. All scoring is synchronous — no API calls on the request path.
  *
  * Score weights:
- *   Keyword skill match:  35%
- *   Semantic embedding:   25%  (falls back to keyword-only when no vectors)
+ *   Semantic embedding:   35%  (primary signal — pgvector retrieval)
+ *   Keyword skill match:  25%  (precision signal)
  *   Title/role relevance: 25%
  *   Experience level:     15%
  *   Context bonus:        +0-8 points (location + work type, additive)
  *
  * Hard caps:
- *   - No skill overlap AND no role family match → capped at 25%
- *   - Prevents unrelated jobs from surfacing via semantic noise alone
+ *   - No skill overlap AND no role family match:
+ *     With semantic signal → capped at 45% (lets strong semantic matches through)
+ *     Without semantic signal → capped at 25% (prevents noise)
  */
 
 import { parseSkillsInput, getRelatedSkills } from './skill-normalizer';
@@ -32,7 +33,7 @@ const WEIGHTS_TTL = 10 * 60 * 1000; // 10 minutes
  * value if fresh, triggers async refresh otherwise. Falls back to defaults.
  */
 function getWeights(): LearnedWeights {
-  const defaults: LearnedWeights = { keyword: 0.35, semantic: 0.25, title: 0.25, experience: 0.15 };
+  const defaults: LearnedWeights = { keyword: 0.25, semantic: 0.35, title: 0.25, experience: 0.15 };
 
   // Trigger async refresh if stale
   if (Date.now() - _weightsLoadedAt > WEIGHTS_TTL) {
@@ -441,10 +442,11 @@ export function scoreJob(
   // Apply context bonus (additive, capped at 100)
   matchScore = Math.min(100, matchScore + contextBonus);
 
-  // ── Hard cap: no skill overlap AND no role match → max 25% ────
-  // Prevents semantic noise from surfacing completely unrelated jobs
+  // ── Hard cap: no skill overlap AND no role match ────
+  // With semantic signal: cap at 45% (lets strong semantic matches pass 30% threshold)
+  // Without semantic signal: cap at 25% (prevents keyword noise from surfacing unrelated jobs)
   if (!hasSkillOverlap && !hasRoleMatch) {
-    matchScore = Math.min(matchScore, 25);
+    matchScore = Math.min(matchScore, hasSemanticSignal ? 45 : 25);
   }
 
   // ── Explanation ────────────────────────────────────────────────

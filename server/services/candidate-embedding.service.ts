@@ -3,7 +3,7 @@
  * Called after resume parsing and during batch backfill.
  */
 
-import { db } from '../db';
+import { db, client } from '../db';
 import { candidateProfiles } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { generateCandidateEmbedding } from '../ml-matching';
@@ -25,12 +25,16 @@ export async function updateCandidateEmbedding(
     const embedding = await generateCandidateEmbedding(skills, experience, previousJobTitles);
     if (!embedding || embedding.length === 0) return;
 
-    await db.update(candidateProfiles)
-      .set({
-        vectorEmbedding: JSON.stringify(embedding),
-        embeddingUpdatedAt: new Date(),
-      })
-      .where(eq(candidateProfiles.userId, userId));
+    const vectorStr = `[${embedding.join(',')}]`;
+
+    // Dual-write: TEXT column (legacy) + native pgvector column
+    await client`
+      UPDATE candidate_users
+      SET vector_embedding = ${JSON.stringify(embedding)},
+          embedding = ${vectorStr}::vector,
+          embedding_updated_at = NOW()
+      WHERE user_id = ${userId}
+    `;
 
     console.log(`[CandidateEmbedding] Stored ${embedding.length}-dim vector for ${userId}`);
   } catch (err: any) {

@@ -10,8 +10,8 @@
  */
 
 import { storage } from '../storage.js';
-import { generateEmbedding, cosineSimilarity } from '../ml-matching.js';
-import { db } from '../db.js';
+import { generateEmbedding } from '../ml-matching.js';
+import { db, client } from '../db.js';
 import { jobPostings } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 
@@ -45,14 +45,16 @@ export async function updateJobEmbedding(jobId: number): Promise<void> {
   }
 
   const embedding = await computeJobEmbedding(job);
-  
-  await db
-    .update(jobPostings)
-    .set({
-      vectorEmbedding: JSON.stringify(embedding),
-      embeddingUpdatedAt: new Date(),
-    })
-    .where(eq(jobPostings.id, jobId));
+  const vectorStr = `[${embedding.join(',')}]`;
+
+  // Dual-write: TEXT column (legacy) + native pgvector column
+  await client`
+    UPDATE job_postings
+    SET vector_embedding = ${JSON.stringify(embedding)},
+        embedding = ${vectorStr}::vector,
+        embedding_updated_at = NOW()
+    WHERE id = ${jobId}
+  `;
 
   console.log(`[BatchEmbed] Updated embedding for job ${jobId}: ${job.title}`);
 }
@@ -119,38 +121,25 @@ export async function findSimilarJobs(
   jobId: number,
   limit: number = 10
 ): Promise<Array<{ jobId: number; score: number; title: string; company: string }>> {
-  const job = await storage.getJobPosting(jobId);
-  if (!job?.vectorEmbedding) {
-    console.warn(`[BatchEmbed] Job ${jobId} has no embedding`);
-    return [];
-  }
+  if (!client) return [];
 
-  if (!db) return [];
-  const queryEmbedding = JSON.parse(job.vectorEmbedding);
-  const allJobs = await db.select().from(jobPostings).where(eq(jobPostings.status, 'active'));
-  
-  const similarities: Array<{ jobId: number; score: number; title: string; company: string }> = [];
+  // Use pgvector cosine distance for fast ANN similarity search
+  const rows = await client`
+    SELECT j2.id AS job_id, j2.title, j2.company,
+           1 - (j1.embedding <=> j2.embedding) AS score
+    FROM job_postings j1
+    JOIN job_postings j2 ON j2.id != j1.id AND j2.embedding IS NOT NULL
+    WHERE j1.id = ${jobId} AND j1.embedding IS NOT NULL AND j2.status = 'active'
+    ORDER BY j1.embedding <=> j2.embedding
+    LIMIT ${limit}
+  `;
 
-  for (const otherJob of allJobs) {
-    if (otherJob.id === jobId || !otherJob.vectorEmbedding) {continue;}
-    
-    try {
-      const otherEmbedding = JSON.parse(otherJob.vectorEmbedding);
-      const score = cosineSimilarity(queryEmbedding, otherEmbedding);
-      
-      similarities.push({
-        jobId: otherJob.id,
-        score,
-        title: otherJob.title,
-        company: otherJob.company,
-      });
-    } catch (e) {
-      console.warn(`[BatchEmbed] Could not parse embedding for job ${otherJob.id}`);
-    }
-  }
-
-  similarities.sort((a, b) => b.score - a.score);
-  return similarities.slice(0, limit);
+  return rows.map((r: any) => ({
+    jobId: r.job_id,
+    score: r.score,
+    title: r.title,
+    company: r.company,
+  }));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

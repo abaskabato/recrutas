@@ -10,12 +10,26 @@ import {
   boolean,
   numeric,
 } from "drizzle-orm/pg-core";
+import { customType } from "drizzle-orm/pg-core/columns/custom";
 import { unique } from "drizzle-orm/pg-core/unique-constraint";
 import { uuid } from "drizzle-orm/pg-core/columns/uuid";
 import { primaryKey } from "drizzle-orm/pg-core/primary-keys";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
+
+// pgvector custom type — stores 1024-dim BGE-M3 embeddings as native vector
+const vector = customType<{ data: number[]; driverData: string }>({
+  dataType() { return 'vector(384)'; },
+  toDriver(value: number[]): string { return `[${value.join(',')}]`; },
+  fromDriver(value: string): number[] {
+    if (typeof value === 'string') {
+      // pgvector returns '[0.1,0.2,...]' format
+      return value.replace(/^\[|\]$/g, '').split(',').map(Number);
+    }
+    return value as unknown as number[];
+  },
+});
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey(),
@@ -91,6 +105,8 @@ export const candidateProfiles = pgTable("candidate_users", {
   jobPreferences: jsonb("job_preferences").default({} as any),
   // Pre-computed vector embedding for semantic matching (JSON array, 1024-dim BGE-M3)
   vectorEmbedding: text("vector_embedding"),
+  // Native pgvector column for ANN retrieval (populated alongside TEXT column)
+  embedding: vector("embedding"),
   embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -138,6 +154,8 @@ export const jobPostings = pgTable("job_postings", {
   recruiterEmailDomain: varchar("recruiter_email_domain"), // For company verification
   // Pre-computed vector embedding for semantic search (stored as JSON array)
   vectorEmbedding: text("vector_embedding"),
+  // Native pgvector column for ANN retrieval (populated alongside TEXT column)
+  embedding: vector("embedding"),
   embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

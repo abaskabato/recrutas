@@ -6,7 +6,7 @@
  */
 
 import { db, client } from '../server/db.js';
-import { sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm/sql';
 
 async function main() {
   if (!db) { console.error('[ErrorCleanup] Database not available'); process.exit(1); }

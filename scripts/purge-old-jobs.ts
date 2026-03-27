@@ -6,7 +6,7 @@
  */
 
 import { db, client } from '../server/db.js';
-import { sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm/sql';
 
 function parseRetainDays(): number {
   for (const arg of process.argv.slice(2)) {

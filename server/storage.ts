@@ -61,7 +61,7 @@ import {
   inviteCodeRedemptions,
   dailyUsageLimits,
 } from "../shared/schema.js";
-import { db } from "./db";
+import { db, client } from "./db";
 import { eq, desc, asc, and, or } from "drizzle-orm";
 import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
@@ -873,72 +873,158 @@ export class DatabaseStorage implements IStorage {
       extraFilters.push(sql`LOWER(${jobPostings.workType}) = ${filters.workType.toLowerCase()}`);
     }
 
-    // Wide query: match by skills OR title keyword OR role family.
-    // Scoring happens in application code — this is just retrieval.
-    // Only use skills with 4+ characters for title matching to avoid false positives
-    // (e.g. "IT" matching "Litigation", "Go" matching "Google")
-    const titleMatchSkills = candidateSkills.filter(s => s.length >= 4);
+    // ── Retrieval: pgvector ANN + keyword hybrid ──────────────────
+    // When candidate has an embedding, use pgvector cosine distance to find
+    // semantically similar jobs (top 200) and merge with keyword matches (top 100).
+    // This ensures semantic matches surface even when keywords don't overlap.
 
-    // Expand candidate's role families into title search terms
-    // so "IT Support Specialist" also retrieves "Help Desk Analyst" etc.
+    const titleMatchSkills = candidateSkills.filter(s => s.length >= 4);
     const roleTitleKeywords = getRoleTitleKeywords(candidateTitles);
     if (roleTitleKeywords.length > 0) {
       console.log(`Role title keywords: ${roleTitleKeywords.join(', ')}`);
     }
 
-    const allJobs = await db
-      .select()
-      .from(jobPostings)
-      .where(and(
-        eq(jobPostings.status, 'active'),
-        // Match by: (1) skill overlap, (2) skill in title, or (3) role family in title
-        or(
-          ...candidateSkills.map(skill =>
-            sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
+    // Shared filters for both retrieval paths
+    const baseFilters = and(
+      eq(jobPostings.status, 'active'),
+      or(
+        sql`${jobPostings.expiresAt} IS NULL`,
+        sql`${jobPostings.expiresAt} > NOW()`
+      ),
+      or(
+        eq(jobPostings.livenessStatus, 'active'),
+        eq(jobPostings.livenessStatus, 'unknown'),
+        eq(jobPostings.source, 'platform')
+      ),
+      or(
+        sql`${jobPostings.ghostJobScore} IS NULL`,
+        sql`${jobPostings.ghostJobScore} < 60`,
+        eq(jobPostings.source, 'platform')
+      ),
+      or(
+        eq(jobPostings.source, 'platform'),
+        sql`${jobPostings.createdAt} > ${cutoffDateStr}`
+      ),
+      sql`${jobPostings.source} != 'ArbeitNow'`,
+      ...(excludeIds.length > 0
+        ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
+        : []),
+      ...extraFilters,
+    );
+
+    let allJobs: any[];
+
+    if (candidateEmbedding && candidateEmbedding.length > 0 && client) {
+      // ── Path A: pgvector semantic retrieval + keyword backup ──
+      const vectorStr = `[${candidateEmbedding.join(',')}]`;
+      const excludeClause = excludeIds.length > 0
+        ? client`AND id NOT IN (${client(excludeIds)})`
+        : client``;
+      const titleFilter = filters?.jobTitle
+        ? client`AND LOWER(title) LIKE ${'%' + filters.jobTitle.toLowerCase() + '%'}`
+        : client``;
+      const locationFilter = filters?.location
+        ? client`AND LOWER(location) LIKE ${'%' + filters.location.toLowerCase() + '%'}`
+        : client``;
+      const workTypeFilter = filters?.workType
+        ? client`AND LOWER(work_type) = ${filters.workType.toLowerCase()}`
+        : client``;
+
+      // pgvector ANN retrieval — top 200 by cosine distance
+      const vectorRows = await client`
+        SELECT id FROM job_postings
+        WHERE status = 'active'
+          AND embedding IS NOT NULL
+          AND (expires_at IS NULL OR expires_at > NOW())
+          AND (liveness_status IN ('active', 'unknown') OR source = 'platform')
+          AND (ghost_job_score IS NULL OR ghost_job_score < 60 OR source = 'platform')
+          AND (source = 'platform' OR created_at > ${cutoffDateStr})
+          AND source != 'ArbeitNow'
+          ${excludeClause}
+          ${titleFilter}
+          ${locationFilter}
+          ${workTypeFilter}
+        ORDER BY embedding <=> ${vectorStr}::vector
+        LIMIT 200
+      `;
+      const vectorIds = new Set(vectorRows.map((r: any) => r.id));
+      console.log(`[pgvector] Retrieved ${vectorIds.size} jobs by semantic similarity`);
+
+      // Keyword retrieval — top 100 (existing logic)
+      const keywordJobs = await db
+        .select({ id: jobPostings.id })
+        .from(jobPostings)
+        .where(and(
+          baseFilters,
+          or(
+            ...candidateSkills.map(skill =>
+              sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
+            ),
+            ...(titleMatchSkills.length > 0
+              ? titleMatchSkills.map(skill =>
+                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
+                )
+              : []),
+            ...(roleTitleKeywords.length > 0
+              ? roleTitleKeywords.map(keyword =>
+                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + keyword.toLowerCase() + '%'}`
+                )
+              : []),
+            ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
           ),
-          ...(titleMatchSkills.length > 0
-            ? titleMatchSkills.map(skill =>
-                sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
-              )
-            : []),
-          ...(roleTitleKeywords.length > 0
-            ? roleTitleKeywords.map(keyword =>
-                sql`LOWER(${jobPostings.title}) LIKE ${'%' + keyword.toLowerCase() + '%'}`
-              )
-            : []),
-          // Fallback: if no skills AND no role keywords, match nothing
-          ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
-        ),
-        or(
-          sql`${jobPostings.expiresAt} IS NULL`,
-          sql`${jobPostings.expiresAt} > NOW()`
-        ),
-        or(
-          eq(jobPostings.livenessStatus, 'active'),
-          eq(jobPostings.livenessStatus, 'unknown'),
-          eq(jobPostings.source, 'platform')
-        ),
-        or(
-          sql`${jobPostings.ghostJobScore} IS NULL`,
-          sql`${jobPostings.ghostJobScore} < 60`,
-          eq(jobPostings.source, 'platform')
-        ),
-        or(
-          eq(jobPostings.source, 'platform'),
-          sql`${jobPostings.createdAt} > ${cutoffDateStr}`
-        ),
-        sql`${jobPostings.source} != 'ArbeitNow'`,
-        ...(excludeIds.length > 0
-          ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
-          : []),
-        ...extraFilters,
-      ))
-      .orderBy(
-        sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
-        sql`${jobPostings.trustScore} DESC NULLS LAST`,
-        sql`${jobPostings.createdAt} DESC`
-      )
-      .limit(300);
+        ))
+        .limit(100);
+      const keywordIds = keywordJobs.map((r: any) => r.id);
+      console.log(`[keyword] Retrieved ${keywordIds.length} jobs by keyword match`);
+
+      // Merge and deduplicate
+      const mergedIds = [...new Set([...vectorIds, ...keywordIds.map(Number)])];
+      console.log(`[hybrid] Merged ${mergedIds.length} unique jobs for scoring`);
+
+      if (mergedIds.length === 0) {
+        allJobs = [];
+      } else {
+        allJobs = await db
+          .select()
+          .from(jobPostings)
+          .where(sql`${jobPostings.id} IN (${sql.join(mergedIds.map(id => sql`${id}`), sql`, `)})`)
+          .orderBy(
+            sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
+            sql`${jobPostings.trustScore} DESC NULLS LAST`,
+            sql`${jobPostings.createdAt} DESC`
+          );
+      }
+    } else {
+      // ── Path B: keyword-only fallback (no embedding) ──
+      allJobs = await db
+        .select()
+        .from(jobPostings)
+        .where(and(
+          baseFilters,
+          or(
+            ...candidateSkills.map(skill =>
+              sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
+            ),
+            ...(titleMatchSkills.length > 0
+              ? titleMatchSkills.map(skill =>
+                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
+                )
+              : []),
+            ...(roleTitleKeywords.length > 0
+              ? roleTitleKeywords.map(keyword =>
+                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + keyword.toLowerCase() + '%'}`
+                )
+              : []),
+            ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
+          ),
+        ))
+        .orderBy(
+          sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
+          sql`${jobPostings.trustScore} DESC NULLS LAST`,
+          sql`${jobPostings.createdAt} DESC`
+        )
+        .limit(300);
+    }
 
     const jobsWithSource = allJobs
       .map((job: any) => ({
