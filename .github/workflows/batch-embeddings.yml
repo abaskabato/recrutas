@@ -2,8 +2,8 @@ name: Batch Embeddings
 
 on:
   schedule:
-    # Run daily at 3 AM UTC (refresh job embeddings)
-    - cron: '0 3 * * *'
+    # Run 4x/day to keep embeddings fresh and backfill new jobs
+    - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
     inputs:
       limit:
@@ -53,7 +53,7 @@ jobs:
             LIMIT=${{ github.event.inputs.limit }}
             FORCE=${{ github.event.inputs.force }}
           else
-            LIMIT=500
+            LIMIT=5000
             FORCE=false
           fi
 
