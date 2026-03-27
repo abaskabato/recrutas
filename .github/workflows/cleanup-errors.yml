@@ -10,23 +10,22 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Purge error events older than 30 days
-        continue-on-error: true
-        run: |
-          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/cleanup-errors" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-
-          echo "Response status: $response"
-          echo "Response body: $(cat /tmp/response.json)"
-
-          if [ "$response" != "200" ]; then
-            echo "Cleanup returned non-200: $response"
-            exit 1
-          fi
-
-      - name: Log result
-        if: always()
-        run: echo "Error cleanup run complete at $(date -u)"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx tsx scripts/cleanup-errors.ts

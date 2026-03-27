@@ -16,24 +16,24 @@ jobs:
   purge:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Delete stale external jobs
-        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
           RETAIN_DAYS="${{ github.event.inputs.retain_days || '90' }}"
-          response=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/purge-old-jobs?retainDays=${RETAIN_DAYS}" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-
-          echo "Response status: $response"
-          echo "Response body: $(cat /tmp/response.json)"
-
-          if [ "$response" != "200" ]; then
-            echo "Purge returned non-200: $response"
-            exit 1
-          fi
-
-      - name: Log result
-        if: always()
-        run: echo "Job purge run complete at $(date -u)"
+          npx tsx scripts/purge-old-jobs.ts --retainDays=${RETAIN_DAYS}

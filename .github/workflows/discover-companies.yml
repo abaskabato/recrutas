@@ -18,50 +18,38 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Phase 1 — Mine job postings for new companies
-        run: |
-          response=$(curl -s -o /tmp/discover.json -w "%{http_code}" \
-            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=discover" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-          echo "Status: $response"
-          echo "Body: $(cat /tmp/discover.json)"
-          if [ "$response" != "200" ]; then
-            echo "::error::Discovery phase failed with status $response"
-            exit 1
-          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: npx tsx scripts/discover-companies.ts --phase=discover
 
       - name: Phase 2 — Apollo.io company seeding
         continue-on-error: true
-        run: |
-          response=$(curl -s -o /tmp/apollo.json -w "%{http_code}" \
-            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=apollo" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-          echo "Status: $response"
-          echo "Body: $(cat /tmp/apollo.json)"
-          if [ "$response" != "200" ]; then
-            echo "::warning::Apollo phase returned $response (non-fatal)"
-          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+        run: npx tsx scripts/discover-companies.ts --phase=apollo
 
       - name: Phase 3 — ATS probe pending companies
         continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
           LIMIT="${{ github.event.inputs.limit || '300' }}"
-          response=$(curl -s -o /tmp/probe.json -w "%{http_code}" \
-            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/discover-companies?phase=probe&limit=${LIMIT}" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
-          echo "Status: $response"
-          echo "Body: $(cat /tmp/probe.json)"
-          if [ "$response" != "200" ]; then
-            echo "::warning::Probe phase returned $response (non-fatal)"
-          fi
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "Company discovery run complete at $(date -u)"
-          echo "Discover: $(cat /tmp/discover.json 2>/dev/null || echo 'N/A')"
-          echo "Apollo:   $(cat /tmp/apollo.json 2>/dev/null || echo 'N/A')"
-          echo "Probe:    $(cat /tmp/probe.json 2>/dev/null || echo 'N/A')"
+          npx tsx scripts/discover-companies.ts --phase=probe --limit=${LIMIT}

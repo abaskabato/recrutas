@@ -1,0 +1,85 @@
+/**
+ * Discover and probe companies — standalone cron script
+ * Phase 1: mine job postings for new company names
+ * Phase 2: probe pending companies against ATS APIs
+ * Phase 3: seed companies from Apollo.io
+ *
+ * Usage:
+ *   npx tsx scripts/discover-companies.ts --phase=discover
+ *   npx tsx scripts/discover-companies.ts --phase=probe [--limit=300]
+ *   npx tsx scripts/discover-companies.ts --phase=apollo
+ */
+
+import { db, client } from '../server/db.js';
+import { eq } from 'drizzle-orm';
+
+function parseArgs(): { phase: string; limit: number } {
+  let phase = 'discover';
+  let limit = 300;
+  for (const arg of process.argv.slice(2)) {
+    const phaseMatch = arg.match(/^--phase=(\w+)$/);
+    if (phaseMatch) phase = phaseMatch[1];
+    const limitMatch = arg.match(/^--limit=(\d+)$/);
+    if (limitMatch) limit = Math.min(parseInt(limitMatch[1], 10), 300);
+  }
+  return { phase, limit };
+}
+
+async function main() {
+  if (!db) { console.error('[DiscoverCompanies] Database not available'); process.exit(1); }
+
+  const { phase, limit } = parseArgs();
+  console.log(`[DiscoverCompanies] Running phase: ${phase} (limit: ${limit})`);
+
+  if (phase === 'discover') {
+    const { companyDiscoveryPipeline } = await import('../server/company-discovery.js');
+    await companyDiscoveryPipeline.runDiscovery();
+    const stats = await companyDiscoveryPipeline.getStatistics();
+    console.log('[DiscoverCompanies] Discovery complete:', JSON.stringify(stats, null, 2));
+    return;
+  }
+
+  if (phase === 'probe') {
+    const { probePendingCompanies } = await import('../server/lib/ats-probe.js');
+    const { discoveredCompanies: dcTable } = await import('../shared/schema.js');
+    const results = await probePendingCompanies(limit);
+
+    let approved = 0;
+    let rejected = 0;
+    for (const result of results) {
+      if (result.atsType && result.atsId) {
+        await db.update(dcTable)
+          .set({
+            detectedAts: result.atsType,
+            atsId: result.atsId,
+            careerPageUrl: result.careerPageUrl ?? undefined,
+            status: 'approved',
+            updatedAt: new Date(),
+          })
+          .where(eq(dcTable.normalizedName, result.normalizedName));
+        approved++;
+      } else {
+        await db.update(dcTable)
+          .set({ status: 'rejected', updatedAt: new Date() })
+          .where(eq(dcTable.normalizedName, result.normalizedName));
+        rejected++;
+      }
+    }
+    console.log(`[DiscoverCompanies] Probe done: ${approved} approved, ${rejected} rejected`);
+    return;
+  }
+
+  if (phase === 'apollo') {
+    const { runApolloDiscovery } = await import('../server/services/apollo-discovery.service.js');
+    const apolloResult = await runApolloDiscovery(300);
+    console.log('[DiscoverCompanies] Apollo done:', JSON.stringify(apolloResult, null, 2));
+    return;
+  }
+
+  console.error(`[DiscoverCompanies] Invalid phase: ${phase}. Use discover, probe, or apollo.`);
+  process.exit(1);
+}
+
+main()
+  .then(() => { client?.end(); process.exit(0); })
+  .catch((err) => { console.error('[DiscoverCompanies] Fatal:', err); client?.end(); process.exit(1); });

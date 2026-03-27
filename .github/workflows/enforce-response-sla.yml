@@ -4,28 +4,28 @@ on:
   schedule:
     # Run every hour
     - cron: '0 * * * *'
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   enforce-sla:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
     steps:
-      - name: Call SLA enforcement endpoint
-        continue-on-error: true  # App downtime should not block CI
-        run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.RECRUTAS_URL }}/api/cron/enforce-response-sla" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-          echo "Response status: $response"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-          if [ "$response" != "200" ]; then
-            echo "SLA enforcement returned non-200: $response"
-            exit 1
-          fi
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Log result
-        if: always()
-        run: echo "SLA enforcement run complete at $(date -u)"
+      - name: Enforce 24h response SLA
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx tsx scripts/enforce-response-sla.ts
