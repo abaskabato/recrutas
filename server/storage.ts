@@ -917,6 +917,7 @@ export class DatabaseStorage implements IStorage {
     if (candidateEmbedding && candidateEmbedding.length > 0 && client) {
       // ── Path A: pgvector semantic retrieval + keyword backup ──
       const vectorStr = `[${candidateEmbedding.join(',')}]`;
+      console.time('pgvector-query');
       const excludeClause = excludeIds.length > 0
         ? client`AND id NOT IN (${client(excludeIds)})`
         : client``;
@@ -930,7 +931,7 @@ export class DatabaseStorage implements IStorage {
         ? client`AND LOWER(work_type) = ${filters.workType.toLowerCase()}`
         : client``;
 
-      // pgvector ANN retrieval — top 200 by cosine distance
+      // pgvector ANN retrieval — top 50 by cosine distance (reduced from 200 for speed)
       const vectorRows = await client`
         SELECT id FROM job_postings
         WHERE status = 'active'
@@ -945,12 +946,14 @@ export class DatabaseStorage implements IStorage {
           ${locationFilter}
           ${workTypeFilter}
         ORDER BY embedding <=> ${vectorStr}::vector
-        LIMIT 200
+        LIMIT 50
       `;
+      console.timeEnd('pgvector-query');
       const vectorIds = new Set(vectorRows.map((r: any) => r.id));
       console.log(`[pgvector] Retrieved ${vectorIds.size} jobs by semantic similarity`);
 
       // Keyword retrieval — top 100 (existing logic)
+      console.time('keyword-query');
       const keywordJobs = await db
         .select({ id: jobPostings.id })
         .from(jobPostings)
@@ -2676,7 +2679,7 @@ export class DatabaseStorage implements IStorage {
 
   // ── Invite Code Operations ──────────────────────────────────────────────────
 
-  async validateAndRedeemInviteCode(code: string, userId: string, role: string): Promise<{ valid: boolean; error?: string }> {
+  async validateAndRedeemInviteCode(code: string, userId: string, role: string): Promise<{ valid: boolean; error?: string; code?: string }> {
     try {
       const [invite] = await db
         .select()
@@ -2695,13 +2698,13 @@ export class DatabaseStorage implements IStorage {
         .from(inviteCodeRedemptions)
         .where(eq(inviteCodeRedemptions.userId, userId))
         .limit(1);
-      if (existing) return { valid: true }; // already redeemed — allow through
+      if (existing) return { valid: true, code: invite.code }; // already redeemed — allow through
 
       // Redeem: increment count + record redemption
       await db.update(inviteCodes).set({ usedCount: invite.usedCount + 1 }).where(eq(inviteCodes.id, invite.id));
       await db.insert(inviteCodeRedemptions).values({ codeId: invite.id, userId });
 
-      return { valid: true };
+      return { valid: true, code: invite.code };
     } catch (error) {
       console.error('[Storage] Invite code validation error:', error);
       return { valid: false, error: 'Failed to validate invite code' };
