@@ -1,2 +1,1 @@
-browser-use>=0.12.0
-playwright==1.52.0
+# Python dependencies (placeholder — browser extension will replace agent apply)

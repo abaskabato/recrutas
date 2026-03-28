@@ -1,7 +1,7 @@
 /**
  * Match Signals Service — records candidate×job interaction signals for the feedback loop.
  *
- * Every apply, agent-apply, save, hide, and exam event captures the full feature
+ * Every apply, save, hide, and exam event captures the full feature
  * snapshot from scoreJob(). When exam scores arrive, they're joined back to the
  * signal row, creating labeled training data for the weight tuner.
  */
@@ -14,7 +14,7 @@ import type { JobScore } from '../job-scorer';
 
 // ── Signal recording ────────────────────────────────────────────────
 
-export type SignalAction = 'apply' | 'agent_apply' | 'save' | 'hide' | 'exam';
+export type SignalAction = 'apply' | 'save' | 'hide' | 'exam';
 
 /**
  * Record a match signal — fire-and-forget, never blocks the request path.
@@ -61,7 +61,7 @@ export async function joinExamScore(
   try {
     if (!db) return;
 
-    // Find the most recent apply/agent_apply signal for this candidate×job
+    // Find the most recent apply signal for this candidate×job
     const [signal] = await db
       .select({ id: matchSignals.id })
       .from(matchSignals)
@@ -69,7 +69,7 @@ export async function joinExamScore(
         and(
           eq(matchSignals.candidateId, candidateId),
           eq(matchSignals.jobId, jobId),
-          sql`${matchSignals.action} IN ('apply', 'agent_apply')`,
+          eq(matchSignals.action, 'apply'),
         ),
       )
       .orderBy(desc(matchSignals.createdAt))

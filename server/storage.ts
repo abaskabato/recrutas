@@ -54,9 +54,6 @@ import {
   type ActivityLog,
   type NotificationPreferences,
   type InsertNotificationPreferences,
-  agentTasks,
-  type AgentTask,
-  type InsertAgentTask,
   inviteCodes,
   inviteCodeRedemptions,
   dailyUsageLimits,
@@ -209,13 +206,6 @@ export interface IStorage {
   getScreeningQuestions(jobId: number): Promise<any[]>;
   saveScreeningQuestions(jobId: number, questions: any[]): Promise<any[]>;
   saveScreeningAnswers(applicationId: number, answers: any[]): Promise<any[]>;
-
-  // Agent task operations
-  createAgentTask(task: InsertAgentTask): Promise<AgentTask>;
-  getAgentTaskByApplicationId(applicationId: number): Promise<AgentTask | undefined>;
-  getAgentTasksForCandidate(candidateId: string): Promise<AgentTask[]>;
-  getPendingAgentTasks(limit: number): Promise<AgentTask[]>;
-  updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask>;
 
   // Invite code operations
   validateAndRedeemInviteCode(code: string, userId: string, role: string): Promise<{ valid: boolean; error?: string }>;
@@ -2631,64 +2621,6 @@ export class DatabaseStorage implements IStorage {
   // ==========================================
   // AGENT TASK OPERATIONS
   // ==========================================
-
-  async createAgentTask(task: InsertAgentTask): Promise<AgentTask> {
-    const [result] = await db.insert(agentTasks).values(task).returning();
-    return result;
-  }
-
-  async getAgentTaskByApplicationId(applicationId: number): Promise<AgentTask | undefined> {
-    const [result] = await db
-      .select()
-      .from(agentTasks)
-      .where(eq(agentTasks.applicationId, applicationId))
-      .limit(1);
-    return result;
-  }
-
-  async getAgentTasksForCandidate(candidateId: string): Promise<AgentTask[]> {
-    return await db
-      .select()
-      .from(agentTasks)
-      .where(eq(agentTasks.candidateId, candidateId))
-      .orderBy(desc(agentTasks.createdAt));
-  }
-
-  async getPendingAgentTasks(limit: number): Promise<AgentTask[]> {
-    return await db
-      .select()
-      .from(agentTasks)
-      .where(eq(agentTasks.status, "queued"))
-      .orderBy(asc(agentTasks.createdAt))
-      .limit(limit);
-  }
-
-  async updateAgentTaskStatus(taskId: number, status: string, error?: string, logEntry?: any): Promise<AgentTask> {
-    const existing = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1);
-    if (!existing[0]) {throw new Error(`Agent task ${taskId} not found`);}
-
-    const currentLog = (existing[0].agentLog as any[]) || [];
-    const updatedLog = logEntry ? [...currentLog, logEntry] : currentLog;
-
-    const updates: any = {
-      status,
-      agentLog: updatedLog,
-      updatedAt: new Date(),
-    };
-    if (error) {updates.lastError = error;}
-    if (status === "processing") {updates.startedAt = new Date();}
-    if (status === "submitted" || status === "failed") {updates.completedAt = new Date();}
-    if (status === "queued" || status === "processing") {
-      updates.attempts = existing[0].attempts + 1;
-    }
-
-    const [result] = await db
-      .update(agentTasks)
-      .set(updates)
-      .where(eq(agentTasks.id, taskId))
-      .returning();
-    return result;
-  }
 
   // ── Invite Code Operations ──────────────────────────────────────────────────
 

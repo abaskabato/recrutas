@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, RotateCcw, Bot, Clock, FileText, Upload, Loader2, Layers } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, RotateCcw, Clock, FileText, Upload, Loader2, Layers } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
+
 
 type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
 
@@ -87,7 +87,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [experienceLevelFilter, setExperienceLevelFilter] = useState("all");
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [agentApplyingIds, setAgentApplyingIds] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -271,55 +270,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
     },
   });
-
-  const agentApplyMutation = useMutation({
-    mutationFn: async (jobId: number) => {
-      const res = await apiRequest("POST", `/api/candidate/agent-apply/${jobId}`, {});
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ message: 'Application failed' }));
-        throw new Error(data.message || `Application failed (${res.status})`);
-      }
-      return res.json();
-    },
-    onMutate: () => {
-      // Immediately invalidate applications so the "submitting" record appears in the Applications tab
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
-    },
-    onSuccess: (data: any) => {
-      if (data?.verificationRequired) {
-        toast({ title: "Verification Needed", description: `Check your email for a verification code to complete the application.` });
-      } else if (data?.status === 'queued') {
-        toast({ title: "Application Queued", description: "We'll fill out and submit your application within ~5 minutes. You'll get an email when it's done." });
-      } else {
-        toast({ title: "Applied!", description: "Your application was submitted automatically. Check your email for confirmation." });
-      }
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/agent-tasks'] });
-    },
-    onError: (error: any, jobId: number) => {
-      toast({
-        title: "Application Failed",
-        description: error.message,
-        variant: "destructive",
-        action: <ToastAction altText="Retry" onClick={() => agentApplyMutation.mutate(jobId)}>Retry</ToastAction>,
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
-    },
-  });
-
-  const handleAgentApply = (e: React.MouseEvent, match: AIJobMatch) => {
-    e.stopPropagation();
-    if (appliedJobIds.has(match.job.id) || agentApplyingIds.has(match.job.id)) {return;}
-    setAgentApplyingIds(prev => new Set(prev).add(match.job.id));
-    agentApplyMutation.mutate(match.job.id, {
-      onSettled: () => {
-        setAgentApplyingIds(prev => { const next = new Set(prev); next.delete(match.job.id); return next; });
-      },
-    });
-  };
 
   const handleApply = (e: React.MouseEvent, match: AIJobMatch) => {
     e.stopPropagation();
@@ -529,16 +479,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
               const isVerifiedActive = match.isVerifiedActive || (match.job.trustScore && match.job.trustScore >= 85 && match.job.livenessStatus === 'active');
               const isDirectFromCompany = match.isDirectFromCompany || match.job.externalSource === 'internal' || match.job.externalSource === 'platform';
               const isInternalJob = (match.job as any).source === 'platform' || match.job.externalSource === 'platform' || !match.job.externalUrl;
-              // Agent-apply submits directly via the Greenhouse Boards API (HTTP, no browser).
-              // Only shown for jobs sourced from Greenhouse where we can parse boardToken + jobId.
-              // Google, Meta, Amazon, Lever etc. require account login or CSRF — not supported.
-              const supportsAgentApply = (() => {
-                if (!match.job.externalUrl) return false;
-                if ((match.job as any).source === 'greenhouse') return true;
-                const url = match.job.externalUrl.toLowerCase();
-                return url.includes('greenhouse.io');
-              })();
-
               return (
                 <div key={match.id}>
                   <Card className={`hover:shadow-md transition-all duration-150 ${isInternalJob ? 'border-l-4 border-l-emerald-500 hover:border-emerald-300 dark:hover:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/10' : 'hover:border-blue-200 dark:hover:border-blue-800'}`}>
@@ -630,22 +570,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                             </span>
                             <span className="sm:hidden">{applyMutation.isPending ? "..." : isApplied ? "Applied" : isInternalJob && match.job.hasExam ? "Exam" : "Apply"}</span>
                           </Button>
-                          {supportsAgentApply && !isApplied && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => handleAgentApply(e, match)}
-                              disabled={agentApplyingIds.has(match.job.id)}
-                              className="flex-1 sm:flex-none border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20 text-xs sm:text-sm"
-                              title="Auto-fills and submits your application on the company's Greenhouse/Lever form"
-                            >
-                              {agentApplyingIds.has(match.job.id)
-                                ? <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-                                : <Bot className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />}
-                              <span className="hidden sm:inline">{agentApplyingIds.has(match.job.id) ? "Applying..." : "Apply For Me"}</span>
-                              <span className="sm:hidden">{agentApplyingIds.has(match.job.id) ? "..." : "Agent"}</span>
-                            </Button>
-                          )}
                           <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2">
                             <Button
                               size="sm"

@@ -9,8 +9,8 @@ let _supabaseAdmin: SupabaseClient | null = null;
 /**
  * Lazy-initialized Supabase admin client.
  * Only throws when actually accessed, not at import time.
- * This allows scripts that don't need Supabase (e.g. agent-apply worker)
- * to import storage.ts without crashing.
+ * This allows scripts that don't need Supabase to import storage.ts
+ * without crashing.
  */
 export function getSupabaseAdmin(): SupabaseClient {
   if (!_supabaseAdmin) {
