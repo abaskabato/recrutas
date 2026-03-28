@@ -397,35 +397,8 @@ export default function CandidateStreamlinedDashboard() {
 
         {/* Stats row — only when resume uploaded */}
         {hasResume && activeTab === 'jobs' && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              {
-                label: 'New Matches',
-                value: stats?.newMatches ?? 0,
-                icon: Target,
-                iconBg: 'bg-emerald-50 dark:bg-emerald-950',
-                iconColor: 'text-emerald-600 dark:text-emerald-400',
-                action: () => {},
-                actionLabel: 'In your feed',
-              },
-              {
-                label: 'Recruiter Views',
-                value: stats?.profileViews ?? 0,
-                icon: Eye,
-                iconBg: 'bg-blue-50 dark:bg-blue-950',
-                iconColor: 'text-blue-600 dark:text-blue-400',
-                action: () => { setActiveTab('profile'); setIsEditingProfile(true); },
-                actionLabel: 'Improve profile',
-              },
-              {
-                label: 'Active Chats',
-                value: stats?.activeChats ?? 0,
-                icon: MessageCircle,
-                iconBg: 'bg-violet-50 dark:bg-violet-950',
-                iconColor: 'text-violet-600 dark:text-violet-400',
-                action: () => setLocation('/chat'),
-                actionLabel: 'Open chats',
-              },
               {
                 label: 'Applications',
                 value: applications?.length ?? 0,
