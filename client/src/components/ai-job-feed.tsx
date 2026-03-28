@@ -604,26 +604,23 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                           </div>
                         </div>
                       </div>
-                      {match.job.externalSource && match.job.externalSource !== 'internal' && (
+                      {match.job.externalUrl && (
                         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                           <div className="flex items-center">
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Via {match.job.externalSource}
                             {match.job.postedDate && (
-                              <span className="ml-2">• Posted {new Date(match.job.postedDate).toLocaleDateString()}</span>
+                              <span>Posted {new Date(match.job.postedDate).toLocaleDateString()}</span>
                             )}
                           </div>
-                          {match.job.externalUrl && (
-                            <a
-                              href={match.job.externalUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline flex items-center"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              View Original Post
-                            </a>
-                          )}
+                          <a
+                            href={match.job.externalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline flex items-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View Original Post
+                          </a>
                         </div>
                       )}
                     </CardContent>
