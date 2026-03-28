@@ -207,55 +207,64 @@ export class JobAggregator {
   // Add new open source job sources
   async fetchFromJSearchAPI(userSkills?: string[]): Promise<ExternalJob[]> {
     try {
-      console.log('Fetching from JSearch API (free tier)...');
+      console.log('Fetching from JSearch API...');
 
-      // Create appropriate queries based on skills (not just tech)
-      let query = 'jobs';
+      // Wide industry queries — same breadth as Adzuna/Jooble
+      const queries = [
+        'software engineer', 'data analyst', 'product manager',
+        'IT support', 'cybersecurity', 'nurse',
+        'accountant', 'marketing manager', 'sales representative',
+        'project manager', 'customer service', 'human resources',
+      ];
+
+      // Prepend user skills if available
       if (userSkills && userSkills.length > 0) {
-        const skill = userSkills[0].toLowerCase();
-        // Map skills to appropriate job search terms
-        if (skill.includes('sales')) {query = 'sales representative';}
-        else if (skill.includes('design')) {query = 'designer';}
-        else if (skill.includes('marketing')) {query = 'marketing specialist';}
-        else if (skill.includes('finance')) {query = 'financial analyst';}
-        else if (skill.includes('hr')) {query = 'human resources';}
-        else if (skill.includes('healthcare')) {query = 'healthcare worker';}
-        else if (skill.includes('education')) {query = 'teacher';}
-        else if (skill.includes('customer')) {query = 'customer service';}
-        else if (skill.includes('management')) {query = 'manager';}
-        else if (skill.includes('data')) {query = 'data analyst';}
-        else if (skill.includes('writing')) {query = 'content writer';}
-        else {query = userSkills.join(' ') + ' jobs';}
+        queries.unshift(...userSkills.slice(0, 3));
       }
 
-      const params = new URLSearchParams({
-        query: query,
-        page: '1',
-        num_pages: '3',
-        country: 'US',
-        employment_types: 'FULLTIME,PARTTIME,CONTRACTOR',
-        job_requirements: 'under_3_years_experience,more_than_3_years_experience,no_experience',
-        remote_jobs_only: 'false'
-      });
+      const allJobs: ExternalJob[] = [];
+      const seen = new Set<string>();
 
-      // Using RapidAPI free tier for JSearch
-      const response = await this.fetchWithRetry(`https://jsearch.p.rapidapi.com/search?${params}`, {
-        headers: {
-          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
-          'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
-          'User-Agent': 'JobPlatform/1.0'
+      for (const query of queries) {
+        if (allJobs.length >= 500) break;
+        try {
+          const params = new URLSearchParams({
+            query,
+            page: '1',
+            num_pages: '5',
+            country: 'US',
+            employment_types: 'FULLTIME,PARTTIME,CONTRACTOR',
+            job_requirements: 'under_3_years_experience,more_than_3_years_experience,no_experience',
+            remote_jobs_only: 'false'
+          });
+
+          const response = await this.fetchWithRetry(`https://jsearch.p.rapidapi.com/search?${params}`, {
+            headers: {
+              'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
+              'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
+              'User-Agent': 'JobPlatform/1.0'
+            }
+          });
+
+          if (response.ok) {
+            const data: JSearchApiResponse = await response.json();
+            for (const job of this.transformJSearchJobs(data.data || [])) {
+              const key = `${job.title}::${job.company}`.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                allJobs.push(job);
+              }
+            }
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          console.log(`[JSearch] Skipping query "${query}":`, (error as Error).message);
         }
-      });
-
-      if (response.ok) {
-        const data: JSearchApiResponse = await response.json();
-        const jobs = this.transformJSearchJobs(data.data || []);
-        console.log(`Fetched ${jobs.length} real jobs from JSearch API`);
-        return jobs;
-      } else {
-        console.log(`JSearch API returned ${response.status}: ${response.statusText}`);
-        return [];
       }
+
+      console.log(`[JSearch] Fetched ${allJobs.length} jobs across ${queries.length} queries`);
+      return allJobs;
     } catch (error) {
       console.log('Error fetching from JSearch:', (error as Error).message);
       return [];
@@ -298,22 +307,25 @@ export class JobAggregator {
 
       // Wide industry search queries
       const searchQueries = [
-        'software engineer', 'IT support', 'data analyst',
-        'nurse', 'healthcare', 'accountant',
-        'marketing', 'project manager', 'sales',
-        'human resources', 'customer service', 'logistics',
+        'software engineer', 'data analyst', 'IT support',
+        'network administrator', 'cybersecurity analyst',
+        'nurse', 'medical technician', 'healthcare',
+        'accountant', 'financial analyst', 'marketing manager',
+        'project manager', 'human resources', 'operations manager',
+        'sales representative', 'customer service', 'supply chain',
+        'teacher', 'social worker', 'graphic designer',
       ];
 
       // Prepend user skills if available
       if (userSkills && userSkills.length > 0) {
-        searchQueries.unshift(userSkills.join(' '));
+        searchQueries.unshift(...userSkills.slice(0, 3));
       }
 
       const allJobs: ExternalJob[] = [];
       const seen = new Set<string>();
 
       for (const keywords of searchQueries) {
-        if (allJobs.length >= 300) break;
+        if (allJobs.length >= 500) break;
         try {
           const response = await this.fetchWithRetry(`https://jooble.org/api/${apiKey}`, {
             method: 'POST',
@@ -325,7 +337,7 @@ export class JobAggregator {
               keywords,
               location: 'USA',
               page: 1,
-              ResultOnPage: 30,
+              ResultOnPage: 50,
             }),
           });
 
@@ -388,81 +400,69 @@ export class JobAggregator {
     try {
       console.log('Fetching from USAJobs.gov API...');
 
-      // Build dynamic keyword based on user skills
-      let keywords = 'software developer engineer programmer analyst';
+      const queries = [
+        'software engineer', 'data analyst', 'IT specialist',
+        'cybersecurity', 'network administrator', 'project manager',
+        'nurse', 'healthcare', 'accountant',
+        'human resources', 'administrative', 'logistics',
+        'contract specialist', 'management analyst', 'program analyst',
+      ];
+
       if (userSkills && userSkills.length > 0) {
-        keywords = userSkills.join(' ') + ' developer engineer';
+        queries.unshift(...userSkills.slice(0, 3));
       }
 
-      // Build query parameters for targeted jobs
-      const params = new URLSearchParams({
-        Keyword: keywords,
-        LocationName: 'United States',
-        ResultsPerPage: '100',
-        WhoMayApply: 'All',
-        SortField: 'PublicationStartDate',
-        SortDirection: 'Descending'
-      });
-
-      const response = await this.fetchWithRetry(`https://data.usajobs.gov/api/search?${params}`, {
-        headers: {
-          'Host': 'data.usajobs.gov',
-          'User-Agent': 'Recrutas-Platform/1.0 (recrutas@replit.com)',
-          'Authorization-Key': process.env.USAJOBS_API_KEY || ''
-        }
-      });
-
-      if (response.ok) {
-        const data: USAJobsApiResponse = await response.json();
-        const jobs = this.transformUSAJobs(data.SearchResult?.SearchResultItems || []);
-        console.log(`Fetched ${jobs.length} real jobs from USAJobs.gov`);
-        return jobs;
-      } else {
-        console.log(`USAJobs API returned ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error fetching from USAJobs:', error);
-    }
-
-    return [];
-  }
-
-  async fetchFromJSearch(): Promise<ExternalJob[]> {
-    try {
-      console.log('Fetching from JSearch API (free tier)...');
-
-      // JSearch offers free access to real job data
-      const queries = ['software developer', 'frontend developer', 'backend engineer'];
       const allJobs: ExternalJob[] = [];
+      const seen = new Set<string>();
 
-      for (const query of queries) {
+      for (const keyword of queries) {
+        if (allJobs.length >= 500) break;
         try {
-          const response = await this.fetchWithRetry(`https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(query)}&page=1&num_pages=1&date_posted=today`, {
+          const params = new URLSearchParams({
+            Keyword: keyword,
+            LocationName: 'United States',
+            ResultsPerPage: '50',
+            WhoMayApply: 'All',
+            SortField: 'PublicationStartDate',
+            SortDirection: 'Descending'
+          });
+
+          const response = await this.fetchWithRetry(`https://data.usajobs.gov/api/search?${params}`, {
             headers: {
-              'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || 'demo-key',
-              'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
+              'Host': 'data.usajobs.gov',
+              'User-Agent': 'Recrutas-Platform/1.0 (hello@recrutas.ai)',
+              'Authorization-Key': process.env.USAJOBS_API_KEY || ''
             }
           });
 
           if (response.ok) {
-            const data: JSearchApiResponse = await response.json();
-            const jobs = this.transformJSearchJobs(data.data || []);
-            allJobs.push(...jobs.slice(0, 5)); // Take 5 jobs per query
-
-            // Add delay to respect rate limits
-            await new Promise(resolve => setTimeout(resolve, 100));
+            const data: USAJobsApiResponse = await response.json();
+            for (const job of this.transformUSAJobs(data.SearchResult?.SearchResultItems || [])) {
+              const key = `${job.title}::${job.company}`.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                allJobs.push(job);
+              }
+            }
           }
-        } catch (queryError) {
-          console.log(`Skipping query "${query}":`, queryError);
+
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          console.log(`[USAJobs] Skipping query "${keyword}":`, (error as Error).message);
         }
       }
 
-      console.log(`Fetched ${allJobs.length} real jobs from JSearch API`);
+      console.log(`[USAJobs] Fetched ${allJobs.length} jobs across ${queries.length} queries`);
       return allJobs;
     } catch (error) {
-      console.error('Error fetching from JSearch:', error);
+      console.error('[USAJobs] Error:', error);
       return [];
     }
+  }
+
+  // Legacy JSearch endpoint — delegates to the expanded fetchFromJSearchAPI
+  async fetchFromJSearch(): Promise<ExternalJob[]> {
+    return this.fetchFromJSearchAPI();
   }
 
 
@@ -874,7 +874,7 @@ export class JobAggregator {
           if (response.ok) {
             const jobs = await response.json() as any[];
             const transformedJobs = this.transformGitHubJobs(jobs || []);
-            allJobs.push(...transformedJobs.slice(0, 5));
+            allJobs.push(...transformedJobs);
           }
 
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -916,7 +916,7 @@ export class JobAggregator {
         const transformedJobs = this.transformRemoteOKJobs(jobs || []);
 
         console.log(`Fetched ${transformedJobs.length} real jobs from RemoteOK`);
-        return transformedJobs.slice(0, 15);
+        return transformedJobs;
       }
     } catch (error) {
       console.error('Error fetching from RemoteOK:', error);
@@ -935,7 +935,7 @@ export class JobAggregator {
       const transformedJobs = this.transformWeWorkRemotelyJobs(jobs);
       
       console.log(`[JobAggregator] Fetched ${transformedJobs.length} jobs from We Work Remotely`);
-      return transformedJobs.slice(0, 20);
+      return transformedJobs;
     } catch (error) {
       console.error('[JobAggregator] Error fetching from We Work Remotely:', error);
       return [];
@@ -945,12 +945,18 @@ export class JobAggregator {
   // The Muse API - Free tier with real job data
   async fetchFromTheMuse(): Promise<ExternalJob[]> {
     try {
-      const categories = ['Software Engineer', 'Data Science', 'Product Management'];
+      const categories = [
+        'Software Engineer', 'Data Science', 'Product Management',
+        'Marketing', 'Sales', 'Customer Service', 'Design',
+        'Finance', 'Human Resources', 'Operations', 'Healthcare',
+        'Project Management', 'Business Development', 'Education',
+      ];
       const allJobs: ExternalJob[] = [];
 
       for (const category of categories) {
+        if (allJobs.length >= 500) break;
         try {
-          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level&location=United%20States`;
+          const url = `https://www.themuse.com/api/public/jobs?category=${encodeURIComponent(category)}&page=0&level=Senior%20Level&level=Mid%20Level&level=Entry%20Level&location=United%20States`;
           const response = await this.fetchWithRetry(url, {
             headers: {
               'User-Agent': 'Recrutas-Platform/1.0'
@@ -960,7 +966,7 @@ export class JobAggregator {
           if (response.ok) {
             const data: MuseApiResponse = await response.json();
             const jobs = this.transformMuseJobs(data.results || []);
-            allJobs.push(...jobs.slice(0, 5));
+            allJobs.push(...jobs);
           }
 
           await new Promise(resolve => setTimeout(resolve, 200));
