@@ -82,24 +82,26 @@ export function useWebSocketNotifications(userId?: string) {
 
             refreshNotifications();
 
-            // Invalidate relevant queries so pages update in real-time
-            const notifType = (notification as any).type;
-            if (['application_viewed', 'application_ranked', 'application_accepted',
-                 'application_rejected', 'status_update', 'interview_scheduled',
-                 'exam_passed', 'exam_failed'].includes(notifType)) {
-              queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
-            }
-            if (notifType === 'new_match') {
-              queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
-            }
-            if (['candidate_message', 'direct_connection'].includes(notifType)) {
-              queryClient.invalidateQueries({ queryKey: ['/api/chat/rooms'] });
-              // Invalidate all chat message queries (any room)
-              queryClient.invalidateQueries({ predicate: (q) => {
-                const key = q.queryKey;
-                return Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith('/api/chat/');
-              }});
-            }
+            // TODO: Phase 3 — uncomment when employers are on the platform
+            // Real-time query invalidation for matches, applications, and chat.
+            // Currently no employers = no views, no chats, no live match events.
+            //
+            // const notifType = (notification as any).type;
+            // if (['application_viewed', 'application_ranked', 'application_accepted',
+            //      'application_rejected', 'status_update', 'interview_scheduled',
+            //      'exam_passed', 'exam_failed'].includes(notifType)) {
+            //   queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });
+            // }
+            // if (notifType === 'new_match') {
+            //   queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
+            // }
+            // if (['candidate_message', 'direct_connection'].includes(notifType)) {
+            //   queryClient.invalidateQueries({ queryKey: ['/api/chat/rooms'] });
+            //   queryClient.invalidateQueries({ predicate: (q) => {
+            //     const key = q.queryKey;
+            //     return Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith('/api/chat/');
+            //   }});
+            // }
 
             // Show toast notification for high priority items
             if (notification.priority === 'high' || notification.priority === 'urgent') {
@@ -116,12 +118,12 @@ export function useWebSocketNotifications(userId?: string) {
             }
           }
 
-          // Chat message broadcast — sent directly (not wrapped in notification)
-          if (message.type === 'new_message' && message.data?.roomId) {
-            queryClient.invalidateQueries({ queryKey: ['/api/chat/messages', message.data.roomId] });
-            queryClient.invalidateQueries({ queryKey: ['/api/chat/rooms/' + message.data.roomId + '/messages'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/chat/rooms'] });
-          }
+          // TODO: Phase 3 — chat message broadcast
+          // if (message.type === 'new_message' && message.data?.roomId) {
+          //   queryClient.invalidateQueries({ queryKey: ['/api/chat/messages', message.data.roomId] });
+          //   queryClient.invalidateQueries({ queryKey: ['/api/chat/rooms/' + message.data.roomId + '/messages'] });
+          //   queryClient.invalidateQueries({ queryKey: ['/api/chat/rooms'] });
+          // }
         } catch (error) {
           console.debug('Error parsing WebSocket message:', error);
         }
