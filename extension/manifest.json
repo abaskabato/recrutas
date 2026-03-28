@@ -1,44 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Recrutas Auto-Fill",
-  "version": "1.0.0",
-  "description": "Auto-fill job application forms with your Recrutas profile",
+  "version": "1.1.0",
+  "description": "AI-powered auto-fill for job application forms using your Recrutas profile",
   "permissions": [
     "storage",
-    "activeTab"
-  ],
-  "host_permissions": [
-    "https://careers.google.com/*",
-    "https://www.google.com/about/careers/*",
-    "https://amazon.jobs/*",
-    "https://www.amazon.jobs/*",
-    "https://careers.meta.com/*",
-    "https://boards.greenhouse.io/*",
-    "https://job-boards.greenhouse.io/*",
-    "https://jobs.lever.co/*",
-    "https://www.linkedin.com/jobs/*"
+    "activeTab",
+    "scripting",
+    "tabs"
   ],
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://careers.google.com/*",
-        "https://www.google.com/about/careers/*",
-        "https://amazon.jobs/*",
-        "https://www.amazon.jobs/*",
-        "https://careers.meta.com/*",
-        "https://boards.greenhouse.io/*",
-        "https://job-boards.greenhouse.io/*",
-        "https://jobs.lever.co/*",
-        "https://www.linkedin.com/jobs/*"
-      ],
-      "js": ["content.js"],
-      "css": ["content.css"],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Recrutas Auto-Fill"

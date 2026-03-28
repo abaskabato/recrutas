@@ -70,6 +70,32 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   }
 });
 
+// ── Fill this page ───────────────────────────────────────────────────────────
+
+document.getElementById('fill-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('fill-btn');
+  btn.disabled = true;
+  btn.textContent = 'Injecting…';
+
+  try {
+    await send({ type: 'INJECT_AND_FILL' });
+    btn.textContent = 'Filling…';
+    // Close popup after a short delay — the content script handles the rest
+    setTimeout(() => window.close(), 800);
+  } catch (err) {
+    btn.textContent = 'Failed — try again';
+    btn.disabled = false;
+    setTimeout(() => {
+      btn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+        Fill this page
+      `;
+    }, 2000);
+  }
+});
+
 // ── Disconnect ────────────────────────────────────────────────────────────────
 
 document.getElementById('disconnect-btn').addEventListener('click', async () => {

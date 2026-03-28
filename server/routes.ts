@@ -27,6 +27,7 @@ import {
   JobPosting,
 } from "@shared/schema";
 import { generateScreeningQuestions } from "./ai-service";
+import { callAI, callGeminiWithImage } from "./lib/ai-client";
 import { db, testDbConnection } from "./db";
 import { seedDatabase } from "./seed.js";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
@@ -604,6 +605,229 @@ export async function registerRoutes(app: Express): Promise<Express> {
       res.status(500).json({ message: 'Login failed' });
     }
   }));
+
+  // Extension form-fill — scrapes form fields from the page, uses AI to generate answers
+  app.post('/api/extension/fill-form', isAuthenticated, asyncHandler(async (req: any, res) => {
+    try {
+      const { fields, jobContext, screenshot } = req.body || {};
+      if (!fields || !Array.isArray(fields) || fields.length === 0) {
+        return res.status(400).json({ message: 'fields array is required' });
+      }
+      if (fields.length > 50) {
+        return res.status(400).json({ message: 'Too many fields (max 50)' });
+      }
+
+      // Load candidate data
+      const [profile, user] = await Promise.all([
+        storage.getCandidateUser(req.user.id),
+        storage.getUser(req.user.id),
+      ]);
+      if (!profile) {
+        return res.status(404).json({ message: 'No candidate profile found. Complete your profile first.' });
+      }
+
+      const parsed = (profile.resumeParsingData as any) || {};
+      const personalInfo = parsed.personalInfo || {};
+
+      // Build profile context
+      const profileData: Record<string, string> = {
+        firstName: profile.firstName || personalInfo.name?.split(' ')[0] || '',
+        lastName: profile.lastName || personalInfo.name?.split(' ').slice(1).join(' ') || '',
+        fullName: `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || personalInfo.name || '',
+        email: profile.email || user?.email || personalInfo.email || '',
+        phone: user?.phone_number || personalInfo.phone || '',
+        linkedin: profile.linkedinUrl || personalInfo.linkedin || '',
+        github: profile.githubUrl || personalInfo.github || '',
+        portfolio: profile.portfolioUrl || profile.personalWebsite || personalInfo.portfolio || '',
+        location: profile.location || personalInfo.location || '',
+        currentTitle: parsed.experience?.positions?.[0]?.title || '',
+        currentCompany: parsed.experience?.positions?.[0]?.company || '',
+        school: parsed.education?.[0]?.institution || '',
+        degree: parsed.education?.[0]?.degree || '',
+        experienceYears: String(parsed.experience?.totalYears || ''),
+      };
+
+      const resumeContext = profile.resumeText
+        ? profile.resumeText.slice(0, 3000)
+        : profile.summary || parsed.summary || '';
+
+      const skillsList = Array.isArray(profile.skills)
+        ? (profile.skills as string[]).join(', ')
+        : '';
+
+      // Build the DOM field list for the LLM
+      const fieldDescriptions = fields.map((f: any) =>
+        `- id="${f.id}" type="${f.type}" label="${f.label || ''}" name="${f.name || ''}"${f.options ? ` options=[${f.options.join(', ')}]` : ''}${f.required ? ' REQUIRED' : ''}`
+      ).join('\n');
+
+      const candidateInfo = `NAME: ${profileData.fullName}
+EMAIL: ${profileData.email}
+PHONE: ${profileData.phone}
+LOCATION: ${profileData.location}
+LINKEDIN: ${profileData.linkedin}
+GITHUB: ${profileData.github}
+PORTFOLIO: ${profileData.portfolio}
+CURRENT ROLE: ${profileData.currentTitle} at ${profileData.currentCompany}
+EXPERIENCE: ${profileData.experienceYears} years
+EDUCATION: ${profileData.degree} from ${profileData.school}
+SKILLS: ${skillsList}
+
+RESUME EXCERPT:
+${resumeContext.slice(0, 2000)}`;
+
+      const systemPrompt = `You are an expert at filling job application forms. You will receive:
+1. A screenshot of a job application form (if available)
+2. A list of DOM elements with their IDs, types, and labels
+3. Candidate information to fill in
+
+Your job: match each visible form field to the correct DOM element ID, then generate a fill action for each.
+
+Return ONLY a valid JSON object with this structure:
+{
+  "actions": [
+    { "fieldId": "dom_element_id", "action": "type", "value": "text to type" },
+    { "fieldId": "select_id", "action": "select", "value": "exact option text" },
+    { "fieldId": "custom_dropdown_id", "action": "click_then_type", "value": "search text" },
+    { "fieldId": "file_input_id", "action": "upload_resume" },
+    { "fieldId": "captcha_id", "action": "skip", "reason": "cannot fill captcha" }
+  ]
+}
+
+Rules:
+- fieldId MUST match an id from the DOM elements list exactly
+- For standard text fields (name, email, phone, linkedin): use the candidate's actual data
+- For screening questions: write a professional, specific answer using the candidate's real experience. Keep under 200 words.
+- For select/dropdown with native <select> type: use action "select" with value matching EXACTLY one of the provided options
+- For custom dropdowns (React Select, Combobox, etc. — type is usually "text" but looks like a dropdown in screenshot): use "click_then_type"
+- For file upload fields: use action "upload_resume"
+- For fields you cannot fill (CAPTCHA, signature pads): use action "skip"
+- For checkboxes that ask about consent/agreement: use action "check"
+- Do NOT fill fields that already have values unless they look incorrect
+- If a field is not visible in the screenshot, still try to fill it based on its label/name`;
+
+      const userPrompt = `CANDIDATE INFORMATION:
+${candidateInfo}
+
+JOB CONTEXT: ${(jobContext || 'Not available').slice(0, 1000)}
+
+DOM FORM FIELDS:
+${fieldDescriptions}
+
+Analyze the form and return the actions JSON to fill every field you can.`;
+
+      let actions: Array<{ fieldId: string; action: string; value?: string; reason?: string }> = [];
+
+      try {
+        let aiResponse: string;
+
+        if (screenshot && process.env.GEMINI_API_KEY) {
+          // Vision path: send screenshot + DOM fields to Gemini
+          console.log('[Extension] Using vision-powered fill with screenshot');
+          aiResponse = await Promise.race([
+            callGeminiWithImage(systemPrompt, userPrompt, screenshot, 'image/jpeg', {
+              temperature: 0.2,
+              maxOutputTokens: 4000,
+            }),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error('Vision AI timeout')), 25000)
+            ),
+          ]);
+        } else {
+          // Text-only fallback
+          console.log('[Extension] Using text-only fill (no screenshot)');
+          aiResponse = await Promise.race([
+            callAI(systemPrompt, userPrompt, {
+              priority: 'medium',
+              estimatedTokens: 2000,
+              temperature: 0.2,
+              maxOutputTokens: 4000,
+            }),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error('AI timeout')), 15000)
+            ),
+          ]);
+        }
+
+        const parsed = JSON.parse(aiResponse);
+        actions = parsed.actions || [];
+
+        // Validate actions reference real field IDs
+        const validIds = new Set(fields.map((f: any) => f.id));
+        actions = actions.filter(a => validIds.has(a.fieldId));
+      } catch (aiErr) {
+        console.warn('[Extension] AI form-fill failed:', (aiErr as Error).message);
+        // Fallback: build basic actions from profile pattern matching
+        actions = buildFallbackActions(fields, profileData);
+      }
+
+      // Include resume URL for upload_resume actions
+      let resumeUrl: string | null = null;
+      if (profile.resumeUrl) {
+        const signedUrl = await storage.getResumeSignedUrl(profile.resumeUrl);
+        resumeUrl = signedUrl || null;
+      }
+
+      res.json({ actions, resumeUrl });
+    } catch (error) {
+      console.error('Extension fill-form error:', error);
+      res.status(500).json({ message: 'Failed to generate form values' });
+    }
+  }));
+
+  // Fallback: regex-based pattern matching when AI is unavailable
+  function buildFallbackActions(
+    fields: Array<{ id: string; label?: string; name?: string; type?: string; options?: string[] }>,
+    profileData: Record<string, string>
+  ) {
+    const PATTERNS: Record<string, RegExp[]> = {
+      firstName: [/first[\s_-]?name/i, /fname/i, /given[\s_-]?name/i],
+      lastName: [/last[\s_-]?name/i, /lname/i, /surname/i, /family[\s_-]?name/i],
+      fullName: [/^full[\s_-]?name$/i, /^name$/i, /^your[\s_-]?name$/i],
+      email: [/e[\s_-]?mail/i],
+      phone: [/phone/i, /telephone/i, /mobile/i, /cell/i],
+      linkedin: [/linkedin/i],
+      github: [/github/i],
+      portfolio: [/portfolio/i, /personal[\s_-]?site/i, /^website$/i],
+      location: [/^location$/i, /^city$/i, /^address$/i],
+      currentTitle: [/current[\s_-]?title/i, /job[\s_-]?title/i, /^title$/i],
+      currentCompany: [/current[\s_-]?(company|employer)/i, /^company$/i],
+      school: [/school/i, /university/i, /institution/i, /college/i],
+      degree: [/degree/i, /education/i],
+    };
+
+    const actions: Array<{ fieldId: string; action: string; value?: string }> = [];
+
+    for (const field of fields) {
+      const searchText = `${field.label || ''} ${field.name || ''} ${field.id || ''}`.toLowerCase();
+
+      if (field.type === 'file') {
+        actions.push({ fieldId: field.id, action: 'upload_resume' });
+        continue;
+      }
+
+      for (const [key, patterns] of Object.entries(PATTERNS)) {
+        if (patterns.some(p => p.test(searchText)) && profileData[key]) {
+          actions.push({
+            fieldId: field.id,
+            action: field.type === 'select' ? 'select' : 'type',
+            value: profileData[key],
+          });
+          break;
+        }
+      }
+
+      // Type-based fallbacks
+      if (!actions.find(a => a.fieldId === field.id)) {
+        if (field.type === 'email' && profileData.email) {
+          actions.push({ fieldId: field.id, action: 'type', value: profileData.email });
+        } else if (field.type === 'tel' && profileData.phone) {
+          actions.push({ fieldId: field.id, action: 'type', value: profileData.phone });
+        }
+      }
+    }
+
+    return actions;
+  }
 
   app.get('/api/auth/user', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {

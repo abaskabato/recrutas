@@ -5,7 +5,9 @@
  * - Store/retrieve auth token from chrome.storage.local
  * - Proxy login requests to Recrutas backend (no CORS issues from SW)
  * - Fetch candidate profile with Bearer token
- * - Respond to messages from content.js and popup.js
+ * - Proxy AI form-fill requests to backend
+ * - Download resume files for form attachment
+ * - Inject content script on demand (any site)
  */
 
 const DEFAULT_RECRUTAS_URL = 'https://recrutas.vercel.app';
@@ -20,7 +22,6 @@ async function getStoredAuth() {
 async function isTokenValid() {
   const { accessToken, expiresAt } = await getStoredAuth();
   if (!accessToken) return false;
-  // Treat as expired 60s before actual expiry to allow refresh headroom
   return expiresAt && Date.now() < (expiresAt - 60_000);
 }
 
@@ -78,7 +79,6 @@ async function fetchProfile() {
   });
 
   if (res.status === 401) {
-    // Token expired — clear storage so popup shows login form
     await logout();
     throw new Error('Session expired. Please sign in again.');
   }
@@ -88,6 +88,87 @@ async function fetchProfile() {
   }
 
   return res.json();
+}
+
+// ── AI form fill ─────────────────────────────────────────────────────────────
+
+async function captureScreenshot() {
+  try {
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 80 });
+    // Strip "data:image/jpeg;base64," prefix
+    return dataUrl.replace(/^data:image\/\w+;base64,/, '');
+  } catch (err) {
+    console.warn('[Recrutas] Screenshot capture failed:', err.message);
+    return null;
+  }
+}
+
+async function fillFormAI(fields, jobContext) {
+  const { accessToken } = await getStoredAuth();
+  if (!accessToken) throw new Error('Not authenticated');
+
+  // Capture screenshot for vision-powered fill
+  const screenshot = await captureScreenshot();
+
+  const baseUrl = await getRecruitasUrl();
+  const res = await fetch(`${baseUrl}/api/extension/fill-form`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ fields, jobContext, screenshot }),
+  });
+
+  if (res.status === 401) {
+    await logout();
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || `Form fill failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+// ── Download resume ──────────────────────────────────────────────────────────
+
+async function downloadResume(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Resume download failed (${res.status})`);
+
+  const blob = await res.blob();
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8 = new Uint8Array(arrayBuffer);
+  // Convert to base64 for message passing (blobs can't cross message boundary)
+  let binary = '';
+  for (let i = 0; i < uint8.length; i++) {
+    binary += String.fromCharCode(uint8[i]);
+  }
+  const base64 = btoa(binary);
+
+  // Extract filename from URL
+  const urlPath = new URL(url).pathname;
+  const filename = urlPath.split('/').pop() || 'resume.pdf';
+  const mimeType = blob.type || 'application/pdf';
+
+  return { base64, filename, mimeType };
+}
+
+// ── Inject content script into active tab ────────────────────────────────────
+
+async function injectAndFill(tabId) {
+  // Inject CSS first, then JS
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    files: ['content.css'],
+  });
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['content.js'],
+  });
 }
 
 // ── Message handler ──────────────────────────────────────────────────────────
@@ -121,6 +202,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return { success: true, profile };
       }
 
+      case 'FILL_FORM_AI': {
+        const result = await fillFormAI(message.fields, message.jobContext);
+        return { success: true, ...result };
+      }
+
+      case 'DOWNLOAD_RESUME': {
+        const file = await downloadResume(message.url);
+        return { success: true, ...file };
+      }
+
+      case 'INJECT_AND_FILL': {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) throw new Error('No active tab');
+        await injectAndFill(tab.id);
+        return { success: true };
+      }
+
       case 'SET_RECRUTAS_URL': {
         await chrome.storage.local.set({ recruitasUrl: message.url });
         return { success: true };
@@ -131,7 +229,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
   };
 
-  // Keep channel open for async response
   handle()
     .then(sendResponse)
     .catch((err) => sendResponse({ success: false, error: err.message }));

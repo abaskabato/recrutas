@@ -1,131 +1,323 @@
 /**
- * Recrutas Auto-Fill — Content Script
+ * Recrutas Auto-Fill — Content Script (Vision-Powered)
  *
- * Injected into supported career pages. Adds a floating "Fill with Recrutas"
- * button. On click, fetches the candidate's profile from the background worker
- * and fills detectable form fields without auto-submitting.
+ * Injected into any page on demand. Scrapes form fields and page context,
+ * sends them (with screenshot via background.js) to the backend where
+ * Gemini 2.0 Flash vision analyzes the form and returns structured actions.
+ * Then executes each action: type, select, click_then_type, upload_resume, check.
  */
 
 (function () {
   'use strict';
 
-  // Prevent double-injection on SPAs that re-run content scripts
-  if (window.__recruitasInjected) return;
+  // Prevent double-injection on SPAs
+  if (window.__recruitasInjected) {
+    triggerFill();
+    return;
+  }
   window.__recruitasInjected = true;
-
-  // ── Field detection patterns ───────────────────────────────────────────────
-
-  const FIELD_PATTERNS = {
-    firstName: [
-      /first[\s_-]?name/i, /fname/i, /given[\s_-]?name/i, /forename/i,
-      /^name$/i, /^first$/i,
-    ],
-    lastName: [
-      /last[\s_-]?name/i, /lname/i, /surname/i, /family[\s_-]?name/i,
-      /^last$/i,
-    ],
-    email: [/e[\s_-]?mail/i],
-    phone: [/phone/i, /telephone/i, /mobile/i, /cell/i],
-    linkedin: [/linkedin/i],
-    github: [/github/i],
-    portfolio: [/portfolio/i, /personal[\s_-]?site/i, /website/i],
-    location: [/^location$/i, /^city$/i, /^address$/i],
-  };
 
   // ── Native value setter (React/Angular/Vue compatible) ─────────────────────
 
-  function setNativeValue(input, value) {
-    const proto = input.tagName === 'TEXTAREA'
+  function setNativeValue(el, value) {
+    const proto = el.tagName === 'TEXTAREA'
       ? HTMLTextAreaElement.prototype
+      : el.tagName === 'SELECT'
+      ? HTMLSelectElement.prototype
       : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     if (setter) {
-      setter.call(input, value);
+      setter.call(el, value);
     } else {
-      input.value = value;
+      el.value = value;
     }
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   // ── Label text resolver ────────────────────────────────────────────────────
 
   function getLabelText(el) {
-    // 1. <label for="id">
     if (el.id) {
-      const label = document.querySelector(`label[for="${el.id}"]`);
-      if (label) return label.textContent || '';
+      const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (label) return label.textContent?.trim() || '';
     }
-    // 2. Nearest ancestor <label>
     let node = el.parentElement;
     while (node && node.tagName !== 'FORM') {
-      if (node.tagName === 'LABEL') return node.textContent || '';
+      if (node.tagName === 'LABEL') return node.textContent?.trim() || '';
       node = node.parentElement;
+    }
+    const prev = el.previousElementSibling;
+    if (prev && (prev.tagName === 'LABEL' || prev.tagName === 'SPAN' || prev.tagName === 'P')) {
+      return prev.textContent?.trim() || '';
     }
     return '';
   }
 
-  // ── Field matcher ──────────────────────────────────────────────────────────
+  // ── Scrape all form fields ─────────────────────────────────────────────────
 
-  function detectField(el) {
-    const attrs = [
-      el.getAttribute('name') || '',
-      el.getAttribute('id') || '',
-      el.getAttribute('autocomplete') || '',
-      el.getAttribute('aria-label') || '',
-      el.getAttribute('placeholder') || '',
-      getLabelText(el),
+  function scrapeFields() {
+    const fields = [];
+    const seen = new Set();
+
+    const elements = document.querySelectorAll('input, textarea, select');
+
+    for (const el of elements) {
+      const type = (el.type || el.tagName.toLowerCase()).toLowerCase();
+
+      if (['hidden', 'submit', 'button', 'image', 'reset'].includes(type)) continue;
+      if (el.readOnly || el.disabled) continue;
+      if (el.offsetParent === null && el.type !== 'file') continue;
+
+      const fieldId = el.id || el.name || `recrutas_${fields.length}`;
+      if (seen.has(fieldId)) continue;
+      seen.add(fieldId);
+
+      const field = {
+        id: fieldId,
+        type: type,
+        label: getLabelText(el) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '',
+        name: el.getAttribute('name') || '',
+        required: el.required || el.getAttribute('aria-required') === 'true',
+      };
+
+      if (el.tagName === 'SELECT') {
+        field.options = Array.from(el.options)
+          .filter(opt => opt.value && opt.value !== '')
+          .map(opt => opt.text?.trim() || opt.value);
+        field.type = 'select';
+      }
+
+      if (type === 'checkbox' || type === 'radio') {
+        field.type = type;
+      }
+
+      fields.push(field);
+    }
+
+    return fields;
+  }
+
+  // ── Extract job context from the page ──────────────────────────────────────
+
+  function extractJobContext() {
+    const h1 = document.querySelector('h1');
+    const title = h1?.textContent?.trim() || document.title || '';
+
+    const company =
+      document.querySelector('[class*="company"], [data-company]')?.textContent?.trim() ||
+      document.querySelector('meta[property="og:site_name"]')?.getAttribute('content') ||
+      '';
+
+    const desc = document.querySelector(
+      '[class*="description"], [class*="job-description"], [data-testid*="description"]'
+    )?.textContent?.trim()?.slice(0, 1000) || '';
+
+    return `${title}${company ? ' at ' + company : ''}${desc ? '\n' + desc : ''}`.slice(0, 2000);
+  }
+
+  // ── Find DOM element by field ID ───────────────────────────────────────────
+
+  function findElement(fieldId) {
+    return document.getElementById(fieldId)
+      || document.querySelector(`[name="${CSS.escape(fieldId)}"]`)
+      || document.querySelector(`[id="${CSS.escape(fieldId)}"]`);
+  }
+
+  // ── Action executors ───────────────────────────────────────────────────────
+
+  function highlightFilled(el) {
+    el.style.backgroundColor = '#d1fae5';
+    el.style.transition = 'background-color 0.3s ease';
+    setTimeout(() => { el.style.backgroundColor = ''; }, 2500);
+  }
+
+  // ACTION: type — fill a text input or textarea
+  function executeType(el, value) {
+    el.focus();
+    setNativeValue(el, value);
+    el.blur();
+    highlightFilled(el);
+    return true;
+  }
+
+  // ACTION: select — pick an option from a native <select>
+  function executeSelect(el, value) {
+    if (el.tagName !== 'SELECT') return false;
+
+    const valueLower = value.toLowerCase();
+    const option = Array.from(el.options).find(opt =>
+      opt.text?.trim().toLowerCase() === valueLower ||
+      opt.value?.toLowerCase() === valueLower
+    );
+
+    if (!option) {
+      // Fuzzy match: find the closest option
+      const fuzzy = Array.from(el.options).find(opt =>
+        opt.text?.trim().toLowerCase().includes(valueLower) ||
+        valueLower.includes(opt.text?.trim().toLowerCase())
+      );
+      if (fuzzy) {
+        setNativeValue(el, fuzzy.value);
+        highlightFilled(el);
+        return true;
+      }
+      return false;
+    }
+
+    setNativeValue(el, option.value);
+    highlightFilled(el);
+    return true;
+  }
+
+  // ACTION: click_then_type — handle custom dropdowns (React Select, Combobox, etc.)
+  async function executeClickThenType(el, value) {
+    // Step 1: Click the element to open the dropdown
+    el.focus();
+    el.click();
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+    // Step 2: Wait for dropdown to open
+    await sleep(350);
+
+    // Step 3: Try to type into the search input
+    // Some custom dropdowns render a search input inside the opened menu
+    const searchInput = el.closest('[class*="select"], [class*="dropdown"], [class*="combobox"], [role="combobox"], [role="listbox"]')
+      ?.querySelector('input[type="text"], input:not([type])')
+      || el;
+
+    if (searchInput) {
+      setNativeValue(searchInput, value);
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true }));
+    }
+
+    // Step 4: Wait for options to filter
+    await sleep(400);
+
+    // Step 5: Find and click the matching option
+    const valueLower = value.toLowerCase();
+    const optionSelectors = [
+      '[role="option"]',
+      '[class*="option"]',
+      '[class*="menu-item"]',
+      '[class*="listbox"] li',
+      '[class*="dropdown"] li',
+      'li[data-value]',
+      '.select__option',
+      '.react-select__option',
     ];
 
-    for (const [fieldName, patterns] of Object.entries(FIELD_PATTERNS)) {
-      for (const text of attrs) {
-        if (!text) continue;
-        for (const pattern of patterns) {
-          if (pattern.test(text)) return fieldName;
+    for (const selector of optionSelectors) {
+      const options = document.querySelectorAll(selector);
+      for (const opt of options) {
+        const text = opt.textContent?.trim().toLowerCase() || '';
+        if (text === valueLower || text.includes(valueLower) || valueLower.includes(text)) {
+          opt.click();
+          opt.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          opt.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+          highlightFilled(el);
+          return true;
         }
       }
     }
 
-    // Fallback: type attribute
-    if (el.type === 'email') return 'email';
-    if (el.type === 'tel') return 'phone';
+    // Step 6: If no option found, try pressing Enter (some dropdowns select on Enter)
+    searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    await sleep(200);
 
-    return null;
+    highlightFilled(el);
+    return true;
   }
 
-  // ── Form filler ────────────────────────────────────────────────────────────
+  // ACTION: check — toggle a checkbox
+  function executeCheck(el) {
+    if (el.type !== 'checkbox') return false;
+    if (!el.checked) {
+      el.click();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    highlightFilled(el);
+    return true;
+  }
 
-  function fillForm(profile) {
-    const fieldMap = {
-      firstName: profile.firstName || profile.first_name || '',
-      lastName: profile.lastName || profile.last_name || '',
-      email: profile.email || '',
-      phone: profile.phone || '',
-      linkedin: profile.linkedinUrl || profile.linkedin_url || '',
-      github: profile.githubUrl || profile.github_url || '',
-      portfolio: profile.portfolioUrl || profile.portfolio_url || '',
-      location: profile.location || '',
-    };
+  // ACTION: upload_resume — attach resume file via DataTransfer API
+  async function executeUploadResume(el, resumeUrl) {
+    if (!resumeUrl || el.type !== 'file') return false;
 
-    const inputs = document.querySelectorAll('input, textarea');
+    try {
+      const fileData = await chrome.runtime.sendMessage({
+        type: 'DOWNLOAD_RESUME',
+        url: resumeUrl,
+      });
+
+      if (!fileData.success) return false;
+
+      const binary = atob(fileData.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: fileData.mimeType });
+      const file = new File([blob], fileData.filename, { type: fileData.mimeType });
+
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      el.files = dt.files;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+
+      highlightFilled(el);
+      return true;
+    } catch (err) {
+      console.debug('[Recrutas] Resume upload failed:', err.message);
+      return false;
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // ── Execute all actions from the AI response ──────────────────────────────
+
+  async function executeActions(actions, resumeUrl) {
     let filled = 0;
 
-    for (const input of inputs) {
-      // Skip hidden, submit, button, checkbox, radio inputs
-      const type = (input.type || '').toLowerCase();
-      if (['hidden', 'submit', 'button', 'checkbox', 'radio', 'file'].includes(type)) continue;
-      if (input.readOnly || input.disabled) continue;
+    for (const action of actions) {
+      if (action.action === 'skip') continue;
 
-      const field = detectField(input);
-      if (!field) continue;
-
-      const value = fieldMap[field];
-      if (value) {
-        setNativeValue(input, value);
-        input.style.backgroundColor = '#d1fae5'; // light green flash
-        setTimeout(() => { input.style.backgroundColor = ''; }, 2000);
-        filled++;
+      const el = findElement(action.fieldId);
+      if (!el) {
+        console.debug(`[Recrutas] Element not found: ${action.fieldId}`);
+        continue;
       }
+
+      let success = false;
+
+      switch (action.action) {
+        case 'type':
+          success = executeType(el, action.value || '');
+          break;
+        case 'select':
+          success = executeSelect(el, action.value || '');
+          break;
+        case 'click_then_type':
+          success = await executeClickThenType(el, action.value || '');
+          break;
+        case 'check':
+          success = executeCheck(el);
+          break;
+        case 'upload_resume':
+          success = await executeUploadResume(el, resumeUrl);
+          break;
+        default:
+          console.debug(`[Recrutas] Unknown action: ${action.action}`);
+      }
+
+      if (success) filled++;
+
+      // Small delay between actions to let React/framework process events
+      await sleep(100);
     }
 
     return filled;
@@ -143,7 +335,74 @@
     banner.textContent = message;
     document.body.appendChild(banner);
 
-    setTimeout(() => banner.remove(), 4000);
+    setTimeout(() => banner.remove(), 5000);
+  }
+
+  // ── Main fill trigger ──────────────────────────────────────────────────────
+
+  async function triggerFill() {
+    const btn = document.getElementById('recrutas-fill-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Analyzing form…';
+    }
+
+    try {
+      const fields = scrapeFields();
+
+      if (fields.length === 0) {
+        showBanner('No form fields found on this page', 'warning');
+        return;
+      }
+
+      const jobContext = extractJobContext();
+
+      if (btn) btn.textContent = 'AI filling…';
+
+      // Send to background → backend (with screenshot captured by background.js)
+      const response = await chrome.runtime.sendMessage({
+        type: 'FILL_FORM_AI',
+        fields,
+        jobContext,
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || 'AI fill failed');
+      }
+
+      const { actions, resumeUrl } = response;
+
+      if (!actions || actions.length === 0) {
+        showBanner('AI could not determine how to fill this form', 'warning');
+        return;
+      }
+
+      if (btn) btn.textContent = `Filling ${actions.length} fields…`;
+
+      const filled = await executeActions(actions, resumeUrl);
+
+      if (filled === 0) {
+        showBanner('Could not fill any fields — try a different page', 'warning');
+      } else {
+        showBanner(`Filled ${filled} field${filled !== 1 ? 's' : ''} — review before submitting`, 'success');
+      }
+    } catch (err) {
+      if (err.message?.includes('Not authenticated') || err.message?.includes('Session expired')) {
+        showBanner('Sign in to Recrutas extension first', 'error');
+      } else {
+        showBanner(err.message || 'Extension error — try reloading', 'error');
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          Fill with Recrutas
+        `;
+      }
+    }
   }
 
   // ── Floating button ────────────────────────────────────────────────────────
@@ -161,60 +420,24 @@
       Fill with Recrutas
     `;
 
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      btn.textContent = 'Fetching profile…';
-
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'GET_PROFILE' });
-
-        if (!response.success) {
-          showBanner(response.error || 'Sign in to Recrutas first', 'error');
-          return;
-        }
-
-        const filled = fillForm(response.profile);
-
-        if (filled === 0) {
-          showBanner('No matching fields found on this page', 'warning');
-        } else {
-          showBanner(`Filled ${filled} field${filled !== 1 ? 's' : ''} — review and submit`, 'success');
-        }
-      } catch (err) {
-        showBanner(err.message || 'Extension error — try reloading', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-          </svg>
-          Fill with Recrutas
-        `;
-      }
-    });
-
+    btn.addEventListener('click', triggerFill);
     document.body.appendChild(btn);
   }
 
   // ── SPA-aware injection ────────────────────────────────────────────────────
-  // Many career pages are SPAs — re-inject button after navigation events
 
   function maybeInject() {
-    // Only inject if page has at least one visible input (i.e. an application form)
-    const hasForm = document.querySelector('input:not([type="hidden"])');
+    const hasForm = document.querySelector('input:not([type="hidden"]), textarea, select');
     if (hasForm) {
       injectButton();
     }
   }
 
-  // Initial injection
   maybeInject();
 
-  // Watch for DOM changes (SPA navigation, lazy-loaded forms)
   const observer = new MutationObserver(() => maybeInject());
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // Also catch popstate / hashchange for hash-router SPAs
   window.addEventListener('popstate', () => setTimeout(maybeInject, 500));
   window.addEventListener('hashchange', () => setTimeout(maybeInject, 500));
 })();
