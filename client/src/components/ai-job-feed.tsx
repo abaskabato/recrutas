@@ -541,7 +541,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
               return (
                 <div key={match.id}>
-                  <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
+                  <Card className={`hover:shadow-md transition-all duration-150 ${isInternalJob ? 'border-l-4 border-l-emerald-500 hover:border-emerald-300 dark:hover:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/10' : 'hover:border-blue-200 dark:hover:border-blue-800'}`}>
                     <CardContent className="p-3 sm:p-4">
                       {/* Mobile: Stack vertically, Desktop: Side by side */}
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
@@ -572,9 +572,9 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                               </Badge>
                             )}
                             {isInternalJob && (
-                              <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 text-xs">
+                              <Badge className="bg-emerald-600 text-white text-xs font-semibold">
                                 <Clock className="h-3 w-3 mr-1" />
-                                Same-day Response
+                                24h Response
                               </Badge>
                             )}
                             {isInternalJob && match.job.hasExam && (
