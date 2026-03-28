@@ -16,6 +16,10 @@ export default function AuthPage() {
 
   const { toast } = useToast();
 
+  // Forward ?code= param to signup links
+  const codeParam = new URLSearchParams(window.location.search).get('code');
+  const codeSuffix = codeParam ? `?code=${encodeURIComponent(codeParam)}` : '';
+
   useEffect(() => {
     if (session) {
       const userRole = session.user?.user_metadata?.role;
@@ -154,10 +158,10 @@ export default function AuthPage() {
               <div className="text-center text-sm">
                 <p className="text-muted-foreground mb-4">Don't have an account?</p>
                 <div className="flex flex-col space-y-2">
-                  <a href="/signup/candidate" className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600">
+                  <a href={`/signup/candidate${codeSuffix}`} className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600">
                     Sign up as a Candidate
                   </a>
-                  <a href="/signup/talent-owner" className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600">
+                  <a href={`/signup/talent-owner${codeSuffix}`} className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:border-gray-600">
                     Sign up as a Talent Owner
                   </a>
                 </div>

@@ -1,9 +1,15 @@
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Eye, EyeOff, Check, X, Loader2 } from "lucide-react";
+
+/** Read ?code= from URL query params (e.g. recrutas.ai/signup/candidate?code=REDDIT-A1B2C3) */
+function getCodeFromURL(): string {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get('code') || '').toUpperCase();
+}
 
 interface SignUpFormProps {
   role: 'candidate' | 'talent_owner';
@@ -34,9 +40,15 @@ export default function SignUpForm({ role }: SignUpFormProps) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(getCodeFromURL);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Also pick up code if user navigates with ?code= after initial render
+  useEffect(() => {
+    const urlCode = getCodeFromURL();
+    if (urlCode && !inviteCode) setInviteCode(urlCode);
+  }, []);
 
   const passwordStrength = useMemo(() => getPasswordStrength(password), [password]);
 

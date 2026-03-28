@@ -3,10 +3,10 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Bot, Zap, Shield, CheckCircle2, ArrowRight,
+  Zap, Shield, CheckCircle2, ArrowRight,
   Sparkles, Menu, X, MessageSquare, FileText,
   Clock, Eye, Upload, Trophy, BarChart3, Users,
-  Building2,
+  Building2, Target, Search,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
@@ -41,9 +41,9 @@ function ProductMockup() {
 
           {/* Job cards */}
           {[
-            { company: "Stripe", role: "Senior Frontend Engineer", score: 94, status: "Applied" },
-            { company: "Linear", role: "Full Stack Engineer", score: 91, status: "Applying..." },
-            { company: "Vercel", role: "Software Engineer", score: 87, status: "Match" },
+            { company: "Stripe", role: "Senior Frontend Engineer", score: 94, status: "94% match" },
+            { company: "Linear", role: "Full Stack Engineer", score: 91, status: "91% match" },
+            { company: "Vercel", role: "Software Engineer", score: 87, status: "87% match" },
           ].map((job, i) => (
             <div
               key={i}
@@ -60,23 +60,17 @@ function ProductMockup() {
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                   {job.score}%
                 </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  job.status === 'Applied'
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                    : job.status === 'Applying...'
-                    ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
-                }`}>
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                   {job.status}
                 </span>
               </div>
             </div>
           ))}
 
-          {/* Agent activity */}
+          {/* Match activity */}
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-800">
-            <Bot className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            Agent applied to Stripe — filled 4 screening questions from your resume
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            3 new matches found based on your resume skills
           </div>
         </div>
       </div>
@@ -84,11 +78,11 @@ function ProductMockup() {
       {/* Floating notification */}
       <div className="absolute -bottom-5 -right-4 sm:-right-8 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 px-3 py-2.5 flex items-center gap-2.5 max-w-[240px]">
         <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-          <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          <Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <p className="text-xs font-semibold text-gray-900 dark:text-white leading-tight">Stripe responded</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">Interview invite received</p>
+          <p className="text-xs font-semibold text-gray-900 dark:text-white leading-tight">12 new matches</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">Based on your React + Node skills</p>
         </div>
       </div>
     </div>
@@ -108,7 +102,9 @@ export default function LandingResponsive() {
       const role = (session.user as any)?.user_metadata?.role;
       setLocation(role === 'talent_owner' || role === 'recruiter' ? '/talent-dashboard' : '/candidate-dashboard');
     } else {
-      setLocation('/auth');
+      // Preserve ?code= param so invite code flows through to signup
+      const code = new URLSearchParams(window.location.search).get('code');
+      setLocation(code ? `/auth?code=${encodeURIComponent(code)}` : '/auth');
     }
   };
 
@@ -196,17 +192,17 @@ export default function LandingResponsive() {
             <div>
               <Badge variant="secondary"
                 className="mb-6 px-3 py-1.5 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-full">
-                <Bot className="w-3 h-3 mr-1.5" />
-                AI agent that applies to jobs for you
+                <Sparkles className="w-3 h-3 mr-1.5" />
+                AI-powered job matching
               </Badge>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black dark:text-white leading-[1.1] tracking-tight mb-6">
-                Job Search,<br />
-                <span className="text-emerald-500">Reinvented.</span>
+                Find Jobs That<br />
+                <span className="text-emerald-500">Actually Fit.</span>
               </h1>
 
               <p className="text-lg md:text-xl text-gray-500 dark:text-gray-400 leading-relaxed mb-8 max-w-lg">
-                Upload your resume. Our AI matches you to real jobs and applies automatically. For jobs posted on Recrutas, take a quick exam, get ranked, and chat directly with the hiring team. <strong className="text-black dark:text-white">Every application gets a real response.</strong>
+                Upload your resume. Our AI matches you to 13,500+ real jobs based on your actual skills and experience — not just keywords. Stop scrolling job boards. <strong className="text-black dark:text-white">See only roles that fit.</strong>
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -260,7 +256,7 @@ export default function LandingResponsive() {
               Two ways to get hired
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-lg max-w-2xl mx-auto">
-              External jobs: the AI applies for you. Internal jobs: prove yourself, skip the line.
+              External jobs: AI finds the right roles for you. Internal jobs: prove yourself, skip the line.
             </p>
           </div>
 
@@ -269,19 +265,19 @@ export default function LandingResponsive() {
             <div className="p-6 md:p-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-black dark:text-white">Agent Apply</h3>
+                  <h3 className="text-lg font-bold text-black dark:text-white">Smart Matching</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">For external jobs</p>
                 </div>
               </div>
               <div className="space-y-4">
                 {[
                   { step: "01", text: "Upload your resume &mdash; AI extracts skills, titles, experience" },
-                  { step: "02", text: "Get matched to live jobs from real company career pages" },
-                  { step: "03", text: "Click one button &mdash; agent fills forms, answers questions, submits" },
-                  { step: "04", text: "Get an email with exactly what was sent" },
+                  { step: "02", text: "Get matched to 13,500+ live jobs from real company career pages" },
+                  { step: "03", text: "See match scores &mdash; know exactly why each job fits your background" },
+                  { step: "04", text: "Apply directly with one click &mdash; your profile is ready to go" },
                 ].map(({ step, text }) => (
                   <div key={step} className="flex items-start gap-3">
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0 mt-0.5">{step}</span>
@@ -336,21 +332,21 @@ export default function LandingResponsive() {
               Not another job board
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-lg max-w-xl mx-auto">
-              We don't just list jobs. We apply to them for you &mdash; and when companies hire through us, you get a real process with real answers.
+              We don't just list jobs. We match you to the right ones &mdash; and when companies hire through us, you get a real process with real answers.
             </p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
               {
-                icon: Bot,
-                title: "AI agent applies for you",
-                body: "Click one button. The agent opens the company's career page, fills every field, answers screening questions using your resume, and hits submit.",
-              },
-              {
                 icon: Sparkles,
                 title: "Matched by what you've actually done",
                 body: "We compare your job titles, skills, and experience to every listing &mdash; not just keywords. A Senior Frontend Engineer sees Senior Frontend roles, not random PM jobs.",
+              },
+              {
+                icon: Target,
+                title: "13,500+ jobs, personalized for you",
+                body: "Jobs from Google, Amazon, Stripe, and thousands more. Your feed shows only roles that match your background &mdash; no scrolling through irrelevant listings.",
               },
               {
                 icon: Shield,
@@ -369,8 +365,8 @@ export default function LandingResponsive() {
               },
               {
                 icon: Zap,
-                title: "One resume, unlimited applications",
-                body: "Upload once. The agent reuses your profile across every application, tailoring answers to each company and role.",
+                title: "One resume, every job",
+                body: "Upload once. Your profile is always ready. Apply to any job in your feed with one click &mdash; no re-entering the same info over and over.",
               },
             ].map(({ icon: Icon, title, body }) => (
               <div
@@ -423,8 +419,8 @@ export default function LandingResponsive() {
               <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-6">With Recrutas</p>
               <ul className="space-y-4">
                 {[
-                  "Upload resume once, AI applies automatically",
-                  "See exactly what was submitted",
+                  "Upload resume once, AI finds jobs that fit",
+                  "See match scores — know why each role fits you",
                   "Take exams — get ranked on skill, not connections",
                   "Chat directly with hiring managers",
                   "Only verified, live job listings",
@@ -501,10 +497,10 @@ export default function LandingResponsive() {
       <section className="py-24 md:py-32 bg-black dark:bg-emerald-950">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-2xl text-center">
           <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight">
-            Stop applying.<br />Start getting interviews.
+            Stop scrolling.<br />Start matching.
           </h2>
           <p className="text-gray-400 text-lg mb-10">
-            Upload your resume. The AI handles the rest. Free forever for candidates.
+            Upload your resume. See jobs that actually fit. Free forever for candidates.
           </p>
           <Button
             size="lg"
@@ -528,7 +524,7 @@ export default function LandingResponsive() {
                 <span className="font-bold text-black dark:text-white">Recrutas</span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-xs">
-                AI that applies to jobs for you. Upload your resume, get interviews.
+                AI-powered job matching. Upload your resume, find roles that fit.
               </p>
             </div>
 
