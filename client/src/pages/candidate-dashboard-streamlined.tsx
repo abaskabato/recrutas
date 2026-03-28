@@ -229,7 +229,9 @@ export default function CandidateStreamlinedDashboard() {
     }
   }, [isResumeProcessing, queryClient, toast]);
 
-  const displayName = (user as any)?.firstName || user?.email?.split('@')[0] || 'there';
+  const firstName = (profile as any)?.firstName || (user as any)?.firstName || null;
+  const displayName = firstName || user?.email?.split('@')[0] || 'there';
+  const isReturningUser = (applications?.length ?? 0) > 0 || hasResume;
   const avatarInitial = ((user as any)?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
 
   if (isLoading) {
@@ -364,7 +366,7 @@ export default function CandidateStreamlinedDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Welcome back, {displayName}
+                {isReturningUser ? `Welcome back, ${displayName}` : `Welcome, ${displayName}`}
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 Here's what's happening with your job search today.
@@ -395,39 +397,7 @@ export default function CandidateStreamlinedDashboard() {
         )}
 
 
-        {/* Stats row — only when resume uploaded */}
-        {hasResume && activeTab === 'jobs' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              {
-                label: 'Applications',
-                value: applications?.length ?? 0,
-                icon: Briefcase,
-                iconBg: 'bg-amber-50 dark:bg-amber-950',
-                iconColor: 'text-amber-600 dark:text-amber-400',
-                action: () => setActiveTab('applications'),
-                actionLabel: 'Track all',
-              },
-            ].map(({ label, value, icon: Icon, iconBg, iconColor, action }) => (
-              <div key={label} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
-                <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-                  <Icon className={`h-4 w-4 ${iconColor}`} />
-                </div>
-                <div className="min-w-0">
-                  {statsLoading
-                    ? <div className="h-7 w-10 bg-gray-200 dark:bg-gray-700 animate-pulse rounded mb-1" />
-                    : <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{value}</div>}
-                  <button
-                    onClick={action}
-                    className="flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mt-0.5"
-                  >
-                    {label}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* TODO: Phase 3 — stats row (Applications, Recruiter Views, Active Chats, New Matches) */}
 
         {/* Resume Processing Status Banners */}
         {isResumeProcessing && (
