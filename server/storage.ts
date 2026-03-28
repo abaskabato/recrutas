@@ -919,7 +919,7 @@ export class DatabaseStorage implements IStorage {
       const vectorStr = `[${candidateEmbedding.join(',')}]`;
       console.time('pgvector-query');
       const excludeClause = excludeIds.length > 0
-        ? client`AND id NOT IN (${client(excludeIds)})`
+        ? client`AND id != ALL(${excludeIds}::int[])`
         : client``;
       const titleFilter = filters?.jobTitle
         ? client`AND LOWER(title) LIKE ${'%' + filters.jobTitle.toLowerCase() + '%'}`
