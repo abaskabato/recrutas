@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { storage } from "./storage";
 import { isAuthenticated } from "./middleware/auth";
+import { notificationService } from "./notification-service";
 
 // Helper function to safely parse integer params
 function parseIntParam(value: string | undefined): number | null {
@@ -105,6 +106,13 @@ export function registerChatRoutes(app: Express) {
                 senderId: req.user.id,
                 message: sanitizedMessage
             });
+
+            // Broadcast to other participant(s) via WebSocket so chat updates in real-time
+            const room = rooms.find(r => r.id === roomId);
+            if (room) {
+                const participantIds = [room.candidateId, room.hiringManagerId].filter(Boolean);
+                notificationService.broadcastChatMessage(roomId, req.user.id, participantIds);
+            }
 
             res.json(newMessage);
         } catch (error) {

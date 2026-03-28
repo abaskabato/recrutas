@@ -59,11 +59,11 @@ export default function ApplicationTracker() {
   const { toast } = useToast();
   const { data: applications, isLoading, isError } = useQuery<ApplicationStatus[]>({
     queryKey: ["/api/candidate/applications"],
-    // Poll every 3s when there are applications still being submitted by the agent
+    // 5s poll while submitting, 60s baseline (WebSocket handles instant updates)
     refetchInterval: (query) => {
       const apps = query.state.data;
       const hasPending = apps?.some(app => app.status === 'submitting' || app.status === 'queued');
-      return hasPending ? 5000 : false;
+      return hasPending ? 5000 : 60000;
     },
   });
 

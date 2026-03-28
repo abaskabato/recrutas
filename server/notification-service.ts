@@ -543,6 +543,20 @@ class NotificationService {
     });
   }
 
+  /**
+   * Broadcast a chat message event to both participants in a room.
+   * Sends a lightweight { type: 'new_message', data: { roomId } } frame
+   * so the client can invalidate its chat queries instantly.
+   */
+  broadcastChatMessage(roomId: number, senderUserId: string, recipientUserIds: string[]) {
+    const payload = JSON.stringify({ type: 'new_message', data: { roomId } });
+    for (const uid of recipientUserIds) {
+      if (uid === senderUserId) continue; // don't echo back to sender
+      const connections = this.connectedClients.get(uid) || [];
+      connections.forEach(ws => this.safeSend(ws, payload));
+    }
+  }
+
   // Utility methods
   async getUnreadNotifications(userId: string, limit: number = 20) {
     try {
