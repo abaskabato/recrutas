@@ -169,11 +169,11 @@ export const profileUpdatedFunction = inngest.createFunction(
     // Step 1: warm the match cache and return top matches
     const matchResult = await step.run('warm-matches', async () => {
       const { storage } = await import('./storage.js');
-      const matches = await storage.getJobRecommendations(candidateId);
+      const result = await storage.getJobRecommendations(candidateId);
       console.log(`[Inngest] Warmed match cache for candidate ${candidateId}`);
 
       // Top 5 matches already have full job data
-      const top5 = (matches ?? []).slice(0, 5);
+      const top5 = (result.jobs ?? []).slice(0, 5);
       const jobDetails = top5.map((m: any) => {
           if (!m.id) return null;
           return {
@@ -190,7 +190,7 @@ export const profileUpdatedFunction = inngest.createFunction(
       }).filter(Boolean);
 
       return {
-        count: matches?.length ?? 0,
+        count: result.total ?? 0,
         jobs: jobDetails,
       };
     });

@@ -24,6 +24,7 @@ import {
   jobPostings,
   jobApplications,
   agentTasks,
+  candidateProfiles,
   JobPosting,
 } from "@shared/schema";
 import { generateScreeningQuestions } from "./ai-service";
@@ -389,7 +390,9 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
     try {
       const userId = req.user.id;
-      console.log(`[ai-matches] user=${userId}`);
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+      console.log(`[ai-matches] user=${userId} page=${page} limit=${limit}`);
 
       const filters = {
         jobTitle: (req.query.jobTitle as string) || undefined,
@@ -397,34 +400,46 @@ export async function registerRoutes(app: Express): Promise<Express> {
         workType: (req.query.workType as string) || undefined,
       };
 
-      // Single DB query — scored, filtered, and sorted inside storage layer
-      const allRecommendations = await Promise.race([
-        storage.getJobRecommendations(userId, filters),
+      const result = await Promise.race([
+        storage.getJobRecommendations(userId, filters, { page, limit }),
         timeoutPromise,
-      ]) as any[];
+      ]) as { jobs: any[]; total: number; page: number; hasMore: boolean };
 
       finish();
-      console.log(`[ai-matches] ${allRecommendations.length} matched jobs`);
 
-      if (allRecommendations.length === 0) {
-        return res.json({ applyAndKnowToday: [], matchedForYou: [] });
+      // Track last feed visit on page 1 only (for "new" badges)
+      if (page === 1) {
+        db.execute(sql`UPDATE candidate_users SET last_feed_visit = NOW() WHERE user_id = ${userId}`)
+          .catch(() => {});
       }
 
-      // Split into sections (already sorted by composite score from storage)
-      const applyAndKnowToday = allRecommendations
-        .filter((job: any) => job.source === 'platform' || !job.externalUrl)
-        .map((job: any, index: number) => formatJobMatch(job, index));
-      const matchedForYou = allRecommendations
-        .filter((job: any) => job.source !== 'platform' && job.externalUrl)
-        .map((job: any, index: number) => formatJobMatch(job, index));
+      // Get lastFeedVisit for "new" badge
+      const [candidate] = await db.select({ lastFeedVisit: candidateProfiles.lastFeedVisit })
+        .from(candidateProfiles)
+        .where(eq(candidateProfiles.userId, userId))
+        .limit(1);
+      const lastVisit = candidate?.lastFeedVisit;
 
-      console.log(`[ai-matches] Sections: ${applyAndKnowToday.length} apply, ${matchedForYou.length} matched`);
-      res.json({ applyAndKnowToday, matchedForYou });
+      const jobs = result.jobs.map((job: any, index: number) => {
+        const match = formatJobMatch(job, (page - 1) * limit + index);
+        return {
+          ...match,
+          isNew: lastVisit ? new Date(job.createdAt) > new Date(lastVisit) : false,
+        };
+      });
+
+      console.log(`[ai-matches] page=${page}: ${jobs.length} of ${result.total} matches`);
+      res.json({
+        jobs,
+        total: result.total,
+        page: result.page,
+        hasMore: result.hasMore,
+      });
     } catch (error: any) {
       console.error('[ai-matches] Error:', error?.message);
       finish();
       if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
-        return res.json({ applyAndKnowToday: [], matchedForYou: [] });
+        return res.json({ jobs: [], total: 0, page: 1, hasMore: false });
       }
       res.status(500).json({
         message: "Failed to generate job matches",
@@ -616,6 +631,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       const isNew = !(await storage.getUser(req.user.id));
 
       // Early access gate: new users must provide a valid invite code
+      let redeemedCode: string | undefined;
       if (isNew) {
         const inviteCode = req.body?.inviteCode || req.headers['x-invite-code'];
         if (!inviteCode) {
@@ -626,13 +642,20 @@ export async function registerRoutes(app: Express): Promise<Express> {
         if (!result.valid) {
           return res.status(403).json({ message: result.error, code: 'INVITE_INVALID' });
         }
+        redeemedCode = result.code;
       }
+
+      // Derive signup source from invite code prefix (e.g. REDDIT-A1B2 → reddit)
+      const signupSource = redeemedCode
+        ? redeemedCode.split('-')[0].toLowerCase()
+        : undefined;
 
       const user = await storage.upsertUser({
         id: req.user.id,
         email: req.user.email || '',
         name: req.user.email || req.user.id,
         emailVerified: true,
+        ...(isNew && redeemedCode ? { invite_code_used: redeemedCode, signup_source: signupSource } : {}),
       });
       if (isNew && req.user.email) {
         sendWelcomeEmail(req.user.email, req.user.user_metadata?.first_name).catch((err: Error) =>
@@ -654,6 +677,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
       // Early access gate: if user is not yet in local DB, they must have an invite code
       const existingUser = await storage.getUser(req.user.id);
+      let roleRedeemedCode: string | undefined;
       if (!existingUser) {
         const inviteCode = req.body?.inviteCode || req.headers['x-invite-code'];
         if (!inviteCode) {
@@ -663,14 +687,19 @@ export async function registerRoutes(app: Express): Promise<Express> {
         if (!result.valid) {
           return res.status(403).json({ message: result.error, code: 'INVITE_INVALID' });
         }
+        roleRedeemedCode = result.code;
       }
 
       // Ensure user exists in local DB before updating role (Supabase Auth doesn't auto-sync)
+      const roleSignupSource = roleRedeemedCode
+        ? roleRedeemedCode.split('-')[0].toLowerCase()
+        : undefined;
       await storage.upsertUser({
         id: req.user.id,
         email: req.user.email || '',
         name: req.user.email || req.user.id,
         emailVerified: true,
+        ...(!existingUser && roleRedeemedCode ? { invite_code_used: roleRedeemedCode, signup_source: roleSignupSource } : {}),
       });
       const updatedUser = await storage.updateUserRole(req.user.id, role);
 
@@ -1813,12 +1842,12 @@ export async function registerRoutes(app: Express): Promise<Express> {
       }
 
       // Use the unified matching pipeline
-      const matches = await Promise.race([
+      const result = await Promise.race([
         storage.getJobRecommendations(candidateId),
         timeoutPromise
-      ]) as any[];
+      ]) as { jobs: any[]; total: number };
 
-      res.json({ matches: matches || [], total: matches?.length || 0, algorithm: 'skill-match-v2' });
+      res.json({ matches: result.jobs || [], total: result.total || 0, algorithm: 'skill-match-v2' });
     } catch (error: any) {
       console.error("Error fetching advanced matches:", error?.message);
       if (error?.message?.includes('timeout')) {
@@ -2447,6 +2476,42 @@ export async function registerRoutes(app: Express): Promise<Express> {
     if (!verifyAdminSecret(req, res)) return;
     const codes = await storage.listInviteCodes();
     res.json(codes);
+  }));
+
+  // Signup source breakdown (for GTM channel tracking)
+  app.get('/api/admin/signup-sources', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const result = await db.execute(sql`
+      SELECT signup_source, COUNT(*) as count,
+             MIN("createdAt") as first_signup, MAX("createdAt") as last_signup
+      FROM users
+      WHERE signup_source IS NOT NULL
+      GROUP BY signup_source
+      ORDER BY count DESC
+    `);
+    res.json((result as any).rows ?? result);
+  }));
+
+  // Embedding stats for debugging matching issues
+  app.get('/api/admin/embedding-stats', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    const result = await db.execute(sql`
+      SELECT 'job_postings' AS table_name, COUNT(*) AS total, COUNT(embedding) AS with_embedding FROM job_postings
+      UNION ALL
+      SELECT 'candidate_users', COUNT(*), COUNT(embedding) FROM candidate_users
+    `);
+    res.json((result as any).rows ?? result);
+  }));
+
+  // Check/create HNSW index
+  app.get('/api/admin/embedding-index', asyncHandler(async (req, res) => {
+    if (!verifyAdminSecret(req, res)) return;
+    try {
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_job_embedding_hnsw ON job_postings USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)`);
+      res.json({ success: true, message: 'HNSW index created/verified' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   }));
 
   // ── End Invite Code Endpoints ──────────────────────────────────────────────

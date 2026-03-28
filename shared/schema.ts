@@ -45,6 +45,8 @@ export const users = pgTable("users", {
   profile_image_url: text("profile_image_url"),
   role: text("role"),
   profile_complete: boolean("profile_complete").default(false),
+  signup_source: varchar("signup_source", { length: 50 }),   // channel: reddit, hn, twitter, ada, etc.
+  invite_code_used: varchar("invite_code_used", { length: 40 }), // which invite code was redeemed
 });
 
 export const talentOwnerProfiles = pgTable("talent_owner_profiles", {
@@ -108,6 +110,7 @@ export const candidateProfiles = pgTable("candidate_users", {
   // Native pgvector column for ANN retrieval (populated alongside TEXT column)
   embedding: vector("embedding"),
   embeddingUpdatedAt: timestamp("embedding_updated_at"),
+  lastFeedVisit: timestamp("last_feed_visit"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

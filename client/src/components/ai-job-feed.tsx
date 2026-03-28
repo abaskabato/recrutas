@@ -1,13 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, ChevronDown, RotateCcw, Bot, Clock, FileText, Upload, Loader2, Layers } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, RotateCcw, Bot, Clock, FileText, Upload, Loader2, Layers } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -63,15 +62,16 @@ export interface AIJobMatch {
   // PRD fields
   isVerifiedActive?: boolean;
   isDirectFromCompany?: boolean;
-  section?: 'applyAndKnowToday' | 'matchedForYou';
+  isNew?: boolean;
 }
 
-interface SectionedResponse {
-  applyAndKnowToday: AIJobMatch[];
-  matchedForYou: AIJobMatch[];
+interface PaginatedResponse {
+  jobs: AIJobMatch[];
+  total: number;
+  page: number;
+  hasMore: boolean;
 }
 
-const INITIAL_JOB_LIMIT = 20;
 const JOBS_PER_PAGE = 20;
 
 interface AIJobFeedProps {
@@ -87,7 +87,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [experienceLevelFilter, setExperienceLevelFilter] = useState("all");
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [displayLimit, setDisplayLimit] = useState(INITIAL_JOB_LIMIT);
   const [agentApplyingIds, setAgentApplyingIds] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -96,57 +95,49 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const cachedProfile = queryClient.getQueryData<any>(['/api/candidate/profile']);
   const hasSkills = Array.isArray(cachedProfile?.skills) && cachedProfile.skills.length > 0;
 
-  // Track retries when matches come back empty (backend still computing)
-  const emptyRetryCount = useRef(0);
-  const MAX_EMPTY_RETRIES = 6; // ~30s of retrying (6 × 5s)
-  const [waitingForMatches, setWaitingForMatches] = useState(false);
-
-  // Fetch all matches once — filters applied client-side for instant interaction
-  const { data: allMatches, isLoading, isFetching, refetch } = useQuery<AIJobMatch[]>({
+  // Server-side paginated infinite scroll
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+    refetch,
+  } = useInfiniteQuery<PaginatedResponse>({
     queryKey: ['/api/ai-matches'],
-    queryFn: async () => {
-      const response = await apiRequest("GET", '/api/ai-matches');
-      const data = await response.json();
-
-      // Handle sectioned response: { applyAndKnowToday, matchedForYou }
-      if (data && !Array.isArray(data) && data.applyAndKnowToday) {
-        const sectioned = data as SectionedResponse;
-        return [
-          ...sectioned.applyAndKnowToday.map((m: AIJobMatch) => ({ ...m, section: 'applyAndKnowToday' as const })),
-          ...sectioned.matchedForYou.map((m: AIJobMatch) => ({ ...m, section: 'matchedForYou' as const })),
-        ];
-      }
-      // Backward compat: flat array
-      return Array.isArray(data) ? data : [];
+    queryFn: async ({ pageParam }) => {
+      const response = await apiRequest("GET", `/api/ai-matches?page=${pageParam}&limit=${JOBS_PER_PAGE}`);
+      return response.json();
     },
-    refetchInterval: 300000, // Refresh every 5 minutes
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
+    initialPageParam: 1,
+    refetchInterval: 300000,
   });
 
-  // Auto-retry when matches are empty — backend may still be computing
+  const totalMatches = data?.pages?.[0]?.total ?? 0;
+
+  // Flatten all fetched pages into a single list
+  const allMatches = useMemo(() => {
+    if (!data?.pages) return undefined;
+    return data.pages.flatMap(page => page.jobs);
+  }, [data]);
+
+  // Intersection observer for infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (isLoading || isFetching) return;
-    if (allMatches && allMatches.length > 0) {
-      emptyRetryCount.current = 0;
-      setWaitingForMatches(false);
-      return;
-    }
-    // No skills = no matches possible — skip retries
-    if (!hasSkills) {
-      setWaitingForMatches(false);
-      return;
-    }
-    // Data came back empty — retry if under limit
-    if (emptyRetryCount.current < MAX_EMPTY_RETRIES) {
-      setWaitingForMatches(true);
-      const timer = setTimeout(() => {
-        emptyRetryCount.current++;
-        refetch();
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-    // Exhausted retries — show empty state
-    setWaitingForMatches(false);
-  }, [allMatches, isLoading, isFetching, refetch, hasSkills]);
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Client-side filtering — instant, no network calls
   const filteredMatches = useMemo(() => {
@@ -371,15 +362,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     hideMutation.mutate(match.job.id);
   };
 
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const _rowVirtualizer = useVirtualizer({
-    count: filteredMatches?.length ?? 0,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 150,
-    overscan: 5,
-  });
-
   const locations = useMemo(() => [...new Set((allMatches || []).map(m => m.job.location).filter(Boolean))].sort(), [allMatches]);
   const companies = useMemo(() => [...new Set((allMatches || []).map(m => m.job.company).filter(Boolean))].sort(), [allMatches]);
   const workTypes = useMemo(() => [...new Set((allMatches || []).map(m => m.job.workType).filter(Boolean))].sort(), [allMatches]);
@@ -473,7 +455,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       </div>
 
       {/* Job Feed */}
-      {isLoading || waitingForMatches || (isFetching && (!filteredMatches || filteredMatches.length === 0)) ? (
+      {isLoading || (isFetching && !isFetchingNextPage && (!filteredMatches || filteredMatches.length === 0)) ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Finding your best job matches...</p>
@@ -526,7 +508,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
         <div className="space-y-4">
           {/* Job count summary with refresh */}
           <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-            <span>Showing {Math.min(displayLimit, filteredMatches.length)} of {filteredMatches.length} matches</span>
+            <span>Showing {filteredMatches.length} of {totalMatches} matches</span>
             <Button
               variant="outline"
               size="sm"
@@ -540,9 +522,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
           </div>
 
           <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto">
-            {filteredMatches.slice(0, displayLimit).map((match, idx) => {
-              const prevSection = idx > 0 ? filteredMatches[idx - 1]?.section : undefined;
-              const showSectionHeader = match.section && match.section !== prevSection;
+            {filteredMatches.map((match, idx) => {
               const isSaved = savedJobIds.has(match.job.id);
               const isApplied = appliedJobIds.has(match.job.id);
               // Determine trust badges
@@ -561,32 +541,24 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
               return (
                 <div key={match.id}>
-                  {showSectionHeader && match.section === 'applyAndKnowToday' && (
-                    <div className="flex items-center gap-2 pb-3 pt-1">
-                      <Shield className="h-5 w-5 text-green-600" />
-                      <h2 className="font-semibold text-lg text-green-700 dark:text-green-400">Apply & Know Today</h2>
-                      <Badge variant="secondary" className="bg-green-50 text-green-700 text-xs">Results within 24h</Badge>
-                    </div>
-                  )}
-                  {showSectionHeader && match.section === 'matchedForYou' && (
-                    <div className="flex items-center gap-2 pb-3 pt-4 border-t mt-2">
-                      <Sparkles className="h-5 w-5 text-blue-600" />
-                      <h2 className="font-semibold text-lg text-blue-700 dark:text-blue-400">Matched For You</h2>
-                    </div>
-                  )}
                   <Card className="hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-150">
                     <CardContent className="p-3 sm:p-4">
                       {/* Mobile: Stack vertically, Desktop: Side by side */}
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {match.isNew && (
+                              <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 text-xs">
+                                <Clock className="h-3 w-3 mr-1" />
+                                New
+                              </Badge>
+                            )}
                             {match.job.aiCurated && (
                               <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 text-xs">
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 AI Curated
                               </Badge>
                             )}
-                            {/* PRD: Trust badges */}
                             {isVerifiedActive && (
                               <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 text-xs">
                                 <BadgeCheck className="h-3 w-3 mr-1" />
@@ -737,19 +709,13 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
             })}
           </div>
 
-          {/* PRD: Load More button for pagination */}
-          {filteredMatches.length > displayLimit && (
-            <div className="flex justify-center pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setDisplayLimit(prev => prev + JOBS_PER_PAGE)}
-                className="w-full max-w-xs"
-              >
-                <ChevronDown className="h-4 w-4 mr-2" />
-                Load More ({filteredMatches.length - displayLimit} remaining)
-              </Button>
-            </div>
-          )}
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="flex items-center justify-center h-10">
+            {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
+            {!hasNextPage && filteredMatches.length > 0 && (
+              <span className="text-sm text-gray-400">You've seen all {totalMatches} matches</span>
+            )}
+          </div>
         </div>
       )}
       <AIMatchBreakdownModal

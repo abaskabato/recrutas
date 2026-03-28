@@ -102,7 +102,7 @@ export interface IStorage {
   createJobPosting(job: InsertJobPosting): Promise<JobPosting>;
   getJobPostings(recruiterId: string): Promise<JobPosting[]>;
   getJobPosting(id: number): Promise<JobPosting | undefined>;
-  getJobRecommendations(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }): Promise<JobPosting[]>;
+  getJobRecommendations(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }, pagination?: { page: number; limit: number }): Promise<{ jobs: any[]; total: number; page: number; hasMore: boolean }>;
   updateJobPosting(id: number, talentOwnerId: string, updates: Partial<InsertJobPosting>): Promise<JobPosting>;
   deleteJobPosting(id: number, talentOwnerId: string): Promise<void>;
 
@@ -931,7 +931,7 @@ export class DatabaseStorage implements IStorage {
         ? client`AND LOWER(work_type) = ${filters.workType.toLowerCase()}`
         : client``;
 
-      // pgvector ANN retrieval — top 50 by cosine distance (reduced from 200 for speed)
+      // pgvector ANN retrieval — top 200 by cosine distance
       const vectorRows = await client`
         SELECT id FROM job_postings
         WHERE status = 'active'
@@ -946,7 +946,7 @@ export class DatabaseStorage implements IStorage {
           ${locationFilter}
           ${workTypeFilter}
         ORDER BY embedding <=> ${vectorStr}::vector
-        LIMIT 50
+        LIMIT 200
       `;
       console.timeEnd('pgvector-query');
       const vectorIds = new Set(vectorRows.map((r: any) => r.id));
@@ -976,7 +976,7 @@ export class DatabaseStorage implements IStorage {
             ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
           ),
         ))
-        .limit(100);
+        .limit(500);
       const keywordIds = keywordJobs.map((r: any) => r.id);
       console.log(`[keyword] Retrieved ${keywordIds.length} jobs by keyword match`);
 
@@ -1026,7 +1026,7 @@ export class DatabaseStorage implements IStorage {
           sql`${jobPostings.trustScore} DESC NULLS LAST`,
           sql`${jobPostings.createdAt} DESC`
         )
-        .limit(300);
+        .limit(500);
     }
 
     const jobsWithSource = allJobs
@@ -1124,14 +1124,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * Get job recommendations as a flat array (backward-compatible for /api/ai-matches).
+   * Get job recommendations with server-side pagination.
    */
-  async getJobRecommendations(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }): Promise<any[]> {
+  async getJobRecommendations(
+    candidateId: string,
+    filters?: { jobTitle?: string; location?: string; workType?: string },
+    pagination?: { page: number; limit: number },
+  ): Promise<{ jobs: any[]; total: number; page: number; hasMore: boolean }> {
     try {
       const recommendations = await this.fetchScoredJobs(candidateId, filters);
-      if (!recommendations) {return [];}
-      console.log(`Returning ${Math.min(recommendations.length, 50)} job recommendations`);
-      return recommendations.slice(0, 50);
+      if (!recommendations || recommendations.length === 0) {
+        return { jobs: [], total: 0, page: 1, hasMore: false };
+      }
+
+      const page = pagination?.page ?? 1;
+      const limit = pagination?.limit ?? 20;
+      const offset = (page - 1) * limit;
+      const total = recommendations.length;
+      const jobs = recommendations.slice(offset, offset + limit);
+
+      console.log(`Returning page ${page}: ${jobs.length} of ${total} job recommendations`);
+      return { jobs, total, page, hasMore: offset + limit < total };
     } catch (error) {
       console.error('Error fetching job recommendations:', error);
       throw error;
