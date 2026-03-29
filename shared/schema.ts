@@ -857,6 +857,25 @@ export const inviteCodeRedemptions = pgTable("invite_code_redemptions", {
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type InviteCodeRedemption = typeof inviteCodeRedemptions.$inferSelect;
 
+// ── Early Access: waitlist ────────────────────────────────────────────────────
+// Collects emails from people who want early access but don't have an invite code yet.
+
+export const waitlistEntries = pgTable("waitlist_entries", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  firstName: varchar("first_name", { length: 100 }),
+  lastName: varchar("last_name", { length: 100 }),
+  source: varchar("source", { length: 50 }),          // e.g. "landing", "reddit", "twitter"
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, invited, joined
+  inviteCodeSent: varchar("invite_code_sent", { length: 40 }), // code sent to them (if any)
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table: any) => ({
+  idxWaitlistEmail: index("idx_waitlist_email").on(table.email),
+  idxWaitlistStatus: index("idx_waitlist_status").on(table.status),
+}));
+
+export type WaitlistEntry = typeof waitlistEntries.$inferSelect;
+
 // ── Per-user daily rate limits ───────────────────────────────────────────────
 // Lightweight counter table: one row per user per action per day.
 // Checked before expensive operations (resume upload, job post, application).

@@ -24,6 +24,7 @@ import { RoleGuard } from '@/components/role-guard';
 import { AuthGuard } from '@/components/auth-guard';
 import AdminDashboard from "@/pages/admin-dashboard";
 import MetricsDashboard from "@/pages/metrics-dashboard";
+import EarlyAccessPage from "@/pages/early-access";
 import PageMeta from '@/components/page-meta';
 
 
@@ -63,6 +64,7 @@ function App() {
           </Route>
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/admin/metrics" component={MetricsDashboard} />
+          <Route path="/early-access" component={EarlyAccessPage} />
           <Route path="/pricing" component={PricingPage} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfService} />

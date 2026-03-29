@@ -25,6 +25,7 @@ import {
   jobApplications,
   candidateProfiles,
   JobPosting,
+  waitlistEntries,
 } from "@shared/schema";
 import { generateScreeningQuestions } from "./ai-service";
 import { callAI, callGeminiWithImage } from "./lib/ai-client";
@@ -2843,6 +2844,51 @@ Analyze the form and return the actions JSON to fill every field you can.`;
       `,
     });
     res.json({ ok: true });
+  }));
+
+  // ── Waitlist: early access signup ──────────────────────────────────────────
+  app.post('/api/waitlist', rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), asyncHandler(async (req: any, res) => {
+    const { email, firstName, lastName, source } = req.body;
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    const normalizedEmail = email.trim().toLowerCase().slice(0, 255);
+
+    // Check if already on waitlist
+    const existing = await db.select().from(waitlistEntries).where(eq(waitlistEntries.email, normalizedEmail)).limit(1);
+    if (existing.length > 0) {
+      return res.json({ ok: true, message: "You're already on the list! We'll reach out soon." });
+    }
+
+    await db.insert(waitlistEntries).values({
+      email: normalizedEmail,
+      firstName: typeof firstName === 'string' ? firstName.trim().slice(0, 100) : null,
+      lastName: typeof lastName === 'string' ? lastName.trim().slice(0, 100) : null,
+      source: typeof source === 'string' ? source.trim().slice(0, 50) : 'early-access-page',
+    });
+
+    // Send confirmation email
+    await sendEmail({
+      to: normalizedEmail,
+      from: 'noreply@recrutas.ai',
+      subject: "You're on the Recrutas early access list!",
+      html: `
+        <p>Hey${firstName ? ` ${firstName.trim()}` : ''},</p>
+        <p>Thanks for signing up for early access to <strong>Recrutas</strong>.</p>
+        <p>We're letting people in on a rolling basis. You'll get an invite code in your inbox as soon as a spot opens up.</p>
+        <p>— The Recrutas Team</p>
+      `,
+    }).catch((err: Error) => console.error('[Waitlist] Failed to send confirmation email:', err));
+
+    // Notify admin
+    await sendEmail({
+      to: 'hello@recrutas.ai',
+      from: 'noreply@recrutas.ai',
+      subject: `[Waitlist] New signup: ${normalizedEmail}`,
+      html: `<p><strong>${firstName || ''} ${lastName || ''}</strong> (${normalizedEmail}) joined the waitlist.</p><p>Source: ${source || 'early-access-page'}</p>`,
+    }).catch((err: Error) => console.error('[Waitlist] Failed to send admin notification:', err));
+
+    res.json({ ok: true, message: "You're in! Check your email for confirmation." });
   }));
 
   // Inngest serve endpoint — receives events from Inngest Cloud
