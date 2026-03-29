@@ -244,14 +244,16 @@ async function incrementFillStats(fieldsFilled) {
 // ── Inject content script into active tab ────────────────────────────────────
 
 async function injectAndFill(tabId) {
-  await chrome.scripting.insertCSS({
-    target: { tabId },
-    files: ['content.css'],
-  });
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ['content.js'],
-  });
+  if (chrome.scripting) {
+    // Chrome MV3 / Firefox MV3
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+  } else {
+    // Firefox MV2 fallback
+    await chrome.tabs.insertCSS(tabId, { file: 'content.css' });
+    await chrome.tabs.executeScript(tabId, { file: 'browser-polyfill.js' });
+    await chrome.tabs.executeScript(tabId, { file: 'content.js' });
+  }
 }
 
 // ── Keyboard shortcut handler ───────────────────────────────────────────────

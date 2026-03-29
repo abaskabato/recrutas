@@ -1,0 +1,111 @@
+{
+  "manifest_version": 2,
+  "name": "Recrutas Auto-Fill",
+  "version": "2.0.0",
+  "description": "AI-powered auto-fill for job application forms using your Recrutas profile",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "*://boards.greenhouse.io/*",
+    "*://jobs.greenhouse.io/*",
+    "*://job-boards.greenhouse.io/*",
+    "*://jobs.lever.co/*",
+    "*://*.lever.co/*",
+    "*://*.ashbyhq.com/*",
+    "*://jobs.ashbyhq.com/*",
+    "*://*.myworkdayjobs.com/*",
+    "*://*.myworkdaysite.com/*",
+    "*://*.icims.com/*",
+    "*://*.smartrecruiters.com/*",
+    "*://*.jobvite.com/*",
+    "*://*.bamboohr.com/*",
+    "*://*.applytojob.com/*",
+    "*://*.recruitee.com/*",
+    "*://*.workable.com/*",
+    "*://*.breezy.hr/*",
+    "*://*.jazz.co/*",
+    "*://*.jazzhr.com/*",
+    "*://*.taleo.net/*",
+    "*://*.successfactors.com/*",
+    "*://*.ultipro.com/*",
+    "*://*.paylocity.com/*",
+    "*://*.paycomonline.net/*",
+    "*://*.rippling.com/*/jobs/*",
+    "*://*.deel.com/*/jobs/*",
+    "*://careers.google.com/*",
+    "*://jobs.netflix.com/*",
+    "*://www.amazon.jobs/*",
+    "*://jobs.apple.com/*",
+    "*://careers.microsoft.com/*",
+    "*://www.metacareers.com/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "autofill@recrutas.ai",
+      "strict_min_version": "109.0"
+    }
+  },
+  "background": {
+    "scripts": ["browser-polyfill.js", "background.js"]
+  },
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Recrutas Auto-Fill"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://boards.greenhouse.io/*",
+        "*://jobs.greenhouse.io/*",
+        "*://job-boards.greenhouse.io/*",
+        "*://jobs.lever.co/*",
+        "*://*.lever.co/*",
+        "*://*.ashbyhq.com/*",
+        "*://jobs.ashbyhq.com/*",
+        "*://*.myworkdayjobs.com/*",
+        "*://*.myworkdaysite.com/*",
+        "*://*.icims.com/*",
+        "*://*.smartrecruiters.com/*",
+        "*://*.jobvite.com/*",
+        "*://*.bamboohr.com/*",
+        "*://*.applytojob.com/*",
+        "*://*.recruitee.com/*",
+        "*://*.workable.com/*",
+        "*://*.breezy.hr/*",
+        "*://*.jazz.co/*",
+        "*://*.jazzhr.com/*",
+        "*://*.taleo.net/*",
+        "*://*.successfactors.com/*",
+        "*://*.ultipro.com/*",
+        "*://*.paylocity.com/*",
+        "*://*.paycomonline.net/*",
+        "*://*.rippling.com/*/jobs/*",
+        "*://*.deel.com/*/jobs/*",
+        "*://careers.google.com/*",
+        "*://jobs.netflix.com/*",
+        "*://www.amazon.jobs/*",
+        "*://jobs.apple.com/*",
+        "*://careers.microsoft.com/*",
+        "*://www.metacareers.com/*"
+      ],
+      "js": ["browser-polyfill.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "fill-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+R",
+        "mac": "Alt+Shift+R"
+      },
+      "description": "Fill the current page with your Recrutas profile"
+    }
+  }
+}
