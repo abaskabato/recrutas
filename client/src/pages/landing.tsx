@@ -149,7 +149,7 @@ export default function Landing() {
             </h1>
 
             <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Recrutas matches you to real jobs with AI, responds in 24 hours, and applies for you — so you can focus on interviewing, not clicking Submit.
+              Recrutas matches you to real jobs with AI and auto-fills your applications — so you can focus on interviewing, not clicking Submit.
             </p>
 
             <Button
@@ -225,68 +225,74 @@ export default function Landing() {
               </Card>
             </motion.div>
 
-            {/* Pillar 2: 24hr Response */}
+            {/* Pillar 2: Auto Apply */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
             >
-              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-purple-500/40 transition-all duration-300 backdrop-blur-sm">
+              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-pink-500/40 transition-all duration-300 backdrop-blur-sm">
                 <CardContent className="p-8">
-                  <div className="w-14 h-14 mb-6 bg-gradient-to-r from-purple-500 to-violet-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Clock className="w-7 h-7 text-white" />
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-14 h-14 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <MousePointerClick className="w-7 h-7 text-white" />
+                    </div>
+                    <Badge className="bg-pink-500/20 text-pink-300 border-pink-400/30 text-xs">Beta</Badge>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">24hr Response</h3>
+                  <h3 className="text-2xl font-bold text-white mb-3">Auto Apply</h3>
                   <p className="text-slate-300 leading-relaxed mb-4">
-                    No more ghosting. Every application gets a real response within 24 hours — even if it's a no.
+                    Found a match? Our browser extension fills out the application for you — on Greenhouse and more.
                   </p>
                   <div className="space-y-2 text-sm text-slate-400">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                      <span>Honest feedback on every rejection</span>
+                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <span>AI reads the form and fills it with your info</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                      <span>Know where you stand, always</span>
+                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <span>Review before submitting — you stay in control</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                      <span>No more refreshing your inbox for weeks</span>
+                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <span>Adding more job boards every week</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Pillar 3: Auto Apply */}
+            {/* Pillar 3: 24hr Response */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-pink-500/40 transition-all duration-300 backdrop-blur-sm">
+              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-purple-500/40 transition-all duration-300 backdrop-blur-sm">
                 <CardContent className="p-8">
-                  <div className="w-14 h-14 mb-6 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <MousePointerClick className="w-7 h-7 text-white" />
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-14 h-14 bg-gradient-to-r from-purple-500 to-violet-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Clock className="w-7 h-7 text-white" />
+                    </div>
+                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">Coming Soon</Badge>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">Auto Apply</h3>
+                  <h3 className="text-2xl font-bold text-white mb-3">24hr Response</h3>
                   <p className="text-slate-300 leading-relaxed mb-4">
-                    Found a match? Our browser extension fills out the application for you — any job board, any ATS.
+                    For jobs posted directly on Recrutas — every application gets a real response within 24 hours.
                   </p>
                   <div className="space-y-2 text-sm text-slate-400">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
-                      <span>Works on Greenhouse, Lever, Workday & more</span>
+                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <span>Honest feedback, even on rejections</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
-                      <span>AI answers screening questions for you</span>
+                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <span>No more ghosting — know where you stand</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
-                      <span>Review before submitting — you stay in control</span>
+                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <span>Launching with employer partners soon</span>
                     </div>
                   </div>
                 </CardContent>
@@ -324,13 +330,13 @@ export default function Landing() {
                 icon: Search,
                 title: "Get matched instantly",
                 description: "Semantic AI compares you against thousands of live openings. No keyword games.",
-                color: "from-purple-500 to-violet-500"
+                color: "from-blue-500 to-cyan-500"
               },
               {
                 step: "3",
                 icon: Zap,
                 title: "Apply with one click",
-                description: "Use our extension to auto-fill applications. Or just apply the old way — your choice.",
+                description: "Use our browser extension to auto-fill applications. Or apply the old way — your choice.",
                 color: "from-pink-500 to-rose-500"
               }
             ].map((item, index) => (
@@ -379,7 +385,7 @@ export default function Landing() {
               You apply to 100 jobs, hear back from 2.
             </p>
             <p className="text-xl text-white font-medium">
-              On Recrutas, every application gets a response. Period.
+              We're building Recrutas so that every application gets a response. That's the standard we're working toward.
             </p>
           </motion.div>
         </div>
