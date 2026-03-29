@@ -258,14 +258,19 @@ async function injectAndFill(tabId) {
 
 // ── Keyboard shortcut handler ───────────────────────────────────────────────
 
+// Cross-browser badge API — Chrome MV3 uses chrome.action, Firefox MV2 uses browserAction
+const actionAPI = chrome.action || chrome.browserAction;
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'fill-page') {
     const valid = await isTokenValid();
     if (!valid) {
       // Can't fill without auth — badge the icon
-      chrome.action.setBadgeText({ text: '!' });
-      chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
-      setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
+      if (actionAPI) {
+        actionAPI.setBadgeText({ text: '!' });
+        actionAPI.setBadgeBackgroundColor({ color: '#ef4444' });
+        setTimeout(() => actionAPI.setBadgeText({ text: '' }), 3000);
+      }
       return;
     }
 

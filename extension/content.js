@@ -12,6 +12,14 @@
 (function () {
   'use strict';
 
+  // Cross-browser messaging — always returns a Promise
+  function sendMessage(msg) {
+    if (typeof browser !== 'undefined' && browser.runtime?.sendMessage) {
+      return browser.runtime.sendMessage(msg);
+    }
+    return chrome.runtime.sendMessage(msg);
+  }
+
   // Prevent double-injection on SPAs
   if (window.__recruitasInjected) {
     triggerFill();
@@ -62,6 +70,7 @@
     const fields = [];
     const seen = new Set();
 
+    // Standard form elements
     const elements = document.querySelectorAll('input, textarea, select');
 
     for (const el of elements) {
@@ -69,7 +78,12 @@
 
       if (['hidden', 'submit', 'button', 'image', 'reset'].includes(type)) continue;
       if (el.readOnly || el.disabled) continue;
-      if (el.offsetParent === null && el.type !== 'file') continue;
+
+      // Allow visually-hidden inputs (React Select, comboboxes use opacity:0 / position:absolute)
+      const isFileInput = el.type === 'file';
+      const isReactSelect = el.getAttribute('role') === 'combobox' ||
+        el.closest('[class*="select"], [class*="Select"], [class*="combobox"]');
+      if (el.offsetParent === null && !isFileInput && !isReactSelect) continue;
 
       const fieldId = el.id || el.name || `recrutas_${fields.length}`;
       if (seen.has(fieldId)) continue;
@@ -95,6 +109,36 @@
       }
 
       fields.push(field);
+    }
+
+    // Custom dropdown elements (Workday, iCIMS, Taleo use div[role="listbox"] instead of <select>)
+    const customDropdowns = document.querySelectorAll(
+      '[role="listbox"], [role="combobox"], [data-automation-id*="select"], [data-automation-id*="dropdown"]'
+    );
+    for (const el of customDropdowns) {
+      // Skip if we already captured a child input from this container
+      if (el.querySelector('input, select') &&
+          Array.from(el.querySelectorAll('input, select')).some(child => seen.has(child.id || child.name))) {
+        continue;
+      }
+
+      const fieldId = el.id || el.getAttribute('data-automation-id') || `recrutas_custom_${fields.length}`;
+      if (seen.has(fieldId)) continue;
+      seen.add(fieldId);
+
+      const options = Array.from(el.querySelectorAll('[role="option"], li, [data-value]'))
+        .map(opt => opt.textContent?.trim())
+        .filter(Boolean);
+
+      fields.push({
+        id: fieldId,
+        type: 'custom_select',
+        label: getLabelText(el) || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')
+          ? document.getElementById(el.getAttribute('aria-labelledby'))?.textContent?.trim() || '' : '',
+        name: '',
+        required: el.getAttribute('aria-required') === 'true',
+        options: options.length > 0 ? options : undefined,
+      });
     }
 
     return fields;
@@ -223,11 +267,19 @@
       }
     }
 
+    // Last resort: press Enter and hope the first suggestion was selected
     searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
     await sleep(200);
 
-    highlightFilled(el);
-    return true;
+    // Check if value actually changed — if not, this failed
+    const currentValue = (searchInput || el).value || el.textContent?.trim() || '';
+    if (currentValue && currentValue.toLowerCase().includes(valueLower.substring(0, 3))) {
+      highlightFilled(el);
+      return true;
+    }
+
+    highlightFailed(el);
+    return false;
   }
 
   // ACTION: check
@@ -246,7 +298,7 @@
     if (!resumeUrl || el.type !== 'file') return false;
 
     try {
-      const fileData = await chrome.runtime.sendMessage({
+      const fileData = await sendMessage({
         type: 'DOWNLOAD_RESUME',
         url: resumeUrl,
       });
@@ -316,6 +368,10 @@
           case 'upload_resume':
             success = await executeUploadResume(el, resumeUrl);
             break;
+          case 'click_option':
+            // For custom dropdowns (role="listbox") — click the container, then click matching option
+            success = await executeClickThenType(el, action.value || '');
+            break;
           default:
             console.debug(`[Recrutas] Unknown action: ${action.action}`);
         }
@@ -370,7 +426,7 @@
 
       if (btn) btn.textContent = 'AI filling…';
 
-      const response = await chrome.runtime.sendMessage({
+      const response = await sendMessage({
         type: 'FILL_FORM_AI',
         fields,
         jobContext,
@@ -392,7 +448,7 @@
       const { filled, failed } = await executeActions(actions, resumeUrl);
 
       // Report stats to background
-      chrome.runtime.sendMessage({ type: 'FILL_COMPLETE', fieldsFilled: filled }).catch(() => {});
+      sendMessage({ type: 'FILL_COMPLETE', fieldsFilled: filled }).catch(() => {});
 
       if (filled === 0) {
         showBanner('Could not fill any fields — try a different page', 'warning');
