@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Zap, Shield, CheckCircle2, ArrowRight,
-  Sparkles, Menu, X, MessageSquare, FileText,
-  Clock, Eye, Upload, Trophy, BarChart3, Users,
-  Building2, Target, Search,
+  Sparkles, Menu, X, MessageSquare,
+  Clock, Upload, Trophy, BarChart3, Users,
+  Target, Search,
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { useSession } from "@supabase/auth-helpers-react";
-import InstantMatchModal from "@/components/instant-match-modal";
 
 // -- Product mockup: shows real product flow, not a stock mockup ----------------
 
@@ -41,9 +39,9 @@ function ProductMockup() {
 
           {/* Job cards */}
           {[
-            { company: "Stripe", role: "Senior Frontend Engineer", score: 94, status: "94% match" },
-            { company: "Linear", role: "Full Stack Engineer", score: 91, status: "91% match" },
-            { company: "Vercel", role: "Software Engineer", score: 87, status: "87% match" },
+            { company: "Series B Startup", role: "Senior Frontend Engineer", score: 94, status: "94% match" },
+            { company: "Cloud Platform Co", role: "Full Stack Engineer", score: 91, status: "91% match" },
+            { company: "Dev Tools Inc", role: "Software Engineer", score: 87, status: "87% match" },
           ].map((job, i) => (
             <div
               key={i}
@@ -92,7 +90,6 @@ function ProductMockup() {
 // -- Main page ----------------------------------------------------------------
 
 export default function LandingResponsive() {
-  const [showInstantMatch, setShowInstantMatch] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const session = useSession();
   const [, setLocation] = useLocation();
@@ -106,11 +103,6 @@ export default function LandingResponsive() {
       const code = new URLSearchParams(window.location.search).get('code');
       setLocation(code ? `/auth?code=${encodeURIComponent(code)}` : '/auth');
     }
-  };
-
-  const handleStartMatching = () => {
-    setShowInstantMatch(false);
-    goToApp();
   };
 
   if (session && !session.user?.user_metadata?.role) {
@@ -236,9 +228,10 @@ export default function LandingResponsive() {
             You already know the problem
           </h2>
           <p className="text-gray-500 dark:text-gray-400 text-lg leading-relaxed">
-            You apply to 50 jobs. You hear back from 3. You fill out the same form 50 times.
-            You never know if anyone even looked at your resume. Most job boards are built for
-            employers, not for you. We built something different.
+            You apply to hundreds of jobs. You rewrite your resume for each one. You fill out
+            the same form over and over. You wait days, weeks, months — and hear nothing.
+            Not even a no. Just silence. Like you never existed.
+            <strong className="text-black dark:text-white"> We built Recrutas to change that.</strong>
           </p>
         </div>
       </section>
@@ -270,9 +263,9 @@ export default function LandingResponsive() {
               <div className="space-y-4">
                 {[
                   { step: "01", text: "Upload your resume &mdash; AI extracts skills, titles, experience" },
-                  { step: "02", text: "Get matched to 13,500+ live jobs from real company career pages" },
+                  { step: "02", text: "Get matched to thousands of live jobs from real company career pages" },
                   { step: "03", text: "See match scores &mdash; know exactly why each job fits your background" },
-                  { step: "04", text: "Apply directly with one click &mdash; your profile is ready to go" },
+                  { step: "04", text: "Apply with the Recrutas browser extension &mdash; it fills the form for you" },
                 ].map(({ step, text }) => (
                   <div key={step} className="flex items-start gap-3">
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0 mt-0.5">{step}</span>
@@ -340,8 +333,8 @@ export default function LandingResponsive() {
               },
               {
                 icon: Target,
-                title: "13,500+ jobs, personalized for you",
-                body: "Jobs from Google, Amazon, Stripe, and thousands more. Your feed shows only roles that match your background &mdash; no scrolling through irrelevant listings.",
+                title: "Thousands of jobs, personalized for you",
+                body: "Jobs from real company career pages, updated daily. Your feed shows only roles that match your background &mdash; no scrolling through irrelevant listings.",
               },
               {
                 icon: Shield,
@@ -394,9 +387,9 @@ export default function LandingResponsive() {
               <p className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-6">Without Recrutas</p>
               <ul className="space-y-4">
                 {[
-                  "Apply to 50 jobs manually",
-                  "Fill out the same form 50 times",
-                  "Hear back from 3",
+                  "Apply to hundreds of jobs manually",
+                  "Fill out the same form over and over",
+                  "Hear back from almost nobody",
                   "No idea if anyone read your resume",
                   "Ghost jobs waste your time",
                   "Ghosted — weeks of silence, zero feedback",
@@ -583,13 +576,6 @@ export default function LandingResponsive() {
         </div>
       </footer>
 
-      {/* -- Instant Match Modal -- */}
-      <InstantMatchModal
-        isOpen={showInstantMatch}
-        onClose={() => setShowInstantMatch(false)}
-        onStartMatching={handleStartMatching}
-        initialSkills=""
-      />
     </div>
   );
 }
