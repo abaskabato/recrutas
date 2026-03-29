@@ -3,209 +3,43 @@ import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { 
-  Brain, 
-  Zap, 
-  Target, 
-  ArrowRight, 
-  Sparkles, 
-  Users, 
-  TrendingUp, 
-  Star, 
-  CheckCircle, 
-  UserCheck, 
-  Building2, 
-  Menu, 
-  X, 
-  Search, 
-  Globe, 
+import {
+  Brain,
+  Zap,
+  ArrowRight,
+  Sparkles,
   Clock,
   Shield,
-  Rocket,
-  Heart,
-  Award,
-  PlayCircle,
-  ChevronRight,
-  MessageSquare,
-  Briefcase,
-  MapPin,
-  DollarSign
+  MousePointerClick,
+  Search,
+  FileText,
+  CheckCircle,
+  Menu,
+  X,
+  ChevronDown
 } from "lucide-react";
 import SmartLogo from "@/components/smart-logo";
 import { RecrutasLogoSimple } from "@/components/recrutas-logo";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import InstantMatchModal from "@/components/instant-match-modal";
 import { motion } from "framer-motion";
 
-interface FeatureCard {
-  icon: any;
-  title: string;
-  description: string;
-  gradient: string;
-}
-
-interface Testimonial {
-  name: string;
-  role: string;
-  company: string;
-  content: string;
-  avatar: string;
-}
-
-interface JobSample {
-  title: string;
-  company: string;
-  location: string;
-  salary: string;
-  type: string;
-}
-
 export default function Landing() {
-  const [selectedRole, setSelectedRole] = useState<'candidate' | 'talent_owner' | null>(null);
-  const [showInstantMatch, setShowInstantMatch] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('hero');
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
-
-  // Auto-open instant match modal for engagement
-  useEffect(() => {
-    if (!isAuthenticated && !isLoading) {
-      const timer = setTimeout(() => {
-        setShowInstantMatch(true);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, isLoading]);
-
-  // Fetch platform statistics
-  const { data: platformStats } = useQuery({
-    queryKey: ['/api/platform/stats'],
-    retry: false,
-  });
-
-  const setRoleMutation = useMutation({
-    mutationFn: async (role: 'candidate' | 'talent_owner') => {
-      await apiRequest('POST', '/api/auth/role', { role });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Welcome to Recrutas!",
-        description: "Your account has been set up successfully.",
-      });
-      window.location.reload();
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to set up your account. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleRoleSelection = (role: 'candidate' | 'talent_owner') => {
-    setSelectedRole(role);
-    setRoleMutation.mutate(role);
-  };
-
-  const handleLogin = () => {
-    setLocation("/auth");
-  };
-
-  const handleStartMatching = () => {
-    setShowInstantMatch(false);
-    if (isAuthenticated && (user as any)?.role === 'candidate') {
-      setLocation("/candidate-dashboard");
-    } else {
-      handleLogin();
-    }
-  };
 
   if (isAuthenticated && user && !(user as any)?.role) {
     setLocation('/role-selection');
     return null;
   }
 
-  const features: FeatureCard[] = [
-    {
-      icon: Brain,
-      title: "AI-Powered Agentic Search",
-      description: "Our advanced AI analyzes skills, experience, and preferences to find perfect job opportunities in seconds.",
-      gradient: "from-blue-500 to-cyan-500"
-    },
-    {
-      icon: Shield,
-      title: "Zero Recruiter Fees",
-      description: "Connect directly with companies. No middleman fees, no agency commissions, just pure talent connection.",
-      gradient: "from-green-500 to-emerald-500"
-    },
-    {
-      icon: Rocket,
-      title: "Instant Job Delivery",
-      description: "Get job recommendations delivered instantly to your dashboard. DoorDash for jobs, but faster.",
-      gradient: "from-purple-500 to-violet-500"
-    },
-    {
-      icon: Target,
-      title: "Perfect Fit Guarantee",
-      description: "Our agentic algorithm ensures 95% compatibility between candidates and job requirements.",
-      gradient: "from-orange-500 to-red-500"
+  const handleGetStarted = () => {
+    if (isAuthenticated && (user as any)?.role === 'candidate') {
+      setLocation("/candidate-dashboard");
+    } else {
+      setLocation("/auth");
     }
-  ];
-
-  const testimonials: Testimonial[] = [
-    {
-      name: "Sarah Chen",
-      role: "Software Engineer",
-      company: "Google",
-      content: "Found my dream job in 2 days without a single recruiter call. Recrutas changed my life!",
-      avatar: "SC"
-    },
-    {
-      name: "Marcus Johnson",
-      role: "CTO",
-      company: "Stripe",
-      content: "Hired 3 amazing engineers in one week. No agency fees, no hassle, just great talent.",
-      avatar: "MJ"
-    },
-    {
-      name: "Elena Rodriguez",
-      role: "Designer",
-      company: "Figma",
-      content: "The AI agent is incredibly accurate. Got connected with companies I never would have found.",
-      avatar: "ER"
-    }
-  ];
-
-  const sampleJobs: JobSample[] = [
-    {
-      title: "Senior Software Engineer",
-      company: "Microsoft",
-      location: "Seattle, WA",
-      salary: "$180k - $250k",
-      type: "Full-time"
-    },
-    {
-      title: "Product Manager",
-      company: "Apple",
-      location: "Cupertino, CA",
-      salary: "$160k - $220k",
-      type: "Full-time"
-    },
-    {
-      title: "Data Scientist",
-      company: "Meta",
-      location: "Remote",
-      salary: "$140k - $200k",
-      type: "Full-time"
-    }
-  ];
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-purple-900 overflow-x-hidden">
@@ -213,12 +47,11 @@ export default function Landing() {
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl animate-pulse delay-2000"></div>
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 lg:hidden"
@@ -231,20 +64,20 @@ export default function Landing() {
               </Button>
             </div>
             <div className="flex-1 flex flex-col justify-center items-center space-y-8 p-8">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="lg"
                 className="text-slate-300 hover:text-white text-xl"
-                onClick={handleLogin}
+                onClick={() => { setMobileMenuOpen(false); setLocation("/auth"); }}
               >
                 Sign In
               </Button>
-              <Button 
+              <Button
                 size="lg"
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-xl px-12 py-4"
-                onClick={() => setShowInstantMatch(true)}
+                onClick={() => { setMobileMenuOpen(false); handleGetStarted(); }}
               >
-                Try Agentic Search
+                Get Started Free
               </Button>
             </div>
           </div>
@@ -255,35 +88,33 @@ export default function Landing() {
       <nav className="sticky top-0 z-40 backdrop-blur-md bg-slate-950/80 border-b border-slate-700/50">
         <div className="container mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center space-x-3"
             >
               <SmartLogo size={36} />
-
             </motion.div>
-            
-            {/* Desktop Navigation */}
+
             <div className="hidden lg:flex items-center space-x-6">
               {!isAuthenticated ? (
                 <>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     className="text-slate-300 hover:text-white hover:bg-slate-800/50"
-                    onClick={handleLogin}
+                    onClick={() => setLocation("/auth")}
                   >
                     Sign In
                   </Button>
-                  <Button 
+                  <Button
                     className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-6"
-                    onClick={() => setShowInstantMatch(true)}
+                    onClick={handleGetStarted}
                   >
-                    Try Agentic Search
+                    Get Started Free
                   </Button>
                 </>
               ) : (
-                <Button 
+                <Button
                   className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
                   onClick={() => setLocation((user as any)?.role === 'candidate' ? '/candidate-dashboard' : '/recruiter-dashboard')}
                 >
@@ -292,7 +123,6 @@ export default function Landing() {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
             <Button
               variant="ghost"
               size="sm"
@@ -313,76 +143,37 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <Badge className="mb-6 bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 border-blue-400/30 text-lg px-6 py-3">
-              ✨ Job Search, Reinvented.
-            </Badge>
-            
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-8 leading-tight">
               Stop Applying to
               <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent"> Black Holes</span>
-              <br />
-              Get
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"> Real Responses</span>
             </h1>
-            
+
             <p className="text-xl md:text-2xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Upload your resume. Get matched to jobs where you'll actually hear back. 
-              Every application gets a response within 24 hours.
+              Recrutas matches you to real jobs with AI, responds in 24 hours, and applies for you — so you can focus on interviewing, not clicking Submit.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-              <Button 
-                size="lg"
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-8 py-4 w-full sm:w-auto"
-                onClick={() => setShowInstantMatch(true)}
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Find Jobs
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="border-green-400/50 text-green-300 hover:bg-green-500/20 hover:text-green-200 text-lg px-8 py-4 w-full sm:w-auto"
-                onClick={() => setLocation('/signup/talent-owner')}
-              >
-                <Building2 className="w-5 h-5 mr-2" />
-                Post Jobs
-              </Button>
-            </div>
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-10 py-6 mb-16"
+              onClick={handleGetStarted}
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              Get Started Free
+            </Button>
 
-            {/* Platform Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {(platformStats as any)?.totalUsers || '10,000'}+
-                </div>
-                <div className="text-slate-400">Active Users</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {(platformStats as any)?.totalJobs || '25,000'}+
-                </div>
-                <div className="text-slate-400">Jobs Posted</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  {(platformStats as any)?.totalMatches || '50,000'}+
-                </div>
-                <div className="text-slate-400">Successful Connections</div>
-              </div>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                  $0
-                </div>
-                <div className="text-slate-400">Recruiter Fees</div>
-              </div>
-            </div>
+            {/* Scroll indicator */}
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="text-slate-500"
+            >
+              <ChevronDown className="w-6 h-6 mx-auto" />
+            </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Three Pillars */}
       <section className="px-6 py-20 bg-slate-900/30 backdrop-blur-sm">
         <div className="container mx-auto">
           <motion.div
@@ -392,158 +183,122 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Why Choose Recrutas?
+              How Recrutas Works
             </h2>
-            <p className="text-xl text-slate-300 max-w-3xl mx-auto">
-              We're revolutionizing how talent meets opportunity with cutting-edge AI and direct connections.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:scale-105 backdrop-blur-sm">
-                  <CardContent className="p-6 text-center">
-                    <div className={`w-16 h-16 mx-auto mb-4 bg-gradient-to-r ${feature.gradient} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                      <feature.icon className="w-8 h-8 text-primary-foreground" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                    <p className="text-slate-300 leading-relaxed">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* For Companies Section */}
-      <section className="px-6 py-20 bg-gradient-to-b from-slate-900/50 to-slate-800/30">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <Badge className="mb-4 bg-green-500/20 text-green-300 border-green-400/30">
-              For Employers
-            </Badge>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Hire Faster. Spend Less.
-            </h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-              Get quality candidates delivered to your inbox. AI screens so you only review the best.
+            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+              Three things that should be obvious about job search — but aren't.
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Pillar 1: AI Match */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="bg-slate-800/50 border-green-500/30 h-full">
-                <CardContent className="p-6 text-center">
-                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                    <Zap className="w-7 h-7 text-white" />
+              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-blue-500/40 transition-all duration-300 backdrop-blur-sm">
+                <CardContent className="p-8">
+                  <div className="w-14 h-14 mb-6 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Brain className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3">Same-Day Responses</h3>
-                  <p className="text-slate-300">
-                    Every candidate gets a response within 24 hours. No more waiting weeks.
+                  <h3 className="text-2xl font-bold text-white mb-3">AI Match</h3>
+                  <p className="text-slate-300 leading-relaxed mb-4">
+                    Upload your resume. Our AI reads your skills, experience, and preferences — then finds jobs that actually fit.
                   </p>
+                  <div className="space-y-2 text-sm text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <span>Semantic skill matching, not keyword spam</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <span>Searches across 300+ companies</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <span>Matches refresh as new jobs appear</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
 
+            {/* Pillar 2: 24hr Response */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
             >
-              <Card className="bg-slate-800/50 border-green-500/30 h-full">
-                <CardContent className="p-6 text-center">
-                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                    <Brain className="w-7 h-7 text-white" />
+              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-purple-500/40 transition-all duration-300 backdrop-blur-sm">
+                <CardContent className="p-8">
+                  <div className="w-14 h-14 mb-6 bg-gradient-to-r from-purple-500 to-violet-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Clock className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3">AI Pre-Screening</h3>
-                  <p className="text-slate-300">
-                    Our AI evaluates candidates. Focus only on qualified applicants.
+                  <h3 className="text-2xl font-bold text-white mb-3">24hr Response</h3>
+                  <p className="text-slate-300 leading-relaxed mb-4">
+                    No more ghosting. Every application gets a real response within 24 hours — even if it's a no.
                   </p>
+                  <div className="space-y-2 text-sm text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <span>Honest feedback on every rejection</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <span>Know where you stand, always</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <span>No more refreshing your inbox for weeks</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
 
+            {/* Pillar 3: Auto Apply */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              <Card className="bg-slate-800/50 border-green-500/30 h-full">
-                <CardContent className="p-6 text-center">
-                  <div className="w-14 h-14 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                    <Shield className="w-7 h-7 text-white" />
+              <Card className="group h-full bg-slate-800/50 border-slate-700/50 hover:border-pink-500/40 transition-all duration-300 backdrop-blur-sm">
+                <CardContent className="p-8">
+                  <div className="w-14 h-14 mb-6 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <MousePointerClick className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3">Zero Recruiter Fees</h3>
-                  <p className="text-slate-300">
-                    Direct connections. No middlemen, no agency markups.
+                  <h3 className="text-2xl font-bold text-white mb-3">Auto Apply</h3>
+                  <p className="text-slate-300 leading-relaxed mb-4">
+                    Found a match? Our browser extension fills out the application for you — any job board, any ATS.
                   </p>
+                  <div className="space-y-2 text-sm text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <span>Works on Greenhouse, Lever, Workday & more</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <span>AI answers screening questions for you</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <span>Review before submitting — you stay in control</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mt-10"
-          >
-            <Button 
-              size="lg"
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-lg px-8 py-4"
-              onClick={() => setLocation('/signup/talent-owner')}
-            >
-              <Building2 className="w-5 h-5 mr-2" />
-              Start Hiring
-            </Button>
-          </motion.div>
         </div>
       </section>
 
-      {/* Rejection Section */}
+      {/* How It Works — Steps */}
       <section className="px-6 py-20">
-        <div className="container mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Stop the Silence
-            </h2>
-            <blockquote className="text-xl md:text-2xl text-slate-400 italic max-w-3xl mx-auto mb-8">
-              "After careful consideration, we've decided to move forward with another candidate."
-            </blockquote>
-            <p className="text-xl text-slate-300">
-              Every application on Recrutas gets a real response.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Job Samples Section */}
-      <section className="px-6 py-20">
-        <div className="container mx-auto">
+        <div className="container mx-auto max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -551,189 +306,109 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Latest Job Opportunities
+              Three Steps. That's It.
             </h2>
-            <p className="text-xl text-slate-300">
-              See the kind of opportunities waiting for you
-            </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {sampleJobs.map((job, index) => (
+          <div className="space-y-12">
+            {[
+              {
+                step: "1",
+                icon: FileText,
+                title: "Upload your resume",
+                description: "Drop your PDF. Our AI parses it in seconds — skills, experience, preferences.",
+                color: "from-blue-500 to-cyan-500"
+              },
+              {
+                step: "2",
+                icon: Search,
+                title: "Get matched instantly",
+                description: "Semantic AI compares you against thousands of live openings. No keyword games.",
+                color: "from-purple-500 to-violet-500"
+              },
+              {
+                step: "3",
+                icon: Zap,
+                title: "Apply with one click",
+                description: "Use our extension to auto-fill applications. Or just apply the old way — your choice.",
+                color: "from-pink-500 to-rose-500"
+              }
+            ].map((item, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
+                className="flex items-start gap-6"
               >
-                <Card className="group bg-slate-800/50 border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 cursor-pointer">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                        <Briefcase className="w-6 h-6 text-primary-foreground" />
-                      </div>
-                      <Badge className="bg-green-500/20 text-green-300 border-green-400/30">
-                        {job.type}
-                      </Badge>
-                    </div>
-                    
-                    <h3 className="text-lg font-bold text-white mb-2">{job.title}</h3>
-                    <p className="text-blue-400 font-medium mb-3">{job.company}</p>
-                    
-                    <div className="space-y-2 text-sm text-slate-300">
-                      <div className="flex items-center">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        {job.location}
-                      </div>
-                      <div className="flex items-center">
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        {job.salary}
-                      </div>
-                    </div>
-                    
-                    <Button className="w-full mt-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                      Apply Now
-                    </Button>
-                  </CardContent>
-                </Card>
+                <div className={`flex-shrink-0 w-14 h-14 bg-gradient-to-r ${item.color} rounded-2xl flex items-center justify-center`}>
+                  <item.icon className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-slate-500 mb-1">Step {item.step}</div>
+                  <h3 className="text-2xl font-bold text-white mb-2">{item.title}</h3>
+                  <p className="text-lg text-slate-300">{item.description}</p>
+                </div>
               </motion.div>
             ))}
-          </div>
-          
-          <div className="text-center mt-12">
-            <Button 
-              variant="outline"
-              size="lg"
-              className="border-slate-400 text-slate-300 hover:bg-slate-800/50 hover:text-white"
-              onClick={() => setShowInstantMatch(true)}
-            >
-              View All Jobs
-              <ChevronRight className="w-5 h-5 ml-2" />
-            </Button>
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* The Problem — Rejection */}
       <section className="px-6 py-20 bg-slate-900/30 backdrop-blur-sm">
-        <div className="container mx-auto">
+        <div className="container mx-auto text-center max-w-3xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Success Stories
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-8">
+              You Deserve Better Than Silence
             </h2>
-            <p className="text-xl text-slate-300">
-              See how Recrutas is changing careers and companies
+            <div className="space-y-6 mb-10">
+              <blockquote className="text-xl text-slate-500 italic border-l-2 border-slate-700 pl-6 text-left">
+                "After careful consideration, we've decided to move forward with other candidates."
+              </blockquote>
+              <blockquote className="text-xl text-slate-600 italic border-l-2 border-slate-800 pl-6 text-left">
+                — or worse, nothing at all.
+              </blockquote>
+            </div>
+            <p className="text-xl text-slate-300 mb-4">
+              The average job application has a <span className="text-white font-semibold">2-3% response rate</span>.
+              You apply to 100 jobs, hear back from 2.
+            </p>
+            <p className="text-xl text-white font-medium">
+              On Recrutas, every application gets a response. Period.
             </p>
           </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50 transition-all duration-300">
-                  <CardContent className="p-6">
-                    <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center font-bold text-white mr-3">
-                        {testimonial.avatar}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-white">{testimonial.name}</h4>
-                        <p className="text-sm text-slate-400">{testimonial.role} at {testimonial.company}</p>
-                      </div>
-                    </div>
-                    <p className="text-slate-300 italic">"{testimonial.content}"</p>
-                    <div className="flex mt-4">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="px-6 py-20 bg-gradient-to-b from-slate-900/50 to-slate-950">
-        <div className="container mx-auto">
+      <section className="px-6 py-24">
+        <div className="container mx-auto text-center max-w-2xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-12"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Ready to Get Started?
+              Ready?
             </h2>
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-              Join the future of hiring. No fees, no spam, just real connections.
+            <p className="text-xl text-slate-300 mb-10">
+              Free to use. No credit card. No recruiter fees. Just better job search.
             </p>
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-10 py-6"
+              onClick={handleGetStarted}
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              Get Started Free
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
           </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <Card className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/30 h-full">
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">For Candidates</h3>
-                  <p className="text-slate-300 mb-6">
-                    Upload your resume. Get matched to jobs where you'll actually hear back.
-                  </p>
-                  <Button 
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 w-full"
-                    onClick={() => setShowInstantMatch(true)}
-                  >
-                    Find Jobs
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <Card className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border-green-500/30 h-full">
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-                    <Building2 className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">For Employers</h3>
-                  <p className="text-slate-300 mb-6">
-                    Post jobs and get quality candidates delivered. AI pre-screens for you.
-                  </p>
-                  <Button 
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 w-full"
-                    onClick={() => setLocation('/signup/talent-owner')}
-                  >
-                    Start Hiring
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
         </div>
       </section>
 
@@ -746,19 +421,11 @@ export default function Landing() {
               <span className="text-xl font-bold text-white">Recrutas</span>
             </div>
             <div className="text-slate-400 text-center md:text-right">
-              © 2025 Recrutas. Revolutionizing job search and hiring.
+              &copy; {new Date().getFullYear()} Recrutas. Job search that respects your time.
             </div>
           </div>
         </div>
       </footer>
-
-      {/* Instant Match Modal */}
-      <InstantMatchModal
-        isOpen={showInstantMatch}
-        onClose={() => setShowInstantMatch(false)}
-        onStartMatching={handleStartMatching}
-        initialSkills=""
-      />
     </div>
   );
 }
