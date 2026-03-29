@@ -113,38 +113,41 @@ export default function EarlyAccessPage() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
-            {/* Left: copy */}
+            {/* Left: manifesto */}
             <div>
               <div className="mb-6 inline-flex items-center px-3 py-1.5 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-full">
                 <Sparkles className="w-3 h-3 mr-1.5" />
-                Early Access
+                A Movement, Not Just a Platform
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black dark:text-white leading-[1.1] tracking-tight mb-6">
-                Get in before<br />everyone else.
+                The hiring system<br />is broken.
               </h1>
 
               <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed mb-8 max-w-lg">
-                Recrutas matches you to jobs using AI — not keyword spam.
-                We're letting people in on a rolling basis. Drop your email and
-                we'll send you an invite code when your spot opens up.
+                Gatekeepers, bias, and silence have had their time. We reject it.
               </p>
 
-              {/* Value props */}
-              <div className="space-y-4">
+              {/* Beliefs */}
+              <div className="space-y-4 mb-8">
                 {[
-                  { icon: Zap, text: "AI matches you to 13,500+ jobs by actual skills" },
-                  { icon: Shield, text: "No ghost jobs — stale listings are auto-hidden" },
-                  { icon: Clock, text: "Apply to any job with one click via our browser extension" },
+                  { icon: Shield, text: "Every candidate deserves a response." },
+                  { icon: Zap, text: "Talent knows no boundaries." },
+                  { icon: Clock, text: "Hiring must be driven by skill, fairness, and transparency." },
                 ].map(({ icon: Icon, text }, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0 mt-0.5">
                       <Icon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{text}</p>
+                    <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed font-medium">{text}</p>
                   </div>
                 ))}
               </div>
+
+              <p className="text-lg text-black dark:text-white font-semibold leading-relaxed max-w-lg">
+                We're building a platform to dismantle the old ways and create a
+                new future for hiring. Join us. Together, we will redefine opportunity.
+              </p>
             </div>
 
             {/* Right: form or success */}
