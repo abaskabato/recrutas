@@ -190,19 +190,14 @@ export default function LandingResponsive() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left: copy */}
             <div>
-              <Badge variant="secondary"
-                className="mb-6 px-3 py-1.5 text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-full">
-                <Sparkles className="w-3 h-3 mr-1.5" />
-                AI-powered job matching
-              </Badge>
-
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-black dark:text-white leading-[1.1] tracking-tight mb-6">
-                Find Jobs That<br />
-                <span className="text-emerald-500">Actually Fit.</span>
+                Every Candidate<br />
+                Deserves an<br />
+                <span className="text-emerald-500">Answer.</span>
               </h1>
 
               <p className="text-lg md:text-xl text-gray-500 dark:text-gray-400 leading-relaxed mb-8 max-w-lg">
-                Upload your resume. Our AI matches you to 13,500+ real jobs based on your actual skills and experience — not just keywords. Stop scrolling job boards. <strong className="text-black dark:text-white">See only roles that fit.</strong>
+                AI matches you to real jobs based on your resume. The Recrutas browser extension applies for you. <strong className="text-black dark:text-white">No more silence.</strong>
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -318,7 +313,7 @@ export default function LandingResponsive() {
           <div className="mt-12 max-w-2xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
               <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Every application gets a real response. No ghosting, guaranteed.</span>
+              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">For jobs posted on Recrutas, every application gets a real response within 24 hours.</span>
             </div>
           </div>
         </div>
@@ -424,7 +419,7 @@ export default function LandingResponsive() {
                   "Take exams — get ranked on skill, not connections",
                   "Chat directly with hiring managers",
                   "Only verified, live job listings",
-                  "Every application gets a real response",
+                  "Real responses on Recrutas-posted jobs — no ghosting",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
@@ -497,10 +492,10 @@ export default function LandingResponsive() {
       <section className="py-24 md:py-32 bg-black dark:bg-emerald-950">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-2xl text-center">
           <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight">
-            Stop scrolling.<br />Start matching.
+            You deserve better<br />than silence.
           </h2>
           <p className="text-gray-400 text-lg mb-10">
-            Upload your resume. See jobs that actually fit. Free forever for candidates.
+            Upload your resume. Let AI find your matches. Free forever for candidates.
           </p>
           <Button
             size="lg"
