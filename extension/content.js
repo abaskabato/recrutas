@@ -1,10 +1,12 @@
 /**
  * Recrutas Auto-Fill — Content Script (Vision-Powered)
  *
- * Injected into any page on demand. Scrapes form fields and page context,
- * sends them (with screenshot via background.js) to the backend where
- * Gemini 2.0 Flash vision analyzes the form and returns structured actions.
- * Then executes each action: type, select, click_then_type, upload_resume, check.
+ * Injected into job application pages (auto on known ATS sites, or on demand).
+ * Scrapes form fields and page context, sends them (with screenshot via
+ * background.js) to the backend where Gemini 2.0 Flash vision analyzes
+ * the form and returns structured actions.
+ * Executes each action: type, select, click_then_type, upload_resume, check.
+ * Reports fill stats back to background for tracking.
  */
 
 (function () {
@@ -132,7 +134,13 @@
     setTimeout(() => { el.style.backgroundColor = ''; }, 2500);
   }
 
-  // ACTION: type — fill a text input or textarea
+  function highlightFailed(el) {
+    el.style.backgroundColor = '#fef2f2';
+    el.style.transition = 'background-color 0.3s ease';
+    setTimeout(() => { el.style.backgroundColor = ''; }, 3000);
+  }
+
+  // ACTION: type
   function executeType(el, value) {
     el.focus();
     setNativeValue(el, value);
@@ -141,7 +149,7 @@
     return true;
   }
 
-  // ACTION: select — pick an option from a native <select>
+  // ACTION: select
   function executeSelect(el, value) {
     if (el.tagName !== 'SELECT') return false;
 
@@ -152,7 +160,6 @@
     );
 
     if (!option) {
-      // Fuzzy match: find the closest option
       const fuzzy = Array.from(el.options).find(opt =>
         opt.text?.trim().toLowerCase().includes(valueLower) ||
         valueLower.includes(opt.text?.trim().toLowerCase())
@@ -170,18 +177,14 @@
     return true;
   }
 
-  // ACTION: click_then_type — handle custom dropdowns (React Select, Combobox, etc.)
+  // ACTION: click_then_type
   async function executeClickThenType(el, value) {
-    // Step 1: Click the element to open the dropdown
     el.focus();
     el.click();
     el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
-    // Step 2: Wait for dropdown to open
     await sleep(350);
 
-    // Step 3: Try to type into the search input
-    // Some custom dropdowns render a search input inside the opened menu
     const searchInput = el.closest('[class*="select"], [class*="dropdown"], [class*="combobox"], [role="combobox"], [role="listbox"]')
       ?.querySelector('input[type="text"], input:not([type])')
       || el;
@@ -192,10 +195,8 @@
       searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true }));
     }
 
-    // Step 4: Wait for options to filter
     await sleep(400);
 
-    // Step 5: Find and click the matching option
     const valueLower = value.toLowerCase();
     const optionSelectors = [
       '[role="option"]',
@@ -222,7 +223,6 @@
       }
     }
 
-    // Step 6: If no option found, try pressing Enter (some dropdowns select on Enter)
     searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
     await sleep(200);
 
@@ -230,7 +230,7 @@
     return true;
   }
 
-  // ACTION: check — toggle a checkbox
+  // ACTION: check
   function executeCheck(el) {
     if (el.type !== 'checkbox') return false;
     if (!el.checked) {
@@ -241,7 +241,7 @@
     return true;
   }
 
-  // ACTION: upload_resume — attach resume file via DataTransfer API
+  // ACTION: upload_resume
   async function executeUploadResume(el, resumeUrl) {
     if (!resumeUrl || el.type !== 'file') return false;
 
@@ -278,49 +278,60 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // ── Execute all actions from the AI response ──────────────────────────────
+  // ── Execute all actions with retry ────────────────────────────────────────
 
   async function executeActions(actions, resumeUrl) {
     let filled = 0;
+    const failed = [];
 
     for (const action of actions) {
       if (action.action === 'skip') continue;
 
       const el = findElement(action.fieldId);
       if (!el) {
+        failed.push(action.fieldId);
         console.debug(`[Recrutas] Element not found: ${action.fieldId}`);
         continue;
       }
 
       let success = false;
 
-      switch (action.action) {
-        case 'type':
-          success = executeType(el, action.value || '');
-          break;
-        case 'select':
-          success = executeSelect(el, action.value || '');
-          break;
-        case 'click_then_type':
-          success = await executeClickThenType(el, action.value || '');
-          break;
-        case 'check':
-          success = executeCheck(el);
-          break;
-        case 'upload_resume':
-          success = await executeUploadResume(el, resumeUrl);
-          break;
-        default:
-          console.debug(`[Recrutas] Unknown action: ${action.action}`);
+      // Try up to 2 times
+      for (let attempt = 0; attempt < 2 && !success; attempt++) {
+        if (attempt > 0) await sleep(300);
+
+        switch (action.action) {
+          case 'type':
+            success = executeType(el, action.value || '');
+            break;
+          case 'select':
+            success = executeSelect(el, action.value || '');
+            break;
+          case 'click_then_type':
+            success = await executeClickThenType(el, action.value || '');
+            break;
+          case 'check':
+            success = executeCheck(el);
+            break;
+          case 'upload_resume':
+            success = await executeUploadResume(el, resumeUrl);
+            break;
+          default:
+            console.debug(`[Recrutas] Unknown action: ${action.action}`);
+        }
       }
 
-      if (success) filled++;
+      if (success) {
+        filled++;
+      } else {
+        failed.push(action.fieldId);
+        highlightFailed(el);
+      }
 
-      // Small delay between actions to let React/framework process events
       await sleep(100);
     }
 
-    return filled;
+    return { filled, failed };
   }
 
   // ── Banner / toast ─────────────────────────────────────────────────────────
@@ -359,7 +370,6 @@
 
       if (btn) btn.textContent = 'AI filling…';
 
-      // Send to background → backend (with screenshot captured by background.js)
       const response = await chrome.runtime.sendMessage({
         type: 'FILL_FORM_AI',
         fields,
@@ -379,10 +389,15 @@
 
       if (btn) btn.textContent = `Filling ${actions.length} fields…`;
 
-      const filled = await executeActions(actions, resumeUrl);
+      const { filled, failed } = await executeActions(actions, resumeUrl);
+
+      // Report stats to background
+      chrome.runtime.sendMessage({ type: 'FILL_COMPLETE', fieldsFilled: filled }).catch(() => {});
 
       if (filled === 0) {
         showBanner('Could not fill any fields — try a different page', 'warning');
+      } else if (failed.length > 0) {
+        showBanner(`Filled ${filled} field${filled !== 1 ? 's' : ''} · ${failed.length} skipped — review before submitting`, 'success');
       } else {
         showBanner(`Filled ${filled} field${filled !== 1 ? 's' : ''} — review before submitting`, 'success');
       }

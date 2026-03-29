@@ -607,6 +607,53 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   }));
 
+  // Extension token refresh — exchanges a refresh token for a new access token
+  app.post('/api/auth/extension-refresh', asyncHandler(async (req, res) => {
+    try {
+      const { refreshToken } = req.body || {};
+      if (!refreshToken) {
+        return res.status(400).json({ message: 'refreshToken is required' });
+      }
+
+      const supabaseUrl  = process.env.SUPABASE_URL;
+      const supabaseAnon = process.env.SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnon) {
+        return res.status(503).json({ message: 'Auth service not configured' });
+      }
+
+      const sbRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnon,
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      const sbBody = await sbRes.json() as any;
+
+      if (!sbRes.ok) {
+        const msg = sbBody?.error_description || sbBody?.message || 'Token refresh failed';
+        return res.status(401).json({ message: msg });
+      }
+
+      return res.json({
+        accessToken:  sbBody.access_token,
+        refreshToken: sbBody.refresh_token,
+        expiresAt:    Date.now() + (sbBody.expires_in ?? 3600) * 1000,
+        user: {
+          email: sbBody.user?.email,
+          name:  sbBody.user?.user_metadata?.first_name
+                  ? `${sbBody.user.user_metadata.first_name} ${sbBody.user.user_metadata.last_name || ''}`.trim()
+                  : sbBody.user?.email,
+        },
+      });
+    } catch (error) {
+      console.error('Extension refresh error:', error);
+      res.status(500).json({ message: 'Token refresh failed' });
+    }
+  }));
+
   // Extension form-fill — scrapes form fields from the page, uses AI to generate answers
   app.post('/api/extension/fill-form', isAuthenticated, asyncHandler(async (req: any, res) => {
     try {

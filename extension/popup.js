@@ -1,7 +1,8 @@
 /**
  * Recrutas Auto-Fill — Popup Script
  *
- * Handles the login form and profile display in the extension popup.
+ * Handles login, profile display, profile readiness, fill stats,
+ * and the "Fill this page" action.
  */
 
 const viewLoading = document.getElementById('view-loading');
@@ -30,15 +31,70 @@ async function init() {
   if (status.authenticated) {
     document.getElementById('user-name').textContent = status.userName || 'Candidate';
     document.getElementById('user-email').textContent = status.userEmail || '';
+
+    // Show fill stats
+    if (status.fillStats && status.fillStats.totalFills > 0) {
+      const statsEl = document.getElementById('fill-stats');
+      const statsText = document.getElementById('stats-text');
+      statsText.textContent = `${status.fillStats.totalFills} form${status.fillStats.totalFills !== 1 ? 's' : ''} filled · ${status.fillStats.totalFields} fields`;
+      statsEl.classList.remove('hidden');
+    }
+
     showView('profile');
+
+    // Fetch profile in background to show readiness
+    loadProfileStatus();
   } else {
-    // Pre-fill stored URL in advanced field
     const { recruitasUrl } = await chrome.storage.local.get('recruitasUrl');
     if (recruitasUrl) {
       document.getElementById('recrutas-url').value = recruitasUrl;
     }
     showView('login');
   }
+}
+
+// ── Profile readiness check ──────────────────────────────────────────────────
+
+async function loadProfileStatus() {
+  const statusEl = document.getElementById('profile-status');
+  statusEl.classList.remove('hidden');
+
+  try {
+    const response = await send({ type: 'GET_PROFILE' });
+
+    if (!response.success) {
+      showProfileItem('resume', false, 'Could not load profile');
+      showProfileItem('skills', false, '—');
+      return;
+    }
+
+    const profile = response.profile;
+
+    // Resume status
+    const hasResume = !!(profile?.resumeUrl || profile?.resumeText);
+    showProfileItem(
+      'resume',
+      hasResume,
+      hasResume ? 'Resume uploaded' : 'No resume — upload at recrutas.ai'
+    );
+
+    // Skills status
+    const skills = Array.isArray(profile?.skills) ? profile.skills : [];
+    showProfileItem(
+      'skills',
+      skills.length > 0,
+      skills.length > 0 ? `${skills.length} skills detected` : 'No skills found'
+    );
+  } catch {
+    showProfileItem('resume', false, 'Could not check profile');
+    showProfileItem('skills', false, '—');
+  }
+}
+
+function showProfileItem(name, ok, text) {
+  document.getElementById(`${name}-icon`).textContent = ok ? '✓' : '⚠';
+  document.getElementById(`${name}-icon`).className = `status-icon ${ok ? 'ok' : 'warn'}`;
+  document.getElementById(`${name}-text`).textContent = text;
 }
 
 // ── Login form ────────────────────────────────────────────────────────────────
@@ -62,6 +118,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     document.getElementById('user-name').textContent = response.userName || email;
     document.getElementById('user-email').textContent = email;
     showView('profile');
+    loadProfileStatus();
   } else {
     errorEl.textContent = response.error || 'Sign-in failed. Check your credentials.';
     errorEl.classList.remove('hidden');
@@ -80,9 +137,8 @@ document.getElementById('fill-btn').addEventListener('click', async () => {
   try {
     await send({ type: 'INJECT_AND_FILL' });
     btn.textContent = 'Filling…';
-    // Close popup after a short delay — the content script handles the rest
     setTimeout(() => window.close(), 800);
-  } catch (err) {
+  } catch {
     btn.textContent = 'Failed — try again';
     btn.disabled = false;
     setTimeout(() => {

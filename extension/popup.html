@@ -16,6 +16,7 @@
         </svg>
         <span>Recrutas</span>
       </div>
+      <span class="version">v2.0</span>
     </header>
 
     <!-- Signed-out state -->
@@ -54,6 +55,10 @@
         </button>
       </form>
 
+      <div class="signup-link">
+        Don't have an account? <a href="https://recrutas.ai/early-access" target="_blank">Get early access</a>
+      </div>
+
       <details class="advanced">
         <summary>Advanced</summary>
         <div class="field">
@@ -82,9 +87,26 @@
         </div>
       </div>
 
+      <!-- Profile readiness -->
+      <div id="profile-status" class="profile-status hidden">
+        <div id="resume-status" class="status-item">
+          <span class="status-icon" id="resume-icon">⏳</span>
+          <span id="resume-text">Checking resume…</span>
+        </div>
+        <div id="skills-status" class="status-item">
+          <span class="status-icon" id="skills-icon">⏳</span>
+          <span id="skills-text">Checking skills…</span>
+        </div>
+      </div>
+
       <div class="status-badge">
         <span class="dot"></span>
         Connected — ready to auto-fill
+      </div>
+
+      <!-- Fill stats -->
+      <div id="fill-stats" class="fill-stats hidden">
+        <span id="stats-text">0 forms filled</span>
       </div>
 
       <button id="fill-btn" class="btn btn-primary btn-fill">
@@ -96,7 +118,7 @@
 
       <p class="hint">
         Navigate to a job application page and click
-        <strong>Fill this page</strong> or use the floating button.
+        <strong>Fill this page</strong>, use the floating button, or press <kbd>Alt+Shift+R</kbd>.
       </p>
 
       <button id="disconnect-btn" class="btn btn-outline">
