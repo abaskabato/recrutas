@@ -53,7 +53,7 @@ export default function EarlyAccessPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-black overflow-x-hidden flex flex-col">
 
       {/* Mobile menu overlay */}
       {mobileMenuOpen && (
@@ -106,7 +106,7 @@ export default function EarlyAccessPage() {
       </nav>
 
       {/* Hero + Form */}
-      <section className="relative pt-20 pb-16 md:pt-28 md:pb-24 lg:pt-36 lg:pb-32 overflow-hidden">
+      <section className="relative pt-20 pb-16 md:pt-28 md:pb-24 lg:pt-36 lg:pb-32 overflow-hidden flex-1">
         <div className="absolute inset-0 bg-grid-pattern opacity-40 dark:opacity-20 pointer-events-none" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/10 dark:bg-emerald-500/5 blur-3xl rounded-full pointer-events-none" />
 
@@ -247,7 +247,7 @@ export default function EarlyAccessPage() {
 
       {/* Footer */}
       <footer className="border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 sm:pb-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <SmartLogo size={20} showText={false} />
