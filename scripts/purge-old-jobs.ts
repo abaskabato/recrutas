@@ -35,9 +35,15 @@ async function main() {
     return;
   }
 
-  for (const table of ['job_applications', 'job_matches', 'exam_attempts', 'job_exams', 'chat_rooms', 'notifications', 'interviews', 'saved_jobs', 'hidden_jobs']) {
-    const col = table === 'notifications' ? 'related_job_id' : 'job_id';
-    await db.execute(sql.raw(`DELETE FROM ${table} WHERE ${col} IN (${candidateIds.join(',')})`));
+  const idList = candidateIds.join(',');
+
+  // 1. Delete notifications that reference applications for these jobs (FK: related_application_id → job_applications.id)
+  await db.execute(sql.raw(`DELETE FROM notifications WHERE related_application_id IN (SELECT id FROM job_applications WHERE job_id IN (${idList}))`));
+  // 2. Delete notifications that reference these jobs directly
+  await db.execute(sql.raw(`DELETE FROM notifications WHERE related_job_id IN (${idList})`));
+  // 3. Now safe to delete remaining dependent tables
+  for (const table of ['job_applications', 'job_matches', 'exam_attempts', 'job_exams', 'chat_rooms', 'interviews', 'saved_jobs', 'hidden_jobs']) {
+    await db.execute(sql.raw(`DELETE FROM ${table} WHERE job_id IN (${idList})`));
   }
   const result = await db.execute(sql.raw(`DELETE FROM job_postings WHERE id IN (${candidateIds.join(',')}) RETURNING id`));
   const deleted = ((result as any).rows ?? (result as any)).length;
