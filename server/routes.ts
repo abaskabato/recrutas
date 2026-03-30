@@ -28,7 +28,7 @@ import {
   waitlistEntries,
 } from "@shared/schema";
 import { generateScreeningQuestions } from "./ai-service";
-import { callAI, callGeminiWithImage } from "./lib/ai-client";
+import { callAI, callGeminiWithImage, isAIAvailable } from "./lib/ai-client";
 import { db, testDbConnection } from "./db";
 import { seedDatabase } from "./seed.js";
 import { ResumeService, ResumeProcessingError } from './services/resume.service';
@@ -205,47 +205,85 @@ const upload = multer({
 });
 
 async function generateExamQuestions(job: any) {
-  const questions = [];
   const skills = job.skills || [];
   const requirements = job.requirements || [];
 
-  // Generate skill-based questions
-  for (let i = 0; i < Math.min(skills.length, 5); i++) {
-    const skill = skills[i];
+  // Try AI-powered generation first
+  if (isAIAvailable()) {
+    try {
+      const systemPrompt = `You are an expert technical recruiter creating a screening exam for job candidates.
+Generate exactly 5 questions that test real competence for the role — not self-assessments.
+
+Rules:
+- 3 multiple-choice questions (4 options each, one correct answer)
+- 2 short-answer questions (practical scenarios)
+- Questions must be specific to the job, not generic
+- Multiple-choice questions should test knowledge, not experience level
+- Short-answer questions should present a realistic work scenario
+- Each question is worth 20 points (100 total)
+- correctAnswer for multiple-choice is the 0-based index of the correct option
+
+Return JSON: { "questions": [ { "id": "q1"..."q5", "question": string, "type": "multiple-choice"|"short-answer", "options": string[] (only for multiple-choice), "correctAnswer": number (only for multiple-choice), "points": 20 } ] }`;
+
+      const userPrompt = `Job Title: ${job.title}
+Company: ${job.company || 'Unknown'}
+Description: ${(job.description || '').slice(0, 2000)}
+Skills: ${skills.join(', ') || 'Not specified'}
+Requirements: ${(requirements || []).join('; ') || 'Not specified'}`;
+
+      const raw = await callAI(systemPrompt, userPrompt, {
+        priority: 'high',
+        estimatedTokens: 1500,
+        temperature: 0.3,
+        maxOutputTokens: 2000,
+      });
+
+      const parsed = JSON.parse(raw);
+      const questions = parsed.questions || parsed;
+
+      if (Array.isArray(questions) && questions.length >= 3) {
+        // Normalize: ensure IDs, points, and types are valid
+        return questions.slice(0, 5).map((q: any, i: number) => ({
+          id: q.id || `q${i + 1}`,
+          question: q.question,
+          type: q.type === 'multiple-choice' ? 'multiple-choice' : 'short-answer',
+          ...(q.type === 'multiple-choice' ? { options: q.options, correctAnswer: q.correctAnswer } : {}),
+          points: 20,
+        }));
+      }
+    } catch (err) {
+      console.warn('[ExamGen] AI generation failed, using fallback:', (err as Error).message);
+    }
+  }
+
+  // Fallback: template-based generation
+  const questions = [];
+  for (let i = 0; i < Math.min(skills.length, 3); i++) {
     questions.push({
       id: `skill_${i + 1}`,
-      question: `What is your experience level with ${skill}?`,
+      question: `What is your experience level with ${skills[i]}?`,
       type: 'multiple-choice' as const,
-      options: [
-        'Beginner (0-1 years)',
-        'Intermediate (2-3 years)',
-        'Advanced (4-5 years)',
-        'Expert (5+ years)'
-      ],
-      correctAnswer: 1, // Intermediate or higher (index into options array)
-      points: 20
+      options: ['Beginner (0-1 years)', 'Intermediate (2-3 years)', 'Advanced (4-5 years)', 'Expert (5+ years)'],
+      correctAnswer: 1,
+      points: 20,
     });
   }
-
-  // Generate requirement-based questions
-  for (let i = 0; i < Math.min(requirements.length, 3); i++) {
-    const requirement = requirements[i];
+  for (let i = 0; i < Math.min(requirements.length, Math.max(1, 3 - questions.length)); i++) {
     questions.push({
       id: `req_${i + 1}`,
-      question: `How would you approach: ${requirement}?`,
+      question: `How would you approach: ${requirements[i]}?`,
       type: 'short-answer' as const,
-      points: 15
+      points: 20,
     });
   }
-
-  // Add general questions
-  questions.push({
-    id: 'general_1',
-    question: `Why are you interested in the ${job.title} position?`,
-    type: 'short-answer' as const,
-    points: 25
-  });
-
+  if (questions.length < 5) {
+    questions.push({
+      id: 'general_1',
+      question: `Why are you interested in the ${job.title} position and what makes you a strong fit?`,
+      type: 'short-answer' as const,
+      points: 20,
+    });
+  }
   return questions;
 }
 
