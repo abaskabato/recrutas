@@ -5,16 +5,16 @@ on:
     # Run daily at 5 AM UTC (after auto-hide-ghost-jobs at 4 AM)
     - cron: '0 5 * * *'
   workflow_dispatch:
-
-concurrency:
-  group: purge-old-jobs
-  cancel-in-progress: true
     inputs:
       retain_days:
         description: 'Keep jobs newer than this many days (default: 90)'
         required: false
         default: '90'
         type: string
+
+concurrency:
+  group: purge-old-jobs
+  cancel-in-progress: true
 
 jobs:
   purge:

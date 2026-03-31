@@ -47,9 +47,8 @@ import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
 import rateLimit from 'express-rate-limit';
 import { captureException } from './error-monitoring';
-import { recordMatchSignal, joinExamScore } from './services/match-signals.service';
+import { recordMatchSignal, joinExamScore, type SignalAction } from './services/match-signals.service';
 import { scoreJob } from './job-scorer';
-import type { SignalAction } from './services/match-signals.service';
 
 /**
  * Fire-and-forget: record a match signal with the full feature snapshot.

@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Script output
+scripts/output/
+
 # Python
 __pycache__/
 *.pyc
