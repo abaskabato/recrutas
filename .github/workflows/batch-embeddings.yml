@@ -20,6 +20,10 @@ on:
           - 'false'
           - 'true'
 
+concurrency:
+  group: batch-embeddings
+  cancel-in-progress: true
+
 jobs:
   compute-embeddings:
     runs-on: ubuntu-latest
@@ -37,15 +41,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Setup environment
-        run: |
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
-          echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
-          echo "NODE_ENV=production" >> .env
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       - name: Compute batch embeddings
         run: |

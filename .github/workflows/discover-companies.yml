@@ -12,6 +12,10 @@ on:
         default: '300'
         type: string
 
+concurrency:
+  group: discover-companies
+  cancel-in-progress: true
+
 jobs:
   discover:
     runs-on: ubuntu-latest
