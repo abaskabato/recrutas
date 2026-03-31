@@ -6,6 +6,10 @@ on:
     - cron: '0 6 * * 0'
   workflow_dispatch:
 
+concurrency:
+  group: cleanup-errors
+  cancel-in-progress: true
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest

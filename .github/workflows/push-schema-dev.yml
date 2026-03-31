@@ -3,10 +3,15 @@ name: Push Schema to Dev DB
 on:
   workflow_dispatch:  # Manual trigger only
 
+concurrency:
+  group: push-schema-dev
+  cancel-in-progress: true
+
 jobs:
   push-schema:
     name: Drizzle Push → recrutas-dev
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: development
 

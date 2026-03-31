@@ -6,6 +6,10 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: enforce-response-sla
+  cancel-in-progress: true
+
 jobs:
   enforce-sla:
     runs-on: ubuntu-latest

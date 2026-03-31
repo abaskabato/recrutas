@@ -2,8 +2,12 @@ name: Warm Candidate Match Cache
 
 on:
   schedule:
-    - cron: '0 4 * * *'  # 4 AM UTC daily (after retry-failed-parses)
+    - cron: '30 4 * * *'  # 4:30 AM UTC daily (after auto-hide-ghost-jobs at 4 AM)
   workflow_dispatch:
+
+concurrency:
+  group: warm-candidate-matches
+  cancel-in-progress: true
 
 jobs:
   warm:
