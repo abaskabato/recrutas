@@ -11,7 +11,7 @@ export function useAuth() {
   const queryClient = useQueryClient();
   const seededRef = useRef(false);
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['/api/auth/user'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/user');
@@ -33,10 +33,13 @@ export function useAuth() {
 
   const user = profile ? { ...supabaseUser, ...profile } : supabaseUser;
 
+  // Return combined loading state - wait for both session AND profile
+  const isLoading = isSessionLoading || isProfileLoading;
+
   return {
     session,
     user,
     isAuthenticated: !!supabaseUser,
-    isLoading: isSessionLoading,
+    isLoading,
   };
 }
