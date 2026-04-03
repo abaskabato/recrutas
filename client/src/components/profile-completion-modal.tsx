@@ -70,7 +70,7 @@ export function ProfileCompletionModal({
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      const response = await apiRequest("PUT", "/api/candidate/profile", data);
+      const response = await apiRequest("POST", "/api/candidate/profile", data);
       if (!response.ok) {
         throw new Error("Failed to update profile");
       }
