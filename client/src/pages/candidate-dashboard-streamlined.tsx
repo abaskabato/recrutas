@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
 import { getCachedProfile } from "@/utils/storage.utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -90,10 +91,8 @@ interface Application {
 
 export default function CandidateStreamlinedDashboard() {
   const [, setLocation] = useLocation();
-  const { session, isLoading } = useSessionContext();
-  const user = session?.user;
+  const { user, isAuthenticated, isLoading } = useAuth();
   const supabase = useSupabaseClient();
-  const isAuthenticated = !!user;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'jobs' | 'saved' | 'applications' | 'profile' | 'agent'>('jobs');
