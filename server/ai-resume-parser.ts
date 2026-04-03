@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import mammoth from 'mammoth';
+import { extractText, getDocumentProxy } from 'unpdf';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
 import { callAI, callGeminiWithPDF } from './lib/ai-client';
@@ -217,12 +218,12 @@ export class AIResumeParser {
   private async extractText(fileBuffer: Buffer, mimeType: string): Promise<string> {
     if (mimeType === 'application/pdf') {
       try {
-        const pdf = (await import('pdf-parse')).default;
-        const data = await pdf(fileBuffer);
-        if (!data.text || data.text.trim().length < 50) {
+        const pdf = await getDocumentProxy(new Uint8Array(fileBuffer));
+        const { text } = await extractText(pdf, { mergePages: true });
+        if (!text || text.trim().length < 50) {
           throw new Error('PDF extracted text is empty or too short. The PDF may be scanned/image-based.');
         }
-        return data.text;
+        return text;
       } catch (error: unknown) {
         console.error('[AIResumeParser] PDF parsing failed:', error);
         throw new Error(`Failed to extract text from PDF: ${(error as Error).message}`);

@@ -13,7 +13,7 @@
  * - Handle keyboard shortcut (Alt+Shift+R)
  */
 
-const DEFAULT_RECRUTAS_URL = 'https://recrutas.vercel.app';
+const DEFAULT_RECRUTAS_URL = 'https://recrutas.ai';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
