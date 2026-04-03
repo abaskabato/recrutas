@@ -268,9 +268,13 @@ export class ResumeService {
           .catch((e: any) => console.warn('[ResumeService] Embedding failed:', e?.message));
       }
 
-      // Fire match warming in background (non-blocking)
+      // Warm-compute job matches in background (non-blocking).
+      // Inngest is disabled (no INNGEST_EVENT_KEY), so call scoring directly.
+      // This ensures matches are ready when the candidate views their dashboard.
       if (parsingSuccess) {
-        sendInngestEvent('candidate/profile-updated', { candidateId: userId }).catch(() => {});
+        this.storage.getJobRecommendations(userId)
+          .then((result: any) => console.log(`[ResumeService] Warm-computed ${result?.jobs?.length || 0} matches for ${userId}`))
+          .catch((e: any) => console.warn('[ResumeService] Match warming failed (non-fatal):', e?.message));
       }
 
       // Log activity

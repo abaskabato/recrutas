@@ -115,16 +115,44 @@ export class AIResumeParser {
   ];
 
   async parseFile(fileContent: Buffer | string, mimeType: string): Promise<ParsedResume> {
-    const PARSE_TIMEOUT_MS = 45000;
+    const PARSE_TIMEOUT_MS = 60000;
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Resume parsing timeout (45s)')), PARSE_TIMEOUT_MS)
+      setTimeout(() => reject(new Error('Resume parsing timeout (60s)')), PARSE_TIMEOUT_MS)
     );
 
     const doParseFile = async (): Promise<ParsedResume> => {
       const startTime = Date.now();
 
-      // Path 1: normal text extraction → AI
+      // Path 1: PDF — try Gemini multimodal FIRST (reads raw bytes, handles all PDF types)
       if (typeof fileContent !== 'string' || fileContent !== 'text-input') {
+        if (mimeType === 'application/pdf' && process.env.GEMINI_API_KEY) {
+          try {
+            console.log('[AIResumeParser] PDF detected — trying Gemini multimodal (primary)');
+            const jsonStr = await callGeminiWithPDF(
+              'You are an expert resume parser. Extract structured data and return ONLY valid JSON.',
+              RESUME_EXTRACTION_PROMPT,
+              fileContent as Buffer,
+              { priority: 'high', maxOutputTokens: 2500 }
+            );
+            const aiExtracted = this.parseAIResponse(jsonStr);
+            const confidence = this.calculateConfidence(aiExtracted);
+            const totalSkills = (aiExtracted.skills?.technical?.length || 0) +
+              (aiExtracted.skills?.soft?.length || 0) +
+              (aiExtracted.skills?.tools?.length || 0);
+            console.log(`[AIResumeParser] Gemini multimodal succeeded: ${totalSkills} skills, confidence ${confidence}`);
+            // Also try to extract text for storage (best-effort, non-blocking)
+            let text = '[extracted via Gemini multimodal]';
+            try {
+              const extracted = await this.extractText(fileContent as Buffer, mimeType);
+              if (extracted && extracted.trim().length >= 50) text = extracted;
+            } catch { /* text extraction is optional here */ }
+            return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
+          } catch (geminiErr) {
+            console.warn('[AIResumeParser] Gemini multimodal failed, falling back to text extraction:', (geminiErr as Error).message);
+          }
+        }
+
+        // Path 2: text extraction → AI (fallback for PDFs, primary for DOCX/TXT)
         try {
           const text = await this.extractText(fileContent as Buffer, mimeType);
           console.log(`[AIResumeParser] Extracted ${text.length} characters from ${mimeType}`);
@@ -132,25 +160,6 @@ export class AIResumeParser {
           const confidence = this.calculateConfidence(aiExtracted);
           return { text, aiExtracted, confidence, processingTime: Date.now() - startTime };
         } catch (extractErr) {
-          // Path 2: text extraction failed — try Gemini multimodal PDF directly
-          if (mimeType === 'application/pdf' && process.env.GEMINI_API_KEY) {
-            console.warn('[AIResumeParser] pdf-parse failed, attempting Gemini multimodal fallback:', (extractErr as Error).message);
-            try {
-              const jsonStr = await callGeminiWithPDF(
-                'You are an expert resume parser. Extract structured data and return ONLY valid JSON.',
-                RESUME_EXTRACTION_PROMPT,
-                fileContent as Buffer,
-                { priority: 'high', maxOutputTokens: 2000 }
-              );
-              const aiExtracted = this.parseAIResponse(jsonStr);
-              const confidence = this.calculateConfidence(aiExtracted);
-              console.log(`[AIResumeParser] Gemini multimodal fallback succeeded, confidence: ${confidence}`);
-              return { text: '[extracted via Gemini multimodal]', aiExtracted, confidence, processingTime: Date.now() - startTime };
-            } catch (geminiErr) {
-              console.error('[AIResumeParser] Gemini multimodal fallback also failed:', (geminiErr as Error).message);
-              throw new Error(`Failed to parse resume with AI: ${(geminiErr as Error).message}`);
-            }
-          }
           console.error('AI Resume parsing error:', extractErr);
           throw new Error(`Failed to parse resume with AI: ${(extractErr as Error).message}`);
         }
@@ -293,12 +302,16 @@ English (Native), Spanish (Conversational)`;
     // Priority 1: Skill Intelligence Engine (instant, deterministic, zero-cost)
     // Run first — if confidence is high enough, skip all AI calls entirely.
     const ruleResult = await this.extractWithFallback(text);
-    const confidence = (ruleResult.skills.technical.length + ruleResult.skills.tools.length) >= 3 ? 'high' : 'low';
+    const ruleSkillCount = (ruleResult.skills.technical.length + ruleResult.skills.tools.length);
+    // Require >= 5 skills AND the engine's own confidence >= 60% to skip AI.
+    // Previous threshold (>= 3) was too low — substring false positives easily
+    // generated 3+ junk skills and skipped AI providers that would parse correctly.
+    const confidence = (ruleSkillCount >= 5 && (ruleResult as any)._confidence >= 60) ? 'high' : 'low';
     if (confidence === 'high') {
-      console.log('[AIResumeParser] Skill Intelligence Engine confident — skipping AI providers');
+      console.log(`[AIResumeParser] Skill Intelligence Engine confident (${ruleSkillCount} skills, confidence ${(ruleResult as any)._confidence}%) — skipping AI providers`);
       return ruleResult;
     }
-    console.log('[AIResumeParser] Skill Intelligence Engine low confidence — trying AI providers to enrich');
+    console.log(`[AIResumeParser] Skill Intelligence Engine low confidence (${ruleSkillCount} skills, confidence ${(ruleResult as any)._confidence}%) — trying AI providers to enrich`);
 
     const errors: string[] = [];
 
@@ -345,7 +358,7 @@ English (Native), Spanish (Conversational)`;
 
   private async extractWithHF(text: string, apiKey: string): Promise<AIExtractedData> {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('HF API timeout (30s)')), 30000)
+      setTimeout(() => reject(new Error('HF API timeout (10s)')), 10000)
     );
 
     const response = await Promise.race([
@@ -528,8 +541,11 @@ Return JSON with this exact structure:
 
     console.log('[AIResumeParser] Calling AI provider (Gemini/Groq)...');
 
+    // Timeout must fit within the overall 45s parseFile budget.
+    // Gemini text has its own 15s timeout in ai-client.ts; Groq fallback gets
+    // whatever remains. 20s here leaves headroom for HuggingFace fallback.
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('AI API timeout (30s)')), 30000)
+      setTimeout(() => reject(new Error('AI API timeout (20s)')), 20000)
     );
 
     const content = await Promise.race([
@@ -649,7 +665,7 @@ ${truncatedText}`,
     console.log(`[AIResumeParser] Skill Intelligence Engine: ${result.technical.length} technical, ${result.tools.length} tools, ${result.soft.length} soft skills. Confidence: ${result.confidence}%`);
     console.log(`[AIResumeParser] Top skills:`, [...result.technical, ...result.tools].slice(0, 10));
 
-    return {
+    const aiResult: any = {
       personalInfo: result.personalInfo,
       summary: this.extractSummary(text),
       skills: {
@@ -666,7 +682,10 @@ ${truncatedText}`,
       certifications:  result.certifications,
       projects:        this.extractProjects(text),
       languages:       this.extractLanguages(text),
+      // Pass through for confidence threshold check in extractWithAI
+      _confidence:     result.confidence,
     };
+    return aiResult as AIExtractedData;
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {

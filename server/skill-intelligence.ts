@@ -359,9 +359,22 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
 
 // ── Stack cluster expansion ───────────────────────────────────────────────────
 
+// Pre-compile word-boundary regexes for stack clusters (avoids substring false positives:
+// e.g. "rn" inside "learning", "emt" inside "development")
+const _clusterRegexCache = new Map<string, RegExp>();
+function getClusterRegex(cluster: string): RegExp {
+  let re = _clusterRegexCache.get(cluster);
+  if (!re) {
+    const escaped = cluster.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    re = new RegExp(`\\b${escaped}\\b`, 'i');
+    _clusterRegexCache.set(cluster, re);
+  }
+  return re;
+}
+
 function expandStackClusters(textLower: string, candidates: Map<string, SkillCandidate>): void {
   for (const [cluster, skills] of Object.entries(STACK_CLUSTERS)) {
-    if (textLower.includes(cluster)) {
+    if (getClusterRegex(cluster).test(textLower)) {
       for (const skill of skills) {
         const canonical = normalizeSkill(skill);
         if (!candidates.has(canonical)) {
