@@ -300,6 +300,81 @@ English (Native), Spanish (Conversational)`;
   }
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
+    // Balanced approach: run rules and AI in parallel, use whichever succeeds
+    const rulePromise = this.extractWithFallback(text);
+    const aiPromise = this.runAIEnrichment(text);
+    
+    const results = await Promise.allSettled([rulePromise, aiPromise]);
+    const ruleResult = results[0];
+    const aiResult = results[1];
+
+    // If AI succeeded, use it (better quality)
+    if (aiResult.status === 'fulfilled') {
+      console.log('[AIResumeParser] AI enrichment succeeded, using AI result');
+      return aiResult.value;
+    }
+
+    // AI failed, use rules
+    if (ruleResult.status === 'fulfilled') {
+      console.log('[AIResumeParser] AI failed, using rule-based result');
+      return ruleResult.value;
+    }
+
+    // Both failed - this shouldn't happen, but return a minimal valid structure
+    console.error('[AIResumeParser] Both rules and AI failed:', ruleResult.reason, aiResult.reason);
+    return {
+      personalInfo: {},
+      summary: '',
+      skills: { technical: [], soft: [], tools: [] },
+      experience: { totalYears: 0, level: 'entry', positions: [] },
+      education: [],
+      certifications: [],
+      projects: [],
+      languages: []
+    };
+  }
+
+  private async runAIEnrichment(text: string): Promise<AIExtractedData> {
+    // Only try AI if we have API keys configured
+    if (!process.env.GEMINI_API_KEY && !getGroqClient()) {
+      throw new Error('No AI API keys configured');
+    }
+
+    // Try Groq first (free, fast)
+    try {
+      console.log('[AIResumeParser] Trying Groq API...');
+      return await this.extractWithGroq(text);
+    } catch (aiError: any) {
+      console.warn('[AIResumeParser] Groq failed:', aiError.message);
+    }
+
+    // Try Ollama (local)
+    if (process.env.USE_OLLAMA === 'true') {
+      try {
+        const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+        const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
+        console.log('[AIResumeParser] Trying Ollama...');
+        return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
+      } catch (ollamaError: any) {
+        console.warn('[AIResumeParser] Ollama failed:', ollamaError.message);
+      }
+    }
+
+    // Try Hugging Face
+    const hfApiKey = process.env.HF_API_KEY;
+    if (hfApiKey && hfApiKey !== '%HF_API_KEY%') {
+      try {
+        console.log('[AIResumeParser] Trying Hugging Face API...');
+        return await this.extractWithHF(text, hfApiKey);
+      } catch (hfError: any) {
+        console.warn('[AIResumeParser] Hugging Face failed:', hfError.message);
+      }
+    }
+
+    throw new Error('All AI providers failed');
+  }
+
+  private async extractWithAI_OLD(text: string): Promise<AIExtractedData> {
     // Priority 1: Skill Intelligence Engine (instant, deterministic, zero-cost)
     // Run first — if confidence is high enough, skip all AI calls entirely.
     const ruleResult = await this.extractWithFallback(text);
