@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import mammoth from 'mammoth';
-import { extractText, getDocumentProxy } from 'unpdf';
+import { extractText, getDocumentProxy, renderPageAsImage } from 'unpdf';
 import Tesseract from 'tesseract.js';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
@@ -233,18 +233,36 @@ export class AIResumeParser {
 
       // OCR fallback for scanned PDFs using Tesseract.js (open-source, free)
       try {
-        console.log('[AIResumeParser] Trying OCR with Tesseract.js...');
+        console.log('[AIResumeParser] Trying OCR with Tesseract.js (rendering pages to images)...');
         
-        // For PDF OCR, we'd need to render pages to images first
-        // For now, try with the raw buffer - Tesseract can handle some PDFs
-        const result = await Tesseract.recognize(fileBuffer, 'eng', {
-          logger: () => {}, // suppress logs
-        });
+        const pdf = await getDocumentProxy(new Uint8Array(fileBuffer));
+        const { totalPages } = await extractText(pdf, { mergePages: false });
         
-        const ocrText = result.data.text;
-        if (ocrText && ocrText.trim().length >= 50) {
-          console.log('[AIResumeParser] OCR extracted:', ocrText.slice(0, 100));
-          return ocrText;
+        let fullText = '';
+        const maxPages = Math.min(totalPages, 3); // Limit to 3 pages for speed
+        
+        for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+          try {
+            // Render page to image using unpdf
+            const imageBuffer = await renderPageAsImage(pdf, pageNum, { scale: 1.5 });
+            
+            // Run OCR on the image
+            const result = await Tesseract.recognize(Buffer.from(imageBuffer), 'eng', {
+              logger: () => {},
+            });
+            
+            if (result.data.text) {
+              fullText += result.data.text + '\n';
+            }
+            console.log(`[AIResumeParser] OCR page ${pageNum}/${maxPages}: ${result.data.text?.slice(0, 50)}...`);
+          } catch (pageErr) {
+            console.warn(`[AIResumeParser] OCR failed for page ${pageNum}:`, (pageErr as Error).message);
+          }
+        }
+        
+        if (fullText.trim().length >= 50) {
+          console.log('[AIResumeParser] OCR extracted:', fullText.slice(0, 100));
+          return fullText;
         }
       } catch (ocrErr) {
         console.warn('[AIResumeParser] OCR failed:', (ocrErr as Error).message);
