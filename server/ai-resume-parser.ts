@@ -263,7 +263,7 @@ export class AIResumeParser {
           }
         }
         
-        if (fullText.trim().length >= 50) {
+        if (fullText.trim().length >= 20) {
           console.log('[AIResumeParser] OCR extracted text, using for parsing:', fullText.slice(0, 100));
           return fullText;
         }
