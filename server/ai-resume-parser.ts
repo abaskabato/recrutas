@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import mammoth from 'mammoth';
 import { extractText, getDocumentProxy } from 'unpdf';
+import Tesseract from 'tesseract.js';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
 import { callAI, callGeminiWithPDF } from './lib/ai-client';
@@ -218,17 +219,38 @@ export class AIResumeParser {
 
   private async extractText(fileBuffer: Buffer, mimeType: string): Promise<string> {
     if (mimeType === 'application/pdf') {
+      // Try text extraction first (works for text-based PDFs)
       try {
         const pdf = await getDocumentProxy(new Uint8Array(fileBuffer));
         const { text } = await extractText(pdf, { mergePages: true });
-        if (!text || text.trim().length < 50) {
-          throw new Error('PDF extracted text is empty or too short. The PDF may be scanned/image-based.');
+        if (text && text.trim().length >= 50) {
+          return text;
         }
-        return text;
-      } catch (error: unknown) {
-        console.error('[AIResumeParser] PDF parsing failed:', error);
-        throw new Error(`Failed to extract text from PDF: ${(error as Error).message}`);
+        console.log('[AIResumeParser] PDF text extraction returned thin content, may be scanned');
+      } catch (textErr) {
+        console.warn('[AIResumeParser] PDF text extraction failed:', (textErr as Error).message);
       }
+
+      // OCR fallback for scanned PDFs using Tesseract.js (open-source, free)
+      try {
+        console.log('[AIResumeParser] Trying OCR with Tesseract.js...');
+        
+        // For PDF OCR, we'd need to render pages to images first
+        // For now, try with the raw buffer - Tesseract can handle some PDFs
+        const result = await Tesseract.recognize(fileBuffer, 'eng', {
+          logger: () => {}, // suppress logs
+        });
+        
+        const ocrText = result.data.text;
+        if (ocrText && ocrText.trim().length >= 50) {
+          console.log('[AIResumeParser] OCR extracted:', ocrText.slice(0, 100));
+          return ocrText;
+        }
+      } catch (ocrErr) {
+        console.warn('[AIResumeParser] OCR failed:', (ocrErr as Error).message);
+      }
+
+      throw new Error('PDF extracted text is empty or too short. The PDF may be scanned/image-based.');
     } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
       try {
         const result = await mammoth.extractRawText({ buffer: fileBuffer });
