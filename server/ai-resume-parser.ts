@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import mammoth from 'mammoth';
 import { extractText, getDocumentProxy, renderPageAsImage } from 'unpdf';
 import Tesseract from 'tesseract.js';
@@ -350,35 +348,61 @@ English (Native), Spanish (Conversational)`;
     // Balanced approach: run rules and AI in parallel, use whichever succeeds
     const rulePromise = this.extractWithFallback(text);
     const aiPromise = this.runAIEnrichment(text);
-    
+
     const results = await Promise.allSettled([rulePromise, aiPromise]);
     const ruleResult = results[0];
     const aiResult = results[1];
 
+    let winner: AIExtractedData;
+
     // If AI succeeded, use it (better quality)
     if (aiResult.status === 'fulfilled') {
       console.log('[AIResumeParser] AI enrichment succeeded, using AI result');
-      return aiResult.value;
-    }
-
-    // AI failed, use rules
-    if (ruleResult.status === 'fulfilled') {
+      winner = aiResult.value;
+    } else if (ruleResult.status === 'fulfilled') {
+      // AI failed, use rules
       console.log('[AIResumeParser] AI failed, using rule-based result');
-      return ruleResult.value;
+      winner = ruleResult.value;
+    } else {
+      // Both failed - return a minimal valid structure
+      console.error('[AIResumeParser] Both rules and AI failed:', ruleResult.reason, aiResult.reason);
+      return {
+        personalInfo: {},
+        summary: '',
+        skills: { technical: [], soft: [], tools: [] },
+        experience: { totalYears: 0, level: 'entry', positions: [] },
+        education: [],
+        certifications: [],
+        projects: [],
+        languages: []
+      };
     }
 
-    // Both failed - this shouldn't happen, but return a minimal valid structure
-    console.error('[AIResumeParser] Both rules and AI failed:', ruleResult.reason, aiResult.reason);
-    return {
-      personalInfo: {},
-      summary: '',
-      skills: { technical: [], soft: [], tools: [] },
-      experience: { totalYears: 0, level: 'entry', positions: [] },
-      education: [],
-      certifications: [],
-      projects: [],
-      languages: []
-    };
+    // Domain coherence filter: applies to ALL paths (rules and AI).
+    // If this looks like a CS/tech resume (>= 2 CS languages), strip
+    // healthcare skills that LLMs hallucinate from noisy OCR text or
+    // that rules infer from substring matches.
+    return this.applyDomainCoherenceFilter(winner);
+  }
+
+  private applyDomainCoherenceFilter(result: AIExtractedData): AIExtractedData {
+    const CS_LANGUAGES = new Set([
+      'python','java','javascript','typescript','c++','c#','c','ruby',
+      'go','rust','swift','kotlin','php','scala','r','.net',
+      'react','node.js','angular','vue.js','django','flask','spring boot',
+    ]);
+    const MEDICAL_SKILLS = new Set([
+      'patient care','bls certified','cpr certified',
+      'hipaa compliance','electronic medical records','phlebotomy',
+      'certified nursing assistant','nursing',
+    ]);
+    const allSkills = [...(result.skills?.technical || []), ...(result.skills?.tools || [])];
+    const csCount = allSkills.filter(s => CS_LANGUAGES.has(s.toLowerCase())).length;
+    if (csCount >= 2) {
+      result.skills.technical = result.skills.technical.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
+      result.skills.tools = result.skills.tools.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
+    }
+    return result;
   }
 
   private async runAIEnrichment(text: string): Promise<AIExtractedData> {
@@ -419,64 +443,6 @@ English (Native), Spanish (Conversational)`;
     }
 
     throw new Error('All AI providers failed');
-  }
-
-  private async extractWithAI_OLD(text: string): Promise<AIExtractedData> {
-    // Priority 1: Skill Intelligence Engine (instant, deterministic, zero-cost)
-    // Run first — if confidence is high enough, skip all AI calls entirely.
-    const ruleResult = await this.extractWithFallback(text);
-    const ruleSkillCount = (ruleResult.skills.technical.length + ruleResult.skills.tools.length);
-    // Require >= 5 skills AND the engine's own confidence >= 60% to skip AI.
-    // Previous threshold (>= 3) was too low — substring false positives easily
-    // generated 3+ junk skills and skipped AI providers that would parse correctly.
-    const confidence = (ruleSkillCount >= 5 && (ruleResult as any)._confidence >= 60) ? 'high' : 'low';
-    if (confidence === 'high') {
-      console.log(`[AIResumeParser] Skill Intelligence Engine confident (${ruleSkillCount} skills, confidence ${(ruleResult as any)._confidence}%) — skipping AI providers`);
-      return ruleResult;
-    }
-    console.log(`[AIResumeParser] Skill Intelligence Engine low confidence (${ruleSkillCount} skills, confidence ${(ruleResult as any)._confidence}%) — trying AI providers to enrich`);
-
-    const errors: string[] = [];
-
-    // Priority 2: Cloud AI — Gemini (preferred) or Groq fallback
-    if (process.env.GEMINI_API_KEY || getGroqClient()) {
-      try {
-        console.log('[AIResumeParser] Trying Cloud AI (Gemini/Groq)...');
-        return await this.extractWithGroq(text);
-      } catch (aiError: any) {
-        console.error('[AIResumeParser] Cloud AI failed:', aiError.message);
-        errors.push(`CloudAI: ${aiError.message}`);
-      }
-    }
-
-    // Priority 3: Ollama (local)
-    if (process.env.USE_OLLAMA === 'true') {
-      try {
-        const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-        const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
-        console.log(`[AIResumeParser] Trying Ollama at ${ollamaUrl}...`);
-        return await this.extractWithOllama(text, ollamaUrl, ollamaModel);
-      } catch (ollamaError: any) {
-        console.warn('[AIResumeParser] Ollama failed:', ollamaError.message);
-        errors.push(`Ollama: ${ollamaError.message}`);
-      }
-    }
-
-    // Priority 4: Hugging Face
-    const hfApiKey = process.env.HF_API_KEY;
-    if (hfApiKey && hfApiKey !== '%HF_API_KEY%') {
-      try {
-        console.log('[AIResumeParser] Trying Hugging Face API...');
-        return await this.extractWithHF(text, hfApiKey);
-      } catch (hfError: any) {
-        console.warn('[AIResumeParser] Hugging Face failed:', hfError.message);
-        errors.push(`HF: ${hfError.message}`);
-      }
-    }
-
-    // All AI providers failed — return the rule-based result we already have
-    console.log('[AIResumeParser] AI providers unavailable, returning rule-based result:', errors);
-    return ruleResult;
   }
 
   private async extractWithHF(text: string, apiKey: string): Promise<AIExtractedData> {
@@ -768,22 +734,6 @@ ${truncatedText}`,
     console.log(`[AIResumeParser] Text length: ${text.length} characters`);
 
     const result = parseResumeWithIntelligence(text);
-
-    // Domain coherence filter: if this looks like a CS resume (≥2 CS languages),
-    // strip medical/healthcare skills injected by template boilerplate in STACK_CLUSTERS.
-    const CS_LANGUAGES = new Set([
-      'python','java','javascript','typescript','c++','c#','c','ruby',
-      'go','rust','swift','kotlin','php','scala','r','.net'
-    ]);
-    const MEDICAL_SKILLS = new Set([
-      'patient care','bls certified','cpr certified',
-      'hipaa compliance','electronic medical records','phlebotomy'
-    ]);
-    const csLangCount = result.technical.filter(s => CS_LANGUAGES.has(s.toLowerCase())).length;
-    if (csLangCount >= 2) {
-      result.technical = result.technical.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
-      result.tools     = result.tools.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
-    }
 
     console.log(`[AIResumeParser] Skill Intelligence Engine: ${result.technical.length} technical, ${result.tools.length} tools, ${result.soft.length} soft skills. Confidence: ${result.confidence}%`);
     console.log(`[AIResumeParser] Top skills:`, [...result.technical, ...result.tools].slice(0, 10));
