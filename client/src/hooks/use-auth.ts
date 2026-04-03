@@ -11,7 +11,7 @@ export function useAuth() {
   const queryClient = useQueryClient();
   const seededRef = useRef(false);
 
-  const { data: profile, isLoading: isProfileLoading } = useQuery({
+  const { data: profile, isLoading: isProfileLoading, isError: isProfileError } = useQuery({
     queryKey: ['/api/auth/user'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/auth/user');
@@ -33,8 +33,9 @@ export function useAuth() {
 
   const user = profile ? { ...supabaseUser, ...profile } : supabaseUser;
 
-  // Return combined loading state - wait for both session AND profile
-  const isLoading = isSessionLoading || isProfileLoading;
+  // Return combined loading state - wait for both session AND profile to load
+  // Only mark as NOT loading when session is ready AND profile query has completed (success or error)
+  const isLoading = isSessionLoading || (!!supabaseUser && isProfileLoading);
 
   return {
     session,
