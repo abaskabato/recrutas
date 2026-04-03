@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 import { getErrorMessage } from "@/lib/dashboard-utils";
 import RealTimeNotifications from "@/components/real-time-notifications";
@@ -44,9 +45,7 @@ const TAB_CONFIG: { id: TabName; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function TalentDashboard() {
-  const { session, isLoading } = useSessionContext();
-  const user = session?.user;
-  const isAuthenticated = !!user;
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const supabase = useSupabaseClient();
   const [, setLocation] = useLocation();
