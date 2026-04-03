@@ -14,6 +14,19 @@
  */
 
 const DEFAULT_RECRUTAS_URL = 'https://recrutas.ai';
+const API_VERSION = 'v1'; // Message versioning for API compatibility
+
+// ── Message version wrapper ───────────────────────────────────────────────────
+
+function withVersion(msg) {
+  return { ...msg, _version: API_VERSION };
+}
+
+// ── Installation cleanup ────────────────────────────────────────────────────
+
+chrome.runtime.onInstalled.addListener(async () => {
+  await cleanupOldCache();
+});
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -81,13 +94,20 @@ async function getValidToken() {
     return accessToken;
   }
 
-  // Try refresh
+  // Try refresh with retry
   const { refreshToken } = await getStoredAuth();
   if (refreshToken) {
-    try {
-      return await refreshAccessToken();
-    } catch {
-      // Refresh failed — fall through
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const delay = Math.pow(2, attempt) * 500;
+        if (attempt > 0) await new Promise(r => setTimeout(r, delay));
+        return await refreshAccessToken();
+      } catch (err) {
+        if (attempt === maxRetries - 1) {
+          console.warn('[Recrutas] Token refresh failed after retries:', err.message);
+        }
+      }
     }
   }
 
@@ -130,6 +150,25 @@ async function logout() {
     'accessToken', 'refreshToken', 'expiresAt', 'userName', 'userEmail',
     'profileCache', 'profileCacheTime',
   ]);
+}
+
+// ── Cache cleanup ─────────────────────────────────────────────────────────────
+
+async function cleanupOldCache() {
+  const { profileCacheTime, fillStats } = await chrome.storage.local.get(['profileCacheTime', 'fillStats']);
+  
+  // Clean old profile cache (> 24 hours)
+  if (profileCacheTime && Date.now() - profileCacheTime > 86400000) {
+    await chrome.storage.local.remove(['profileCache', 'profileCacheTime']);
+  }
+  
+  // Clean old fill stats (> 30 days)
+  if (fillStats?.lastFillDate) {
+    const daysSince = (Date.now() - new Date(fillStats.lastFillDate).getTime()) / 86400000;
+    if (daysSince > 30) {
+      await chrome.storage.local.remove(['fillStats']);
+    }
+  }
 }
 
 // ── Fetch profile (with cache) ───────────────────────────────────────────────
@@ -210,23 +249,32 @@ async function fillFormAI(fields, jobContext) {
 // ── Download resume ──────────────────────────────────────────────────────────
 
 async function downloadResume(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Resume download failed (${res.status})`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Resume download failed (${res.status})`);
 
-  const blob = await res.blob();
-  const arrayBuffer = await blob.arrayBuffer();
-  const uint8 = new Uint8Array(arrayBuffer);
-  let binary = '';
-  for (let i = 0; i < uint8.length; i++) {
-    binary += String.fromCharCode(uint8[i]);
+    const blob = await res.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8.length; i++) {
+      binary += String.fromCharCode(uint8[i]);
+    }
+    const base64 = btoa(binary);
+
+    const urlPath = new URL(url).pathname;
+    const filename = urlPath.split('/').pop() || 'resume.pdf';
+    const mimeType = blob.type || 'application/pdf';
+
+    return { base64, filename, mimeType };
+  } catch (err) {
+    console.warn('[Recrutas] Resume download failed:', err.message);
+    throw err;
   }
-  const base64 = btoa(binary);
-
-  const urlPath = new URL(url).pathname;
-  const filename = urlPath.split('/').pop() || 'resume.pdf';
-  const mimeType = blob.type || 'application/pdf';
-
-  return { base64, filename, mimeType };
 }
 
 // ── Fill stats ──────────────────────────────────────────────────────────────
@@ -239,6 +287,31 @@ async function incrementFillStats(fieldsFilled) {
   stats.lastFillDate = new Date().toISOString();
   await chrome.storage.local.set({ fillStats: stats });
   return stats;
+}
+
+// ── Telemetry ─────────────────────────────────────────────────────────────────
+
+async function trackFillEvent(atsType, success, fieldsFilled, failedFields, error) {
+  const { telemetry } = await chrome.storage.local.get('telemetry');
+  const events = telemetry || [];
+  
+  events.push({
+    timestamp: Date.now(),
+    atsType,
+    success,
+    fieldsFilled,
+    failedFields: failedFields?.length || 0,
+    error: error || null,
+  });
+  
+  // Keep only last 100 events
+  const trimmed = events.slice(-100);
+  await chrome.storage.local.set({ telemetry: trimmed });
+}
+
+async function getTelemetry() {
+  const { telemetry } = await chrome.storage.local.get('telemetry');
+  return telemetry || [];
 }
 
 // ── Inject content script into active tab ────────────────────────────────────
@@ -325,7 +398,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
       case 'FILL_COMPLETE': {
         const stats = await incrementFillStats(message.fieldsFilled || 0);
+        
+        // Track telemetry for this fill
+        if (message.atsType) {
+          await trackFillEvent(
+            message.atsType,
+            message.success || false,
+            message.fieldsFilled || 0,
+            message.failedFields || [],
+            message.error || null
+          );
+        }
+        
         return { success: true, stats };
+      }
+
+      case 'GET_TELEMETRY': {
+        const events = await getTelemetry();
+        return { success: true, events };
       }
 
       case 'DOWNLOAD_RESUME': {

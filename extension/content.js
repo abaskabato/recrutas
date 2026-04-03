@@ -146,6 +146,35 @@
 
   // ── Extract job context from the page ──────────────────────────────────────
 
+  const ATS_PATTERNS = {
+    greenhouse: /greenhouse\.io|job-boards\.greenhouse\.io/i,
+    lever: /lever\.co/i,
+    ashby: /ashbyhq\.com|jobs\.ashbyhq\.com/i,
+    workday: /myworkdayjobs\.com|myworkdaysite\.com/i,
+    icims: /icims\.com/i,
+    smartrecruiters: /smartrecruiters\.com/i,
+    jobvite: /jobvite\.com/i,
+    bamboohr: /bamboohr\.com/i,
+    workable: /workable\.com/i,
+    breezy: /breezy\.hr/i,
+    jazz: /jazz\.co|jazzhr\.com/i,
+    taleo: /taleo\.net/i,
+    successfactors: /successfactors\.com/i,
+    ultipro: /ultipro\.com/i,
+    paylocity: /paylocity\.com/i,
+    paycom: /paycomonline\.net/i,
+    rippling: /rippling\.com/i,
+    deel: /deel\.com/i,
+  };
+
+  function detectATSType() {
+    const hostname = window.location.hostname;
+    for (const [ats, pattern] of Object.entries(ATS_PATTERNS)) {
+      if (pattern.test(hostname)) return ats;
+    }
+    return 'unknown';
+  }
+
   function extractJobContext() {
     const h1 = document.querySelector('h1');
     const title = h1?.textContent?.trim() || document.title || '';
@@ -159,7 +188,10 @@
       '[class*="description"], [class*="job-description"], [data-testid*="description"]'
     )?.textContent?.trim()?.slice(0, 1000) || '';
 
-    return `${title}${company ? ' at ' + company : ''}${desc ? '\n' + desc : ''}`.slice(0, 2000);
+    return {
+      text: `${title}${company ? ' at ' + company : ''}${desc ? '\n' + desc : ''}`.slice(0, 2000),
+      atsType: detectATSType(),
+    };
   }
 
   // ── Find DOM element by field ID ───────────────────────────────────────────
@@ -223,63 +255,73 @@
 
   // ACTION: click_then_type
   async function executeClickThenType(el, value) {
-    el.focus();
-    el.click();
-    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    const timeoutMs = 5000;
+    
+    try {
+      await withTimeout((async () => {
+        el.focus();
+        el.click();
+        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
-    await sleep(350);
+        await sleep(350);
 
-    const searchInput = el.closest('[class*="select"], [class*="dropdown"], [class*="combobox"], [role="combobox"], [role="listbox"]')
-      ?.querySelector('input[type="text"], input:not([type])')
-      || el;
+        const searchInput = el.closest('[class*="select"], [class*="dropdown"], [class*="combobox"], [role="combobox"], [role="listbox"]')
+          ?.querySelector('input[type="text"], input:not([type])')
+          || el;
 
-    if (searchInput) {
-      setNativeValue(searchInput, value);
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true }));
-    }
+        if (searchInput) {
+          setNativeValue(searchInput, value);
+          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+          searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true }));
+        }
 
-    await sleep(400);
+        await sleep(400);
 
-    const valueLower = value.toLowerCase();
-    const optionSelectors = [
-      '[role="option"]',
-      '[class*="option"]',
-      '[class*="menu-item"]',
-      '[class*="listbox"] li',
-      '[class*="dropdown"] li',
-      'li[data-value]',
-      '.select__option',
-      '.react-select__option',
-    ];
+        const valueLower = value.toLowerCase();
+        const optionSelectors = [
+          '[role="option"]',
+          '[class*="option"]',
+          '[class*="menu-item"]',
+          '[class*="listbox"] li',
+          '[class*="dropdown"] li',
+          'li[data-value]',
+          '.select__option',
+          '.react-select__option',
+        ];
 
-    for (const selector of optionSelectors) {
-      const options = document.querySelectorAll(selector);
-      for (const opt of options) {
-        const text = opt.textContent?.trim().toLowerCase() || '';
-        if (text === valueLower || text.includes(valueLower) || valueLower.includes(text)) {
-          opt.click();
-          opt.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-          opt.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        for (const selector of optionSelectors) {
+          const options = document.querySelectorAll(selector);
+          for (const opt of options) {
+            const text = opt.textContent?.trim().toLowerCase() || '';
+            if (text === valueLower || text.includes(valueLower) || valueLower.includes(text)) {
+              opt.click();
+              opt.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+              opt.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+              highlightFilled(el);
+              return true;
+            }
+          }
+        }
+
+        // Last resort: press Enter and hope the first suggestion was selected
+        searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        await sleep(200);
+
+        // Check if value actually changed — if not, this failed
+        const currentValue = (searchInput || el).value || el.textContent?.trim() || '';
+        if (currentValue && currentValue.toLowerCase().includes(valueLower.substring(0, 3))) {
           highlightFilled(el);
           return true;
         }
-      }
+
+        highlightFailed(el);
+        return false;
+      })(), timeoutMs, 'Dropdown selection timed out');
+    } catch (err) {
+      console.debug('[Recrutas] click_then_type failed:', err.message);
+      highlightFailed(el);
+      return false;
     }
-
-    // Last resort: press Enter and hope the first suggestion was selected
-    searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-    await sleep(200);
-
-    // Check if value actually changed — if not, this failed
-    const currentValue = (searchInput || el).value || el.textContent?.trim() || '';
-    if (currentValue && currentValue.toLowerCase().includes(valueLower.substring(0, 3))) {
-      highlightFilled(el);
-      return true;
-    }
-
-    highlightFailed(el);
-    return false;
   }
 
   // ACTION: check
@@ -328,6 +370,14 @@
 
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Promise with timeout
+  function withTimeout(promise, ms, errorMsg = 'Operation timed out') {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))
+    ]);
   }
 
   // ── Execute all actions with retry ────────────────────────────────────────
@@ -429,7 +479,7 @@
       const response = await sendMessage({
         type: 'FILL_FORM_AI',
         fields,
-        jobContext,
+        jobContext: jobContext.text,
       });
 
       if (!response.success) {
@@ -447,8 +497,14 @@
 
       const { filled, failed } = await executeActions(actions, resumeUrl);
 
-      // Report stats to background
-      sendMessage({ type: 'FILL_COMPLETE', fieldsFilled: filled }).catch(() => {});
+      // Report stats + telemetry to background
+      sendMessage({
+        type: 'FILL_COMPLETE',
+        fieldsFilled: filled,
+        failedFields: failed,
+        atsType: jobContext.atsType,
+        success: filled > 0,
+      }).catch(() => {});
 
       if (filled === 0) {
         showBanner('Could not fill any fields — try a different page', 'warning');
@@ -458,6 +514,17 @@
         showBanner(`Filled ${filled} field${filled !== 1 ? 's' : ''} — review before submitting`, 'success');
       }
     } catch (err) {
+      // Report failed fill for telemetry
+      const jobContext = extractJobContext();
+      sendMessage({
+        type: 'FILL_COMPLETE',
+        fieldsFilled: 0,
+        failedFields: [],
+        atsType: jobContext.atsType,
+        success: false,
+        error: err.message,
+      }).catch(() => {});
+      
       if (err.message?.includes('Not authenticated') || err.message?.includes('Session expired')) {
         showBanner('Sign in to Recrutas extension first', 'error');
       } else {
@@ -504,9 +571,19 @@
     }
   }
 
+  function debounce(fn, ms) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  const debouncedInject = debounce(maybeInject, 300);
+
   maybeInject();
 
-  const observer = new MutationObserver(() => maybeInject());
+  const observer = new MutationObserver(() => debouncedInject());
   observer.observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('popstate', () => setTimeout(maybeInject, 500));

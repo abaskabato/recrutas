@@ -216,6 +216,15 @@ body {
   margin-bottom: 10px;
 }
 
+.completion-bar {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f59e0b;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
 .status-item {
   display: flex;
   align-items: center;

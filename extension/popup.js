@@ -85,10 +85,33 @@ async function loadProfileStatus() {
       skills.length > 0,
       skills.length > 0 ? `${skills.length} skills detected` : 'No skills found'
     );
+
+    // Profile completion percentage
+    const completion = calculateProfileCompletion(profile);
+    const completionEl = document.getElementById('profile-completion');
+    if (completionEl) {
+      completionEl.textContent = `${completion}% complete`;
+      if (completion < 100) {
+        completionEl.classList.remove('hidden');
+      }
+    }
   } catch {
     showProfileItem('resume', false, 'Could not check profile');
     showProfileItem('skills', false, '—');
   }
+}
+
+function calculateProfileCompletion(profile) {
+  if (!profile) return 0;
+  let completed = 0;
+  const total = 6;
+  if (profile.resumeUrl || profile.resumeText) completed++;
+  if (profile.skills && profile.skills.length > 0) completed++;
+  if (profile.experience) completed++;
+  if (profile.location) completed++;
+  if (profile.workType) completed++;
+  if (profile.salaryMin && profile.salaryMax) completed++;
+  return Math.round((completed / total) * 100);
 }
 
 function showProfileItem(name, ok, text) {
