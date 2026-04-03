@@ -243,8 +243,11 @@ export class AIResumeParser {
         
         for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
           try {
-            // Render page to image using unpdf
-            const imageBuffer = await renderPageAsImage(pdf, pageNum, { scale: 1.5 });
+            // Render page to image using unpdf with canvas support
+            const imageBuffer = await renderPageAsImage(pdf, pageNum, { 
+              scale: 1.5,
+              canvasImport: async () => (await import('@napi-rs/canvas')).default,
+            });
             
             // Run OCR on the image
             const result = await Tesseract.recognize(Buffer.from(imageBuffer), 'eng', {
