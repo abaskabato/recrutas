@@ -376,11 +376,19 @@ export class ResumeService {
       // Run AI parsing
       const parseResult = await this.aiResumeParser.parseFile(fileBuffer, mimetype);
       const aiExtracted = parseResult?.aiExtracted || {};
-      const parsingSuccess = (
+      
+      // Success = parse completed without crash, even if 0 skills extracted
+      // (scanned PDFs with rule-based parsing may return 0 skills but profile is still saved)
+      const hasAnyData = Boolean(
         (aiExtracted.skills?.technical?.length > 0) ||
         (aiExtracted.skills?.soft?.length > 0) ||
-        (aiExtracted.skills?.tools?.length > 0)
+        (aiExtracted.skills?.tools?.length > 0) ||
+        (aiExtracted.personalInfo?.name) ||
+        (aiExtracted.personalInfo?.email) ||
+        (aiExtracted.experience?.positions?.length > 0) ||
+        (aiExtracted.education?.length > 0)
       );
+      const parsingSuccess = hasAnyData;
 
       const extractedSkills = [
         ...(aiExtracted.skills?.technical || []),
