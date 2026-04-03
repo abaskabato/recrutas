@@ -264,14 +264,17 @@ export class AIResumeParser {
         }
         
         if (fullText.trim().length >= 50) {
-          console.log('[AIResumeParser] OCR extracted:', fullText.slice(0, 100));
+          console.log('[AIResumeParser] OCR extracted text, using for parsing:', fullText.slice(0, 100));
           return fullText;
         }
+        console.log('[AIResumeParser] OCR returned thin content, continuing to AI parsing');
       } catch (ocrErr) {
         console.warn('[AIResumeParser] OCR failed:', (ocrErr as Error).message);
       }
 
-      throw new Error('PDF extracted text is empty or too short. The PDF may be scanned/image-based.');
+      // Return empty string - let AI parsing handle it with rules
+      console.log('[AIResumeParser] All text extraction methods failed, passing to AI rules');
+      return '';
     } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || mimeType === 'application/msword') {
       try {
         const result = await mammoth.extractRawText({ buffer: fileBuffer });
