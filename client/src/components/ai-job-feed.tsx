@@ -10,6 +10,7 @@ import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, Ey
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
+import { track } from "@/lib/analytics";
 
 
 type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
@@ -184,7 +185,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, jobId) => {
+      track('application_submitted', { job_id: jobId });
       toast({ title: "Application Tracked!", description: "We've marked this job as applied." });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/job-actions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/applications'] });

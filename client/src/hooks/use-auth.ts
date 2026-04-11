@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import { apiRequest } from '@/lib/queryClient';
 import { setCachedProfile } from '@/utils/storage.utils';
+import { identify as analyticsIdentify, reset as analyticsReset } from '@/lib/analytics';
 import { useEffect, useRef } from 'react';
 
 export function useAuth() {
@@ -30,6 +31,18 @@ export function useAuth() {
     queryClient.setQueryData(['/api/candidate/profile'], safeProfile);
     setCachedProfile(safeProfile);
   }, [profile, queryClient]);
+
+  useEffect(() => {
+    if (supabaseUser?.id) {
+      analyticsIdentify(supabaseUser.id, {
+        email: supabaseUser.email,
+        role: (profile as any)?.role,
+        profile_complete: (profile as any)?.profile_complete,
+      });
+    } else if (!isSessionLoading) {
+      analyticsReset();
+    }
+  }, [supabaseUser?.id, supabaseUser?.email, profile, isSessionLoading]);
 
   const user = profile ? { ...supabaseUser, ...profile } : supabaseUser;
 

@@ -16,6 +16,7 @@ import { gt } from "drizzle-orm/sql/expressions";
 import { WebSocket } from "ws";
 import { sendApplicationStatusEmail, sendInterviewScheduledEmail, sendNewMatchEmail } from "./email-service";
 import { sendEmail as sendTransactionalEmail, candidateExamPassEmail, candidateExamFailEmail } from "./lib/email";
+import { track as trackAnalytics } from "./lib/analytics";
 import { captureException } from "./error-monitoring";
 import jwt from 'jsonwebtoken';
 import type { IncomingMessage } from 'http';
@@ -434,6 +435,18 @@ class NotificationService {
           to: user.email,
           subject: passed ? `You passed the ${jobTitle} exam — chat unlocked` : `Your ${jobTitle} exam result`,
           html,
+        });
+
+        trackAnalytics(candidateId, 'sla_response_sent', {
+          job_title: jobTitle,
+          company,
+          score,
+          passing_score: passingScore,
+          passed,
+          has_feedback: !!examFeedback,
+          ranking,
+          total_candidates: totalCandidates,
+          application_id: applicationId,
         });
       }
     } catch (err) {

@@ -42,6 +42,7 @@ import { jobIngestionService } from './services/job-ingestion.service';
 import { getModelInfo } from './ml-matching';
 import { sendWelcomeEmail, sendEmail } from './email-service';
 import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
+import { track as trackAnalytics } from './lib/analytics';
 // greenhouse-submit.service.ts kept for future use (verification code flow, etc.)
 import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
@@ -1406,6 +1407,15 @@ Analyze the form and return the actions JSON to fill every field you can.`;
 
       await storage.incrementDailyUsage(userId, 'application');
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
+
+      trackAnalytics(userId, 'application_created', {
+        job_id: jobId,
+        application_id: application.id,
+        is_internal: isInternalJob,
+        has_exam: !!job.hasExam,
+        company: job.company,
+        source: job.source,
+      });
 
       recordSignal(userId, jobId, 'apply', job);
 

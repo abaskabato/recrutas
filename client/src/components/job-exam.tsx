@@ -9,6 +9,7 @@ import { Clock, CheckCircle, AlertCircle, AlertTriangle, Trophy, XCircle, Shield
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { track } from '@/lib/analytics';
 
 interface ExamQuestion {
   id: string;
@@ -206,6 +207,13 @@ export function JobExam({ jobId, onComplete, onCancel }: JobExamProps) {
       return response.json();
     },
     onSuccess: (data) => {
+      track('exam_submitted', {
+        job_id: jobId,
+        score: data.score,
+        passed: data.passed,
+        ranking: data.ranking,
+        qualified_for_chat: data.qualifiedForChat,
+      });
       setResult({
         score: data.score,
         passed: data.passed,

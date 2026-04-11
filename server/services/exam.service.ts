@@ -1,5 +1,6 @@
 import { IStorage } from "../storage";
 import { callAI, isAIAvailable } from "../lib/ai-client";
+import { track } from "../lib/analytics";
 
 // Interface for notification service to avoid circular dependency
 interface INotificationService {
@@ -71,6 +72,16 @@ export class ExamService {
 
       await this.storage.storeExamResult(examResult);
       console.log(`[ExamService] Exam result stored for job ${jobId} and user ${userId}`);
+
+      track(userId, 'exam_graded', {
+        job_id: jobId,
+        score,
+        passed,
+        passing_score: passingScore,
+        correct_answers: correctAnswers,
+        total_questions: exam.questions.length,
+        has_feedback: !!examFeedback,
+      });
 
       if (job.autoRankCandidates) {
         console.log(`[ExamService] Autoranking candidates for job ${jobId}`);

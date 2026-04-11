@@ -8,6 +8,7 @@ import { useGuidedSetup } from '@/contexts/GuidedSetupContext';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Upload, CheckCircle, AlertCircle, FileText, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { track } from '@/lib/analytics';
 
 interface ResumeProcessingResult {
   resumeUrl: string;
@@ -162,6 +163,13 @@ export default function ResumeUploadStep() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
+
+      track('resume_uploaded', {
+        parsed: data.parsed,
+        skills_count: data.extractedInfo?.skillsCount ?? 0,
+        ai_confidence: data.aiParsing?.confidence,
+        work_history_count: data.extractedInfo?.workHistoryCount ?? 0,
+      });
 
       // Check if immediate parsing completed or if we need to poll
       if (data.parsed && data.extractedInfo && data.extractedInfo.skillsCount > 0) {
