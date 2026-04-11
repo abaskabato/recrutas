@@ -857,7 +857,16 @@ export class DatabaseStorage implements IStorage {
       extraFilters.push(sql`LOWER(${jobPostings.title}) LIKE ${'%' + filters.jobTitle.toLowerCase() + '%'}`);
     }
     if (filters?.location) {
-      extraFilters.push(sql`LOWER(${jobPostings.location}) LIKE ${'%' + filters.location.toLowerCase() + '%'}`);
+      // Don't punish IT candidates: searching "Seattle" should still surface
+      // remote and location-less roles, which make up most of the tech pool.
+      const pat = '%' + filters.location.toLowerCase() + '%';
+      extraFilters.push(or(
+        sql`LOWER(${jobPostings.location}) LIKE ${pat}`,
+        sql`LOWER(${jobPostings.location}) LIKE '%remote%'`,
+        sql`LOWER(${jobPostings.workType}) = 'remote'`,
+        sql`${jobPostings.location} IS NULL`,
+        sql`${jobPostings.location} = ''`
+      ));
     }
     if (filters?.workType) {
       extraFilters.push(sql`LOWER(${jobPostings.workType}) = ${filters.workType.toLowerCase()}`);
