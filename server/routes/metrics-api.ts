@@ -393,10 +393,83 @@ export function registerMetricsRoutes(app: Express) {
       mlModel: getModelInfo(),
       inngest: { enabled: !!process.env.INNGEST_EVENT_KEY },
       sentry: { enabled: !!process.env.SENTRY_DSN },
+      posthog: {
+        ingestEnabled: !!process.env.POSTHOG_KEY,
+        readEnabled: !!process.env.POSTHOG_PERSONAL_API_KEY && !!process.env.POSTHOG_PROJECT_ID,
+      },
       environment: process.env.NODE_ENV,
       vercel: !!process.env.VERCEL,
       uptime: process.uptime(),
       memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
     });
+  });
+
+  // ── PostHog funnel snapshot (last N days) ─────────────────────────────────
+  // Queries the core candidate funnel via PostHog HogQL and returns step counts
+  // + conversion rates. Used by the weekly numbers ritual.
+
+  app.get('/api/admin/metrics/posthog-funnel', async (req: any, res) => {
+    if (!adminAuth(req, res)) return;
+
+    const token = process.env.POSTHOG_PERSONAL_API_KEY;
+    const projectId = process.env.POSTHOG_PROJECT_ID;
+    const host = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
+    if (!token || !projectId) {
+      return res.status(503).json({ message: 'PostHog read access not configured' });
+    }
+
+    const days = Math.max(1, Math.min(90, parseInt((req.query.days as string) || '7', 10)));
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+
+    const steps: Array<{ event: string; label: string }> = [
+      { event: '$identify', label: 'signed_in' },
+      { event: 'resume_uploaded', label: 'resume_uploaded' },
+      { event: 'application_created', label: 'application_created' },
+      { event: 'exam_graded', label: 'exam_graded' },
+      { event: 'sla_response_sent', label: 'sla_response_sent' },
+    ];
+
+    try {
+      const results = await Promise.all(
+        steps.map(async ({ event, label }) => {
+          const query = {
+            query: {
+              kind: 'HogQLQuery',
+              query: `SELECT count(DISTINCT distinct_id) AS users, count() AS total FROM events WHERE event = '${event}' AND timestamp >= toDateTime('${since}')`,
+            },
+          };
+          const r = await fetch(`${host.replace(/\/$/, '')}/api/projects/${projectId}/query/`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(query),
+          });
+          if (!r.ok) {
+            return { event, label, users: 0, total: 0, error: `HTTP ${r.status}` };
+          }
+          const data: any = await r.json();
+          const row = data?.results?.[0] ?? [0, 0];
+          return { event, label, users: Number(row[0] ?? 0), total: Number(row[1] ?? 0) };
+        })
+      );
+
+      const topUsers = results[0]?.users || 0;
+      const withConversion = results.map((r, i) => ({
+        ...r,
+        conversion_pct: topUsers > 0 ? Math.round((r.users / topUsers) * 1000) / 10 : null,
+        step_conversion_pct:
+          i === 0
+            ? 100
+            : results[i - 1].users > 0
+              ? Math.round((r.users / results[i - 1].users) * 1000) / 10
+              : null,
+      }));
+
+      res.json({ days, since, steps: withConversion });
+    } catch (error: any) {
+      res.status(500).json({ message: 'Failed to fetch PostHog funnel', error: error.message });
+    }
   });
 }
