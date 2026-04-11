@@ -7,6 +7,8 @@
     "storage",
     "activeTab",
     "tabs",
+    "*://*.recrutas.ai/*",
+    "*://recrutas.ai/*",
     "*://boards.greenhouse.io/*",
     "*://jobs.greenhouse.io/*",
     "*://job-boards.greenhouse.io/*",

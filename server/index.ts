@@ -107,6 +107,10 @@ export async function configureApp() {
       // Allow requests with no origin (mobile apps, curl, etc.)
       if (!origin) {return callback(null, true);}
       if (allowedOrigins.includes(origin)) {return callback(null, true);}
+      // Allow browser extension origins (Chrome/Firefox autofill extension)
+      if (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')) {
+        return callback(null, true);
+      }
       // Allow any *.vercel.app deployment (preview + production)
       if (/\.vercel\.app$/.test(new URL(origin).hostname)) {return callback(null, true);}
       callback(new Error('Not allowed by CORS'));

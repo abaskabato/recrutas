@@ -13,7 +13,7 @@
  * - Handle keyboard shortcut (Alt+Shift+R)
  */
 
-const DEFAULT_RECRUTAS_URL = 'https://recrutas.ai';
+const DEFAULT_RECRUTAS_URL = 'https://www.recrutas.ai';
 const API_VERSION = 'v1'; // Message versioning for API compatibility
 
 // ── Message version wrapper ───────────────────────────────────────────────────
