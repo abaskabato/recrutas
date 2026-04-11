@@ -36,7 +36,8 @@
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest --coverage",
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "weekly-numbers": "tsx scripts/weekly-numbers.ts"
   },
   "nodemonConfig": {
     "watch": [
