@@ -108,8 +108,8 @@ class StripeService {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/talent-dashboard?subscription=success`,
-      cancel_url: `${process.env.APP_URL || 'http://localhost:5000'}/pricing`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/talent-dashboard?subscription=success`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/pricing`,
       metadata: {
         userId,
         tierId: tierId.toString(),
@@ -159,8 +159,8 @@ class StripeService {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.APP_URL || 'http://localhost:5000'}/talent-dashboard?subscription=success`,
-      cancel_url: `${process.env.APP_URL || 'http://localhost:5000'}/pricing`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/talent-dashboard?subscription=success`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/pricing`,
       metadata: {
         userId,
         tierId: tier.id.toString(),
@@ -188,7 +188,7 @@ class StripeService {
 
     const session = await this.stripe.billingPortal.sessions.create({
       customer: subscription.stripeCustomerId,
-      return_url: `${process.env.APP_URL || 'http://localhost:5000'}/settings/subscription`,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/settings/subscription`,
     });
 
     return session.url;

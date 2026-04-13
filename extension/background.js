@@ -198,7 +198,9 @@ async function fetchProfile(forceRefresh = false) {
     throw new Error(`Failed to fetch profile (${res.status})`);
   }
 
-  const profile = await res.json();
+  const body = await res.json();
+  // Server returns { exists, profile } — unwrap to the inner profile object
+  const profile = body && typeof body === 'object' && 'profile' in body ? body.profile : body;
 
   // Cache it
   await chrome.storage.local.set({ profileCache: profile, profileCacheTime: Date.now() });

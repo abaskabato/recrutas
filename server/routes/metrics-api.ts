@@ -472,4 +472,147 @@ export function registerMetricsRoutes(app: Express) {
       res.status(500).json({ message: 'Failed to fetch PostHog funnel', error: error.message });
     }
   });
+
+  // ── Weekly numbers — Supabase + PostHog snapshot ──────────────────────────
+  // Powers the admin dashboard "Weekly" tab. Same shape as scripts/weekly-numbers.ts.
+
+  app.get('/api/admin/metrics/weekly-numbers', async (req: any, res) => {
+    if (!adminAuth(req, res)) return;
+    if (!db) return res.status(503).json({ message: 'Database not available' });
+
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 86400000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
+
+    const growth = (curr: number, prior: number) =>
+      prior > 0 ? `${Math.round(((curr - prior) / prior) * 100)}%` : curr > 0 ? '∞' : '0%';
+
+    try {
+      const [userRows, appRows, examRows, jobRows, slaRows]: any[] = await Promise.all([
+        db.execute(sql`
+          SELECT
+            COUNT(*) FILTER (WHERE "createdAt" >= ${weekAgo.toISOString()})::int AS users_this_week,
+            COUNT(*) FILTER (WHERE "createdAt" >= ${twoWeeksAgo.toISOString()} AND "createdAt" < ${weekAgo.toISOString()})::int AS users_prior_week,
+            COUNT(*)::int AS users_total,
+            COUNT(*) FILTER (WHERE role = 'candidate')::int AS candidates_total,
+            COUNT(*) FILTER (WHERE role = 'talent_owner')::int AS talent_owners_total
+          FROM users
+        `),
+        db.execute(sql`
+          SELECT
+            COUNT(*) FILTER (WHERE created_at >= ${weekAgo.toISOString()})::int AS apps_this_week,
+            COUNT(*) FILTER (WHERE created_at >= ${twoWeeksAgo.toISOString()} AND created_at < ${weekAgo.toISOString()})::int AS apps_prior_week,
+            COUNT(*)::int AS apps_total
+          FROM job_applications
+        `),
+        db.execute(sql`
+          SELECT
+            COUNT(*) FILTER (WHERE created_at >= ${weekAgo.toISOString()})::int AS attempts_this_week,
+            COUNT(*) FILTER (WHERE created_at >= ${weekAgo.toISOString()} AND passed_exam = true)::int AS passes_this_week,
+            COUNT(*)::int AS attempts_total
+          FROM exam_attempts
+        `),
+        db.execute(sql`
+          SELECT
+            COUNT(*) FILTER (WHERE created_at >= ${weekAgo.toISOString()})::int AS jobs_added_this_week,
+            COUNT(*)::int AS jobs_total,
+            COUNT(DISTINCT company)::int AS companies_total
+          FROM job_postings
+          WHERE status = 'active'
+        `),
+        db.execute(sql`
+          SELECT
+            COUNT(*) FILTER (WHERE created_at >= ${weekAgo.toISOString()} AND status IN ('interview','offer','hired'))::int AS positive_responses,
+            COUNT(*) FILTER (WHERE created_at >= ${weekAgo.toISOString()} AND status = 'rejected')::int AS rejections
+          FROM job_applications
+        `),
+      ]);
+
+      const u = (userRows.rows ?? userRows)[0] || {};
+      const a = (appRows.rows ?? appRows)[0] || {};
+      const e = (examRows.rows ?? examRows)[0] || {};
+      const j = (jobRows.rows ?? jobRows)[0] || {};
+      const s = (slaRows.rows ?? slaRows)[0] || {};
+
+      const supabase = {
+        users: {
+          total: u.users_total ?? 0,
+          candidates: u.candidates_total ?? 0,
+          talent_owners: u.talent_owners_total ?? 0,
+          this_week: u.users_this_week ?? 0,
+          prior_week: u.users_prior_week ?? 0,
+          wow_growth: growth(u.users_this_week ?? 0, u.users_prior_week ?? 0),
+        },
+        applications: {
+          total: a.apps_total ?? 0,
+          this_week: a.apps_this_week ?? 0,
+          prior_week: a.apps_prior_week ?? 0,
+          wow_growth: growth(a.apps_this_week ?? 0, a.apps_prior_week ?? 0),
+        },
+        exams: {
+          total_attempts: e.attempts_total ?? 0,
+          attempts_this_week: e.attempts_this_week ?? 0,
+          passes_this_week: e.passes_this_week ?? 0,
+          pass_rate_this_week:
+            (e.attempts_this_week ?? 0) > 0
+              ? `${Math.round(((e.passes_this_week ?? 0) / e.attempts_this_week) * 100)}%`
+              : '—',
+        },
+        jobs: {
+          active_total: j.jobs_total ?? 0,
+          added_this_week: j.jobs_added_this_week ?? 0,
+          companies_total: j.companies_total ?? 0,
+        },
+        responses: {
+          positive_this_week: s.positive_responses ?? 0,
+          rejections_this_week: s.rejections ?? 0,
+        },
+      };
+
+      let funnel: any[] | null = null;
+      const token = process.env.POSTHOG_PERSONAL_API_KEY;
+      const projectId = process.env.POSTHOG_PROJECT_ID;
+      const host = (process.env.POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/$/, '');
+      if (token && projectId) {
+        const steps = [
+          { event: '$identify', label: 'signed_in' },
+          { event: 'resume_uploaded', label: 'resume_uploaded' },
+          { event: 'application_created', label: 'application_created' },
+          { event: 'exam_graded', label: 'exam_graded' },
+          { event: 'sla_response_sent', label: 'sla_response_sent' },
+        ];
+        funnel = await Promise.all(
+          steps.map(async ({ event, label }) => {
+            try {
+              const r = await fetch(`${host}/api/projects/${projectId}/query/`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  query: {
+                    kind: 'HogQLQuery',
+                    query: `SELECT count(DISTINCT distinct_id), count() FROM events WHERE event = '${event}' AND timestamp >= toDateTime('${weekAgo.toISOString()}')`,
+                  },
+                }),
+              });
+              if (!r.ok) return { label, users: 0, total: 0 };
+              const data: any = await r.json();
+              const row = data?.results?.[0] ?? [0, 0];
+              return { label, users: Number(row[0] ?? 0), total: Number(row[1] ?? 0) };
+            } catch {
+              return { label, users: 0, total: 0 };
+            }
+          })
+        );
+      }
+
+      res.json({
+        generatedAt: now.toISOString(),
+        weekOf: weekAgo.toISOString().slice(0, 10),
+        supabase,
+        funnel,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: 'Failed to fetch weekly numbers', error: error.message });
+    }
+  });
 }

@@ -242,6 +242,14 @@ export class ResumeService {
             duration: p.duration || '',
           })),
         };
+        // Derive headline from most recent position so it stays in sync with the resume
+        const latestTitle = positions[0]?.title?.trim();
+        const latestCompany = positions[0]?.company?.trim();
+        if (latestTitle) {
+          profileUpdate.summary = latestCompany
+            ? `${latestTitle} at ${latestCompany}`
+            : latestTitle;
+        }
       }
       if (aiExtracted.personalInfo?.location) {
         profileUpdate.location = aiExtracted.personalInfo.location;
@@ -431,6 +439,14 @@ export class ResumeService {
           [p.title, p.company, p.duration, p.description].filter(Boolean).join(' ')
         ).join('. ');
         profileUpdate.experience = summary.slice(0, 2000);
+        // Derive headline from most recent position so it stays in sync with the resume
+        const latestTitle = positions[0]?.title?.trim();
+        const latestCompany = positions[0]?.company?.trim();
+        if (latestTitle) {
+          profileUpdate.summary = latestCompany
+            ? `${latestTitle} at ${latestCompany}`
+            : latestTitle;
+        }
       }
       if (aiExtracted.personalInfo?.location) {
         profileUpdate.location = aiExtracted.personalInfo.location;

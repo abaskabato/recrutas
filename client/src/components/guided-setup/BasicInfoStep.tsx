@@ -72,7 +72,7 @@ export default function BasicInfoStep() {
         />
         <Input
           name="summary"
-          placeholder="Headline (e.g., Senior Frontend Developer)"
+          placeholder="Current role (e.g., IT Support Associate at Amazon)"
           value={formData.summary}
           onChange={handleChange}
           className="max-w-sm"
