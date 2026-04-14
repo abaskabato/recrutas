@@ -27,7 +27,7 @@ export interface SkillIntelligenceResult {
   tools: string[];
   experienceLevel: 'entry' | 'mid' | 'senior' | 'executive';
   totalYears: number;
-  positions: Array<{ title: string; company: string; duration: string; responsibilities: string[] }>;
+  positions: Array<{ title: string; company: string; location?: string; duration: string; responsibilities: string[] }>;
   education: Array<{ degree: string; institution: string; year?: string }>;
   certifications: string[];
   personalInfo: {
@@ -524,7 +524,7 @@ function extractSoftSkills(text: string): string[] {
 interface ExperienceResult {
   level: 'entry' | 'mid' | 'senior' | 'executive';
   totalYears: number;
-  positions: Array<{ title: string; company: string; duration: string; responsibilities: string[] }>;
+  positions: Array<{ title: string; company: string; location?: string; duration: string; responsibilities: string[] }>;
 }
 
 function extractExperience(text: string, segments: TextSegment[]): ExperienceResult {
@@ -583,13 +583,42 @@ function parsePositions(text: string): ExperienceResult['positions'] {
     dateRangeRe.lastIndex = 0;
 
     if (dateMatch) {
-      const rest = line.replace(dateMatch[0], '').replace(/[|•·]/g, ' ').trim();
-      const parts = rest.split(/\s{2,}|,\s*|-\s*/).filter(Boolean);
+      // Extract company/location from text before the date
+      const beforeDate = line.replace(dateMatch[0], '').trim();
+      // Company is typically first, location after first comma
+      const companyParts = beforeDate.split(',').map(p => p.trim()).filter(Boolean);
+      const company = companyParts[0] || '';
+      const location = companyParts.slice(1).join(', ');
+
+      // Job title is usually on the NEXT line after the date line
+      let title = '';
+      let responsibilities: string[] = [];
+      
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        // If next line looks like a job title (not a date, not too long), use it
+        if (!dateRangeRe.test(nextLine) && nextLine.length < 80 && !/^[A-Z][A-Z\s]{5,}$/.test(nextLine)) {
+          title = nextLine;
+          // Responsibilities are lines after the title
+          responsibilities = lines.slice(i + 2, i + 6).filter(l => 
+            l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.length > 30
+          );
+        } else {
+          title = 'Unknown Role';
+          responsibilities = lines.slice(i + 1, i + 5).filter(l => 
+            l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.length > 30
+          );
+        }
+      } else {
+        title = 'Unknown Role';
+      }
+
       positions.push({
-        title: parts[0] || 'Unknown Role',
-        company: parts[1] || '',
+        title,
+        company,
+        location,
         duration: dateMatch[0],
-        responsibilities: lines.slice(i + 1, i + 4).filter(l => l.startsWith('•') || l.startsWith('-') || l.length > 20),
+        responsibilities,
       });
     }
     i++;
