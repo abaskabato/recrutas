@@ -251,9 +251,12 @@ export class ResumeService {
             : latestTitle;
         }
       }
-      if (aiExtracted.personalInfo?.location) {
-        profileUpdate.location = aiExtracted.personalInfo.location;
-      }
+      // NOTE: Do NOT auto-fill location from resume — it often incorrectly
+      // pulls city names from skill descriptions (e.g., "React" → "Austin").
+      // Users should set location manually via preferences.
+      // if (aiExtracted.personalInfo?.location) {
+      //   profileUpdate.location = aiExtracted.personalInfo.location;
+      // }
       if (aiExtracted.personalInfo?.linkedin) {
         profileUpdate.linkedinUrl = aiExtracted.personalInfo.linkedin;
       }
@@ -448,9 +451,12 @@ export class ResumeService {
             : latestTitle;
         }
       }
-      if (aiExtracted.personalInfo?.location) {
-        profileUpdate.location = aiExtracted.personalInfo.location;
-      }
+      // NOTE: Do NOT auto-fill location from resume — it often incorrectly
+      // pulls city names from skill descriptions (e.g., "React" → "Austin").
+      // Users should set location manually via preferences.
+      // if (aiExtracted.personalInfo?.location) {
+      //   profileUpdate.location = aiExtracted.personalInfo.location;
+      // }
       if (aiExtracted.personalInfo?.linkedin) {
         profileUpdate.linkedinUrl = aiExtracted.personalInfo.linkedin;
       }

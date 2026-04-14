@@ -947,7 +947,7 @@ export class DatabaseStorage implements IStorage {
           ${locationFilter}
           ${workTypeFilter}
         ORDER BY embedding <=> ${vectorStr}::vector
-        LIMIT 200
+        LIMIT 100
       `;
       console.timeEnd('pgvector-query');
       // Map job id → pre-computed cosine distance (0=identical, 2=opposite)
@@ -979,7 +979,7 @@ export class DatabaseStorage implements IStorage {
             ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
           ),
         ))
-        .limit(500);
+        .limit(200);
       const keywordIds = keywordJobs.map((r: any) => r.id);
       console.log(`[keyword] Retrieved ${keywordIds.length} jobs by keyword match`);
 
@@ -1141,13 +1141,15 @@ export class DatabaseStorage implements IStorage {
           return { ...job, prefBoost };
         })
         .sort((a, b) => {
-          // Composite score: 60% skill match + 20% trust + 20% recency + preference boost
+          // Sort primarily by match score, then trust, then recency
+          // Jobs with <30% match are filtered out, so remaining jobs sorted by relevance
           const recencyA = computeRecencyScore(a.createdAt);
           const recencyB = computeRecencyScore(b.createdAt);
-          const scoreA = 0.60 * (a.matchScore / 100) + 0.20 * ((a.trustScore || 0) / 100) + 0.20 * recencyA + a.prefBoost;
-          const scoreB = 0.60 * (b.matchScore / 100) + 0.20 * ((b.trustScore || 0) / 100) + 0.20 * recencyB + b.prefBoost;
+          const scoreA = 0.70 * (a.matchScore / 100) + 0.15 * ((a.trustScore || 0) / 100) + 0.10 * recencyA + a.prefBoost;
+          const scoreB = 0.70 * (b.matchScore / 100) + 0.15 * ((b.trustScore || 0) / 100) + 0.10 * recencyB + b.prefBoost;
           return scoreB - scoreA;
-        });
+        })
+        .slice(0, 100); // Hard cap: never return more than 100 jobs
 
     console.log(`After filtering (30%+ match): ${finalJobs.length} recommendations`);
     return finalJobs.map(({ prefBoost: _, ...job }) => job);
