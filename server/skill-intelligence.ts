@@ -27,7 +27,7 @@ export interface SkillIntelligenceResult {
   tools: string[];
   experienceLevel: 'entry' | 'mid' | 'senior' | 'executive';
   totalYears: number;
-  positions: Array<{ title: string; company: string; location?: string; duration: string; responsibilities: string[] }>;
+  positions: Array<{ title: string; company: string; duration: string; responsibilities: string[] }>;
   education: Array<{ degree: string; institution: string; year?: string }>;
   certifications: string[];
   personalInfo: {
@@ -52,9 +52,9 @@ interface SkillCandidate {
 // ── Section detection ─────────────────────────────────────────────────────────
 
 const SECTION_PATTERNS: Record<string, RegExp> = {
-  skills:          /^(technical\s+)?skills?\s*:?\s*$|^(core\s+)?competencies\s*:?\s*$|^technologies(\s+used)?\s*:?\s*$|^tools?(\s+and\s+technologies?)?\s*:?\s*$|^tech(nical)?\s*(stack|expertise)\s*:?\s*$|^what\s+i\s+(know|use)\s*:?\s*$/i,
+  skills:          /^(technical\s*)?skills?\s*:?\s*$|^(core\s+)?competencies\s*:?\s*$|^technologies(\s+used)?\s*:?\s*$|^tools?(\s+and\s+technologies?)?\s*:?\s*$|^tech(nical)?\s*(stack|expertise)\s*:?\s*$|^what\s+i\s+(know|use)\s*:?\s*$|^TECHNICALSKILLS\s*$/i,
   experience:      /^(work\s+)?(experience|history|background|employment)\s*:?\s*$|^professional\s+(experience|background|history)\s*:?\s*$|^career\s+(history|background)\s*:?\s*$/i,
-  projects:        /^(personal\s+|side\s+|open[\s-]?source\s+|key\s+)?projects?\s*:?\s*$|^portfolio\s*:?\s*$|^selected\s+work\s*:?\s*$/i,
+  projects:        /^(personal\s+|side\s+|open[\s-]?source\s+|key\s+)?projects?\s*:?\s*$|^portfolio\s*:?\s*$|^selected\s+work\s*:?\s*$|^(software\s*)?engineering\s*projects?\s*$/i,
   summary:         /^(professional\s+)?(summary|profile|objective|about(\s+me)?|overview|introduction|bio)\s*:?\s*$/i,
   certifications:  /^certifications?\s*:?\s*$|^licenses?\s*(and\s+certifications?)?\s*:?\s*$|^credentials\s*:?\s*$/i,
   education:       /^education(al\s+(background|history))?\s*:?\s*$|^academic\s+(background|history|qualifications?)\s*:?\s*$/i,
@@ -197,8 +197,48 @@ const LEVEL_PATTERNS = [
 
 // ── Core engine ───────────────────────────────────────────────────────────────
 
+/**
+ * Normalize raw PDF/text: collapse spaced-out headers, split single-line blobs
+ * into logical lines so section segmentation and position parsing work.
+ */
+function normalizeResumeText(rawText: string): string {
+  let text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Collapse spaced-out headers: "E X P E R I E N C E" → "EXPERIENCE"
+  // Matches sequences of single uppercase letters separated by spaces (3+ letters)
+  text = text.replace(/\b([A-Z])\s+(?:[A-Z]\s+){2,}[A-Z]\b/g, (match) =>
+    match.replace(/\s+/g, '')
+  );
+
+  // If text has very few newlines relative to its length, it's a single-line PDF blob.
+  // Split on known section headers and before company/date patterns.
+  const lineCount = text.split('\n').filter(l => l.trim()).length;
+  if (lineCount <= 3 && text.length > 500) {
+    // Insert newlines before AND after section header words so they become their own lines
+    const sectionWords = 'SUMMARY|EXPERIENCE|EDUCATION|SKILLS|PROJECTS|CERTIFICATIONS|OBJECTIVE|PROFILE|EMPLOYMENT|QUALIFICATIONS|TECHNICAL';
+    text = text.replace(new RegExp(`\\s+(${sectionWords})\\b\\s*`, 'g'), '\n$1\n');
+
+    // Insert newlines before ALL-CAPS company/org names followed by comma+location
+    // e.g., "WALMART, INC., Bentonville" or "AMAZON, Seattle"
+    text = text.replace(/\s+(?=[A-Z][A-Z]+[,.]?\s+(?:INC|LLC|CORP|LTD|CO)?[,.]?\s*[A-Z][a-z])/g, '\n');
+
+    // Insert newlines before date ranges (e.g., "2011-2016", "Jan 2020 - Present")
+    // Supports comma+space or any whitespace before the date
+    text = text.replace(/[,;]\s*(?=(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{4}\s*[\-–—\u2010]\s*(?:present|current|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{0,4})/gi, '\n');
+
+    // Insert newlines before bullet points (•, ●, ■, ▪, common PDF bullet \uf0b7)
+    text = text.replace(/\s(?=[•●■▪\uf0b7])/g, '\n');
+
+    // Split on double-space + capital letter (common PDF run-together pattern)
+    // but only after initial section splitting is done
+    text = text.replace(/\s{2,}(?=[A-Z][a-z])/g, '\n');
+  }
+
+  return text;
+}
+
 export function parseResumeWithIntelligence(rawText: string): SkillIntelligenceResult {
-  const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const text = normalizeResumeText(rawText);
   const lines = text.split('\n');
 
   // Step 1: Segment text into sections
@@ -524,7 +564,7 @@ function extractSoftSkills(text: string): string[] {
 interface ExperienceResult {
   level: 'entry' | 'mid' | 'senior' | 'executive';
   totalYears: number;
-  positions: Array<{ title: string; company: string; location?: string; duration: string; responsibilities: string[] }>;
+  positions: Array<{ title: string; company: string; duration: string; responsibilities: string[] }>;
 }
 
 function extractExperience(text: string, segments: TextSegment[]): ExperienceResult {
@@ -554,9 +594,13 @@ function extractExperience(text: string, segments: TextSegment[]): ExperienceRes
     totalYears = y;
   }
 
-  // 4. Parse job positions from experience section
+  // 4. Parse job positions from experience section, or full text as fallback
   const expSegment = segments.find(s => s.section === 'experience');
-  const positions = expSegment ? parsePositions(expSegment.lines.join('\n')) : [];
+  let positions = expSegment ? parsePositions(expSegment.lines.join('\n')) : [];
+  // If no positions found from segmented experience, try the full text
+  if (positions.length === 0) {
+    positions = parsePositions(text);
+  }
 
   return { level, totalYears, positions };
 }
@@ -570,58 +614,126 @@ function estimateYearsFromDates(text: string): number {
   return Math.min(maxYear - minYear, 40); // cap at 40 years
 }
 
+// US state names for location detection
+const US_STATES_RE = /^(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new\s+\w+|north\s+\w+|ohio|oklahoma|oregon|pennsylvania|rhode\s+island|south\s+\w+|tennessee|texas|utah|vermont|virginia|washington|west\s+virginia|wisconsin|wyoming)\b/i;
+
+/**
+ * Extract company and title from text preceding a date range.
+ * Handles formats like:
+ *   "WALMART, INC., Bentonville, Arkansas Programmer Analyst, Team"
+ *   "Senior Engineer | Google | Mountain View"
+ *   "Software Engineer\nAmazon, Seattle, WA"
+ */
+function extractCompanyTitle(beforeText: string): { company: string; title: string } {
+  let company = '';
+  let title = 'Unknown Role';
+
+  // Split on double-space, pipe, tab, or newline
+  const parts = beforeText.split(/\s{2,}|[|\t\n]/).map(p => p.replace(/[•·\uf0b7]/g, '').trim()).filter(p => p.length > 1);
+
+  if (parts.length >= 2) {
+    const first = parts[0];
+    if (/^[A-Z][A-Z\s,.&'()-]+$/.test(first) || /(?:inc|llc|corp|ltd|co)\b/i.test(first)) {
+      company = first.replace(/,\s*$/, '');
+      title = parts.slice(1).join(', ').replace(/,\s*$/, '');
+    } else {
+      title = first.replace(/,\s*$/, '');
+      company = parts[1].replace(/,\s*$/, '');
+    }
+  } else if (parts.length === 1) {
+    const commaChunks = parts[0].split(/,\s*/).filter(Boolean);
+    if (commaChunks.length >= 2 && /^[A-Z][A-Z\s&'()-]+$/.test(commaChunks[0])) {
+      // ALL-CAPS first chunk = company. Find where location ends and title begins.
+      let titleIdx = commaChunks.length;
+      for (let ci = 1; ci < commaChunks.length; ci++) {
+        const chunk = commaChunks[ci].trim();
+        if (/^(INC|LLC|CORP|LTD|CO)\.?$/i.test(chunk)) continue;
+        if (US_STATES_RE.test(chunk) && chunk.split(/\s+/).length === 1) continue;
+        if (/^[A-Z][a-z]+$/.test(chunk) && chunk.split(/\s+/).length === 1) continue;
+        // Strip leading state name if chunk starts with one
+        const stateMatch = chunk.match(US_STATES_RE);
+        if (stateMatch && chunk.length > stateMatch[0].length + 1) {
+          commaChunks[ci] = chunk.substring(stateMatch[0].length).trim();
+        }
+        titleIdx = ci;
+        break;
+      }
+      company = commaChunks.slice(0, titleIdx).join(', ');
+      title = commaChunks.slice(titleIdx).join(', ') || 'Unknown Role';
+    } else if (commaChunks.length >= 2) {
+      title = commaChunks[0];
+      company = commaChunks.slice(1).join(', ');
+    } else {
+      title = parts[0];
+    }
+  }
+
+  title = title.replace(/[,;:\s]+$/, '').trim();
+  company = company.replace(/[,;:\s]+$/, '').trim();
+  if (title.length > 80) title = title.substring(0, 80).replace(/\s\S*$/, '');
+
+  return { company, title };
+}
+
 function parsePositions(text: string): ExperienceResult['positions'] {
   const positions: ExperienceResult['positions'] = [];
-  const dateRangeRe = /((jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?\d{4}\s*[-–—]\s*(present|current|now|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*)?\d{0,4}/gi;
+  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{4}\s*[\-–—\u2010]\s*(?:present|current|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{0,4}/gi;
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let i = 0;
 
-  while (i < lines.length) {
+  // Strategy 1: Line-by-line (works for well-formatted multi-line resumes)
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const dateMatch = dateRangeRe.exec(line);
-    dateRangeRe.lastIndex = 0;
+    const dateMatch = dateRe.exec(line);
+    dateRe.lastIndex = 0;
+    if (!dateMatch) continue;
 
-    if (dateMatch) {
-      // Extract company/location from text before the date
-      const beforeDate = line.replace(dateMatch[0], '').trim();
-      // Company is typically first, location after first comma
-      const companyParts = beforeDate.split(',').map(p => p.trim()).filter(Boolean);
-      const company = companyParts[0] || '';
-      const location = companyParts.slice(1).join(', ');
+    // Text on the same line before the date
+    const beforeOnLine = line.substring(0, dateMatch.index).replace(/[|•·,]/g, ' ').trim();
 
-      // Job title is usually on the NEXT line after the date line
-      let title = '';
-      let responsibilities: string[] = [];
-      
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1];
-        // If next line looks like a job title (not a date, not too long), use it
-        if (!dateRangeRe.test(nextLine) && nextLine.length < 80 && !/^[A-Z][A-Z\s]{5,}$/.test(nextLine)) {
-          title = nextLine;
-          // Responsibilities are lines after the title
-          responsibilities = lines.slice(i + 2, i + 6).filter(l => 
-            l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.length > 30
-          );
-        } else {
-          title = 'Unknown Role';
-          responsibilities = lines.slice(i + 1, i + 5).filter(l => 
-            l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || l.length > 30
-          );
-        }
-      } else {
-        title = 'Unknown Role';
-      }
-
-      positions.push({
-        title,
-        company,
-        location,
-        duration: dateMatch[0],
-        responsibilities,
-      });
+    // Look back up to 2 lines for title/company context
+    // Common format: Title (line i-2) → Company, City (line i-1) → Date (line i)
+    // Or: Company, City, Title, Date (all on one line)
+    let contextLines: string[] = [];
+    if (beforeOnLine) contextLines.push(beforeOnLine);
+    for (let back = 1; back <= 2 && i - back >= 0; back++) {
+      const prev = lines[i - back].trim();
+      if (!prev) continue;
+      if (dateRe.test(prev)) { dateRe.lastIndex = 0; break; }
+      dateRe.lastIndex = 0;
+      // Stop if we hit a bullet point or responsibility text
+      if (/^[•\-*\uf0b7]/.test(prev)) break;
+      contextLines.unshift(prev);
     }
-    i++;
+
+    let company = '';
+    let title = 'Unknown Role';
+
+    if (contextLines.length >= 2 && !beforeOnLine) {
+      // Date on its own line, 2+ context lines above:
+      // Usually: line[-2]=Title, line[-1]=Company, Location
+      title = contextLines[0];
+      company = contextLines.slice(1).join(', ');
+    } else {
+      const combined = contextLines.join('\n');
+      ({ company, title } = extractCompanyTitle(combined));
+    }
+
+    // Collect responsibilities
+    const responsibilities: string[] = [];
+    for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+      const next = lines[j].trim();
+      if (dateRe.test(next)) { dateRe.lastIndex = 0; break; }
+      dateRe.lastIndex = 0;
+      if (/^[A-Z][A-Z\s,.&'()-]+$/.test(next) && next.length > 5 && next.length < 80) break;
+      if (next.startsWith('•') || next.startsWith('-') || next.startsWith('*') || next.charCodeAt(0) === 0xf0b7 || next.length > 30) {
+        responsibilities.push(next);
+      }
+    }
+
+    if (title !== 'Unknown Role' || company) {
+      positions.push({ title, company, duration: dateMatch[0], responsibilities });
+    }
   }
 
   return positions.slice(0, 8);

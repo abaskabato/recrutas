@@ -3,7 +3,8 @@ import { extractText, getDocumentProxy, renderPageAsImage } from 'unpdf';
 import Tesseract from 'tesseract.js';
 import Groq from 'groq-sdk';
 import { parseResumeWithIntelligence } from './skill-intelligence';
-import { callAI, callGeminiWithPDF } from './lib/ai-client';
+import { callGeminiWithPDF } from './lib/ai-client';
+import { throttledGroqRequest, type GroqPriority } from './lib/groq-limiter';
 
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
@@ -628,19 +629,13 @@ Return JSON with this exact structure:
       console.log(`[AIResumeParser] Truncated resume text from ${text.length} to 8000 chars`);
     }
 
-    console.log('[AIResumeParser] Calling AI provider (Gemini/Groq)...');
+    console.log('[AIResumeParser] Calling Groq directly...');
 
-    // Timeout must fit within the overall 45s parseFile budget.
-    // Gemini text has its own 15s timeout in ai-client.ts; Groq fallback gets
-    // whatever remains. 20s here leaves headroom for HuggingFace fallback.
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('AI API timeout (20s)')), 20000)
-    );
+    const groqClient = getGroqClient();
+    if (!groqClient) throw new Error('GROQ_API_KEY not set');
 
-    const content = await Promise.race([
-      callAI(
-        'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.',
-        `Extract the following information from this resume text and return as JSON:
+    const systemPrompt = 'You are an expert resume parser. Extract structured data from resumes and return ONLY valid JSON with no other text or markdown formatting.';
+    const userPrompt = `Extract the following information from this resume text and return as JSON:
 
 {
   "personalInfo": {
@@ -690,11 +685,25 @@ Return JSON with this exact structure:
 }
 
 Resume text:
-${truncatedText}`,
-        { priority: 'high', estimatedTokens: 4000, temperature: 0.1, maxOutputTokens: 2500 }
-      ),
-      timeoutPromise
-    ]);
+${truncatedText}`;
+
+    const completion = await throttledGroqRequest(
+      () => groqClient.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        max_tokens: 2500,
+      }),
+      'high',
+      4000
+    );
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) throw new Error('Groq returned no content');
 
     console.log('[AIResumeParser] AI response received, parsing JSON...');
 
