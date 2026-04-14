@@ -347,8 +347,12 @@ English (Native), Spanish (Conversational)`;
 
   private async extractWithAI(text: string): Promise<AIExtractedData> {
     // Balanced approach: run rules and AI in parallel, use whichever succeeds
+    // AI gets 15s max — if circuit breaker is open or provider is slow, rules win fast
     const rulePromise = this.extractWithFallback(text);
-    const aiPromise = this.runAIEnrichment(text);
+    const aiTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('AI enrichment timeout (15s)')), 15000)
+    );
+    const aiPromise = Promise.race([this.runAIEnrichment(text), aiTimeout]);
 
     const results = await Promise.allSettled([rulePromise, aiPromise]);
     const ruleResult = results[0];
