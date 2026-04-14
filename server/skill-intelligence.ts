@@ -677,7 +677,7 @@ function extractCompanyTitle(beforeText: string): { company: string; title: stri
 
 function parsePositions(text: string): ExperienceResult['positions'] {
   const positions: ExperienceResult['positions'] = [];
-  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{4}\s*[\-–—\u2010]\s*(?:present|current|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{0,4}/gi;
+  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{4}\s*[\-–—\u2010]\s*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{0,4}/gi;
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -733,6 +733,35 @@ function parsePositions(text: string): ExperienceResult['positions'] {
 
     if (title !== 'Unknown Role' || company) {
       positions.push({ title, company, duration: dateMatch[0], responsibilities });
+    }
+  }
+
+  // Strategy 2: Dateless resumes with "Company — Title" or "Company – Title" (em/en-dash)
+  if (positions.length === 0) {
+    const dashSepRe = /^(.+?)\s*[–—]\s*(.+)$/;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const match = dashSepRe.exec(line);
+      if (!match) continue;
+      const left = match[1].trim();
+      const right = match[2].trim();
+      if (left.length < 3 || right.length < 3) continue;
+      if (/^[•●■▪\uf0b7]/.test(left)) continue;
+
+      // Confirm: next line should be a bullet (responsibility) to avoid false positives
+      const nextLine = lines[i + 1]?.trim() || '';
+      const hasBullets = /^[•●■▪\uf0b7\-*]/.test(nextLine);
+      if (!hasBullets && i + 1 < lines.length) continue;
+
+      const responsibilities: string[] = [];
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        const next = lines[j].trim();
+        if (dashSepRe.test(next)) break;
+        if (/^[•●■▪\uf0b7\-*]/.test(next) || next.length > 30) {
+          responsibilities.push(next);
+        }
+      }
+      positions.push({ title: right, company: left, duration: '', responsibilities });
     }
   }
 
