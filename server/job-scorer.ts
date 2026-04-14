@@ -309,6 +309,7 @@ export function scoreJob(
   candidateEmbedding?: number[],
   candidateTitles?: string[],
   candidateContext?: CandidateContext,
+  precomputedCosineDist?: number,
 ): JobScore {
   // ── 1. Keyword matching (35%) ──────────────────────────────────
 
@@ -350,13 +351,17 @@ export function scoreJob(
   let semanticScore = 0;
   let hasSemanticSignal = false;
 
-  if (candidateEmbedding && candidateEmbedding.length > 0 && job.vectorEmbedding) {
+  if (precomputedCosineDist !== undefined) {
+    // Use pre-computed cosine distance from pgvector (avoids JSON.parse + re-computation)
+    // cosine distance = 1 - similarity, so similarity = 1 - distance
+    const similarity = 1 - precomputedCosineDist;
+    semanticScore = Math.min(100, Math.max(0, Math.round(((similarity - 0.3) / 0.5) * 100)));
+    hasSemanticSignal = true;
+  } else if (candidateEmbedding && candidateEmbedding.length > 0 && job.vectorEmbedding) {
     try {
       const jobEmbedding: number[] = JSON.parse(job.vectorEmbedding);
       if (jobEmbedding.length === candidateEmbedding.length) {
         const similarity = cosineSimilarity(candidateEmbedding, jobEmbedding);
-        // BGE-M3 similarity for related content typically ranges 0.3-0.8
-        // Rescale to 0-100: floor at 0.3 (0%), ceiling at 0.8 (100%)
         semanticScore = Math.min(100, Math.max(0, Math.round(((similarity - 0.3) / 0.5) * 100)));
         hasSemanticSignal = true;
       }
@@ -443,10 +448,11 @@ export function scoreJob(
   matchScore = Math.min(100, matchScore + contextBonus);
 
   // ── Hard cap: no skill overlap AND no role match ────
-  // With semantic signal: cap at 45% (lets strong semantic matches pass 30% threshold)
-  // Without semantic signal: cap at 25% (prevents keyword noise from surfacing unrelated jobs)
+  // A job with neither skill overlap nor role relevance is wrong-career noise.
+  // Semantic similarity alone shouldn't cross the 30% threshold — "infrastructure"
+  // in IT Support and ML Engineering does NOT make them the same career.
   if (!hasSkillOverlap && !hasRoleMatch) {
-    matchScore = Math.min(matchScore, hasSemanticSignal ? 45 : 25);
+    matchScore = Math.min(matchScore, 25);
   }
 
   // ── Explanation ────────────────────────────────────────────────

@@ -419,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // AI-powered job matching — single DB query, scored in application code
   app.get('/api/ai-matches', isAuthenticated, asyncHandler(async (req: any, res) => {
-    const TIMEOUT_MS = 10000;
+    const TIMEOUT_MS = 20000;
 
     let timeoutId: NodeJS.Timeout;
     const timeoutPromise = new Promise((_, reject) => {

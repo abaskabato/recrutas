@@ -912,6 +912,7 @@ export class DatabaseStorage implements IStorage {
     );
 
     let allJobs: any[];
+    let vectorDistMap = new Map<number, number>();
 
     if (candidateEmbedding && candidateEmbedding.length > 0 && client) {
       // ── Path A: pgvector semantic retrieval + keyword backup ──
@@ -931,8 +932,9 @@ export class DatabaseStorage implements IStorage {
         : client``;
 
       // pgvector ANN retrieval — top 200 by cosine distance
+      // Return cosine_dist so scoreJob can use pre-computed similarity (avoids JSON.parse of 8KB text per row)
       const vectorRows = await client`
-        SELECT id FROM job_postings
+        SELECT id, (embedding <=> ${vectorStr}::vector) as cosine_dist FROM job_postings
         WHERE status = 'active'
           AND embedding IS NOT NULL
           AND (expires_at IS NULL OR expires_at > NOW())
@@ -948,7 +950,9 @@ export class DatabaseStorage implements IStorage {
         LIMIT 200
       `;
       console.timeEnd('pgvector-query');
-      const vectorIds = new Set(vectorRows.map((r: any) => r.id));
+      // Map job id → pre-computed cosine distance (0=identical, 2=opposite)
+      for (const r of vectorRows) vectorDistMap.set(r.id, parseFloat(r.cosine_dist));
+      const vectorIds = new Set(vectorDistMap.keys());
       console.log(`[pgvector] Retrieved ${vectorIds.size} jobs by semantic similarity`);
 
       // Keyword retrieval — top 100 (existing logic)
@@ -1042,7 +1046,7 @@ export class DatabaseStorage implements IStorage {
         const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding, candidateTitles, {
           location: candidate.location,
           workType: candidate.workType,
-        });
+        }, vectorDistMap.get(job.id));
         const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
 
         return {
@@ -1063,63 +1067,90 @@ export class DatabaseStorage implements IStorage {
         };
       });
 
+      // ── Preference boost: soft signals, not hard filters ──────
+      // Jobs matching preferences get a bonus; non-matching jobs are
+      // demoted in rank but never eliminated. This ensures a user
+      // always sees relevant jobs even when preferences are narrow.
+      const WORK_TYPES = ['remote', 'hybrid', 'onsite'];
+      let preferredWorkTypes: string[] = [];
+      if (jobPreferences.workTypes && (jobPreferences.workTypes as string[]).length > 0) {
+        preferredWorkTypes = (jobPreferences.workTypes as string[]).map((t: string) => t.toLowerCase());
+      } else if (jobPreferences.companySizes && (jobPreferences.companySizes as string[]).length > 0) {
+        preferredWorkTypes = (jobPreferences.companySizes as string[])
+          .map((t: string) => t.toLowerCase())
+          .filter((t: string) => WORK_TYPES.includes(t));
+      }
+      const preferredLevels = (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0)
+        ? (jobPreferences.experienceLevels as string[]).map((l: string) => l.toLowerCase())
+        : [];
+      const preferredIndustries = (jobPreferences.industries && jobPreferences.industries.length > 0)
+        ? jobPreferences.industries.map((i: string) => i.toLowerCase())
+        : [];
+      const prefMin = jobPreferences.salaryMin || 0;
+      const prefMax = jobPreferences.salaryMax || 0;
+      const salaryRangeValid = prefMax === 0 || prefMax >= prefMin;
+
+      const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
+
       const finalJobs = recommendations
         .filter(job => job.matchScore >= 30) // 30% minimum — prevents irrelevant jobs
-        .filter(job => {
-        if (jobPreferences.salaryMin || jobPreferences.salaryMax) {
-          // Guard against inverted min/max stored by the frontend
-          const prefMin = jobPreferences.salaryMin || 0;
-          const prefMax = jobPreferences.salaryMax || 0;
-          const salaryRangeValid = prefMax === 0 || prefMax >= prefMin;
-          if (salaryRangeValid) {
+        .map(job => {
+          let prefBoost = 0;
+
+          // Salary: +0.10 if in range, -0.05 if outside (many jobs lack salary data)
+          if (salaryRangeValid && (prefMin || prefMax)) {
             const jobSalaryMin = job.salaryMin || 0;
-            const jobSalaryMax = job.salaryMax || 999999;
-            if (prefMin && jobSalaryMax < prefMin) {return false;}
-            if (prefMax && jobSalaryMin > prefMax) {return false;}
+            const jobSalaryMax = job.salaryMax || 0;
+            if (jobSalaryMax === 0 && jobSalaryMin === 0) {
+              // No salary data — neutral
+            } else if ((!prefMin || jobSalaryMax >= prefMin) && (!prefMax || jobSalaryMin <= prefMax)) {
+              prefBoost += 0.10;
+            } else {
+              prefBoost -= 0.05;
+            }
           }
-        }
-        {
-          // Prefer the dedicated workTypes field; fall back to work-type values stored inside
-          // companySizes for backward compatibility with data saved before the form was fixed.
-          const WORK_TYPES = ['remote', 'hybrid', 'onsite'];
-          let preferredWorkTypes: string[] = [];
-          if (jobPreferences.workTypes && (jobPreferences.workTypes as string[]).length > 0) {
-            preferredWorkTypes = (jobPreferences.workTypes as string[]).map((t: string) => t.toLowerCase());
-          } else if (jobPreferences.companySizes && (jobPreferences.companySizes as string[]).length > 0) {
-            preferredWorkTypes = (jobPreferences.companySizes as string[])
-              .map((t: string) => t.toLowerCase())
-              .filter((t: string) => WORK_TYPES.includes(t));
-          }
+
+          // Work type: +0.10 if matches, -0.05 if not
           if (preferredWorkTypes.length > 0) {
             const jobWorkType = job.workType?.toLowerCase();
-            if (jobWorkType && !preferredWorkTypes.includes(jobWorkType)) {return false;}
+            if (!jobWorkType || preferredWorkTypes.includes(jobWorkType)) {
+              prefBoost += 0.10;
+            } else {
+              prefBoost -= 0.05;
+            }
           }
-        }
-        if (jobPreferences.industries && jobPreferences.industries.length > 0) {
-          const jobIndustry = job.industry?.toLowerCase();
-          const preferredIndustries = jobPreferences.industries.map((i: string) => i.toLowerCase());
-          if (jobIndustry && !preferredIndustries.some((ind: string) => jobIndustry.includes(ind))) {return false;}
-        }
-        if (jobPreferences.experienceLevels && jobPreferences.experienceLevels.length > 0) {
-          const LEVELS = ['entry', 'mid', 'senior', 'lead', 'executive'];
-          const inferred = LEVELS[inferJobLevel(job.title)];
-          // Compare case-insensitively: stored values may be "Senior" while LEVELS uses "senior"
-          const preferredLevels = (jobPreferences.experienceLevels as string[]).map((l: string) => l.toLowerCase());
-          if (!preferredLevels.includes(inferred)) {return false;}
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        // Composite score: 60% skill match + 20% trust + 20% recency
-        const recencyA = computeRecencyScore(a.createdAt);
-        const recencyB = computeRecencyScore(b.createdAt);
-        const scoreA = 0.60 * (a.matchScore / 100) + 0.20 * ((a.trustScore || 0) / 100) + 0.20 * recencyA;
-        const scoreB = 0.60 * (b.matchScore / 100) + 0.20 * ((b.trustScore || 0) / 100) + 0.20 * recencyB;
-        return scoreB - scoreA;
-      });
+
+          // Experience level: +0.08 if matches, -0.03 if not
+          if (preferredLevels.length > 0) {
+            const inferred = LEVELS[inferJobLevel(job.title)];
+            if (preferredLevels.includes(inferred)) {
+              prefBoost += 0.08;
+            } else {
+              prefBoost -= 0.03;
+            }
+          }
+
+          // Industry: +0.05 if matches, no penalty (too many jobs lack industry data)
+          if (preferredIndustries.length > 0) {
+            const jobIndustry = job.industry?.toLowerCase();
+            if (jobIndustry && preferredIndustries.some((ind: string) => jobIndustry.includes(ind))) {
+              prefBoost += 0.05;
+            }
+          }
+
+          return { ...job, prefBoost };
+        })
+        .sort((a, b) => {
+          // Composite score: 60% skill match + 20% trust + 20% recency + preference boost
+          const recencyA = computeRecencyScore(a.createdAt);
+          const recencyB = computeRecencyScore(b.createdAt);
+          const scoreA = 0.60 * (a.matchScore / 100) + 0.20 * ((a.trustScore || 0) / 100) + 0.20 * recencyA + a.prefBoost;
+          const scoreB = 0.60 * (b.matchScore / 100) + 0.20 * ((b.trustScore || 0) / 100) + 0.20 * recencyB + b.prefBoost;
+          return scoreB - scoreA;
+        });
 
     console.log(`After filtering (30%+ match): ${finalJobs.length} recommendations`);
-    return finalJobs;
+    return finalJobs.map(({ prefBoost: _, ...job }) => job);
   }
 
   /**
