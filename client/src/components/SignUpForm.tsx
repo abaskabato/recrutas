@@ -4,6 +4,7 @@ import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Eye, EyeOff, Check, X, Loader2 } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 /** Read ?code= from URL query params (e.g. recrutas.ai/signup/candidate?code=REDDIT-A1B2C3) */
 function getCodeFromURL(): string {
@@ -89,6 +90,7 @@ export default function SignUpForm({ role }: SignUpFormProps) {
           }
         }
 
+        track('signup_completed', { role, invite_code: inviteCode.trim() });
         // Redirect to guided setup to complete profile
         setLocation("/guided-setup");
       } else if (data.user && !data.session) {

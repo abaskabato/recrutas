@@ -42,7 +42,7 @@ import { jobIngestionService } from './services/job-ingestion.service';
 import { getModelInfo } from './ml-matching';
 import { sendWelcomeEmail, sendEmail } from './email-service';
 import { sendEmail as sendTransactionalEmail, employerWelcomeEmail, employerNewApplicantEmail } from './lib/email';
-import { track as trackAnalytics } from './lib/analytics';
+import { track as serverTrack } from './lib/analytics';
 // greenhouse-submit.service.ts kept for future use (verification code flow, etc.)
 import { asyncHandler } from './middleware/error-handler';
 import { verifyAdminSecret, verifyCronSecret } from './middleware/security';
@@ -967,6 +967,7 @@ Analyze the form and return the actions JSON to fill every field you can.`;
         ...(isNew && redeemedCode ? { invite_code_used: redeemedCode, signup_source: signupSource } : {}),
       });
       if (isNew && req.user.email) {
+        serverTrack(req.user.id, 'signup_completed', { role: req.user.user_metadata?.role, source: signupSource });
         sendWelcomeEmail(req.user.email, req.user.user_metadata?.first_name).catch((err: Error) =>
           console.error("Failed to send welcome email:", err)
         );
@@ -1183,6 +1184,7 @@ Analyze the form and return the actions JSON to fill every field you can.`;
       });
       const result = await resumeService.uploadAndProcessResume(req.user.id, req.file.buffer, req.file.mimetype);
       await storage.incrementDailyUsage(req.user.id, 'resume_upload');
+      serverTrack(req.user.id, 'resume_parsed', { success: true, mimetype: req.file.mimetype });
       res.json(result);
     } catch (error) {
       console.error("Error processing resume upload:", error);
@@ -1408,7 +1410,7 @@ Analyze the form and return the actions JSON to fill every field you can.`;
       await storage.incrementDailyUsage(userId, 'application');
       await storage.createActivityLog(userId, "job_applied", `Applied to job ID: ${jobId}`);
 
-      trackAnalytics(userId, 'application_created', {
+      serverTrack(userId, 'application_created', {
         job_id: jobId,
         application_id: application.id,
         is_internal: isInternalJob,

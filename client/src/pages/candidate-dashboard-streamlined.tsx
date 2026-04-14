@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
 import { getCachedProfile } from "@/utils/storage.utils";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -112,6 +113,18 @@ export default function CandidateStreamlinedDashboard() {
       setLocation("/auth");
     }
   }, [isAuthenticated, isLoading, setLocation]);
+
+  // Track job feed views (once per tab switch)
+  const jobFeedTracked = useRef(false);
+  useEffect(() => {
+    if (activeTab === 'jobs' && !jobFeedTracked.current) {
+      jobFeedTracked.current = true;
+      track('job_feed_viewed');
+    }
+    if (activeTab !== 'jobs') {
+      jobFeedTracked.current = false;
+    }
+  }, [activeTab]);
 
   // Fetch candidate stats
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({

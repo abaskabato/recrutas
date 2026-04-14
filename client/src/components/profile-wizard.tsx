@@ -3,6 +3,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useLocation } from "wouter";
 import { apiRequest, fetchProfileWithCache } from "@/lib/queryClient";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,6 +211,7 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
       await apiRequest('PUT', '/api/candidate/preferences', { jobPreferences });
     },
     onSuccess: () => {
+      track('guided_setup_completed', { had_resume: !!parsedResumeData });
       queryClient.invalidateQueries({ queryKey: ['/api/candidate/profile'] });
       queryClient.invalidateQueries({ queryKey: ['/api/ai-matches'] });
       setParsedResumeData(null);

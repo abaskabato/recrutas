@@ -11,6 +11,7 @@ import rateLimit from 'express-rate-limit';
 import { errorHandlerMiddleware, requestTracingMiddleware, captureException } from './error-monitoring.js';
 import { metricsMiddleware } from './middleware/metrics.js';
 import { externalJobsScheduler } from './services/external-jobs-scheduler';
+import { shutdown as shutdownAnalytics } from './lib/analytics';
 
 const app = express();
 
@@ -224,6 +225,12 @@ export async function configureApp() {
   if (process.env.NODE_ENV !== 'test') {
     await initializeBackgroundServices();
   }
+
+  // Flush PostHog events on graceful shutdown
+  process.on('SIGTERM', async () => {
+    await shutdownAnalytics();
+    process.exit(0);
+  });
 
   app.use(errorHandlerMiddleware());
 
