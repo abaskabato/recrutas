@@ -7,6 +7,8 @@ import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { US_METROS } from "@/lib/us-metros";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
@@ -593,12 +595,19 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
               <Label htmlFor="location" className="font-semibold flex items-center gap-2">
                 <MapPin className="h-4 w-4" /> Where are you located?
               </Label>
-              <Input 
-                id="location" 
-                placeholder="San Francisco, CA" 
-                value={userLocation} 
-                onChange={(e) => setUserLocation(e.target.value)} 
-              />
+              <Select value={userLocation} onValueChange={setUserLocation}>
+                <SelectTrigger id="location">
+                  <SelectValue placeholder="Select your location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userLocation && !US_METROS.includes(userLocation as typeof US_METROS[number]) && (
+                    <SelectItem value={userLocation}>{userLocation} (current)</SelectItem>
+                  )}
+                  {US_METROS.map(loc => (
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />

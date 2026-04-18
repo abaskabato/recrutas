@@ -196,7 +196,6 @@ recrutas/
 │   │   ├── ai-job-feed.tsx             # THE main job feed — fetch, filter, display, agent apply
 │   │   ├── profile-wizard.tsx          # Multi-step profile setup (upload → review → preferences)
 │   │   ├── profile-completion-modal.tsx # Quick-edit profile modal
-│   │   ├── profile-upload.tsx          # Resume upload + parsing
 │   │   ├── job-exam.tsx                # Exam UI (questions, timer, submit)
 │   │   ├── job-posting-wizard.tsx      # Create/edit job posting
 │   │   ├── chat-interface.tsx          # Chat room UI
