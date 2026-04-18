@@ -6,10 +6,12 @@ import { SKILL_ALIASES } from './skill-normalizer';
 // Higher scores indicate more trustworthy/verified sources
 export const SOURCE_TRUST_SCORES: Record<string, number> = {
   'platform': 100,          // Internal platform jobs - most trustworthy
-  'JSearch': 75,            // JSearch API - aggregates real jobs
-  'The Muse': 70,           // Curated tech jobs from real companies
+  'career_page': 90,        // Direct from employer via official ATS API - highest external trust
+  'external': 85,           // Career-page scraped (AI/HTML fallback) - direct employer URLs
   'WeWorkRemotely': 80,     // Curated remote jobs with direct URLs - HIGH QUALITY
+  'JSearch': 75,            // JSearch API - aggregates real jobs
   'Adzuna': 72,             // Large UK/US aggregator, wide industry coverage
+  'The Muse': 70,           // Curated tech jobs from real companies
   'Jooble': 65,             // Global aggregator, wide industry coverage
   'RemoteOK': 65,           // Remote-focused jobs, generally accurate
   'ArbeitNow': 60,          // European job board aggregator
@@ -1014,7 +1016,7 @@ export class JobAggregator {
       for (const query of queries) {
         if (allJobs.length >= 500) break; // cap per run
         try {
-          const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=50&what=${encodeURIComponent(query)}&content-type=application/json&sort_by=date`;
+          const url = `https://api.adzuna.com/v1/api/jobs/us/search/1?app_id=${appId}&app_key=${appKey}&results_per_page=50&what=${encodeURIComponent(query)}&content-type=application/json&sort_by=relevance`;
           const response = await this.fetchWithRetry(url);
 
           if (response.ok) {
