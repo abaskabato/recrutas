@@ -66,7 +66,7 @@ async function main() {
       for (const u of updates) {
         await sql`
           UPDATE job_postings
-          SET external_url = ${u.url}, "trustScore" = ${u.trustScore}
+          SET external_url = ${u.url}, trust_score = ${u.trustScore}
           WHERE id = ${u.id}
         `;
       }
