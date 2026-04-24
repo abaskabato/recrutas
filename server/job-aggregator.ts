@@ -1,6 +1,7 @@
 import { weWorkRemotelyService } from './services/we-work-remotely.service';
 import { getProfessions, getProfession, detectProfession, ProfessionConfig } from './config/professions';
 import { SKILL_ALIASES } from './skill-normalizer';
+import { resolveAdzunaLinksBatch } from './lib/adzuna-link-resolver';
 
 // Trust scores for different job sources (0-100)
 // Higher scores indicate more trustworthy/verified sources
@@ -599,6 +600,7 @@ export class JobAggregator {
       source: 'Adzuna',
       externalUrl: job.redirect_url,
       postedDate: job.created,
+      trustScore: getSourceTrustScore('Adzuna'),
     }));
   }
 
@@ -1021,11 +1023,36 @@ export class JobAggregator {
 
           if (response.ok) {
             const data: AdzunaApiResponse = await response.json();
-            for (const job of this.transformAdzunaJobs(data.results || [])) {
-              const key = `${job.title}::${job.company}`.toLowerCase();
-              if (!seen.has(key)) {
-                seen.add(key);
-                allJobs.push(job);
+            const transformedJobs = this.transformAdzunaJobs(data.results || []);
+
+            if (transformedJobs.length > 0) {
+              const resolveInputs = transformedJobs.map(j => ({
+                title: j.title,
+                company: j.company,
+                location: j.location,
+                fallbackUrl: j.externalUrl,
+                description: j.description,
+              }));
+
+              const resolvedResults = await resolveAdzunaLinksBatch(resolveInputs, { timeoutMs: 10_000 });
+
+              for (let i = 0; i < transformedJobs.length; i++) {
+                const job = transformedJobs[i];
+                const result = resolvedResults[i];
+                if (result.resolved) {
+                  job.externalUrl = result.url;
+                  // ATS deep-link (from catalog, DB, or description) = direct employer URL
+                  if (result.resolvedVia === 'ats') {
+                    job.trustScore = getSourceTrustScore('career_page');
+                  } else if (result.resolvedVia === 'careers_page') {
+                    job.trustScore = getSourceTrustScore('external');
+                  }
+                }
+                const key = `${job.title}::${job.company}`.toLowerCase();
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  allJobs.push(job);
+                }
               }
             }
           }
