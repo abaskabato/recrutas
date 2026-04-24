@@ -74,9 +74,12 @@ async function main() {
 
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
     const pct = ((processed / total) * 100).toFixed(1);
-    process.stdout.write(
-      `\r[${elapsed}s] ${processed}/${total} (${pct}%) | resolved=${resolved} ats=${atsDl} hp=${careersPage} fallback=${fallback}   `
-    );
+    const line = `[${elapsed}s] ${processed}/${total} (${pct}%) | resolved=${resolved} ats=${atsDl} hp=${careersPage} fallback=${fallback}`;
+    if (process.env.CI) {
+      console.log(line);
+    } else {
+      process.stdout.write(`\r${line}   `);
+    }
 
     if (processed >= MAX_JOBS) break;
   }
