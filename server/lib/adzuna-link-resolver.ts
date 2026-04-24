@@ -412,9 +412,9 @@ function domainCandidates(companyName: string): string[] {
   return [...set].filter(d => d.length >= 3 && d.length <= 40);
 }
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchHtml(url: string, timeoutMs = 5_000): Promise<string | null> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 5_000);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, {
       redirect: 'follow',
@@ -599,6 +599,87 @@ async function getCompanyCached(companyName: string): Promise<CompanyInfo> {
   return p;
 }
 
+// ─── ATS embed detection from careers page HTML ───────────────────────────────
+
+interface EmbedDetection {
+  atsType: AtsType;
+  atsId:   string;
+}
+
+interface CareersPageAnalysis {
+  embed:      EmbedDetection | null;
+  jsonLdJobs: Array<{ title: string; url: string }>;
+}
+
+const EMBED_PATTERNS: Array<{ atsType: AtsType; re: RegExp }> = [
+  { atsType: 'greenhouse', re: /boards\.greenhouse\.io\/embed\/job_board\/js\?for=([\w-]+)/i },
+  { atsType: 'greenhouse', re: /boards\.greenhouse\.io\/([\w-]+)(?:\/|"|'|\s)/i },
+  { atsType: 'lever',      re: /jobs\.lever\.co\/([\w-]+)(?:\/|"|'|\s)/i },
+  { atsType: 'ashby',      re: /jobs\.ashbyhq\.com\/([\w-]+)(?:\/|"|'|\s)/i },
+  { atsType: 'ashby',      re: /([\w-]+)\.ashbyhq\.com(?:\/|"|'|\s)/i },
+  { atsType: 'workable',   re: /apply\.workable\.com\/([\w-]+)(?:\/|"|'|\s)/i },
+  { atsType: 'recruitee',  re: /(?:https?:\/\/)?([\w-]+)\.recruitee\.com(?:\/|"|'|\s)/i },
+];
+
+function analyzeHtml(html: string): CareersPageAnalysis {
+  // ATS embed signatures
+  let embed: EmbedDetection | null = null;
+  for (const { atsType, re } of EMBED_PATTERNS) {
+    const m = html.match(re);
+    if (m?.[1] && m[1].length >= 2 && m[1].length <= 60) {
+      embed = { atsType, atsId: m[1] };
+      break;
+    }
+  }
+
+  // JSON-LD JobPosting blocks
+  const jsonLdJobs: Array<{ title: string; url: string }> = [];
+  for (const block of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const data: unknown = JSON.parse(block[1]);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items as Record<string, unknown>[]) {
+        if (item['@type'] !== 'JobPosting') continue;
+        const url = (item['url'] ?? item['sameAs']) as string | undefined;
+        const title = (item['title'] as string | undefined) ?? '';
+        if (url && title && !AGGREGATOR_PATTERN.test(url)) jsonLdJobs.push({ title, url });
+      }
+    } catch { /* malformed JSON-LD */ }
+  }
+
+  return { embed, jsonLdJobs };
+}
+
+const careersCache    = new Map<string, { analysis: CareersPageAnalysis | null; expires: number }>();
+const careersInflight = new Map<string, Promise<CareersPageAnalysis | null>>();
+
+async function analyzeCareersPageUncached(homepage: string): Promise<CareersPageAnalysis | null> {
+  const base = homepage.replace(/\/$/, '');
+  // Only fetch /careers — 3s timeout to stay within batch budget
+  const html = await fetchHtml(`${base}/careers`, 3_000);
+  if (!html) return null;
+  return analyzeHtml(html);
+}
+
+async function analyzeCareersPage(homepage: string): Promise<CareersPageAnalysis | null> {
+  const key = homepage.replace(/\/$/, '').toLowerCase();
+  const now = Date.now();
+  const cached = careersCache.get(key);
+  if (cached && cached.expires > now) return cached.analysis;
+  const existing = careersInflight.get(key);
+  if (existing) return existing;
+  const p = analyzeCareersPageUncached(homepage)
+    .then(analysis => {
+      const hasSignal = analysis?.embed || (analysis?.jsonLdJobs.length ?? 0) > 0;
+      careersCache.set(key, { analysis, expires: now + (hasSignal ? CACHE_TTL_MS : NEG_CACHE_TTL_MS) });
+      careersInflight.delete(key);
+      return analysis;
+    })
+    .catch(() => { careersInflight.delete(key); return null; });
+  careersInflight.set(key, p);
+  return p;
+}
+
 // ─── URL extraction from description text ────────────────────────────────────
 
 const AGGREGATOR_PATTERN = /adzuna|indeed|linkedin|glassdoor|ziprecruiter|monster|simplyhired|careerjet/i;
@@ -707,10 +788,40 @@ export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveRes
       return { url: entry.careersUrl, resolved: true, resolvedVia: 'careers_page' };
     }
 
-    // 4. Clearbit → domain guess → /careers
+    // 4. Clearbit → domain guess → careers page analysis (ATS embed + JSON-LD) → deep-link or /careers
     const homepage = await resolveHomepage(input.company);
     if (homepage) {
       const base = homepage.replace(/\/$/, '');
+      const analysis = await analyzeCareersPage(homepage);
+
+      // 4a. ATS embed detected → query their API → title-match
+      if (analysis?.embed) {
+        const jobs = await listAtsJobs(analysis.embed.atsType, analysis.embed.atsId);
+        if (jobs.length > 0) {
+          let best: { job: AtsJob; score: number } | null = null;
+          for (const job of jobs) {
+            let score = titleScore(input.title, job.title);
+            if (locationOverlap(input.location, job.location)) score += 0.1;
+            if (!best || score > best.score) best = { job, score };
+          }
+          if (best && best.score >= MATCH_THRESHOLD) {
+            return { url: best.job.url, resolved: true, resolvedVia: 'ats', atsType: analysis.embed.atsType, score: best.score };
+          }
+        }
+      }
+
+      // 4b. JSON-LD JobPosting on the careers page → title-match
+      if (analysis?.jsonLdJobs.length) {
+        let best: { url: string; score: number } | null = null;
+        for (const j of analysis.jsonLdJobs) {
+          const score = titleScore(input.title, j.title);
+          if (!best || score > best.score) best = { url: j.url, score };
+        }
+        if (best && best.score >= MATCH_THRESHOLD) {
+          return { url: best.url, resolved: true, resolvedVia: 'ats', score: best.score };
+        }
+      }
+
       return { url: `${base}/careers`, resolved: true, resolvedVia: 'careers_page' };
     }
 
@@ -752,6 +863,8 @@ export function _resetCacheForTests(): void {
   inflight.clear();
   homepageCache.clear();
   homepageInflight.clear();
+  careersCache.clear();
+  careersInflight.clear();
   approvedMap = null;
   approvedLoadedAt = 0;
 }
