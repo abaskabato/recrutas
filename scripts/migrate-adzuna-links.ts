@@ -2,6 +2,9 @@
  * Batch-migrates all Adzuna jobs in job_postings that still have redirect URLs.
  * Runs the link resolver over them in chunks and writes resolved URLs + trust scores back.
  *
+ * Uses cursor-based pagination (id > lastId) so that resolved jobs dropping out of
+ * the WHERE clause don't cause OFFSET to skip unresolved jobs.
+ *
  * Usage: npx tsx scripts/migrate-adzuna-links.ts [--dry-run] [--limit N]
  */
 import 'dotenv/config';
@@ -12,11 +15,10 @@ const DRY_RUN   = process.argv.includes('--dry-run');
 const LIMIT_ARG = process.argv.indexOf('--limit');
 const MAX_JOBS  = LIMIT_ARG !== -1 ? parseInt(process.argv[LIMIT_ARG + 1], 10) : Infinity;
 
-const CHUNK    = 50;   // jobs per batch
-const CONC     = 10;   // resolver concurrency
-const TIMEOUT  = 15_000; // ms per chunk
+const CHUNK   = 50;
+const CONC    = 10;
+const TIMEOUT = 15_000;
 
-// Trust scores matching aggregator
 const TRUST = { ats: 90, careers_page: 85 };
 
 async function main() {
@@ -30,21 +32,32 @@ async function main() {
   console.log(`Found ${count} unresolved Adzuna jobs${MAX_JOBS !== Infinity ? ` (limiting to ${MAX_JOBS})` : ''}`);
   if (DRY_RUN) console.log('DRY RUN — no writes\n');
 
-  let processed = 0, resolved = 0, atsDl = 0, careersPage = 0, fallback = 0, offset = 0;
+  let processed = 0, resolved = 0, atsDl = 0, careersPage = 0, fallback = 0;
+  let lastId = 0;
   const startedAt = Date.now();
 
   while (processed < total) {
+    // Cursor-based: iterate ALL Adzuna jobs by id, skip already-resolved ones in code.
+    // This avoids the OFFSET bug where resolved jobs dropping from the WHERE clause
+    // cause the next batch to skip ahead past unresolved jobs.
     const jobs = await sql<Array<{ id: number; title: string; company: string; location: string; external_url: string }>>`
       SELECT id, title, company, location, external_url
       FROM job_postings
-      WHERE source = 'Adzuna' AND external_url LIKE '%adzuna%'
+      WHERE source = 'Adzuna' AND id > ${lastId}
       ORDER BY id
-      LIMIT ${CHUNK} OFFSET ${offset}
+      LIMIT ${CHUNK}
     `;
     if (jobs.length === 0) break;
-    offset += jobs.length;
+    lastId = jobs[jobs.length - 1].id;
 
-    const inputs = jobs.map(j => ({
+    // Only resolve jobs that still have a redirect URL
+    const toResolve = jobs.filter(j => j.external_url.includes('adzuna'));
+    if (toResolve.length === 0) {
+      processed += jobs.length;
+      continue;
+    }
+
+    const inputs = toResolve.map(j => ({
       title: j.title, company: j.company,
       location: j.location ?? '', fallbackUrl: j.external_url,
     }));
@@ -59,8 +72,11 @@ async function main() {
       resolved++;
       const trustScore = r.resolvedVia === 'ats' ? TRUST.ats : TRUST.careers_page;
       if (r.resolvedVia === 'ats') atsDl++; else careersPage++;
-      updates.push({ id: jobs[i].id, url: r.url, trustScore });
+      updates.push({ id: toResolve[i].id, url: r.url, trustScore });
     }
+
+    // Count already-resolved jobs in the batch towards processed
+    processed += jobs.length - toResolve.length;
 
     if (!DRY_RUN && updates.length > 0) {
       for (const u of updates) {
@@ -85,7 +101,7 @@ async function main() {
   }
 
   console.log(`\n\nDone in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
-  console.log(`Resolved: ${resolved}/${processed} (${((resolved/processed)*100).toFixed(1)}%)`);
+  console.log(`Resolved: ${resolved}/${processed} (${((resolved / processed) * 100).toFixed(1)}%)`);
   console.log(`  ATS deep-links:  ${atsDl}`);
   console.log(`  Careers pages:   ${careersPage}`);
   console.log(`  Fallback:        ${fallback}`);
