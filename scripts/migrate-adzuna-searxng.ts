@@ -79,7 +79,7 @@ async function pMap<T>(
 async function main() {
   const dbUrl = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
   if (!dbUrl) throw new Error('POSTGRES_URL not set');
-  const sql = postgres(dbUrl, { max: Math.ceil(CONCURRENCY / 2), prepare: false });
+  const sql = postgres(dbUrl, { max: 2, prepare: false });
 
   // Count total Adzuna jobs and compute this slice's range
   const [{ total }] = await sql<[{ total: number }]>`
