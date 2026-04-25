@@ -1,0 +1,91 @@
+name: Resolve Adzuna URLs (SearXNG)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no DB writes)'
+        type: boolean
+        default: false
+      limit:
+        description: 'Max jobs to process (0 = all)'
+        type: number
+        default: 0
+      after_id:
+        description: 'Resume from job ID (cursor from previous run)'
+        type: number
+        default: 0
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Create SearXNG settings
+        run: |
+          mkdir -p /tmp/searxng
+          cat > /tmp/searxng/settings.yml << 'EOF'
+          use_default_settings: true
+          server:
+            secret_key: "recrutas-searxng-secret"
+            limiter: false
+          search:
+            safe_search: 0
+            formats:
+              - html
+              - json
+          engines:
+            - name: google
+              engine: google
+              shortcut: g
+            - name: bing
+              engine: bing
+              shortcut: b
+            - name: duckduckgo
+              engine: duckduckgo
+              shortcut: d
+          EOF
+
+      - name: Start SearXNG
+        run: |
+          docker run -d \
+            --name searxng \
+            -p 8080:8080 \
+            -v /tmp/searxng:/etc/searxng:rw \
+            -e SEARXNG_SECRET_KEY=recrutas-searxng-secret \
+            searxng/searxng:latest
+
+      - name: Wait for SearXNG to be ready
+        run: |
+          echo "Waiting for SearXNG..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080 > /dev/null; then
+              echo "SearXNG is ready"
+              break
+            fi
+            echo "  attempt $i/30..."
+            sleep 3
+          done
+
+      - name: Resolve Adzuna URLs
+        env:
+          POSTGRES_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.DIRECT_URL }}
+          SEARXNG_URL: http://localhost:8080
+          SEARXNG_DELAY_MS: 800
+        run: |
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "${{ inputs.limit }}" != "0" ] && [ -n "${{ inputs.limit }}" ]; then ARGS="$ARGS --limit ${{ inputs.limit }}"; fi
+          if [ "${{ inputs.after_id }}" != "0" ] && [ -n "${{ inputs.after_id }}" ]; then ARGS="$ARGS --after-id ${{ inputs.after_id }}"; fi
+          npx tsx scripts/migrate-adzuna-searxng.ts $ARGS
