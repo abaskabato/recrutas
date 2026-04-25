@@ -1,7 +1,7 @@
 import { weWorkRemotelyService } from './services/we-work-remotely.service';
 import { getProfessions, getProfession, detectProfession, ProfessionConfig } from './config/professions';
 import { SKILL_ALIASES } from './skill-normalizer';
-import { resolveAdzunaLinksBatch } from './lib/adzuna-link-resolver';
+import { getCareersUrl } from './lib/company-careers-url';
 
 // Trust scores for different job sources (0-100)
 // Higher scores indicate more trustworthy/verified sources
@@ -604,6 +604,49 @@ export class JobAggregator {
     }));
   }
 
+  private async resolveAdzunaUrl(redirectUrl: string, company: string): Promise<string | null> {
+    const ATS_DOMAINS = [
+      'greenhouse.io', 'lever.co', 'myworkdayjobs.com', 'workday.com',
+      'smartrecruiters.com', 'ashbyhq.com', 'jobvite.com', 'icims.com',
+      'taleo.net', 'bamboohr.com', 'paylocity.com', 'applytojob.com',
+      'paycom.com', 'ultipro.com', 'successfactors.com', 'recruitee.com',
+      'workable.com', 'breezy.hr', 'pinpointhq.com', 'dover.com',
+    ];
+    const AGGREGATOR_DOMAINS = [
+      'adzuna', 'indeed', 'linkedin', 'glassdoor', 'ziprecruiter', 'monster',
+      'simplyhired', 'careerbuilder', 'jobcase', 'jooble', 'dice',
+      'talent.com', 'snagajob', 'tealhq.com', 'simplify.jobs', 'wellfound.com',
+    ];
+    const STOPWORDS = new Set(['the','and','of','in','at','for','a','an','to','inc','llc','corp','co','ltd']);
+
+    const isATS = (u: string) => ATS_DOMAINS.some(d => u.toLowerCase().includes(d));
+    const isAggregator = (u: string) => AGGREGATOR_DOMAINS.some(d => u.toLowerCase().includes(d));
+    const isSpecificPath = (u: string) => {
+      try { return new URL(u).pathname.split('/').filter(Boolean).length >= 2; } catch { return false; }
+    };
+    const matchesCompany = (u: string) => {
+      if (isATS(u)) return true;
+      try {
+        const domain = new URL(u).hostname.replace(/^www\./, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const tokens = company.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+          .filter(t => t.length >= 4 && !STOPWORDS.has(t));
+        return tokens.some(t => domain.includes(t));
+      } catch { return false; }
+    };
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(redirectUrl, { redirect: 'follow', signal: ctrl.signal });
+      clearTimeout(timer);
+      const finalUrl = res.url;
+      if (!isAggregator(finalUrl) && isSpecificPath(finalUrl) && matchesCompany(finalUrl)) {
+        return finalUrl;
+      }
+    } catch { /* network error — fall through */ }
+    return null;
+  }
+
   private transformUSAJobs(jobs: any[]): ExternalJob[] {
     return jobs.filter(item => item && item.MatchedObjectDescriptor).map((item: any) => {
       const job = item.MatchedObjectDescriptor;
@@ -1026,28 +1069,18 @@ export class JobAggregator {
             const transformedJobs = this.transformAdzunaJobs(data.results || []);
 
             if (transformedJobs.length > 0) {
-              const resolveInputs = transformedJobs.map(j => ({
-                title: j.title,
-                company: j.company,
-                location: j.location,
-                fallbackUrl: j.externalUrl,
-                description: j.description,
+              await Promise.all(transformedJobs.map(async job => {
+                const resolved = await this.resolveAdzunaUrl(job.externalUrl!, job.company);
+                if (resolved) {
+                  job.externalUrl = resolved;
+                } else {
+                  const careersUrl = await getCareersUrl(job.company);
+                  if (careersUrl) job.externalUrl = careersUrl;
+                }
               }));
-
-              const resolvedResults = await resolveAdzunaLinksBatch(resolveInputs, { timeoutMs: 10_000 });
 
               for (let i = 0; i < transformedJobs.length; i++) {
                 const job = transformedJobs[i];
-                const result = resolvedResults[i];
-                if (result.resolved) {
-                  job.externalUrl = result.url;
-                  // ATS deep-link (from catalog, DB, or description) = direct employer URL
-                  if (result.resolvedVia === 'ats') {
-                    job.trustScore = getSourceTrustScore('career_page');
-                  } else if (result.resolvedVia === 'careers_page') {
-                    job.trustScore = getSourceTrustScore('external');
-                  }
-                }
                 const key = `${job.title}::${job.company}`.toLowerCase();
                 if (!seen.has(key)) {
                   seen.add(key);
