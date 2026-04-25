@@ -1,7 +1,7 @@
 /**
  * Resolve ALL Adzuna job URLs by searching "<title> <company> <city>" via SearXNG.
  *
- * - Specific job page found (path ≥ 2 segments) → update external_url
+ * - Specific job page found (ATS path or URL with job ID) → update external_url
  * - Generic page or no result                   → set status = 'closed'
  *
  * Usage:
@@ -32,6 +32,14 @@ const AGGREGATOR_DOMAINS = [
   'whatjobs.com', 'seasoned.co', 'earnbetter.com', 'valleycentral.com',
   'jobot.com', 'getwork.com', 'appcast.io', 'joblist.com', 'wellfound.com',
   'credenzahealth.com', 'yougotjobs.com', 'milwaukeejobs.com',
+  // additional aggregators found in eval
+  'talentify.io', 'ihirefinance.com', 'usnlx.com', 'careeronaut.com',
+  'spacecrew.com', 'jobilize.com', 'breakroom.cc', 'wastewaterjobs.com',
+  'pitchmeai.com', 'vitaver.com', 'highfivepartners.com', 'jofdav.com',
+  'mydermrecruiter.com', 'communitycollegecareerconnect.com', 'tallo.com',
+  'jobtoday.com', 'jobtarget.com', 'seasonalworks.labor.ny.gov',
+  'illinoisjoblink.illinois.gov', 'knoxvillechamber.com',
+  'jobs.fox8.com', 'jobs.khon2.com', 'jobs.khon2', 'fox8.com',
 ];
 
 // Trusted ATS domains — always accept if path >= 2 segments
@@ -55,10 +63,29 @@ function isATS(url: string): boolean {
   return ATS_DOMAINS.some(d => lower.includes(d));
 }
 
+const GENERIC_TERMINALS = new Set([
+  'careers', 'jobs', 'apply', 'search', 'browse', 'openings',
+  'opportunities', 'positions', 'vacancies', 'listing', 'explore',
+]);
+
+const NON_HTML_EXTS = /\.(pdf|doc|docx|csv|xls|xlsx|ppt|pptx|txt)(\?|$)/i;
+
+function hasJobId(segment: string): boolean {
+  // numeric ID, UUID, alphanumeric with digits, or long title slug (>=20 chars)
+  return /\d{4,}/.test(segment) || /^[0-9a-f-]{36}$/i.test(segment) || segment.length >= 20;
+}
+
 function isSpecificJobPage(url: string): boolean {
   try {
-    const segments = new URL(url).pathname.split('/').filter(Boolean);
-    return segments.length >= 2;
+    if (NON_HTML_EXTS.test(url)) return false;
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length < 2) return false;
+    const last = segments[segments.length - 1].toLowerCase();
+    // For ATS domains, trust path >= 2 segments (already validated upstream)
+    if (isATS(url)) return true;
+    // Must have at least one segment that looks like a job ID
+    return segments.some(hasJobId) && !GENERIC_TERMINALS.has(last);
   } catch { return false; }
 }
 
@@ -97,8 +124,7 @@ async function searchSearXNG(query: string, company: string): Promise<string | n
     // Tier 2: company domain with a specific job path
     const companySpecific = candidates.find(u => domainMatchesCompany(u, company) && isSpecificJobPage(u));
     if (companySpecific) return companySpecific;
-    // Tier 3: first non-aggregator (caller's checks will filter further)
-    return candidates[0] ?? null;
+    return null;
   } catch { return null; } finally { clearTimeout(timer); }
 }
 
