@@ -1,23 +1,23 @@
 /**
- * Resolve remaining Adzuna job URLs by searching "<title> <company> <city>"
- * via a local SearXNG instance (JSON API).
+ * Resolve ALL Adzuna job URLs by searching "<title> <company> <city>" via SearXNG.
  *
  * - Specific job page found (path ≥ 2 segments) → update external_url
- * - Generic page or no result → set status = 'closed' (job likely expired)
+ * - Generic page or no result                   → set status = 'closed'
  *
  * Usage:
- *   npx tsx scripts/migrate-adzuna-searxng.ts [--dry-run] [--limit N] [--after-id N]
- *
- * SearXNG must be running at SEARXNG_URL (default: http://localhost:8080)
+ *   npx tsx scripts/migrate-adzuna-searxng.ts \
+ *     [--dry-run] \
+ *     [--slice N] [--total-slices M]   # partition for parallel runs
+ *     [--concurrency N]                # parallel searches per runner (default 10)
  */
 import 'dotenv/config';
 import postgres from 'postgres';
 
-const DRY_RUN  = process.argv.includes('--dry-run');
-const LIMIT    = (() => { const i = process.argv.indexOf('--limit');    return i !== -1 ? parseInt(process.argv[i + 1], 10) : 0; })();
-const AFTER_ID = (() => { const i = process.argv.indexOf('--after-id'); return i !== -1 ? parseInt(process.argv[i + 1], 10) : 0; })();
-const SEARXNG  = (process.env.SEARXNG_URL ?? 'http://localhost:8080').replace(/\/$/, '');
-const DELAY_MS = parseInt(process.env.SEARXNG_DELAY_MS ?? '800', 10);
+const DRY_RUN      = process.argv.includes('--dry-run');
+const SLICE        = (() => { const i = process.argv.indexOf('--slice');        return i !== -1 ? parseInt(process.argv[i + 1], 10) : 0; })();
+const TOTAL_SLICES = (() => { const i = process.argv.indexOf('--total-slices'); return i !== -1 ? parseInt(process.argv[i + 1], 10) : 1; })();
+const CONCURRENCY  = (() => { const i = process.argv.indexOf('--concurrency'); return i !== -1 ? parseInt(process.argv[i + 1], 10) : 10; })();
+const SEARXNG      = (process.env.SEARXNG_URL ?? 'http://localhost:8080').replace(/\/$/, '');
 
 const AGGREGATOR_DOMAINS = [
   'adzuna', 'indeed', 'linkedin', 'glassdoor', 'ziprecruiter', 'monster',
@@ -26,7 +26,6 @@ const AGGREGATOR_DOMAINS = [
   'usajobs', 'builtin', 'salary.com', 'crunchbase', 'bloomberg',
   'wikipedia', 'reddit', 'facebook', 'twitter', 'youtube',
   'google.com', 'bing.com', 'duckduckgo.com', 'yahoo.com',
-  // secondary aggregators spotted in dry run
   'tealhq.com', 'simplify.jobs', 'bebee.com', 'career.io',
   'higheredjobs.com', 'govconwire.com', 'zippia.com', 'jobscore.com',
 ];
@@ -53,102 +52,81 @@ function extractCity(location: string | null): string | null {
 async function searchSearXNG(query: string): Promise<string | null> {
   const url = `${SEARXNG}/search?q=${encodeURIComponent(query)}&format=json&language=en-US`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 12000);
+  const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
     const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: ctrl.signal });
-    if (!r.ok) {
-      console.error(`  SearXNG HTTP ${r.status} for: ${query.slice(0, 60)}`);
-      return null;
-    }
+    if (!r.ok) return null;
     const json = await r.json() as { results?: Array<{ url: string }> };
     for (const result of json.results ?? []) {
       if (result.url?.startsWith('http') && !isAggregator(result.url)) return result.url;
     }
     return null;
-  } catch (e: any) {
-    console.error(`  SearXNG ${e.name === 'AbortError' ? 'timeout' : `error: ${e.message}`} for: ${query.slice(0, 60)}`);
-    return null;
-  } finally {
-    clearTimeout(timer);
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
+async function pMap<T>(
+  items: T[],
+  fn: (item: T) => Promise<void>,
+  concurrency: number
+): Promise<void> {
+  let i = 0;
+  async function worker() {
+    while (i < items.length) { await fn(items[i++]); }
   }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
 }
 
 async function main() {
   const dbUrl = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
   if (!dbUrl) throw new Error('POSTGRES_URL not set');
-  const sql = postgres(dbUrl, { max: 3, prepare: false });
+  const sql = postgres(dbUrl, { max: Math.ceil(CONCURRENCY / 2), prepare: false });
 
-  console.log(`Mode: ${DRY_RUN ? 'DRY-RUN' : 'LIVE'}`);
-  console.log(`SearXNG: ${SEARXNG}`);
-  console.log(`After ID: ${AFTER_ID}, Limit: ${LIMIT || 'all'}\n`);
-
-  const totalResult = await sql<[{ count: number }]>`
-    SELECT COUNT(*)::int AS count FROM job_postings
-    WHERE source = 'Adzuna' AND external_url LIKE '%adzuna%' AND id > ${AFTER_ID}
+  // Count total Adzuna jobs and compute this slice's range
+  const [{ total }] = await sql<[{ total: number }]>`
+    SELECT COUNT(*)::int AS total FROM job_postings WHERE source = 'Adzuna'
   `;
-  const total = totalResult[0].count;
-  console.log(`Jobs to process: ${total}\n`);
+  const chunkSize = Math.ceil(total / TOTAL_SLICES);
+  const offset    = SLICE * chunkSize;
 
-  let processed = 0, updated = 0, closed = 0;
-  let lastId = AFTER_ID;
-  const batchSize = 50;
+  console.log(`Slice ${SLICE}/${TOTAL_SLICES} | offset=${offset} chunk=${chunkSize} | concurrency=${CONCURRENCY} | dry=${DRY_RUN}`);
+  console.log(`SearXNG: ${SEARXNG}\n`);
 
-  while (true) {
-    const rows = await sql<Array<{
-      id: number; title: string; company: string; location: string | null;
-    }>>`
-      SELECT id, title, company, location
-      FROM job_postings
-      WHERE source = 'Adzuna' AND external_url LIKE '%adzuna%' AND id > ${lastId}
-      ORDER BY id
-      LIMIT ${batchSize}
-    `;
-    if (!rows.length) break;
+  const rows = await sql<Array<{
+    id: number; title: string; company: string; location: string | null;
+  }>>`
+    SELECT id, title, company, location
+    FROM job_postings
+    WHERE source = 'Adzuna'
+    ORDER BY id
+    LIMIT ${chunkSize} OFFSET ${offset}
+  `;
 
-    for (const job of rows) {
-      lastId = job.id;
-      processed++;
+  console.log(`Jobs in this slice: ${rows.length}\n`);
 
-      const city = extractCity(job.location);
-      const query = [job.title, job.company, city].filter(Boolean).join(' ');
-      const url = await searchSearXNG(query);
+  let updated = 0, closed = 0;
+  const startTime = Date.now();
 
-      if (url && isSpecificJobPage(url)) {
-        updated++;
-        console.log(`✓ [${job.id}] ${job.title.slice(0, 50)} | ${job.company.slice(0, 30)}`);
-        console.log(`    → ${url.slice(0, 100)}`);
-        if (!DRY_RUN) {
-          await sql`UPDATE job_postings SET external_url = ${url} WHERE id = ${job.id}`;
-        }
-      } else {
-        closed++;
-        const reason = !url ? 'no result' : 'generic page';
-        console.log(`✗ [${job.id}] ${reason} — ${job.company.slice(0, 40)} → closing`);
-        if (!DRY_RUN) {
-          await sql`UPDATE job_postings SET status = 'closed' WHERE id = ${job.id}`;
-        }
-      }
+  await pMap(rows, async (job) => {
+    const city  = extractCity(job.location);
+    const query = [job.title, job.company, city].filter(Boolean).join(' ');
+    const url   = await searchSearXNG(query);
 
-      const pct = ((processed / total) * 100).toFixed(1);
-      process.stdout.write(`  Progress: ${processed}/${total} (${pct}%) | updated=${updated} closed=${closed} | last_id=${lastId}\r`);
-
-      await new Promise(r => setTimeout(r, DELAY_MS));
-      if (LIMIT && processed >= LIMIT) break;
+    if (url && isSpecificJobPage(url)) {
+      updated++;
+      if (!DRY_RUN) await sql`UPDATE job_postings SET external_url = ${url} WHERE id = ${job.id}`;
+    } else {
+      closed++;
+      if (!DRY_RUN) await sql`UPDATE job_postings SET status = 'closed' WHERE id = ${job.id}`;
     }
-
-    if (LIMIT && processed >= LIMIT) break;
-  }
+  }, CONCURRENCY);
 
   await sql.end();
 
-  console.log('\n\n=== Summary ===');
-  console.log(`Processed: ${processed}`);
-  console.log(`Updated (specific job page): ${updated} (${pct(updated, processed)}%)`);
-  console.log(`Closed (expired/generic):    ${closed} (${pct(closed, processed)}%)`);
-  console.log(`Last ID: ${lastId}`);
-  if (DRY_RUN) console.log('\n[DRY-RUN] No DB writes made.');
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`\n=== Slice ${SLICE} done in ${elapsed}s ===`);
+  console.log(`Updated (specific page): ${updated}`);
+  console.log(`Closed (expired):        ${closed}`);
+  if (DRY_RUN) console.log('[DRY-RUN] No DB writes made.');
 }
-
-function pct(a: number, b: number) { return b ? ((a / b) * 100).toFixed(1) : '0'; }
 
 main().catch(err => { console.error(err); process.exit(1); });

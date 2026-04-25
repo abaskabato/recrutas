@@ -7,19 +7,23 @@ on:
         description: 'Dry run (no DB writes)'
         type: boolean
         default: false
-      limit:
-        description: 'Max jobs to process (0 = all)'
+      total_slices:
+        description: 'Number of parallel runners'
         type: number
-        default: 0
-      after_id:
-        description: 'Resume from job ID (cursor from previous run)'
+        default: 20
+      concurrency:
+        description: 'Parallel searches per runner'
         type: number
-        default: 0
+        default: 10
 
 jobs:
   resolve:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        slice: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 
     steps:
       - uses: actions/checkout@v4
@@ -65,27 +69,19 @@ jobs:
             -e SEARXNG_SECRET_KEY=recrutas-searxng-secret \
             searxng/searxng:latest
 
-      - name: Wait for SearXNG to be ready
+      - name: Wait for SearXNG
         run: |
-          echo "Waiting for SearXNG..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080 > /dev/null; then
-              echo "SearXNG is ready"
-              break
-            fi
-            echo "  attempt $i/30..."
+            if curl -sf http://localhost:8080 > /dev/null; then echo "SearXNG ready"; break; fi
             sleep 3
           done
 
-      - name: Resolve Adzuna URLs
+      - name: Run migration slice
         env:
           POSTGRES_URL: ${{ secrets.DATABASE_URL }}
           POSTGRES_URL_NON_POOLING: ${{ secrets.DIRECT_URL }}
           SEARXNG_URL: http://localhost:8080
-          SEARXNG_DELAY_MS: 800
         run: |
-          ARGS=""
+          ARGS="--slice ${{ matrix.slice }} --total-slices ${{ inputs.total_slices }} --concurrency ${{ inputs.concurrency }}"
           if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ "${{ inputs.limit }}" != "0" ] && [ -n "${{ inputs.limit }}" ]; then ARGS="$ARGS --limit ${{ inputs.limit }}"; fi
-          if [ "${{ inputs.after_id }}" != "0" ] && [ -n "${{ inputs.after_id }}" ]; then ARGS="$ARGS --after-id ${{ inputs.after_id }}"; fi
           npx tsx scripts/migrate-adzuna-searxng.ts $ARGS
