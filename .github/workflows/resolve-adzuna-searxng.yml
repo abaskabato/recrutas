@@ -78,10 +78,11 @@ jobs:
 
       - name: Run migration slice
         env:
-          POSTGRES_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.DIRECT_URL }}
           POSTGRES_URL_NON_POOLING: ${{ secrets.DIRECT_URL }}
           SEARXNG_URL: http://localhost:8080
         run: |
+          sleep $(( ${{ matrix.slice }} * 3 ))
           ARGS="--slice ${{ matrix.slice }} --total-slices ${{ inputs.total_slices }} --concurrency ${{ inputs.concurrency }}"
           if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
           npx tsx scripts/migrate-adzuna-searxng.ts $ARGS
