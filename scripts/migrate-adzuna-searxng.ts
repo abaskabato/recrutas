@@ -28,17 +28,48 @@ const AGGREGATOR_DOMAINS = [
   'google.com', 'bing.com', 'duckduckgo.com', 'yahoo.com',
   'tealhq.com', 'simplify.jobs', 'bebee.com', 'career.io',
   'higheredjobs.com', 'govconwire.com', 'zippia.com', 'jobscore.com',
+  'clearancejobs.com', 'roberthalf.com', 'jobleads.com', 'theladders.com',
+  'whatjobs.com', 'seasoned.co', 'earnbetter.com', 'valleycentral.com',
+  'jobot.com', 'getwork.com', 'appcast.io', 'joblist.com', 'wellfound.com',
+  'credenzahealth.com', 'yougotjobs.com', 'milwaukeejobs.com',
 ];
+
+// Trusted ATS domains — always accept if path >= 2 segments
+const ATS_DOMAINS = [
+  'greenhouse.io', 'lever.co', 'myworkdayjobs.com', 'workday.com',
+  'smartrecruiters.com', 'ashbyhq.com', 'jobvite.com', 'icims.com',
+  'taleo.net', 'bamboohr.com', 'paylocity.com', 'applytojob.com',
+  'paycom.com', 'ultipro.com', 'successfactors.com', 'recruitee.com',
+  'workable.com', 'breezy.hr', 'pinpointhq.com', 'dover.com',
+];
+
+const STOPWORDS = new Set(['the','and','of','in','at','for','a','an','to','inc','llc','corp','co','ltd']);
 
 function isAggregator(url: string): boolean {
   const lower = url.toLowerCase();
   return AGGREGATOR_DOMAINS.some(d => lower.includes(d));
 }
 
+function isATS(url: string): boolean {
+  const lower = url.toLowerCase();
+  return ATS_DOMAINS.some(d => lower.includes(d));
+}
+
 function isSpecificJobPage(url: string): boolean {
   try {
     const segments = new URL(url).pathname.split('/').filter(Boolean);
     return segments.length >= 2;
+  } catch { return false; }
+}
+
+// Check result domain contains at least one meaningful token from company name
+function domainMatchesCompany(url: string, company: string): boolean {
+  if (isATS(url)) return true; // trust ATS domains unconditionally
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const tokens = company.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+      .filter(t => t.length >= 4 && !STOPWORDS.has(t));
+    return tokens.some(t => domain.includes(t));
   } catch { return false; }
 }
 
@@ -111,7 +142,7 @@ async function main() {
     const query = [job.title, job.company, city].filter(Boolean).join(' ');
     const url   = await searchSearXNG(query);
 
-    if (url && isSpecificJobPage(url)) {
+    if (url && isSpecificJobPage(url) && domainMatchesCompany(url, job.company)) {
       updated++;
       if (!DRY_RUN) await sql`UPDATE job_postings SET external_url = ${url} WHERE id = ${job.id}`;
     } else {
