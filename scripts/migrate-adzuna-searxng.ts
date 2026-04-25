@@ -116,7 +116,6 @@ async function main() {
       if (!DRY_RUN) await sql`UPDATE job_postings SET external_url = ${url} WHERE id = ${job.id}`;
     } else {
       closed++;
-      if (!DRY_RUN) await sql`UPDATE job_postings SET status = 'closed' WHERE id = ${job.id}`;
     }
   }, CONCURRENCY);
 
