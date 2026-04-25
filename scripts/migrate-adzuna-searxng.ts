@@ -80,7 +80,7 @@ function extractCity(location: string | null): string | null {
   return first;
 }
 
-async function searchSearXNG(query: string): Promise<string | null> {
+async function searchSearXNG(query: string, company: string): Promise<string | null> {
   const url = `${SEARXNG}/search?q=${encodeURIComponent(query)}&format=json&language=en-US`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
@@ -88,10 +88,17 @@ async function searchSearXNG(query: string): Promise<string | null> {
     const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: ctrl.signal });
     if (!r.ok) return null;
     const json = await r.json() as { results?: Array<{ url: string }> };
-    for (const result of json.results ?? []) {
-      if (result.url?.startsWith('http') && !isAggregator(result.url)) return result.url;
-    }
-    return null;
+    const candidates = (json.results ?? [])
+      .map(r => r.url)
+      .filter((u): u is string => !!u?.startsWith('http') && !isAggregator(u));
+    // Tier 1: trusted ATS with a specific job path
+    const atsSpecific = candidates.find(u => isATS(u) && isSpecificJobPage(u));
+    if (atsSpecific) return atsSpecific;
+    // Tier 2: company domain with a specific job path
+    const companySpecific = candidates.find(u => domainMatchesCompany(u, company) && isSpecificJobPage(u));
+    if (companySpecific) return companySpecific;
+    // Tier 3: first non-aggregator (caller's checks will filter further)
+    return candidates[0] ?? null;
   } catch { return null; } finally { clearTimeout(timer); }
 }
 
@@ -140,7 +147,7 @@ async function main() {
   await pMap(rows, async (job) => {
     const city  = extractCity(job.location);
     const query = [job.title, job.company, city].filter(Boolean).join(' ');
-    const url   = await searchSearXNG(query);
+    const url   = await searchSearXNG(query, job.company);
 
     if (url && isSpecificJobPage(url) && domainMatchesCompany(url, job.company)) {
       updated++;
