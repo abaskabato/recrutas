@@ -430,6 +430,48 @@ async function fetchHtml(url: string, timeoutMs = 5_000): Promise<string | null>
   finally { clearTimeout(timer); }
 }
 
+// Scrape careers page to find exact job by title
+async function scrapeForExactJob(careersUrl: string, title: string, location?: string): Promise<string | null> {
+  try {
+    const html = await fetchHtml(careersUrl, 2500);
+    if (!html) return null;
+    
+    const searchTitle = title.toLowerCase();
+    const words = searchTitle.split(/\s+/).filter(w => w.length > 2);
+    
+    // Look for job links near title text
+    const jobLinkPattern = /href="([^"]*(?:\/jobs\/|\/job\/|\/position\/)[^"]+)"/gi;
+    
+    for (const match of html.matchAll(jobLinkPattern)) {
+      const url = match[1];
+      if (!url || AGGREGATOR_PATTERN.test(url)) continue;
+      
+      // Get surrounding text
+      const idx = match.index || 0;
+      const contextStart = Math.max(0, idx - 100);
+      const contextEnd = Math.min(html.length, idx + url.length + 100);
+      const context = html.substring(contextStart, contextEnd).toLowerCase();
+      
+      // Count matching keywords
+      const hits = words.filter(w => context.includes(w)).length;
+      if (hits >= Math.min(2, words.length)) {
+        return url.startsWith('http') ? url : new URL(url, careersUrl).href;
+      }
+    }
+    
+    // Also check for job ID in URL matching title keywords
+    for (const word of words) {
+      if (word.length > 4 && html.toLowerCase().includes(word)) {
+        const urlMatch = html.match(new RegExp(`href="([^"]*${word}[^"]*)"`));
+        if (urlMatch?.[1] && !AGGREGATOR_PATTERN.test(urlMatch[1])) {
+          return urlMatch[1];
+        }
+      }
+    }
+  } catch { return null; }
+  return null;
+}
+  
 function extractPageTitle(html: string): string {
   const t   = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] ?? '';
   const og  = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i)?.[1] ?? '';
@@ -682,7 +724,7 @@ async function analyzeCareersPage(homepage: string): Promise<CareersPageAnalysis
 
 // ─── URL extraction from description text ────────────────────────────────────
 
-const AGGREGATOR_PATTERN = /adzuna|indeed|linkedin|glassdoor|ziprecruiter|monster|simplyhired|careerjet/i;
+const AGGREGATOR_PATTERN = /adzuna|indeed|linkedin|glassdoor|ziprecruiter|monster|simplyhired|careerjet|themuse|weworkremotely|jobget|jobleads|applytojob|hosa/i;
 
 // Specific ATS deep-link patterns — highest priority, return atsType for trust scoring
 const ATS_SPECIFIC_PATTERNS: Array<{ atsType: AtsType; re: RegExp }> = [
@@ -716,6 +758,7 @@ interface DescriptionHit {
 }
 
 function extractUrlFromDescription(description: string): DescriptionHit | null {
+  // 1. ATS-specific URLs first (highest quality)
   for (const { atsType, re } of ATS_SPECIFIC_PATTERNS) {
     const m = description.match(re);
     if (m && !AGGREGATOR_PATTERN.test(m[0])) return { url: m[0], atsType };
@@ -724,6 +767,29 @@ function extractUrlFromDescription(description: string): DescriptionHit | null {
     const m = description.match(re);
     if (m && !AGGREGATOR_PATTERN.test(m[0])) return { url: m[0] };
   }
+  
+  // 2. Any URL that looks like a job posting
+  const jobUrlPatterns = [
+    /https?:\/\/[^"\s]+(?:\/jobs|\/job|\/position|\/vacancy|\/careers|\/apply)[^"\s]*/i,
+    /https?:\/\/[^"\s]*\/[\w-]+-\d{5,}[^"\s]*/i,
+    /https?:\/\/careers\/[^"\s]+/i,
+    /https?:\/\/[^\s"\?]*\/job\/[^\s"\?]+/i,
+    // Look for redirect/track URLs
+    /https?:\/\/[^\s]+redirect[^\s]*/i,
+  ];
+  
+  for (const pattern of jobUrlPatterns) {
+    const match = description.match(pattern);
+    if (match && !AGGREGATOR_PATTERN.test(match[0])) {
+      const url = match[0];
+      // Filter out obvious non-job URLs
+      if (url.length < 20 || url.match(/\.(pdf|doc|jpg|png)$/i)) continue;
+      return { url };
+    }
+  }
+  }
+  
+  // 3. Generic careers pages
   for (const pattern of GENERIC_CAREERS_PATTERNS) {
     for (const match of description.matchAll(pattern)) {
       if (!AGGREGATOR_PATTERN.test(match[0])) return { url: match[0] };
@@ -742,7 +808,7 @@ export interface ResolveInput {
   description?: string;
 }
 
-export type ResolvedVia = 'ats' | 'careers_page' | 'description' | 'fallback';
+export type ResolvedVia = 'ats' | 'careers_page' | 'description' | 'fallback' | 'scraped' | 'existing';
 
 export interface ResolveResult {
   url:         string;
@@ -785,6 +851,11 @@ export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveRes
     // 3. Known careers page from catalog (staffing / healthcare / no-public-ATS companies)
     const entry = await lookupCatalogEntry(input.company);
     if (entry?.careersUrl) {
+      // Try to scrape exact job from careers page
+      const scrapedJob = await scrapeForExactJob(entry.careersUrl, input.title, input.location);
+      if (scrapedJob) {
+        return { url: scrapedJob, resolved: true, resolvedVia: 'scraped', score: 0.8 };
+      }
       return { url: entry.careersUrl, resolved: true, resolvedVia: 'careers_page' };
     }
 
