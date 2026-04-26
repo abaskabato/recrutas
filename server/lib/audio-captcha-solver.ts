@@ -191,7 +191,7 @@ async function findChallengeFrame(page: Page): Promise<Frame | null> {
 async function transcribeWithGroqWhisper(audioBuffer: Buffer): Promise<string | null> {
   // Groq's audio transcription endpoint expects multipart/form-data
   const formData = new FormData();
-  formData.append('file', new Blob([audioBuffer], { type: 'audio/mp3' }), 'audio.mp3');
+  formData.append('file', new Blob([audioBuffer as unknown as ArrayBuffer], { type: 'audio/mp3' }), 'audio.mp3');
   formData.append('model', 'whisper-large-v3');
   formData.append('response_format', 'json');
   formData.append('language', 'en');
