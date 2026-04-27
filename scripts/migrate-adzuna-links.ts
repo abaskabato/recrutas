@@ -70,7 +70,7 @@ async function getCareersUrl(company: string): Promise<string | null> {
 }
 
 async function main() {
-  const sql = postgres(process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL, { max: 3, prepare: false });
+  const sql = postgres(process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '', { max: 3, prepare: false });
 
   const [{ count }] = await sql<[{ count: string }]>`
     SELECT COUNT(*) as count FROM job_postings
