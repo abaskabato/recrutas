@@ -2,8 +2,8 @@ name: Scrape External Job Boards
 
 on:
   schedule:
-    # Run 4x/day — offset from other crons
-    - cron: '30 0,6,12,18 * * *'
+    # Run 1x/day — Adzuna is now minimized, focus on direct ATS
+    - cron: '30 6 * * *'
   workflow_dispatch:
 
 concurrency:

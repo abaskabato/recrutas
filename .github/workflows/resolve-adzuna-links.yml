@@ -1,6 +1,7 @@
 name: Resolve Adzuna Links
 
 on:
+  # Manual trigger only - for resolving existing Adzuna redirect URLs
   workflow_dispatch:
     inputs:
       dry_run:
@@ -8,7 +9,7 @@ on:
         type: boolean
         default: false
       limit:
-        description: 'Max jobs to process (leave blank for all)'
+        description: 'Max jobs to process (leave blank for all ~10K)'
         type: number
         default: 0
 
