@@ -518,7 +518,7 @@ export class UniversalJobScraper {
   private async runGroq(prompt: string): Promise<string> {
     const chatCompletion = await this.groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      model: 'mixtral-8x7b-32768',
+      model: 'llama-3.3-70b-versatile',
     });
     return chatCompletion.choices[0]?.message?.content || '';
   }

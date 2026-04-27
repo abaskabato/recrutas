@@ -17,6 +17,8 @@ const CONC    = 5;
 
 const domainCache = new Map<string, string | null>();
 
+const TIMEOUT = 8_000;
+
 function cleanCompanyName(company: string): string {
   return company
     .replace(/\bc\/o\b.*/i, '')
