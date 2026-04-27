@@ -51,6 +51,21 @@ const ATS_DOMAINS = [
   'workable.com', 'breezy.hr', 'pinpointhq.com', 'dover.com',
 ];
 
+const ATS_SOURCE_MAP: Array<{ domain: string; source: string }> = [
+  { domain: 'greenhouse.io',      source: 'greenhouse' },
+  { domain: 'lever.co',           source: 'lever' },
+  { domain: 'ashbyhq.com',        source: 'ashby' },
+  { domain: 'workable.com',       source: 'workable' },
+  { domain: 'recruitee.com',      source: 'recruitee' },
+  { domain: 'myworkdayjobs.com',  source: 'workday' },
+  { domain: 'smartrecruiters.com',source: 'smartrecruiters' },
+];
+
+function sourceFromUrl(url: string): string {
+  const lower = url.toLowerCase();
+  return ATS_SOURCE_MAP.find(e => lower.includes(e.domain))?.source ?? 'career_page';
+}
+
 const STOPWORDS = new Set(['the','and','of','in','at','for','a','an','to','inc','llc','corp','co','ltd']);
 
 function isAggregator(url: string): boolean {
@@ -147,7 +162,8 @@ async function main() {
 
   // Count total Adzuna jobs and compute this slice's range
   const [{ total }] = await sql<[{ total: number }]>`
-    SELECT COUNT(*)::int AS total FROM job_postings WHERE source = 'Adzuna'
+    SELECT COUNT(*)::int AS total FROM job_postings
+    WHERE source = 'Adzuna' AND external_url LIKE '%adzuna%'
   `;
   const chunkSize = Math.ceil(total / TOTAL_SLICES);
   const offset    = SLICE * chunkSize;
@@ -160,7 +176,7 @@ async function main() {
   }>>`
     SELECT id, title, company, location
     FROM job_postings
-    WHERE source = 'Adzuna'
+    WHERE source = 'Adzuna' AND external_url LIKE '%adzuna%'
     ORDER BY id
     LIMIT ${chunkSize} OFFSET ${offset}
   `;
@@ -177,7 +193,10 @@ async function main() {
 
     if (url && isSpecificJobPage(url) && domainMatchesCompany(url, job.company)) {
       updated++;
-      if (!DRY_RUN) await sql`UPDATE job_postings SET external_url = ${url} WHERE id = ${job.id}`;
+      const newSource = sourceFromUrl(url);
+      if (!DRY_RUN) await sql`
+        UPDATE job_postings SET external_url = ${url}, source = ${newSource} WHERE id = ${job.id}
+      `;
     } else {
       closed++;
     }

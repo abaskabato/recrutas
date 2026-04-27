@@ -2,6 +2,16 @@ import { weWorkRemotelyService } from './services/we-work-remotely.service';
 import { getProfessions, getProfession, detectProfession, ProfessionConfig } from './config/professions';
 import { SKILL_ALIASES } from './skill-normalizer';
 import { getCareersUrl } from './lib/company-careers-url';
+import { resolveAdzunaLink } from './lib/adzuna-link-resolver';
+
+// Aggregator sources whose URLs go through the link resolver post-merge.
+// Resolved jobs get rewritten source/URL and become feed-eligible. Unresolved
+// jobs keep their aggregator source — they're filtered out of the feed but
+// still mined for company names by the discovery pipeline.
+const AGGREGATOR_SOURCES_TO_RESOLVE = new Set([
+  'Adzuna', 'The Muse', 'JSearch', 'Jooble', 'Indeed',
+  'ArbeitNow', 'USAJobs', 'RemoteOK', 'WeWorkRemotely',
+]);
 
 // Trust scores for different job sources (0-100)
 // Higher scores indicate more trustworthy/verified sources
@@ -891,12 +901,16 @@ export class JobAggregator {
         arr.findIndex(j => j.title === job.title && j.company === job.company) === index
       );
 
+      // Resolve aggregator URLs to direct ATS / company URLs where possible.
+      // Runs after dedup so we don't waste work on duplicate title+company pairs.
+      await this.resolveAggregatorJobs(uniqueJobs);
+
       // Log profession breakdown
       const professionCounts = uniqueJobs.reduce((acc, job) => {
         acc[job.profession] = (acc[job.profession] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      
+
       console.log(`[JobAggregator] After deduplication: ${uniqueJobs.length} unique jobs`);
       console.log(`[JobAggregator] Profession breakdown:`, professionCounts);
 
@@ -905,6 +919,54 @@ export class JobAggregator {
       console.error('[JobAggregator] Error aggregating jobs:', error);
       return [];
     }
+  }
+
+  // Run aggregator jobs through the link resolver. Mutates the input array.
+  // Resolved jobs get their source/URL/trustScore rewritten so they pass the
+  // feed's aggregator-source filter; unresolved jobs are left as-is so the
+  // discovery pipeline can still mine their company names.
+  private async resolveAggregatorJobs(jobs: ExternalJob[]): Promise<void> {
+    const targets = jobs.filter(j => AGGREGATOR_SOURCES_TO_RESOLVE.has(j.source));
+    if (targets.length === 0) return;
+
+    console.log(`[JobAggregator] Resolving ${targets.length} aggregator jobs through link resolver...`);
+
+    const concurrency = 8;
+    let cursor = 0;
+    let resolved = 0;
+
+    const worker = async () => {
+      while (true) {
+        const i = cursor++;
+        if (i >= targets.length) return;
+        const job = targets[i];
+        const result = await resolveAdzunaLink({
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          fallbackUrl: job.externalUrl,
+          description: job.description ?? undefined,
+        });
+        if (result.url && result.url !== job.externalUrl) {
+          job.externalUrl = result.url;
+          if (result.resolvedVia === 'ats' || result.resolvedVia === 'existing') {
+            job.source = result.atsType ?? 'career_page';
+          } else if (
+            result.resolvedVia === 'description' ||
+            result.resolvedVia === 'scraped' ||
+            result.resolvedVia === 'searxng'
+          ) {
+            job.source = 'career_page';
+          }
+          job.trustScore = getSourceTrustScore(job.source);
+          resolved++;
+        }
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
+
+    console.log(`[JobAggregator] Resolved ${resolved}/${targets.length} aggregator URLs to direct links`);
   }
 
   // GitHub Jobs API - completely free, no authentication required
@@ -1068,24 +1130,11 @@ export class JobAggregator {
             const data: AdzunaApiResponse = await response.json();
             const transformedJobs = this.transformAdzunaJobs(data.results || []);
 
-            if (transformedJobs.length > 0) {
-              await Promise.all(transformedJobs.map(async job => {
-                const resolved = await this.resolveAdzunaUrl(job.externalUrl!, job.company);
-                if (resolved) {
-                  job.externalUrl = resolved;
-                } else {
-                  const careersUrl = await getCareersUrl(job.company);
-                  if (careersUrl) job.externalUrl = careersUrl;
-                }
-              }));
-
-              for (let i = 0; i < transformedJobs.length; i++) {
-                const job = transformedJobs[i];
-                const key = `${job.title}::${job.company}`.toLowerCase();
-                if (!seen.has(key)) {
-                  seen.add(key);
-                  allJobs.push(job);
-                }
+            for (const job of transformedJobs) {
+              const key = `${job.title}::${job.company}`.toLowerCase();
+              if (!seen.has(key)) {
+                seen.add(key);
+                allJobs.push(job);
               }
             }
           }

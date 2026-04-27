@@ -370,6 +370,25 @@ function fuzzyTitleScore(target: string, candidate: string): number {
   return Math.max(0, 1 - dist / maxLen);
 }
 
+function pickBestMatch<T extends { title: string; url: string; location?: string }>(
+  target: { title: string; location?: string },
+  candidates: T[],
+): { item: T; score: number } | null {
+  let best: { item: T; score: number } | null = null;
+  for (const c of candidates) {
+    let score = titleScore(target.title, c.title);
+    const fuzzy = fuzzyTitleScore(target.title, c.title);
+    score = Math.max(score, fuzzy * 0.8);
+    if (target.location && c.location) {
+      // soft penalty for known mismatch — half the bonus, so it only matters near the threshold
+      if (locationOverlap(target.location, c.location)) score += 0.1;
+      else score -= 0.05;
+    }
+    if (!best || score > best.score) best = { item: c, score };
+  }
+  return best;
+}
+
 // ─── homepage resolver ────────────────────────────────────────────────────────
 
 const AGGREGATOR_DOMAINS = new Set([
@@ -383,9 +402,9 @@ const AGGREGATOR_DOMAINS = new Set([
   'recruitee','workable','breezy','veterans',
   // Extended job boards
   'themuse','weworkremotely','jobget','jobleads','applytojob','hosa',
-  'careerjet','careerbliss','idealist','dice','cybercoders',
+  'careerjet','careerbliss','idealist','cybercoders',
   'jobdiagnosis','recruitifi','higheredjobs','healthcare',
-  'medicists','healthjob','nurserecruiter',' mdjobs','doccafe',
+  'medicists','healthjob','nurserecruiter','mdjobs','doccafe',
   'jobilero','workopolis','careercast','careerfocus',
 ]);
 
@@ -511,19 +530,26 @@ async function resolveHomepageUncached(companyName: string): Promise<string | nu
     } finally { clearTimeout(timer); }
   } catch { /* fall through */ }
 
-  // 2. Domain-guess fallback — only runs if Clearbit missed
+  // 2. Domain-guess fallback — only runs if Clearbit missed.
+  // Build all candidate URLs, fire fetches in parallel, return first valid in priority order.
   const tlds = ['.com', '.io', '.ai', '.co', '.net'];
+  const candidates: string[] = [];
   for (const cand of domainCandidates(cleaned)) {
     for (const tld of tlds) {
       for (const prefix of ['https://www.', 'https://']) {
-        // skip www. for short tlds that rarely use it
         if (prefix === 'https://www.' && (tld === '.ai' || tld === '.io')) continue;
-        const url = `${prefix}${cand}${tld}`;
-        const html = await fetchHtml(url);
-        if (html && pageTitleValidates(tokens, extractPageTitle(html))) return url;
+        candidates.push(`${prefix}${cand}${tld}`);
       }
     }
   }
+  const settled = await Promise.all(
+    candidates.map(async url => {
+      const html = await fetchHtml(url);
+      return html && pageTitleValidates(tokens, extractPageTitle(html)) ? url : null;
+    }),
+  );
+  const found = settled.find((u): u is string => u !== null);
+  if (found) return found;
 
   return null;
 }
@@ -778,7 +804,6 @@ const ATS_GENERIC_PATTERNS: Array<RegExp> = [
   /https?:\/\/[\w-]+\.kellyservices\.com\/[\w-]+/i,
   /https?:\/\/[\w-]+\.adeccousa\.com\/[\w-]+/i,
   /https?:\/\/[\w-]+\.manpower\.com\/[\w-]+/i,
-  /https?:\/\/[\w-]+\.天天工作\.com\/[\w-]+/i,
 ];
 
 // Generic careers-page patterns — last resort
@@ -788,55 +813,145 @@ const GENERIC_CAREERS_PATTERNS: Array<RegExp> = [
 ];
 
 interface DescriptionHit {
-  url:      string;
-  atsType?: AtsType;
+  url:        string;
+  atsType?:   AtsType;
+  confidence: number;
 }
 
 function extractUrlFromDescription(description: string): DescriptionHit | null {
   // 1. ATS-specific URLs first (highest quality)
   for (const { atsType, re } of ATS_SPECIFIC_PATTERNS) {
     const m = description.match(re);
-    if (m && !AGGREGATOR_PATTERN.test(m[0])) return { url: m[0], atsType };
+    if (m && !AGGREGATOR_PATTERN.test(m[0])) return { url: m[0], atsType, confidence: 0.95 };
   }
-  
+
   // 2. Generic ATS platforms
   for (const re of ATS_GENERIC_PATTERNS) {
     const m = description.match(re);
-    if (m && !AGGREGATOR_PATTERN.test(m[0])) return { url: m[0] };
+    if (m && !AGGREGATOR_PATTERN.test(m[0])) return { url: m[0], confidence: 0.85 };
   }
-  
+
   // 3. Look for any URL with job-like patterns (most likely to be exact job)
   const jobUrlPatterns = [
-    // Direct job paths
     /https?:\/\/[^\s"<>]*(?:\/jobs\/|\/job\/|\/position\/|\/vacancy\/|\/apply\/|\/careers\/)[^\s"<>]*/gi,
-    // URLs with job IDs (numeric patterns)
     /https?:\/\/[^\s"<>]*\/[a-z0-9-]+-\d{5,}[^\s"<>]*/gi,
-    // Indeed-style redirect URLs
     /https?:\/\/[^\s"<>]*\/rc\/[^\s"<>]*/gi,
-    // Job board specific patterns
     /https?:\/\/[^\s"<>]*\/viewjob[^\s"<>]*/gi,
     /https?:\/\/[^\s"<>]*\/jobs\/[^\s"<>]*/gi,
   ];
-  
+
   for (const pattern of jobUrlPatterns) {
     for (const match of description.matchAll(pattern)) {
       const url = match[0];
       if (!url || AGGREGATOR_PATTERN.test(url)) continue;
-      // Skip very short URLs or obvious non-job URLs
       if (url.length < 25) continue;
       if (url.match(/\.(pdf|doc|docx|jpg|jpeg|png|gif|svg)$/i)) continue;
       if (url.includes(' unsubscribe') || url.includes('mailchi')) continue;
-      return { url };
+      return { url, confidence: 0.7 };
     }
   }
-  
+
   // 4. Generic careers pages as fallback
   for (const pattern of GENERIC_CAREERS_PATTERNS) {
     for (const match of description.matchAll(pattern)) {
-      if (!AGGREGATOR_PATTERN.test(match[0])) return { url: match[0] };
+      if (!AGGREGATOR_PATTERN.test(match[0])) return { url: match[0], confidence: 0.4 };
     }
   }
   return null;
+}
+
+// ─── SearXNG fallback search ──────────────────────────────────────────────────
+// Opt-in via SEARXNG_URL. Used as a final resort when prior steps couldn't find
+// a specific job URL — e.g. small employers without a public ATS or homepage.
+
+const SEARXNG_STOPWORDS = new Set([
+  'the','and','of','in','at','for','a','an','to',
+  'inc','llc','corp','co','ltd','company','group',
+]);
+
+const GENERIC_PATH_TERMINALS = new Set([
+  'careers','jobs','apply','search','browse','openings',
+  'opportunities','positions','vacancies','listing','explore',
+]);
+
+const NON_HTML_EXT_RE = /\.(pdf|doc|docx|csv|xls|xlsx|ppt|pptx|txt)(?:\?|$)/i;
+
+function urlDomainMatchesCompany(url: string, company: string): boolean {
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const tokens = company.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+      .filter(t => t.length >= 4 && !SEARXNG_STOPWORDS.has(t));
+    return tokens.some(t => domain.includes(t));
+  } catch { return false; }
+}
+
+function urlIsSpecificJobPage(url: string): boolean {
+  try {
+    if (NON_HTML_EXT_RE.test(url)) return false;
+    const path = new URL(url).pathname.split('/').filter(Boolean);
+    if (path.length < 2) return false;
+    const last = path[path.length - 1].toLowerCase();
+    if (GENERIC_PATH_TERMINALS.has(last)) return false;
+    return path.some(seg => /\d{4,}/.test(seg) || /^[0-9a-f-]{36}$/i.test(seg) || seg.length >= 20);
+  } catch { return false; }
+}
+
+function urlIsAggregator(url: string): boolean {
+  if (AGGREGATOR_PATTERN.test(url)) return true;
+  try {
+    return isAggregatorDomain(new URL(url).hostname);
+  } catch { return false; }
+}
+
+function extractCity(location: string | undefined): string | null {
+  if (!location) return null;
+  const first = location.split(',')[0].trim();
+  if (!first || /^(remote|united states|us|usa|anywhere)$/i.test(first)) return null;
+  return first;
+}
+
+async function searchViaSearXNG(input: ResolveInput): Promise<ResolveResult | null> {
+  const base = process.env.SEARXNG_URL?.replace(/\/$/, '');
+  if (!base) return null;
+
+  const city = extractCity(input.location);
+  const query = [input.title, input.company, city].filter(Boolean).join(' ');
+  const url = `${base}/search?q=${encodeURIComponent(query)}&format=json&language=en-US`;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8_000);
+  try {
+    const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: ctrl.signal });
+    if (!r.ok) return null;
+    const json = await r.json() as { results?: Array<{ url?: string }> };
+    const candidates = (json.results ?? [])
+      .map(x => x.url)
+      .filter((u): u is string => !!u && u.startsWith('http') && !urlIsAggregator(u));
+
+    // Tier 1: ATS-specific URL — high confidence (typed match)
+    for (const u of candidates) {
+      for (const { atsType, re } of ATS_SPECIFIC_PATTERNS) {
+        if (re.test(u)) return { url: u, resolved: true, resolvedVia: 'ats', atsType, confidence: 0.9 };
+      }
+    }
+    // Tier 2: Generic ATS platform URL — still high confidence, but no atsType
+    for (const u of candidates) {
+      for (const re of ATS_GENERIC_PATTERNS) {
+        if (re.test(u)) return { url: u, resolved: true, resolvedVia: 'ats', confidence: 0.8 };
+      }
+    }
+    // Tier 3: Company-domain URL with a job-id-shaped path
+    for (const u of candidates) {
+      if (urlDomainMatchesCompany(u, input.company) && urlIsSpecificJobPage(u)) {
+        return { url: u, resolved: true, resolvedVia: 'searxng', confidence: 0.7 };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ─── public API ───────────────────────────────────────────────────────────────
@@ -849,7 +964,7 @@ export interface ResolveInput {
   description?: string;
 }
 
-export type ResolvedVia = 'ats' | 'careers_page' | 'description' | 'scraped' | 'existing' | 'fallback';
+export type ResolvedVia = 'ats' | 'careers_page' | 'description' | 'scraped' | 'existing' | 'searxng' | 'fallback';
 
 export interface ResolveResult {
   url:         string;
@@ -857,23 +972,23 @@ export interface ResolveResult {
   resolvedVia: ResolvedVia;
   atsType?:    AtsType;
   score?:      number;
+  /** 0..1 — how certain we are this URL is right for the *specific* job. Callers can threshold this. */
+  confidence:  number;
 }
 
 export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveResult> {
-  const fallback: ResolveResult = { url: input.fallbackUrl, resolved: false, resolvedVia: 'fallback' };
+  const fallback: ResolveResult = { url: input.fallbackUrl, resolved: false, resolvedVia: 'fallback', confidence: 0 };
   try {
     // 0. Check if already has an exact ATS URL (from previous processing or external data)
     if (input.fallbackUrl && !AGGREGATOR_PATTERN.test(input.fallbackUrl)) {
-      // Check if it's an ATS-specific URL
       for (const { atsType, re } of ATS_SPECIFIC_PATTERNS) {
         if (re.test(input.fallbackUrl)) {
-          return { url: input.fallbackUrl, resolved: true, resolvedVia: 'existing', atsType };
+          return { url: input.fallbackUrl, resolved: true, resolvedVia: 'existing', atsType, confidence: 1.0 };
         }
       }
-      // Check if it's a generic ATS URL
       for (const re of ATS_GENERIC_PATTERNS) {
         if (re.test(input.fallbackUrl)) {
-          return { url: input.fallbackUrl, resolved: true, resolvedVia: 'existing' };
+          return { url: input.fallbackUrl, resolved: true, resolvedVia: 'existing', confidence: 0.85 };
         }
       }
     }
@@ -881,17 +996,9 @@ export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveRes
     // 1. ATS deep-link via catalog / DB
     const info = await getCompanyCached(input.company);
     if (info.atsType && info.jobs.length > 0) {
-      let best: { job: AtsJob; score: number } | null = null;
-      for (const job of info.jobs) {
-        let score = titleScore(input.title, job.title);
-        // Also try fuzzy matching for partial matches
-        const fuzzy = fuzzyTitleScore(input.title, job.title);
-        score = Math.max(score, fuzzy * 0.8);
-        if (locationOverlap(input.location, job.location)) score += 0.1;
-        if (!best || score > best.score) best = { job, score };
-      }
+      const best = pickBestMatch({ title: input.title, location: input.location }, info.jobs);
       if (best && best.score >= MATCH_THRESHOLD) {
-        return { url: best.job.url, resolved: true, resolvedVia: 'ats', atsType: info.atsType, score: best.score };
+        return { url: best.item.url, resolved: true, resolvedVia: 'ats', atsType: info.atsType, score: best.score, confidence: Math.min(1, best.score) };
       }
     }
 
@@ -904,6 +1011,7 @@ export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveRes
           resolved: true,
           resolvedVia: hit.atsType ? 'ats' : 'description',
           atsType: hit.atsType,
+          confidence: hit.confidence,
         };
       }
     }
@@ -911,10 +1019,11 @@ export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveRes
     // 3. Known careers page from catalog (staffing / healthcare / no-public-ATS companies)
     const entry = await lookupCatalogEntry(input.company);
     if (entry?.careersUrl) {
-      return { url: entry.careersUrl, resolved: true, resolvedVia: 'careers_page' };
+      return { url: entry.careersUrl, resolved: true, resolvedVia: 'careers_page', confidence: 0.7 };
     }
 
-    // 4. Clearbit → domain guess → careers page analysis (ATS embed + JSON-LD) → deep-link or /careers
+    // 4. Clearbit → domain guess → careers page analysis (ATS embed + JSON-LD) → deep-link
+    let careersFallback: ResolveResult | null = null;
     const homepage = await resolveHomepage(input.company);
     if (homepage) {
       const base = homepage.replace(/\/$/, '');
@@ -924,35 +1033,31 @@ export async function resolveAdzunaLink(input: ResolveInput): Promise<ResolveRes
       if (analysis?.embed) {
         const jobs = await listAtsJobs(analysis.embed.atsType, analysis.embed.atsId);
         if (jobs.length > 0) {
-          let best: { job: AtsJob; score: number } | null = null;
-          for (const job of jobs) {
-            let score = titleScore(input.title, job.title);
-            const fuzzy = fuzzyTitleScore(input.title, job.title);
-            score = Math.max(score, fuzzy * 0.8);
-            if (locationOverlap(input.location, job.location)) score += 0.1;
-            if (!best || score > best.score) best = { job, score };
-          }
+          const best = pickBestMatch({ title: input.title, location: input.location }, jobs);
           if (best && best.score >= MATCH_THRESHOLD) {
-            return { url: best.job.url, resolved: true, resolvedVia: 'ats', atsType: analysis.embed.atsType, score: best.score };
+            return { url: best.item.url, resolved: true, resolvedVia: 'ats', atsType: analysis.embed.atsType, score: best.score, confidence: Math.min(1, best.score) };
           }
         }
       }
 
       // 4b. JSON-LD JobPosting on the careers page → title-match
       if (analysis?.jsonLdJobs.length) {
-        let best: { url: string; score: number } | null = null;
-        for (const j of analysis.jsonLdJobs) {
-          const score = titleScore(input.title, j.title);
-          if (!best || score > best.score) best = { url: j.url, score };
-        }
+        const best = pickBestMatch({ title: input.title, location: input.location }, analysis.jsonLdJobs);
         if (best && best.score >= MATCH_THRESHOLD) {
-          return { url: best.url, resolved: true, resolvedVia: 'ats', score: best.score };
+          return { url: best.item.url, resolved: true, resolvedVia: 'ats', score: best.score, confidence: Math.min(1, best.score) };
         }
       }
 
-      return { url: `${base}/careers`, resolved: true, resolvedVia: 'careers_page' };
+      // Hold the generic /careers landing as a low-confidence option; SearXNG may beat it.
+      careersFallback = { url: `${base}/careers`, resolved: true, resolvedVia: 'careers_page', confidence: 0.3 };
     }
 
+    // 5. SearXNG search — opt-in via SEARXNG_URL. Final resort for hard cases
+    //    (small regional employers, staffing, gov entities) before falling back.
+    const searxngHit = await searchViaSearXNG(input);
+    if (searxngHit) return searxngHit;
+
+    if (careersFallback) return careersFallback;
     return fallback;
   } catch {
     return fallback;
@@ -967,7 +1072,7 @@ export async function resolveAdzunaLinksBatch(
   const timeoutMs   = opts?.timeoutMs ?? 12_000;
 
   const results: ResolveResult[] = items.map(i => ({
-    url: i.fallbackUrl, resolved: false, resolvedVia: 'fallback' as ResolvedVia,
+    url: i.fallbackUrl, resolved: false, resolvedVia: 'fallback' as ResolvedVia, confidence: 0,
   }));
 
   let cursor = 0;

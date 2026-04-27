@@ -96,7 +96,7 @@ async function main() {
     lastId = jobs[jobs.length - 1].id;
 
     // Resolve concurrently using our resolver
-    const updates: Array<{ id: number; url: string }> = [];
+    const updates: Array<{ id: number; url: string; newSource: string | null }> = [];
     for (let i = 0; i < jobs.length; i += CONC) {
       const slice = jobs.slice(i, i + CONC);
       const results = await Promise.all(slice.map(async (j) => {
@@ -107,14 +107,23 @@ async function main() {
           fallbackUrl: j.external_url,
           description: j.description ?? undefined,
         });
-        return { id: j.id, originalUrl: j.external_url, url: result.url, isExact: result.resolvedVia === 'ats' || result.resolvedVia === 'existing' };
+        return { id: j.id, originalUrl: j.external_url, url: result.url, via: result.resolvedVia, atsType: result.atsType };
       }));
       for (const r of results) {
-        // Only update if resolved and different from original
         if (r.url && r.url !== r.originalUrl) {
-          updates.push({ id: r.id, url: r.url });
-          if (r.isExact) exact++;
-          else careers++;
+          // Compute new source — only for resolutions that land on a specific job page
+          let newSource: string | null = null;
+          if (r.via === 'ats' || r.via === 'existing') {
+            newSource = r.atsType ?? 'career_page';
+            exact++;
+          } else if (r.via === 'description' || r.via === 'scraped') {
+            newSource = 'career_page';
+            careers++;
+          } else {
+            // careers_page → URL updated but source stays Adzuna (homepage, not a job post)
+            careers++;
+          }
+          updates.push({ id: r.id, url: r.url, newSource });
         } else {
           fallback++;
         }
@@ -124,9 +133,28 @@ async function main() {
     processed += jobs.length;
 
     if (!DRY_RUN && updates.length > 0) {
-      await Promise.all(
-        updates.map(u => sql`UPDATE job_postings SET external_url = ${u.url} WHERE id = ${u.id}`)
-      );
+      // Bulk update external_url for all resolved jobs
+      const ids  = updates.map(u => u.id);
+      const urls = updates.map(u => u.url);
+      await sql`
+        UPDATE job_postings AS jp
+        SET external_url = v.url
+        FROM unnest(${sql.array(ids)}::int[], ${sql.array(urls)}::text[]) AS v(id, url)
+        WHERE jp.id = v.id
+      `;
+
+      // Separately update source for jobs with a meaningful job-post URL
+      const sourced = updates.filter(u => u.newSource !== null);
+      if (sourced.length > 0) {
+        const sIds     = sourced.map(u => u.id);
+        const sSources = sourced.map(u => u.newSource as string);
+        await sql`
+          UPDATE job_postings AS jp
+          SET source = v.source
+          FROM unnest(${sql.array(sIds)}::int[], ${sql.array(sSources)}::text[]) AS v(id, source)
+          WHERE jp.id = v.id
+        `;
+      }
     }
 
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
@@ -140,6 +168,41 @@ async function main() {
   console.log(`Exact Job URLs: ${exact}/${processed} (${((exact / processed) * 100).toFixed(1)}%)`);
   console.log(`Careers Pages: ${careers}`);
   console.log(`Fallback: ${fallback}`);
+
+  // Retroactive pass: jobs already resolved (no adzuna URL) but source still 'Adzuna'
+  console.log('\nRetroactive source fix...');
+  const ATS_URL_PATTERNS: Array<{ source: string; re: RegExp }> = [
+    { source: 'greenhouse', re: /https?:\/\/(?:boards\.)?[\w-]+\.greenhouse\.io\//i },
+    { source: 'lever',      re: /https?:\/\/jobs\.(?:eu\.)?lever\.co\//i },
+    { source: 'ashby',      re: /https?:\/\/(?:jobs\.ashbyhq\.com|[\w-]+\.ashbyhq\.com)\//i },
+    { source: 'workable',   re: /https?:\/\/apply\.workable\.com\//i },
+    { source: 'recruitee',  re: /https?:\/\/[\w-]+\.recruitee\.com\//i },
+  ];
+
+  const stale = await sql<Array<{ id: number; external_url: string }>>`
+    SELECT id, external_url FROM job_postings
+    WHERE source = 'Adzuna' AND external_url NOT LIKE '%adzuna%'
+  `;
+  console.log(`Found ${stale.length} already-resolved jobs still tagged Adzuna`);
+
+  if (!DRY_RUN && stale.length > 0) {
+    const rIds: number[] = [];
+    const rSources: string[] = [];
+    for (const j of stale) {
+      const match = ATS_URL_PATTERNS.find(p => p.re.test(j.external_url));
+      rIds.push(j.id);
+      rSources.push(match ? match.source : 'career_page');
+    }
+    await sql`
+      UPDATE job_postings AS jp
+      SET source = v.source
+      FROM unnest(${sql.array(rIds)}::int[], ${sql.array(rSources)}::text[]) AS v(id, source)
+      WHERE jp.id = v.id
+    `;
+    console.log(`Updated source for ${rIds.length} retroactive jobs`);
+  } else if (DRY_RUN) {
+    console.log('DRY RUN — skipping retroactive writes');
+  }
 
   await sql.end();
 }
