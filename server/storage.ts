@@ -220,6 +220,19 @@ export interface IStorage {
 // Sources that publish directly from company ATSs (not aggregators)
 const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
 
+// Job board aggregators — excluded from the candidate feed (links don't go to actual job pages)
+const AGGREGATOR_SOURCES = new Set(['Adzuna', 'JSearch', 'Jooble', 'Indeed', 'ArbeitNow', 'USAJobs']);
+// URL patterns that identify aggregator apply links
+const AGGREGATOR_URL_PATTERNS = ['adzuna', 'jooble', 'jsearch', 'indeed.com', 'usajobs.gov', 'arbeitnow'];
+// SQL fragment: exclude any external_url that routes through an aggregator
+const aggregatorUrlExclusion = sql`(
+  ${jobPostings.externalUrl} IS NULL
+  OR NOT (${sql.join(
+    AGGREGATOR_URL_PATTERNS.map(p => sql`${jobPostings.externalUrl} ILIKE ${'%' + p + '%'}`),
+    sql` OR `
+  )})
+)`;
+
 /**
  * Database Storage Implementation
  *
@@ -581,8 +594,12 @@ export class DatabaseStorage implements IStorage {
           sql`${jobPostings.source} = 'external'`,
           sql`${jobPostings.externalUrl} IS NOT NULL`
         ),
-        // Exclude ArbeitNow jobs (European job board)
-        sql`${jobPostings.source} != 'ArbeitNow'`,
+        // Exclude all aggregator sources — links don't go to actual job post pages
+        sql`${jobPostings.source} NOT IN (${sql.join(
+          [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
+        )})`,
+        // Exclude any external_url that still routes through an aggregator
+        aggregatorUrlExclusion,
         or(
           sql`${jobPostings.expiresAt} IS NULL`,
           sql`${jobPostings.expiresAt} > NOW()`
@@ -777,8 +794,11 @@ export class DatabaseStorage implements IStorage {
             eq(jobPostings.source, 'platform'),
             sql`${jobPostings.createdAt} > ${cutoffDateStr}`
           ),
-          // Exclude ArbeitNow jobs (European job board)
-          sql`${jobPostings.source} != 'ArbeitNow'`,
+          // Exclude all aggregator sources
+          sql`${jobPostings.source} NOT IN (${sql.join(
+            [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
+          )})`,
+          aggregatorUrlExclusion,
           // Exclude hidden and applied-to jobs
           ...(excludeIds.length > 0
             ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
@@ -904,7 +924,10 @@ export class DatabaseStorage implements IStorage {
         eq(jobPostings.source, 'platform'),
         sql`${jobPostings.createdAt} > ${cutoffDateStr}`
       ),
-      sql`${jobPostings.source} != 'ArbeitNow'`,
+      sql`${jobPostings.source} NOT IN (${sql.join(
+        [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
+      )})`,
+      aggregatorUrlExclusion,
       ...(excludeIds.length > 0
         ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
         : []),
@@ -933,6 +956,8 @@ export class DatabaseStorage implements IStorage {
 
       // pgvector ANN retrieval — top 200 by cosine distance
       // Return cosine_dist so scoreJob can use pre-computed similarity (avoids JSON.parse of 8KB text per row)
+      const aggregatorList = [...AGGREGATOR_SOURCES].map(s => `'${s}'`).join(', ');
+      const aggregatorUrlList = AGGREGATOR_URL_PATTERNS.map(p => `external_url ILIKE '%${p}%'`).join(' OR ');
       const vectorRows = await client`
         SELECT id, (embedding <=> ${vectorStr}::vector) as cosine_dist FROM job_postings
         WHERE status = 'active'
@@ -941,7 +966,8 @@ export class DatabaseStorage implements IStorage {
           AND (liveness_status IN ('active', 'unknown') OR source = 'platform')
           AND (ghost_job_score IS NULL OR ghost_job_score < 60 OR source = 'platform')
           AND (source = 'platform' OR created_at > ${cutoffDateStr})
-          AND source != 'ArbeitNow'
+          AND source NOT IN (${sql.raw(aggregatorList)})
+          AND (external_url IS NULL OR NOT (${sql.raw(aggregatorUrlList)}))
           ${excludeClause}
           ${titleFilter}
           ${locationFilter}
