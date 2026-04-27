@@ -67,7 +67,15 @@ async function main() {
   console.log(`\nPhase 1: ${resolved} resolved, ${stillAdzuna} still Adzuna`);
 
   if (!DRY_RUN && updates.length > 0) {
-    await Promise.all(updates.map(u => sql`UPDATE job_postings SET external_url = ${u.url} WHERE id = ${u.id}`));
+    // Bulk update via unnest — one round trip instead of N
+    const ids  = updates.map(u => u.id);
+    const urls = updates.map(u => u.url);
+    await sql`
+      UPDATE job_postings AS jp
+      SET external_url = v.url
+      FROM unnest(${sql.array(ids)}::int[], ${sql.array(urls)}::text[]) AS v(id, url)
+      WHERE jp.id = v.id
+    `;
   }
 
   // --- PHASE 2: Scrape ATS companies ---

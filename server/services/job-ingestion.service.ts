@@ -89,145 +89,96 @@ function getSourceTrustScore(source: string): number {
 export class JobIngestionService {
   async ingestExternalJobs(jobs: ExternalJobInput[]): Promise<{ inserted: number; duplicates: number; errors: number; skippedNonUS: number }> {
     const stats = { inserted: 0, duplicates: 0, errors: 0, skippedNonUS: 0 };
-
     console.log(`[JobIngestion] Processing ${jobs.length} external jobs...`);
 
-    // Ensure system user exists before inserting any jobs
     const systemUserId = await ensureSystemUserExists();
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + 60);
 
-    for (const job of jobs) {
-      // Skip non-US jobs (platform is US-only)
-      if (!isUSLocation(job.location)) {
-        stats.skippedNonUS++;
-        continue;
+    // Filter non-US up front
+    const usJobs = jobs.filter(job => {
+      if (!isUSLocation(job.location)) { stats.skippedNonUS++; return false; }
+      return true;
+    });
+
+    // Assign deterministic externalIds
+    const prepared = usJobs.map(job => ({
+      ...job,
+      effectiveExternalId: job.externalId || createHash('sha1')
+        .update(`${job.title ?? ''}:${job.company ?? ''}:${job.location ?? ''}`)
+        .digest('hex')
+        .slice(0, 16),
+    }));
+
+    // ── Bulk dedup: one query to find all already-existing (externalId, source) pairs ──
+    const CHUNK = 500;
+    for (let i = 0; i < prepared.length; i += CHUNK) {
+      const chunk = prepared.slice(i, i + CHUNK);
+
+      // Build a VALUES list for the dedup lookup
+      const pairs = chunk.map(j => `(${sql.raw(`'${j.effectiveExternalId.replace(/'/g, "''")}'`)}, ${sql.raw(`'${(j.source ?? 'unknown').replace(/'/g, "''")}'`)})`);
+      const existingRows = await db.execute(sql.raw(`
+        SELECT external_id, source FROM job_postings
+        WHERE (external_id, source) IN (${chunk.map(j =>
+          `('${j.effectiveExternalId.replace(/'/g, "''")}', '${(j.source ?? 'unknown').replace(/'/g, "''")}')`
+        ).join(', ')})
+      `));
+      const existingSet = new Set(
+        (existingRows as any[]).map((r: any) => `${r.external_id}::${r.source}`)
+      );
+
+      const toInsert = chunk.filter(j => !existingSet.has(`${j.effectiveExternalId}::${j.source ?? 'unknown'}`));
+      const toUpdate = chunk.filter(j => existingSet.has(`${j.effectiveExternalId}::${j.source ?? 'unknown'}`));
+
+      // Bulk update liveness for existing jobs
+      if (toUpdate.length > 0) {
+        await db.execute(sql.raw(`
+          UPDATE job_postings SET
+            liveness_status = 'active',
+            last_liveness_check = NOW(),
+            updated_at = NOW()
+          WHERE (external_id, source) IN (${toUpdate.map(j =>
+            `('${j.effectiveExternalId.replace(/'/g, "''")}', '${(j.source ?? 'unknown').replace(/'/g, "''")}')`
+          ).join(', ')})
+        `));
+        stats.duplicates += toUpdate.length;
       }
-      try {
-        // Deterministic fallback ID so jobs without an externalId dedup correctly
-        // across scrape runs instead of inserting a duplicate on every run.
-        const effectiveExternalId = job.externalId || createHash('sha1')
-          .update(`${job.title ?? ''}:${job.company ?? ''}:${job.location ?? ''}`)
-          .digest('hex')
-          .slice(0, 16);
 
-        // Use transaction to ensure atomic check-and-insert (prevent race conditions)
-        const result = await db.transaction(async (tx) => {
-          // Check if job already exists (by externalId + source) within transaction
-          const existing = await tx
-            .select()
-            .from(jobPostings)
-            .where(
-              and(
-                eq(jobPostings.externalId, effectiveExternalId),
-                eq(jobPostings.source, job.source ?? 'unknown')
-              )
-            )
-            .limit(1)
-            .for('update', { skipLocked: true }); // Lock row to prevent concurrent modifications
-
-          if (existing.length > 0) {
-            // Update liveness + enrich description/skills if existing record is empty
-            const existingJob = existing[0];
-            const hasNewDescription = job.description && job.description.length > 50 && job.description !== 'No description provided';
-            const existingIsEmpty = !existingJob.description || existingJob.description.length < 50 || existingJob.description === 'No description provided';
-            const enrichmentSet: Record<string, any> = {
-              lastLivenessCheck: new Date(),
-              livenessStatus: 'active',
-              updatedAt: new Date()
-            };
-            if (hasNewDescription && existingIsEmpty) {
-              enrichmentSet.description = job.description;
-              const newSkills = normalizeSkills(job.skills?.length > 0 ? job.skills : extractSkillsFromText(job.description));
-              if (newSkills && newSkills.length > 0) enrichmentSet.skills = newSkills;
-            }
-            await tx
-              .update(jobPostings)
-              .set(enrichmentSet)
-              .where(eq(jobPostings.id, existingJob.id));
-            return 'duplicate';
-          }
-
-          // Content-fingerprint dedup: same title + company from a different source within 30 days
-          const normalizedTitle = job.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-          const normalizedCompany = job.company.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-          const contentDuplicate = await tx
-            .select()
-            .from(jobPostings)
-            .where(
-              and(
-                sql`LOWER(REGEXP_REPLACE(${jobPostings.title}, '[^a-z0-9\\s]', '', 'gi')) = ${normalizedTitle}`,
-                sql`LOWER(REGEXP_REPLACE(${jobPostings.company}, '[^a-z0-9\\s]', '', 'gi')) = ${normalizedCompany}`,
-                sql`${jobPostings.source} != ${job.source}`,
-                gt(jobPostings.createdAt, thirtyDaysAgo)
-              )
-            )
-            .limit(1);
-
-          if (contentDuplicate.length > 0) {
-            const dupJob = contentDuplicate[0];
-            const incomingTrust = getSourceTrustScore(job.source);
-            const existingTrust = dupJob.trustScore ?? 0;
-            if (incomingTrust > existingTrust) {
-              // Upgrade trust score to the higher-trust source
-              await tx
-                .update(jobPostings)
-                .set({ trustScore: incomingTrust, lastLivenessCheck: new Date(), updatedAt: new Date() })
-                .where(eq(jobPostings.id, dupJob.id));
-            } else {
-              // Just refresh liveness timestamp
-              await tx
-                .update(jobPostings)
-                .set({ lastLivenessCheck: new Date(), updatedAt: new Date() })
-                .where(eq(jobPostings.id, dupJob.id));
-            }
-            return 'duplicate';
-          }
-
-          // Calculate trust score and expiration
-          const trustScore = getSourceTrustScore(job.source);
-          const expiresAt = new Date();
-          expiresAt.setDate(expiresAt.getDate() + 60);
-
-          // Insert new external job with valid system user UUID
-          // postgres.js throws UNDEFINED_VALUE for undefined fields — coerce to null
-          await tx.insert(jobPostings).values({
-            talentOwnerId: systemUserId,
-            title: job.title ?? 'Untitled Position',
-            company: job.company ?? 'Unknown Company',
-            location: job.location ?? null,
-            description: job.description ?? 'No description provided',
-            requirements: job.requirements ?? null,
-            skills: normalizeSkills(
-              job.skills?.length > 0 ? job.skills : extractSkillsFromText(job.description)
-            ),
-            workType: job.workType ?? null,
-            salaryMin: job.salaryMin ?? null,
-            salaryMax: job.salaryMax ?? null,
-            source: job.source ?? 'unknown',
-            externalId: effectiveExternalId,
-            externalUrl: job.externalUrl ?? null,
-            trustScore: trustScore,
-            livenessStatus: 'unknown',
-            lastLivenessCheck: new Date(),
-            expiresAt: expiresAt,
-            status: 'active',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-
-          return 'inserted';
-        });
-
-        if (result === 'duplicate') {
-          stats.duplicates++;
-        } else {
-          stats.inserted++;
+      // Bulk insert new jobs using ON CONFLICT DO NOTHING as safety net
+      if (toInsert.length > 0) {
+        try {
+          await db.insert(jobPostings).values(
+            toInsert.map(job => ({
+              talentOwnerId: systemUserId,
+              title: job.title ?? 'Untitled Position',
+              company: job.company ?? 'Unknown Company',
+              location: job.location ?? null,
+              description: job.description ?? 'No description provided',
+              requirements: job.requirements ?? null,
+              skills: normalizeSkills(
+                job.skills?.length > 0 ? job.skills : extractSkillsFromText(job.description)
+              ),
+              workType: job.workType ?? null,
+              salaryMin: job.salaryMin ?? null,
+              salaryMax: job.salaryMax ?? null,
+              source: job.source ?? 'unknown',
+              externalId: job.effectiveExternalId,
+              externalUrl: job.externalUrl ?? null,
+              trustScore: getSourceTrustScore(job.source),
+              livenessStatus: 'unknown' as const,
+              lastLivenessCheck: now,
+              expiresAt,
+              status: 'active' as const,
+              createdAt: now,
+              updatedAt: now,
+            }))
+          ).onConflictDoNothing();
+          stats.inserted += toInsert.length;
+        } catch (error) {
+          console.error(`[JobIngestion] Bulk insert error for chunk ${i}–${i + CHUNK}:`, (error as Error).message);
+          stats.errors += toInsert.length;
         }
-      } catch (error) {
-        console.error(`[JobIngestion] Error ingesting job ${job.title}:`, error);
-        stats.errors++;
       }
     }
 

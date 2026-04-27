@@ -221,9 +221,9 @@ export interface IStorage {
 const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
 
 // Job board aggregators — excluded from the candidate feed (links don't go to actual job pages)
-const AGGREGATOR_SOURCES = new Set(['Adzuna', 'JSearch', 'Jooble', 'Indeed', 'ArbeitNow', 'USAJobs']);
+const AGGREGATOR_SOURCES = new Set(['Adzuna', 'JSearch', 'Jooble', 'Indeed', 'ArbeitNow', 'USAJobs', 'RemoteOK', 'WeWorkRemotely']);
 // URL patterns that identify aggregator apply links
-const AGGREGATOR_URL_PATTERNS = ['adzuna', 'jooble', 'jsearch', 'indeed.com', 'usajobs.gov', 'arbeitnow'];
+const AGGREGATOR_URL_PATTERNS = ['adzuna', 'jooble', 'jsearch', 'indeed.com', 'usajobs.gov', 'arbeitnow', 'remoteok.io', 'weworkremotely.com'];
 // SQL fragment: exclude any external_url that routes through an aggregator
 const aggregatorUrlExclusion = sql`(
   ${jobPostings.externalUrl} IS NULL
