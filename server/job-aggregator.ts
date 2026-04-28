@@ -931,7 +931,7 @@ export class JobAggregator {
 
     console.log(`[JobAggregator] Resolving ${targets.length} aggregator jobs through link resolver...`);
 
-    const concurrency = 8;
+    const concurrency = 24;
     let cursor = 0;
     let resolved = 0;
 

@@ -224,7 +224,7 @@ function normalizeResumeText(rawText: string): string {
 
     // Insert newlines before date ranges (e.g., "2011-2016", "Jan 2020 - Present")
     // Supports comma+space or any whitespace before the date
-    text = text.replace(/[,;]\s*(?=(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{4}\s*[\-–—\u2010]\s*(?:present|current|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{0,4})/gi, '\n');
+    text = text.replace(/[,;]\s*(?=(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{4}\s*[–—\u2010-]\s*(?:present|current|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\d{0,4})/gi, '\n');
 
     // Insert newlines before bullet points (•, ●, ■, ▪, common PDF bullet \uf0b7)
     text = text.replace(/\s(?=[•●■▪\uf0b7])/g, '\n');
@@ -677,7 +677,7 @@ function extractCompanyTitle(beforeText: string): { company: string; title: stri
 
 function parsePositions(text: string): ExperienceResult['positions'] {
   const positions: ExperienceResult['positions'] = [];
-  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{4}\s*[\-–—\u2010]\s*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{0,4}/gi;
+  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{4}\s*[–—\u2010-]\s*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{0,4}/gi;
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
