@@ -3,6 +3,56 @@
 
 ---
 
+## ⚡ PHASE 0: ACTIVATE DORMANT CAPABILITIES (2026-04-28)
+
+Before adding new features, activate the differentiated capabilities already in code that are silently disabled in production. These are not bugs that block the feed — they're the parts of the architecture that make Recrutas defensible vs. hiring.cafe-tier feeds.
+
+**Snapshot:** 83,519 jobs in DB, 35,811 active, **20,704 eligible after filters**. 100% direct-from-ATS (greenhouse / lever / ashby / recruitee). 75% < 1 day old, 98% < 3 days old. Aggregator filter strips 54,445 jobs by source + 10,341 by URL pattern. Founder confirmed feed quality crossed threshold for personal use 2026-04-28.
+
+Each item below has a corresponding Bug Tracker entry in Notion (Recrutas OS → Bug Tracker, dated 2026-04-28).
+
+### 0.1 Backfill job embeddings (Critical)
+
+**State:** 0 of 20,704 eligible jobs have an `embedding` populated. `server/storage.ts:961` runs the pgvector retrieval query and silently returns 0 rows. The keyword-merge fallback at `storage.ts:1013` masks the failure. `scoreJob` (`server/job-scorer.ts:354–369`) detects no semantic signal and redistributes the 35% semantic weight across keyword/title/experience.
+
+**Impact:** The "AI matching" differentiator is dormant. Today's feed quality is delivered by keyword retrieval + aggregator filtering + 30% threshold, not by embeddings. Without semantic retrieval, Recrutas's matching is keyword-similarity-with-extras — same as every job aggregator since 2010.
+
+**Fix:** Run `services/batch-embedding.service.ts` against the eligible pool (20,704 rows). Wire embedding into the ingestion path so new jobs are embedded on insert. Verify with: `SELECT COUNT(*) FROM job_postings WHERE embedding IS NOT NULL AND status = 'active'`.
+
+### 0.2 Diagnose ghost-job detector (High)
+
+**State:** 0 of 20,704 eligible jobs have a `ghost_job_score` ≥ 30. The 60-cutoff filter in `storage.ts:788, 919` removes nothing because nothing crosses it. Either the detector isn't running on most rows, or it's producing values that uniformly fall below 30.
+
+**Impact:** A working ghost detector is something hiring.cafe doesn't have — UX-visible differentiator that's currently invisible because it's reporting "everything is clean."
+
+**Fix:** Audit `server/ghost-job-detection.service.ts`. Check whether it's gated on a flag, only runs on demand, or fails silently during ingest. Backfill scores for the eligible pool. Surface a `verified active` badge in the feed UI.
+
+### 0.3 Continuous ingest, not bursty (High)
+
+**State:** Last 7 days of eligible-job ingest: 4/22=57, 4/23=40, 4/24=38, 4/25=26, 4/26=1, 4/27=20,187, 4/28=76. The hourly scheduler in `server/index.ts:86` is running but normal cadence is dozens/day, not thousands.
+
+**Impact:** The feed quality milestone is sitting on the 4/27 batch. As those jobs age past liveness checks and the 90-day cutoff, recency collapses unless ingest runs at volume continuously. Clock-on-it problem.
+
+**Fix:** Audit `services/external-jobs-scheduler.ts` and `services/sota-scraper.service.ts` — likely candidates: too narrow a company watchlist, silent rate-limit / 429 errors, or only fetching net-new vs. refreshing existing. Target steady state: hundreds-to-low-thousands per day.
+
+### 0.4 Fix trust-score banding (Medium)
+
+**State:** Trust score distribution on eligible pool: 451 jobs at ≥ 90, **0 at 75–89**, 20,302 at 50–74. Effectively binary.
+
+**Impact:** Final ranking blend is `0.70·match + 0.15·trust + 0.10·recency + prefBoost` (`storage.ts:1174`). A binary trust signal means the 0.15 weight does almost nothing — it's either +0 or +0.15 with nothing in between.
+
+**Fix:** Audit the trust-score calculation. Either it has a hardcoded threshold producing the gap, or the scoring function is collapsing onto two bands by design. Make it graded.
+
+### 0.5 Tighten keyword retrieval (Low)
+
+**State:** Title LIKE matches in `storage.ts:997, 1042` use substring containment without word boundaries. For an IT/Cloud profile, top retrieved titles include "Hotel Reservations Customer Service" because skills like "ServiceNow" collide with "Customer Service."
+
+**Impact:** Wastes the 200-row keyword-retrieval budget on noise. The 30% match-score floor saves the user-facing feed today, but better recall surfaces real matches currently crowded out.
+
+**Fix:** Switch to word-boundary regex: `LOWER(title) ~* '\m{skill}\M'` instead of `LOWER(title) LIKE '%{skill}%'`.
+
+---
+
 ## 🚨 PHASE 1: CRITICAL FIXES (Week 1-2)
 
 ### 1. Fix Data Staleness (Real-time Jobs)

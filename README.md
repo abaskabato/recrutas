@@ -729,59 +729,90 @@ Uses `useSessionContext()` (not `useSession()`) to avoid false redirects during 
 
 ## Matching Engine
 
-File: `server/advanced-matching-engine.ts`
+Primary files: `server/storage.ts` (`fetchScoredJobs`, ~lines 751–1182) and `server/job-scorer.ts` (scoring formula, ~lines 305–510).
 
-### Architecture
+The `/api/ai-matches` endpoint calls `storage.getJobRecommendations` → `fetchScoredJobs`. Hybrid retrieval, multi-signal scoring, soft-preference ranking — no remote LLM calls on the hot path, all scoring is synchronous in application code.
+
+### Pipeline
 
 ```
-Candidate Profile (skills, experience, preferences)
-         │
-         ├──→ Generate candidate embedding (all-MiniLM-L6-v2 via @xenova/transformers)
+Candidate (skills, experience_level, location, work_type, vector_embedding, prior_titles)
          │
          ▼
-    ┌─────────────────────────────────────────────────┐
-    │              For each job:                       │
-    │                                                  │
-    │  1. Semantic Similarity (45%)                    │
-    │     cosine(candidate_embedding, job_embedding)   │
-    │                                                  │
-    │  2. Recency Score (25%)                          │
-    │     Exponential decay from posting date          │
-    │                                                  │
-    │  3. Liveness Score (20%)                         │
-    │     HTTP probe: active=1.0, stale=0.3, dead=0   │
-    │                                                  │
-    │  4. Personalization (10%)                        │
-    │     Saved jobs boost, hidden jobs penalize       │
-    │                                                  │
-    │  Final = weighted sum → filter ≥ 40%            │
-    └─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 1. RETRIEVE — two parallel lanes                          │
+│    A. pgvector ANN — top 100 by cosine distance           │
+│       (ORDER BY embedding <=> candidate_embedding)        │
+│    B. Keyword union — top 200                             │
+│       skills jsonb match  OR                              │
+│       title LIKE skill    OR                              │
+│       title LIKE role-keyword                             │
+│    Merge & dedupe → up to ~300 unique jobs                │
+│                                                           │
+│    Shared filters (both lanes):                           │
+│      status = 'active' AND not expired                    │
+│      liveness_status IN ('active','unknown')              │
+│      ghost_job_score < 60 OR NULL                         │
+│      created_at > now() - 90 days   (or source=platform)  │
+│      source NOT IN aggregator list                        │
+│      external_url NOT LIKE aggregator URL patterns        │
+│                                                           │
+│ 2. SCORE — server/job-scorer.ts: scoreJob()               │
+│    Keyword    25%   exact + 0.5·partial skill matches     │
+│    Semantic   35%   1 − cosine_dist (from pgvector)       │
+│    Title      25%   role/title relevance                  │
+│    Experience 15%   asymmetric level multiplier           │
+│    Context  +0…8    location + work-type bonus            │
+│                                                           │
+│    Weights load from match_signals_weights every 10 min;  │
+│    fall back to the defaults above if absent.             │
+│                                                           │
+│    Hard caps (failure-mode guards):                       │
+│      no skill overlap AND no role match → cap 25          │
+│      (with semantic signal → cap 45)                      │
+│                                                           │
+│ 3. FILTER — drop matchScore < 30                          │
+│                                                           │
+│ 4. SOFT-RANK BOOSTS (from candidate.jobPreferences)       │
+│    Salary in range:  +0.10  (out: −0.05)                  │
+│    Work type match:  +0.10  (out: −0.05)                  │
+│    Experience level: +0.08  (out: −0.03)                  │
+│    Industry match:   +0.05  (no penalty)                  │
+│    Soft signals — never hard-filter on preferences.       │
+│                                                           │
+│ 5. SORT                                                   │
+│    0.70 · matchScore/100                                  │
+│  + 0.15 · trustScore/100                                  │
+│  + 0.10 · recencyScore                                    │
+│  + prefBoost                                              │
+│                                                           │
+│ 6. CAP at 100. Server-paginate 20/page.                   │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### `/api/ai-matches` Pipeline
+### Aggregator Filtering
 
-1. Fetch candidate profile + skills from DB
-2. Fire 4 parallel data sources (each with individual timeouts):
-   - **DB recommendations** (8s timeout) — pre-computed matches from `job_matches` table
-   - **RemoteOK** (API, 15-min cache)
-   - **WeWorkRemotely** (API, 30-min cache)
-   - **Company career pages** (DB, from daily scraper output)
-3. Wait for all via `Promise.allSettled` (45s global timeout)
-4. If ML model loaded: re-score all jobs with semantic embeddings (batches of 3-5)
-5. Deduplicate across sources (by `title|company` key)
-6. Sort by match score descending
-7. Split into two sections: "Apply & Know Today" (internal, has exam) vs "Matched For You" (external)
+Two-layer block to keep the feed direct-from-employer:
 
-### ML Model
+- **Source list** (`server/storage.ts:224`): `Adzuna, JSearch, Jooble, Indeed, ArbeitNow, USAJobs, RemoteOK, WeWorkRemotely, The Muse`
+- **URL pattern** (`server/storage.ts:226`): `external_url ILIKE '%{pattern}%'` for 9 patterns — catches mislabeled jobs whose `source` doesn't match but whose URL points to an aggregator
 
-- `@xenova/transformers` loads `all-MiniLM-L6-v2` in-process
-- First request takes 10-30s (model download + ONNX init)
-- Subsequent requests ~50ms
-- Falls back to simple skill overlap matching if model not loaded
+### Match Tiers
 
-### Redis Match Cache
+| Tier | Score |
+|------|-------|
+| `great` | ≥75 |
+| `good` | ≥50 |
+| `worth-a-look` | <50 |
+| `discovery` | candidate has no skills yet — non-personalized top-20 |
 
-5-minute TTL per `userId:queryHash`. Prevents re-computation on rapid page reloads.
+### Embeddings
+
+Candidate embeddings live in `candidate_users.vector_embedding` (computed at resume-parse time). Job embeddings should live in `job_postings.embedding` (pgvector type) — generation in `services/batch-embedding.service.ts`. **As of 2026-04-28, job embeddings have not been backfilled — pgvector retrieval returns 0 rows and the keyword lane carries all retrieval.** See `docs/IMPROVEMENT_ROADMAP.md` Phase 0.1 for the activation plan.
+
+### Legacy Path
+
+`server/advanced-matching-engine.ts` (semantic 45 / recency 25 / liveness 20 / personalization 10 with `all-MiniLM-L6-v2` in-process) was the previous implementation. It still exists in the tree but is **no longer** what serves `/api/ai-matches`. Don't change behavior there — change `storage.fetchScoredJobs` and `job-scorer.scoreJob`.
 
 ---
 
@@ -815,11 +846,58 @@ Candidate Profile (skills, experience, preferences)
 
 ### Ghost Job Detection
 
-`job-liveness-service.ts` runs every 6 hours:
-1. HTTP HEAD request to each external job URL
-2. If 404/410 → mark `livenessStatus = 'stale'`
-3. Auto-hide after 3 consecutive stale checks
-4. Feed filters out stale jobs
+Two independent signals:
+
+- **`livenessStatus`** — `job-liveness-service.ts` runs every 6 hours, HEAD-probes external URLs, flips to `stale` on 404/410, auto-hides after 3 consecutive stale checks.
+- **`ghostJobScore`** — content-based detector in `server/ghost-job-detection.service.ts`. Feed filters out anything ≥60. **Currently dormant** (see Current State below).
+
+### Current State (2026-04-28)
+
+Measured snapshot of the production feed pipeline. Numbers from a single Supabase query against `job_postings`.
+
+**Pool sizes**
+
+- 83,519 jobs in DB total
+- 35,811 active (`status='active'`, not expired)
+- **20,704 pass all feed filters** — this is the candidate-facing eligible pool
+
+**Source mix of eligible pool — 100% direct ATS, zero aggregator residue**
+
+| Source | Count |
+|---|---|
+| ATS:greenhouse | 13,095 |
+| ATS:lever | 3,605 |
+| ATS:ashby | 3,284 |
+| greenhouse | 437 |
+| ATS:recruitee | 200 |
+| ashby | 60 |
+| lever | 14 |
+| career_page | 9 |
+
+**Filter pressure**
+
+- Aggregator source filter strips **54,445** jobs
+- Aggregator URL pattern strips another **10,341**
+- Inactive `status` removes 47,708
+- Dead `liveness_status` removes 44,706
+
+**Recency**
+
+- 75% < 1 day old
+- 98% < 3 days old
+- 99% < 7 days old
+
+**Known dormant capabilities** — tracked as Phase 0 in `docs/IMPROVEMENT_ROADMAP.md` and mirrored in the Notion Bug Tracker (Recrutas OS):
+
+| Issue | State | Severity |
+|---|---|---|
+| Job embeddings not populated (pgvector lane returns 0) | 0 / 20,704 jobs have embeddings | Critical |
+| Ghost-job-score detector not running | 0 / 20,704 jobs scored ≥30 | High |
+| Ingest cadence is bursty | 4/27 = 20,187 jobs; other days ≤ 76 | High |
+| Trust-score banding is binary | 451 ≥90, **0** in 75–89, 20,302 in 50–74 | Medium |
+| Keyword retrieval lacks word boundaries | 'ServiceNow' substring-hits 'Customer Service' | Low |
+
+The current feed quality is delivered by aggregator filtering + keyword retrieval + the 30% match-score floor. The semantic retrieval lane and ghost-score detector are coded but inactive — activating them is what closes the gap between the architecture quality and the delivered experience.
 
 ---
 
