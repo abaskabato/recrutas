@@ -107,12 +107,11 @@ export function registerChatRoutes(app: Express) {
                 message: sanitizedMessage
             });
 
-            // TODO: Phase 3 — broadcast chat messages via WebSocket
-            // const room = rooms.find(r => r.id === roomId);
-            // if (room) {
-            //     const participantIds = [room.candidateId, room.hiringManagerId].filter(Boolean);
-            //     notificationService.broadcastChatMessage(roomId, req.user.id, participantIds);
-            // }
+            const room = rooms.find(r => r.id === roomId);
+            if (room) {
+                const participantIds = [room.candidateId, room.hiringManagerId].filter(Boolean) as string[];
+                notificationService.broadcastChatMessage(roomId, req.user.id, participantIds);
+            }
 
             res.json(newMessage);
         } catch (error) {
