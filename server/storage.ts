@@ -220,6 +220,12 @@ export interface IStorage {
 // Sources that publish directly from company ATSs (not aggregators)
 const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
 
+// Escape regex metacharacters so a user-supplied skill (e.g. ".NET", "C++") can be
+// safely embedded inside a Postgres POSIX regex pattern.
+function escapePgRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Job board aggregators — excluded from the candidate feed (links don't go to actual job pages)
 const AGGREGATOR_SOURCES = new Set(['Adzuna', 'JSearch', 'Jooble', 'Indeed', 'ArbeitNow', 'USAJobs', 'RemoteOK', 'WeWorkRemotely', 'The Muse']);
 // URL patterns that identify aggregator apply links
@@ -994,12 +1000,12 @@ export class DatabaseStorage implements IStorage {
             ),
             ...(titleMatchSkills.length > 0
               ? titleMatchSkills.map(skill =>
-                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
+                  sql`${jobPostings.title} ~* ${'\\y' + escapePgRegex(skill) + '\\y'}`
                 )
               : []),
             ...(roleTitleKeywords.length > 0
               ? roleTitleKeywords.map(keyword =>
-                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + keyword.toLowerCase() + '%'}`
+                  sql`${jobPostings.title} ~* ${'\\y' + escapePgRegex(keyword) + '\\y'}`
                 )
               : []),
             ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
@@ -1039,12 +1045,12 @@ export class DatabaseStorage implements IStorage {
             ),
             ...(titleMatchSkills.length > 0
               ? titleMatchSkills.map(skill =>
-                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + skill.toLowerCase() + '%'}`
+                  sql`${jobPostings.title} ~* ${'\\y' + escapePgRegex(skill) + '\\y'}`
                 )
               : []),
             ...(roleTitleKeywords.length > 0
               ? roleTitleKeywords.map(keyword =>
-                  sql`LOWER(${jobPostings.title}) LIKE ${'%' + keyword.toLowerCase() + '%'}`
+                  sql`${jobPostings.title} ~* ${'\\y' + escapePgRegex(keyword) + '\\y'}`
                 )
               : []),
             ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
