@@ -123,37 +123,37 @@ class CompanyDiscoveryPipeline {
     jobCount: number;
     source: string;
   }>): Promise<void> {
-    for (const company of companies) {
-      try {
-        // Check if exists
-        const existing = await db.select()
-          .from(discoveredCompanies)
-          .where(eq(discoveredCompanies.normalizedName, company.normalizedName))
-          .limit(1);
+    if (companies.length === 0) return;
 
-        if (existing.length > 0) {
-          // Update existing
-          const result = await db.update(discoveredCompanies)
-            .set({
-              jobCount: company.jobCount,
-              updatedAt: new Date()
-            })
-            .where(eq(discoveredCompanies.id, existing[0].id));
-        } else {
-          // Insert new
-          const result = await db.insert(discoveredCompanies).values({
-            name: company.name,
-            normalizedName: company.normalizedName,
-            careerPageUrl: company.careerPageUrl,
-            detectedAts: company.detectedAts,
-            atsId: company.atsId,
-            jobCount: company.jobCount,
-            discoverySource: company.source,
-            status: 'pending'
+    // Dedupe by normalizedName so a single bulk upsert can't trip on duplicate keys.
+    const byName = new Map<string, typeof companies[number]>();
+    for (const c of companies) byName.set(c.normalizedName, c);
+    const unique = Array.from(byName.values());
+
+    const CHUNK = 1000;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const batch = unique.slice(i, i + CHUNK);
+      try {
+        await db.insert(discoveredCompanies)
+          .values(batch.map(c => ({
+            name: c.name,
+            normalizedName: c.normalizedName,
+            careerPageUrl: c.careerPageUrl,
+            detectedAts: c.detectedAts,
+            atsId: c.atsId,
+            jobCount: c.jobCount,
+            discoverySource: c.source,
+            status: 'pending',
+          })))
+          .onConflictDoUpdate({
+            target: discoveredCompanies.normalizedName,
+            set: {
+              jobCount: sql`excluded."jobCount"`,
+              updatedAt: new Date(),
+            },
           });
-        }
       } catch (error) {
-        console.error(`[CompanyDiscovery] Error saving ${company.name}:`, error);
+        console.error(`[CompanyDiscovery] Bulk upsert error for chunk ${i}–${i + batch.length}:`, (error as Error).message);
       }
     }
   }
@@ -213,7 +213,6 @@ class CompanyDiscoveryPipeline {
       }
 
       // 3. Save all to database
-      console.log('[CompanyDiscovery] Companies to save:', allCompanies); // NEW LOG
       await this.saveCompaniesToDatabase(allCompanies);
       console.log(`[CompanyDiscovery] Saved ${allCompanies.length} companies to database`);
 
