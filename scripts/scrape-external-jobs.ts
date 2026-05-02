@@ -9,6 +9,7 @@
 
 import { jobAggregator } from '../server/job-aggregator.js';
 import { jobIngestionService } from '../server/services/job-ingestion.service.js';
+import { client as dbClient } from '../server/db.js';
 
 function checkRequiredEnvVars(): void {
   const required = ['DATABASE_URL'];
@@ -51,6 +52,15 @@ async function main() {
 
   console.log(`[scrape-external] Starting scrape (timeout: ${timeout / 1000}s)...`);
   const startTime = Date.now();
+
+  // Heartbeat keeps the DB connection alive during the long pure-API scrape phase.
+  // Without it the connection idle-closes (~30s) and the post-scrape ingestion
+  // burst hits connect_timeout opening a fresh socket to the Supabase pooler.
+  const heartbeat = setInterval(() => {
+    dbClient`SELECT 1`.catch(err =>
+      console.warn(`[scrape-external] Heartbeat warning: ${err?.message}`)
+    );
+  }, 20000);
 
   try {
     // Fetch from all configured sources
@@ -100,6 +110,8 @@ async function main() {
     const elapsed = Date.now() - startTime;
     console.error(`[scrape-external] Failed after ${elapsed}ms:`, error?.message);
     process.exit(1);
+  } finally {
+    clearInterval(heartbeat);
   }
 }
 
