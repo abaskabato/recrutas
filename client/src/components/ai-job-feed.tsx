@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, RotateCcw, Clock, FileText, Upload, Loader2, Layers } from "lucide-react";
+import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, RotateCcw, Clock, FileText, Upload, Loader2, Layers, Calendar, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,14 @@ const EXPERIENCE_LEVEL_LABELS: Record<ExperienceLevel, string> = {
   lead: 'Lead',
   executive: 'Executive',
 };
+
+const DATE_FILTER_OPTIONS: { value: string; label: string; days: number }[] = [
+  { value: '1d', label: 'Past 24 hours', days: 1 },
+  { value: '3d', label: 'Past 3 days', days: 3 },
+  { value: '7d', label: 'Past week', days: 7 },
+  { value: '14d', label: 'Past 2 weeks', days: 14 },
+  { value: '30d', label: 'Past month', days: 30 },
+];
 
 export interface AIJobMatch {
   id: number;
@@ -86,6 +94,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const [workTypeFilter, setWorkTypeFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
   const [experienceLevelFilter, setExperienceLevelFilter] = useState("all");
+  const [datePostedFilter, setDatePostedFilter] = useState("all");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<AIJobMatch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -143,6 +153,8 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
   const filteredMatches = useMemo(() => {
     if (!allMatches) return undefined;
     const term = searchTerm.toLowerCase().trim();
+    const dateOption = DATE_FILTER_OPTIONS.find(o => o.value === datePostedFilter);
+    const dateCutoff = dateOption ? Date.now() - dateOption.days * 24 * 60 * 60 * 1000 : null;
     return allMatches.filter(m => {
       if (term && !m.job.title.toLowerCase().includes(term) && !m.job.company.toLowerCase().includes(term) && !(m.job.description || '').toLowerCase().includes(term)) return false;
       if (locationFilter !== 'all' && m.job.location !== locationFilter) return false;
@@ -157,9 +169,14 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
           if (level !== experienceLevelFilter) return false;
         }
       }
+      if (dateCutoff !== null) {
+        if (!m.job.postedDate) return false;
+        const posted = new Date(m.job.postedDate).getTime();
+        if (isNaN(posted) || posted < dateCutoff) return false;
+      }
       return true;
     });
-  }, [allMatches, searchTerm, locationFilter, workTypeFilter, companyFilter, experienceLevelFilter]);
+  }, [allMatches, searchTerm, locationFilter, workTypeFilter, companyFilter, experienceLevelFilter, datePostedFilter]);
 
   const { data: userJobActions } = useQuery({
     queryKey: ['/api/candidate/job-actions'],
@@ -324,14 +341,23 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     setWorkTypeFilter("all");
     setCompanyFilter("all");
     setExperienceLevelFilter("all");
+    setDatePostedFilter("all");
   };
+
+  const activeFilterCount =
+    (locationFilter !== 'all' ? 1 : 0) +
+    (workTypeFilter !== 'all' ? 1 : 0) +
+    (companyFilter !== 'all' ? 1 : 0) +
+    (experienceLevelFilter !== 'all' ? 1 : 0) +
+    (datePostedFilter !== 'all' ? 1 : 0);
+  const hasAnyFilter = activeFilterCount > 0 || searchTerm.length > 0;
 
   return (
     <div className="space-y-4">
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 shadow-sm border">
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
+        {/* Search row + mobile filter toggle */}
+        <div className="flex gap-2 sm:gap-3 items-center">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -341,68 +367,103 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
               className="pl-9 w-full"
             />
           </div>
-          
-          {/* Filter dropdowns - stack on mobile, row on tablet+ */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <MapPin className="h-4 w-4 mr-2 shrink-0" />
-                <SelectValue placeholder="Location" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                {locations.map(loc => (
-                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={workTypeFilter} onValueChange={setWorkTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <Briefcase className="h-4 w-4 mr-2 shrink-0" />
-                <SelectValue placeholder="Work Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {workTypes.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={companyFilter} onValueChange={setCompanyFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]">
-                <Building className="h-4 w-4 mr-2 shrink-0" />
-                <SelectValue placeholder="Company" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Companies</SelectItem>
-                {companies.map(company => (
-                  <SelectItem key={company} value={company}>{company}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={experienceLevelFilter} onValueChange={setExperienceLevelFilter}>
-              <SelectTrigger className="w-full sm:w-[150px]">
-                <Layers className="h-4 w-4 mr-2 shrink-0" />
-                <SelectValue placeholder="Level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                {(Object.keys(EXPERIENCE_LEVEL_LABELS) as ExperienceLevel[]).map(level => (
-                  <SelectItem key={level} value={level}>{EXPERIENCE_LEVEL_LABELS[level]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {(searchTerm || locationFilter !== 'all' || workTypeFilter !== 'all' || companyFilter !== 'all' || experienceLevelFilter !== 'all') && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
-                <Filter className="h-4 w-4 mr-1" />
-                Clear
-              </Button>
+          {/* Mobile-only: filters toggle */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMobileFilters(v => !v)}
+            className="sm:hidden shrink-0 relative"
+            aria-expanded={showMobileFilters}
+            aria-controls="job-feed-filters"
+          >
+            <Filter className="h-4 w-4 mr-1" />
+            Filters
+            {activeFilterCount > 0 && (
+              <Badge className="ml-1.5 h-5 min-w-5 px-1.5 bg-blue-600 text-white text-[10px]">
+                {activeFilterCount}
+              </Badge>
             )}
-          </div>
+            <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} />
+          </Button>
+        </div>
+
+        {/* Filter dropdowns: 2-col grid on mobile (collapsible), inline row on desktop */}
+        <div
+          id="job-feed-filters"
+          className={`${showMobileFilters ? 'grid' : 'hidden'} grid-cols-2 gap-2 mt-3 sm:mt-3 sm:flex sm:flex-row sm:flex-wrap sm:gap-3`}
+        >
+          <Select value={datePostedFilter} onValueChange={setDatePostedFilter}>
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <Calendar className="h-4 w-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Date Posted" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any time</SelectItem>
+              {DATE_FILTER_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={locationFilter} onValueChange={setLocationFilter}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <MapPin className="h-4 w-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Location" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Locations</SelectItem>
+              {locations.map(loc => (
+                <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={workTypeFilter} onValueChange={setWorkTypeFilter}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <Briefcase className="h-4 w-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Work Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {workTypes.map(type => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <Building className="h-4 w-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Company" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Companies</SelectItem>
+              {companies.map(company => (
+                <SelectItem key={company} value={company}>{company}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={experienceLevelFilter} onValueChange={setExperienceLevelFilter}>
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <Layers className="h-4 w-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Levels</SelectItem>
+              {(Object.keys(EXPERIENCE_LEVEL_LABELS) as ExperienceLevel[]).map(level => (
+                <SelectItem key={level} value={level}>{EXPERIENCE_LEVEL_LABELS[level]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasAnyFilter && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="col-span-2 sm:col-span-1 shrink-0">
+              <Filter className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
       </div>
 
