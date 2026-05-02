@@ -30,7 +30,10 @@ jobs:
 
       - name: Scrape external job boards (Adzuna, Jooble, JSearch, etc.)
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Direct URL (5432), not pooler: this script idles ~4 min in pure-API
+          # scraping, so a pooler connection gets idle-closed and the ingestion
+          # burst then fails on connect_timeout to the pgBouncer.
+          DATABASE_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
