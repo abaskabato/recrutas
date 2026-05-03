@@ -99,6 +99,17 @@ export class ExternalJobsScheduler {
 
       this.lastRunTime = Date.now();
 
+      // Fix any bad URLs from aggregators after ingestion
+      try {
+        const { jobIngestionService } = await import('./job-ingestion.service');
+        const fixResult = await jobIngestionService.fixBadJobUrls();
+        if (fixResult.fixed > 0) {
+          console.log(`[ExternalJobsScheduler] Fixed ${fixResult.fixed} bad job URLs`);
+        }
+      } catch (err) {
+        console.error('[ExternalJobsScheduler] URL fix failed:', err);
+      }
+
       console.log(
         `[ExternalJobsScheduler] Completed: scraped ${jobs.length} jobs, ` +
         `stored ${ingestStats?.inserted || 0}, duplicates ${ingestStats?.duplicates || 0}`
