@@ -953,7 +953,11 @@ export class JobAggregator {
         if (result.url && result.url !== job.externalUrl) {
           job.resolvedVia = result.resolvedVia;
           if (result.resolvedVia === 'careers_page') {
+            // No specific job posting — point users at the careers page instead of
+            // letting them fall through to the Adzuna redirect.
             job.careerPageUrl = result.url;
+            job.externalUrl = result.url;
+            job.source = 'career_page';
           } else if (result.resolvedVia === 'ats' || result.resolvedVia === 'existing') {
             job.externalUrl = result.url;
             job.source = result.atsType ?? 'career_page';

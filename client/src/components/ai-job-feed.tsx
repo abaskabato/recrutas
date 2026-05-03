@@ -13,46 +13,53 @@ import { useToast } from "@/hooks/use-toast";
 import { track } from "@/lib/analytics";
 
 function isCareerPageLink(url: string | undefined, careerPageUrl: string | undefined): boolean {
-  if (!url) return true;
+  if (!url) return false;
   if (!careerPageUrl) return false;
-  
+
   const urlClean = url.replace(/\/$/, '').toLowerCase();
   const careerClean = careerPageUrl.replace(/\/$/, '').toLowerCase();
-  
+
   if (urlClean === careerClean) return true;
-  
-  const atsPatterns: Record<string, { company: RegExp; job: RegExp }> = {
-    greenhouse: {
+
+  // ATS-aware classification: a "company" URL is the bare board landing,
+  // a "job" URL is a specific posting on that board.
+  const atsPatterns: Array<{ company: RegExp; job: RegExp }> = [
+    {
+      // Greenhouse: boards.greenhouse.io/<slug> vs .../<slug>/jobs/<id>
       company: /boards\.greenhouse\.io\/[a-z0-9-]+$/i,
-      job: /boards\.greenhouse\.io\/[a-z0-9-]+\/jobs\/\d+|\/jobs\/\d+$/i,
+      job: /boards\.greenhouse\.io\/[a-z0-9-]+\/jobs\/\d+/i,
     },
-    lever: {
-      company: /lever\.co\/[a-z0-9-]+\/?$/i,
-      job: /lever\.co\/[a-z0-9-]+\/[\w-]+\/apply|lever\.co\/[a-z0-9-]+\/\d+\/\d+/i,
+    {
+      // Lever: jobs.lever.co/<slug> vs .../<slug>/<uuid-or-id>(/apply)?
+      company: /jobs\.lever\.co\/[a-z0-9-]+\/?$/i,
+      job: /jobs\.lever\.co\/[a-z0-9-]+\/[\w-]+/i,
     },
-    workday: {
+    {
+      // Workday: <tenant>.wd<n>.myworkdayjobs.com/<site> vs .../job/<location>/<title>_<id>
       company: /\.wd\d+\.myworkdayjobs\.com(?:\/[\w-]+)*\/?$/i,
-      job: /\.wd\d+\.myworkdayjobs\.com.*\/job\/\d+/i,
+      job: /\.wd\d+\.myworkdayjobs\.com.*\/job\//i,
     },
-    ashby: {
-      company: /jobs\.ashbyhq\.com\/[a-z0-9-]+$/i,
-      job: /jobs\.ashbyhq\.com\/[a-z0-9-]+\/jobs\/\d+/i,
+    {
+      // Ashby: jobs.ashbyhq.com/<slug> vs .../<slug>/<uuid>
+      company: /jobs\.ashbyhq\.com\/[a-z0-9-]+\/?$/i,
+      job: /jobs\.ashbyhq\.com\/[a-z0-9-]+\/[\w-]{6,}/i,
     },
-  };
-  
-  for (const [, patterns] of Object.entries(atsPatterns)) {
-    if (patterns.company.test(urlClean)) {
-      return !patterns.job.test(urlClean);
-    }
+  ];
+
+  for (const { company, job } of atsPatterns) {
+    if (job.test(urlClean)) return false;
+    if (company.test(urlClean)) return true;
   }
-  
+
+  // Fallback: only treat as a career page if the URL is the careers URL or
+  // strictly shallower. A URL deeper than the careers page is a posting.
   const urlPathSegments = urlClean.split('/').filter(Boolean);
   const careerPathSegments = careerClean.split('/').filter(Boolean);
-  
-  if (urlPathSegments.length <= careerPathSegments.length + 1) {
-    return urlClean.startsWith(careerClean);
+
+  if (urlPathSegments.length <= careerPathSegments.length) {
+    return urlClean.startsWith(careerClean) || careerClean.startsWith(urlClean);
   }
-  
+
   return false;
 }
 
@@ -360,7 +367,6 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     });
     if (match.job.externalUrl) {
       const isCareerPage = isCareerPageLink(match.job.externalUrl, match.job.careerPageUrl);
-      const urlInfo = getUrlLabel(match.job.externalUrl, match.job.careerPageUrl);
       toast({
         title: isCareerPage ? 'Opening Company Career Page' : 'Opening External Application',
         description: isCareerPage 
