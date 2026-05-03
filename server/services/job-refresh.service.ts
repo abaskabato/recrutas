@@ -51,6 +51,16 @@ class JobRefreshService {
         console.error('[JobRefresh] Career page scraping failed:', err);
       }
 
+      // Fetch from company APIs (Amazon, Meta, Microsoft, etc. - direct with real job URLs)
+      let companyApiJobs: any[] = [];
+      try {
+        const { companyJobsAggregator } = await import('../company-jobs-aggregator');
+        companyApiJobs = await companyJobsAggregator.getAllCompanyJobs(['software', 'engineer'], 50);
+        console.log(`[JobRefresh] Fetched ${companyApiJobs.length} jobs from company APIs`);
+      } catch (err) {
+        console.error('[JobRefresh] Company API jobs failed:', err);
+      }
+
       // Fetch from job aggregators
       let aggregatorJobs: any[] = [];
       try {
@@ -62,7 +72,7 @@ class JobRefreshService {
       }
 
       // Ingest all jobs
-      const allJobs = [...careerPageJobs, ...aggregatorJobs];
+      const allJobs = [...careerPageJobs, ...companyApiJobs, ...aggregatorJobs];
       const stats = await jobIngestionService.ingestExternalJobs(allJobs);
 
       // Expire stale jobs

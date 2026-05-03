@@ -434,19 +434,24 @@ export class CompanyJobsAggregator {
   }
 
   private transformAmazonJobs(jobs: any[]): CompanyJob[] {
-    return jobs.map((job, index) => ({
-      id: `amazon_${job.id || index}`,
-      title: job.title || 'Software Development Engineer',
-      company: 'Amazon',
-      location: job.location || 'Seattle, WA',
-      description: job.description || `${job.title} position at Amazon ${job.team || ''}`,
-      requirements: [job.title, ...(job.job_family ? [job.job_family] : [])],
-      skills: this.extractSkillsFromText(job.title + ' ' + (job.team || '')),
-      workType: job.schedule_type_id === '1' ? 'onsite' : 'hybrid',
-      source: 'Amazon Jobs',
-      externalUrl: `https://www.amazon.jobs/en/jobs/${job.id}`,
-      postedDate: job.posted_date || new Date().toISOString()
-    }));
+    return jobs.map((job, index) => {
+      // Extract numeric job ID from job_path like "/en/jobs/12345/..."
+      const jobIdMatch = job.job_path?.match(/\/en\/jobs\/(\d+)/);
+      const numericId = jobIdMatch ? jobIdMatch[1] : (job.id_icims || job.id || index);
+      return {
+        id: `amazon_${numericId}`,
+        title: job.title || 'Software Development Engineer',
+        company: 'Amazon',
+        location: job.location || 'Seattle, WA',
+        description: job.description || `${job.title} position at Amazon ${job.team || ''}`,
+        requirements: [job.title, ...(job.job_family ? [job.job_family] : [])],
+        skills: this.extractSkillsFromText(job.title + ' ' + (job.team || '')),
+        workType: job.schedule_type_id === '1' ? 'onsite' : 'hybrid',
+        source: 'Amazon Jobs',
+        externalUrl: `https://www.amazon.jobs/en/jobs/${numericId}`,
+        postedDate: job.posted_date || new Date().toISOString()
+      };
+    });
   }
 
   private transformAppleJobs(jobs: any[]): CompanyJob[] {
