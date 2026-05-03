@@ -400,6 +400,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
         confidenceScore: job.matchScore,
         externalSource: job.source,
         externalUrl: job.externalUrl,
+        careerPageUrl: job.careerPageUrl,
         postedDate: job.postedDate || job.createdAt,
         trustScore: job.trustScore ?? 0,
         livenessStatus: job.livenessStatus ?? 'unknown',

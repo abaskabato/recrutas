@@ -12,6 +12,62 @@ import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
 import { useToast } from "@/hooks/use-toast";
 import { track } from "@/lib/analytics";
 
+function isCareerPageLink(url: string | undefined, careerPageUrl: string | undefined): boolean {
+  if (!url) return true;
+  if (!careerPageUrl) return false;
+  
+  const urlClean = url.replace(/\/$/, '').toLowerCase();
+  const careerClean = careerPageUrl.replace(/\/$/, '').toLowerCase();
+  
+  if (urlClean === careerClean) return true;
+  
+  const atsPatterns: Record<string, { company: RegExp; job: RegExp }> = {
+    greenhouse: {
+      company: /boards\.greenhouse\.io\/[a-z0-9-]+$/i,
+      job: /boards\.greenhouse\.io\/[a-z0-9-]+\/jobs\/\d+|\/jobs\/\d+$/i,
+    },
+    lever: {
+      company: /lever\.co\/[a-z0-9-]+\/?$/i,
+      job: /lever\.co\/[a-z0-9-]+\/[\w-]+\/apply|lever\.co\/[a-z0-9-]+\/\d+\/\d+/i,
+    },
+    workday: {
+      company: /\.wd\d+\.myworkdayjobs\.com(?:\/[\w-]+)*\/?$/i,
+      job: /\.wd\d+\.myworkdayjobs\.com.*\/job\/\d+/i,
+    },
+    ashby: {
+      company: /jobs\.ashbyhq\.com\/[a-z0-9-]+$/i,
+      job: /jobs\.ashbyhq\.com\/[a-z0-9-]+\/jobs\/\d+/i,
+    },
+  };
+  
+  for (const [, patterns] of Object.entries(atsPatterns)) {
+    if (patterns.company.test(urlClean)) {
+      return !patterns.job.test(urlClean);
+    }
+  }
+  
+  const urlPathSegments = urlClean.split('/').filter(Boolean);
+  const careerPathSegments = careerClean.split('/').filter(Boolean);
+  
+  if (urlPathSegments.length <= careerPathSegments.length + 1) {
+    return urlClean.startsWith(careerClean);
+  }
+  
+  return false;
+}
+
+function getUrlLabel(url: string | undefined, careerPageUrl: string | undefined): { label: string; description: string } {
+  if (!url) {
+    return { label: 'Internal Posting', description: 'Apply through Recrutas' };
+  }
+  
+  if (isCareerPageLink(url, careerPageUrl)) {
+    return { label: 'Company Career Page', description: 'Browse all open positions' };
+  }
+  
+  return { label: 'Job Posting', description: 'Direct link to job application' };
+}
+
 
 type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
 
@@ -57,6 +113,7 @@ export interface AIJobMatch {
     confidenceScore: number;
     externalSource?: string;
     externalUrl?: string;
+    careerPageUrl?: string;
     postedDate?: string;
     trustScore?: number;
     livenessStatus?: 'active' | 'stale' | 'unknown';
@@ -302,12 +359,17 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
       },
     });
     if (match.job.externalUrl) {
+      const isCareerPage = isCareerPageLink(match.job.externalUrl, match.job.careerPageUrl);
+      const urlInfo = getUrlLabel(match.job.externalUrl, match.job.careerPageUrl);
       toast({
-        title: "Opening External Application",
-        description: `You'll be redirected to ${match.job.company}'s career page. We've tracked this application for you.`,
+        title: isCareerPage ? 'Opening Company Career Page' : 'Opening External Application',
+        description: isCareerPage 
+          ? `You'll be redirected to ${match.job.company}'s career page to find this position.`
+          : `You'll be redirected to ${match.job.company}'s job posting. We've tracked this application for you.`,
       });
       setTimeout(() => {
-        window.open(match.job.externalUrl, '_blank');
+        const url = isCareerPage && match.job.careerPageUrl ? match.job.careerPageUrl : match.job.externalUrl;
+        window.open(url, '_blank');
       }, 500);
     } else if (!match.job.hasExam) {
       toast({
@@ -674,16 +736,22 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
                               <span>Posted {new Date(match.job.postedDate).toLocaleDateString()}</span>
                             )}
                           </div>
-                          <a
-                            href={match.job.externalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline flex items-center"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            View Original Post
-                          </a>
+                          {(() => {
+                            const isCareerPage = isCareerPageLink(match.job.externalUrl, match.job.careerPageUrl);
+                            const urlInfo = getUrlLabel(match.job.externalUrl, match.job.careerPageUrl);
+                            return (
+                              <a
+                                href={isCareerPage && match.job.careerPageUrl ? match.job.careerPageUrl : match.job.externalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline flex items-center"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                {urlInfo.label}
+                              </a>
+                            );
+                          })()}
                         </div>
                       )}
                     </CardContent>

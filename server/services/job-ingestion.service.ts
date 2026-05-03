@@ -67,6 +67,7 @@ export interface ExternalJobInput {
   source: string;
   externalId: string;
   externalUrl: string;
+  careerPageUrl?: string;
   postedDate: string;
 }
 
@@ -165,6 +166,7 @@ export class JobIngestionService {
               source: job.source ?? 'unknown',
               externalId: job.effectiveExternalId,
               externalUrl: job.externalUrl ?? null,
+              careerPageUrl: job.careerPageUrl ?? null,
               trustScore: getSourceTrustScore(job.source),
               livenessStatus: 'unknown' as const,
               lastLivenessCheck: now,

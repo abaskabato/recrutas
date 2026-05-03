@@ -56,6 +56,7 @@ interface ExternalJob {
   salaryMax?: number;
   source: string;
   externalUrl: string;
+  careerPageUrl?: string;
   postedDate: string;
   // Trust-related fields
   trustScore?: number;
@@ -63,6 +64,8 @@ interface ExternalJob {
   lastLivenessCheck?: string;
   // Profession classification
   profession?: string;
+  // Resolution info for tracking
+  resolvedVia?: string;
 }
 
 interface JSearchJob {
@@ -948,14 +951,18 @@ export class JobAggregator {
           description: job.description ?? undefined,
         });
         if (result.url && result.url !== job.externalUrl) {
-          job.externalUrl = result.url;
-          if (result.resolvedVia === 'ats' || result.resolvedVia === 'existing') {
+          job.resolvedVia = result.resolvedVia;
+          if (result.resolvedVia === 'careers_page') {
+            job.careerPageUrl = result.url;
+          } else if (result.resolvedVia === 'ats' || result.resolvedVia === 'existing') {
+            job.externalUrl = result.url;
             job.source = result.atsType ?? 'career_page';
           } else if (
             result.resolvedVia === 'description' ||
             result.resolvedVia === 'scraped' ||
             result.resolvedVia === 'searxng'
           ) {
+            job.externalUrl = result.url;
             job.source = 'career_page';
           }
           job.trustScore = getSourceTrustScore(job.source);
