@@ -129,6 +129,38 @@ async function main() {
 
   console.log(`\nPhase 2: ${scraped} companies, ${totalJobs} fresh jobs`);
 
+  // --- PHASE 3: Scrape JSON-LD-approved companies ---
+  // Companies without a public ATS API but with schema.org JobPosting on /careers.
+  console.log('\n=== PHASE 3: Scraping JSON-LD Companies ===');
+  const jsonLdCompanies = await sql<Array<{ normalizedName: string; careerPageUrl: string | null; name: string }>>`
+    SELECT "normalizedName", "careerPageUrl", name
+    FROM discovered_companies
+    WHERE status = 'approved'
+      AND "detectedAts" = 'json_ld'
+      AND "careerPageUrl" IS NOT NULL
+  `;
+  console.log(`Found ${jsonLdCompanies.length} JSON-LD companies`);
+
+  let jsonLdScraped = 0, jsonLdJobs = 0;
+  for (let i = 0; i < jsonLdCompanies.length; i += CONC) {
+    const slice = jsonLdCompanies.slice(i, i + CONC);
+    const results = await Promise.allSettled(
+      slice.map(async (entry) => {
+        const jobs = await fetchJsonLdJobs(entry.careerPageUrl!, entry.name);
+        return jobs.length > 0 ? jobs : null;
+      })
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) {
+        jsonLdScraped++;
+        jsonLdJobs += r.value.length;
+        allJobs.push(...r.value);
+      }
+    }
+    process.stdout.write(`\r  [${Math.min(i + CONC, jsonLdCompanies.length)}/${jsonLdCompanies.length}] companies=${jsonLdScraped} jobs=${jsonLdJobs}   `);
+  }
+  console.log(`\nPhase 3: ${jsonLdScraped} companies, ${jsonLdJobs} fresh jobs`);
+
   if (!DRY_RUN && allJobs.length > 0) {
     console.log('\nIngesting...');
     const stats = await jobIngestionService.ingestExternalJobs(allJobs);
@@ -138,9 +170,61 @@ async function main() {
   console.log('\n=== DONE ===');
   console.log(`Adzuna URLs resolved: ${resolved}`);
   console.log(`ATS companies scraped: ${scraped}`);
-  console.log(`Fresh jobs found: ${totalJobs}`);
+  console.log(`JSON-LD companies scraped: ${jsonLdScraped}`);
+  console.log(`Fresh jobs found: ${totalJobs + jsonLdJobs}`);
 
   await sql.end();
+}
+
+async function fetchJsonLdJobs(url: string, companyName: string): Promise<any[]> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10_000);
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'RecrutasJobAggregator/1.0', 'Accept': 'text/html' },
+      signal: ctrl.signal,
+    }).finally(() => clearTimeout(timer));
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    const postings: any[] = [];
+    const blockRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    for (const match of html.matchAll(blockRe)) {
+      try {
+        const data = JSON.parse(match[1].trim());
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          const t = item?.['@type'];
+          if (t === 'JobPosting' || (Array.isArray(t) && t.includes('JobPosting'))) {
+            postings.push(item);
+          }
+        }
+      } catch { /* malformed JSON-LD — skip */ }
+    }
+
+    return postings.slice(0, 20).map((p) => {
+      const rawUrl: string = p.url || p.sameAs || url;
+      let externalUrl = rawUrl;
+      try { externalUrl = new URL(rawUrl, url).href; } catch { /* keep raw */ }
+      const loc = Array.isArray(p.jobLocation) ? p.jobLocation[0] : p.jobLocation;
+      const locName: string = loc?.address?.addressLocality || loc?.name || 'Various';
+      return {
+        title: p.title || 'Unknown Position',
+        company: companyName,
+        location: locName,
+        description: '',
+        requirements: [],
+        skills: [],
+        workType: /remote|anywhere/i.test(JSON.stringify(loc ?? '')) ? 'remote' : 'hybrid',
+        source: 'career_page',
+        externalId: externalUrl,
+        externalUrl,
+        postedDate: p.datePosted || new Date().toISOString(),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

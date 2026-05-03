@@ -554,7 +554,7 @@ async function resolveHomepageUncached(companyName: string): Promise<string | nu
   return null;
 }
 
-async function resolveHomepage(companyName: string): Promise<string | null> {
+export async function resolveHomepage(companyName: string): Promise<string | null> {
   const key = normalizeCompanyName(companyName);
   if (!key) return null;
   const now = Date.now();
@@ -667,7 +667,7 @@ interface EmbedDetection {
   atsId:   string;
 }
 
-interface CareersPageAnalysis {
+export interface CareersPageAnalysis {
   embed:      EmbedDetection | null;
   jsonLdJobs: Array<{ title: string; url: string }>;
 }
@@ -722,7 +722,7 @@ async function analyzeCareersPageUncached(homepage: string): Promise<CareersPage
   return analyzeHtml(html);
 }
 
-async function analyzeCareersPage(homepage: string): Promise<CareersPageAnalysis | null> {
+export async function analyzeCareersPage(homepage: string): Promise<CareersPageAnalysis | null> {
   const key = homepage.replace(/\/$/, '').toLowerCase();
   const now = Date.now();
   const cached = careersCache.get(key);

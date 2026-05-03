@@ -16,6 +16,7 @@ import { db } from '../db.js';
 import { discoveredCompanies } from '../../shared/schema.js';
 import { eq, or } from 'drizzle-orm';
 import { redis } from './redis.js';
+import { resolveHomepage, analyzeCareersPage } from './adzuna-link-resolver.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ const REDIS_CIRCUIT_KEY = 'ats-probe:circuit-pause-until';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type AtsType = 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'recruitee';
+export type AtsType = 'greenhouse' | 'lever' | 'ashby' | 'workable' | 'recruitee' | 'json_ld';
 
 export interface ProbeResult {
   normalizedName: string;
@@ -203,6 +204,58 @@ async function probeRecruitee(slug: string): Promise<boolean> {
   }
 }
 
+// ── JSON-LD / embed probe (fallback when slug probes miss) ───────────────────
+//
+// Resolves the company homepage (Clearbit + domain-guess), fetches /careers,
+// and looks for either an embedded ATS slug (greenhouse/lever/etc.) or
+// schema.org JobPosting JSON-LD. Either signal proves the company has a
+// scrapeable careers page even if its name doesn't slug into a known ATS.
+//
+// Gated by PROBE_JSON_LD=1 because each call can do a Clearbit lookup plus
+// up to ~50 candidate-domain HEAD requests; we don't want it firing for
+// every miss until we've watched it under load.
+async function probeJsonLd(name: string): Promise<ProbeResult | null> {
+  if (process.env.PROBE_JSON_LD !== '1') return null;
+  try {
+    const homepage = await resolveHomepage(name);
+    if (!homepage) return null;
+    const analysis = await analyzeCareersPage(homepage);
+    if (!analysis) return null;
+
+    if (analysis.embed) {
+      return {
+        normalizedName: name,
+        atsType: analysis.embed.atsType as AtsType,
+        atsId: analysis.embed.atsId,
+        careerPageUrl: atsCareerUrl(analysis.embed.atsType as AtsType, analysis.embed.atsId),
+      };
+    }
+    if (analysis.jsonLdJobs.length > 0) {
+      const careersUrl = `${homepage.replace(/\/$/, '')}/careers`;
+      return {
+        normalizedName: name,
+        atsType: 'json_ld',
+        atsId: null,
+        careerPageUrl: careersUrl,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function atsCareerUrl(atsType: AtsType, atsId: string): string {
+  switch (atsType) {
+    case 'greenhouse': return `https://boards.greenhouse.io/${atsId}`;
+    case 'lever':      return `https://jobs.lever.co/${atsId}`;
+    case 'ashby':      return `https://jobs.ashbyhq.com/${atsId}`;
+    case 'workable':   return `https://apply.workable.com/${atsId}`;
+    case 'recruitee':  return `https://${atsId}.recruitee.com`;
+    default:           return '';
+  }
+}
+
 // ── Slug generation ───────────────────────────────────────────────────────────
 
 function generateSlugs(normalizedName: string): string[] {
@@ -269,6 +322,9 @@ export async function probeCompany(normalizedName: string): Promise<ProbeResult>
         };
       }
     }
+
+    const jsonLd = await probeJsonLd(normalizedName);
+    if (jsonLd) return jsonLd;
 
     return { normalizedName, atsType: null, atsId: null, careerPageUrl: null };
   } finally {

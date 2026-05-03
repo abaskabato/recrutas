@@ -37,6 +37,8 @@ interface CompanyCareerPage {
   ashbyId?: string;    // For companies using Ashby HQ
   workableId?: string; // For companies using Workable
   recruiteeId?: string; // For companies using Recruitee
+  // No public ATS API — extract jobs from schema.org JobPosting JSON-LD on careerUrl.
+  jsonLdUrl?: string;
 }
 
 // Top tech companies with career pages to scrape
@@ -196,7 +198,8 @@ class CareerPageScraper {
       );
 
       return rows
-        .filter(r => r.atsId && !hardcodedNames.has(r.name.toLowerCase()))
+        .filter(r => !hardcodedNames.has(r.name.toLowerCase()))
+        .filter(r => (r.detectedAts === 'json_ld' && r.careerPageUrl) || !!r.atsId)
         .map(r => {
           const entry: CompanyCareerPage = {
             name: r.name,
@@ -205,6 +208,9 @@ class CareerPageScraper {
           if (r.detectedAts === 'greenhouse') entry.greenhouseId = r.atsId!;
           else if (r.detectedAts === 'lever') entry.leverId = r.atsId!;
           else if (r.detectedAts === 'ashby') entry.ashbyId = r.atsId!;
+          else if (r.detectedAts === 'workable') entry.workableId = r.atsId!;
+          else if (r.detectedAts === 'recruitee') entry.recruiteeId = r.atsId!;
+          else if (r.detectedAts === 'json_ld') entry.jsonLdUrl = r.careerPageUrl!;
           return entry;
         });
     } catch (err: any) {
@@ -304,6 +310,9 @@ class CareerPageScraper {
       }
       else if (company.recruiteeId) {
         jobs = await this.fetchFromRecruitee(company);
+      }
+      else if (company.jsonLdUrl) {
+        jobs = await this.fetchFromJsonLd(company);
       }
       // Fall back to HTML scraping with AI extraction
       else {
@@ -566,6 +575,75 @@ class CareerPageScraper {
       return jobs;
     } catch (error: any) {
       console.log(`[CareerScraper] Recruitee API failed for ${company.name}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Extract jobs from schema.org JobPosting JSON-LD on a company careers page.
+   * Used for SMBs / non-tech employers that don't expose a public ATS API but
+   * emit structured data for Google for Jobs.
+   */
+  private async fetchFromJsonLd(company: CompanyCareerPage): Promise<ScrapedJob[]> {
+    const url = company.jsonLdUrl || company.careerUrl;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'RecrutasJobAggregator/1.0',
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const html = await response.text();
+
+      const postings: any[] = [];
+      const blockRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+      for (const match of html.matchAll(blockRe)) {
+        try {
+          const data = JSON.parse(match[1].trim());
+          const items = Array.isArray(data) ? data : [data];
+          for (const item of items) {
+            const t = item?.['@type'];
+            if (t === 'JobPosting' || (Array.isArray(t) && t.includes('JobPosting'))) {
+              postings.push(item);
+            }
+          }
+        } catch { /* malformed JSON-LD block — skip */ }
+      }
+
+      const jobs: ScrapedJob[] = postings.slice(0, 20).map((p, i) => {
+        const rawUrl: string = p.url || p.sameAs || url;
+        const externalUrl = (() => {
+          try { return new URL(rawUrl, url).href; } catch { return rawUrl; }
+        })();
+        const description = this.stripHtml(typeof p.description === 'string' ? p.description : '');
+        const loc = p.jobLocation;
+        const locName: string = (Array.isArray(loc) ? loc[0] : loc)?.address?.addressLocality
+          || (Array.isArray(loc) ? loc[0] : loc)?.name
+          || 'Various';
+        const isRemote = /remote|anywhere/i.test(JSON.stringify(loc ?? ''));
+        const idSuffix = (p.identifier?.value || p.identifier || externalUrl || `${i}`).toString().slice(0, 60);
+        return {
+          id: `jsonld_${company.name.toLowerCase().replace(/\s+/g, '-')}_${idSuffix}`,
+          title: p.title || 'Unknown Position',
+          company: company.name,
+          location: locName,
+          description,
+          requirements: this.extractRequirements(description),
+          skills: this.extractSkillsFromText(`${p.title || ''} ${description}`),
+          workType: isRemote ? 'remote' : this.determineWorkType(locName),
+          salaryMin: p.baseSalary?.value?.minValue ?? p.baseSalary?.value?.value,
+          salaryMax: p.baseSalary?.value?.maxValue ?? p.baseSalary?.value?.value,
+          externalUrl,
+          source: 'career_page',
+          postedDate: p.datePosted || new Date().toISOString(),
+        };
+      });
+
+      console.log(`[CareerScraper] Fetched ${jobs.length} jobs from ${company.name} (JSON-LD)`);
+      return jobs;
+    } catch (error: any) {
+      console.log(`[CareerScraper] JSON-LD extraction failed for ${company.name}:`, error.message);
       return [];
     }
   }
