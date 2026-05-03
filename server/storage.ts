@@ -2764,9 +2764,8 @@ export class DatabaseStorage implements IStorage {
     return { allowed: used < limit, used, limit };
   }
 
-  async incrementDailyUsage(userId: string, action: string): Promise<void> {
+async incrementDailyUsage(userId: string, action: string): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
-    // Upsert: increment if exists, insert if not
     await db.execute(sql`
       INSERT INTO daily_usage_limits (user_id, action, date, count)
       VALUES (${userId}, ${action}, ${today}, 1)

@@ -211,6 +211,51 @@ export class JobIngestionService {
 
     return result.count ?? 0;
   }
+
+  // Fix bad job URLs from aggregators (Adzuna, etc.) with known company career pages
+  async fixBadJobUrls(): Promise<{ fixed: number; errors: string[] }> {
+    const errors: string[] = [];
+    let fixed = 0;
+
+    const COMPANY_URL_FIXES: Record<string, { badPattern: string; goodUrl: string }[]> = {
+      Amazon: [{ badPattern: 'amazon.com', goodUrl: 'https://www.amazon.jobs/' }],
+      Microsoft: [{ badPattern: 'microsoft.com', goodUrl: 'https://careers.microsoft.com/' }],
+      Meta: [{ badPattern: 'meta.com', goodUrl: 'https://www.metacareers.com/' }],
+      Google: [{ badPattern: 'google.com', goodUrl: 'https://careers.google.com/' }],
+      Apple: [{ badPattern: 'apple.com', goodUrl: 'https://jobs.apple.com/' }],
+    };
+
+    for (const [company, fixes] of Object.entries(COMPANY_URL_FIXES)) {
+      for (const fix of fixes) {
+        try {
+          const result = await db.execute(sql`
+            UPDATE job_postings 
+            SET external_url = ${fix.goodUrl}, 
+                career_page_url = COALESCE(career_page_url, ${fix.goodUrl}),
+                source = 'career_page', 
+                trust_score = 70,
+                updated_at = NOW()
+            WHERE company = ${company}
+              AND (
+                LOWER(external_url) LIKE ${'%' + fix.badPattern + '%'} 
+                OR (external_url IS NOT NULL AND LOWER(external_url) NOT LIKE ${'%amazon.jobs%'} AND LOWER(external_url) NOT LIKE ${'%metacareers%'} AND LOWER(external_url) NOT LIKE ${'%careers.microsoft%'} AND LOWER(external_url) NOT LIKE ${'%careers.google.com%'} AND LOWER(external_url) NOT LIKE ${'%jobs.apple.com%'})
+              )
+              AND source != 'Amazon Jobs'
+              AND status = 'active'
+              AND created_at > NOW() - INTERVAL '90 days'
+          `);
+          if (result.count && result.count > 0) {
+            fixed += Number(result.count);
+            console.log(`[fixBadJobUrls] Fixed ${result.count} ${company} jobs`);
+          }
+        } catch (err) {
+          errors.push(`${company}: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    return { fixed, errors };
+  }
 }
 
 export const jobIngestionService = new JobIngestionService();

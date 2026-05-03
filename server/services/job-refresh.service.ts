@@ -75,6 +75,17 @@ class JobRefreshService {
       const allJobs = [...careerPageJobs, ...companyApiJobs, ...aggregatorJobs];
       const stats = await jobIngestionService.ingestExternalJobs(allJobs);
 
+      // Fix bad URLs from Adzuna (company homepages instead of job posts)
+      try {
+        const fixResult = await jobIngestionService.fixBadJobUrls();
+        console.log(`[JobRefresh] Fixed ${fixResult.fixed} bad job URLs`);
+        if (fixResult.errors.length > 0) {
+          console.error('[JobRefresh] URL fix errors:', fixResult.errors);
+        }
+      } catch (err) {
+        console.error('[JobRefresh] Failed to fix bad URLs:', err);
+      }
+
       // Expire stale jobs
       const expiredCount = await jobIngestionService.expireStaleJobs();
 
