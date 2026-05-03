@@ -888,6 +888,23 @@ export class JobAggregator {
         console.log(`[JobAggregator] Filtered out ${blockedCount} jobs from blocked domains`);
       }
 
+      // For known big tech companies, override with their proper career pages
+      // (Adzuna often returns amazon.com/microsoft.com instead of amazon.jobs/careers.microsoft.com)
+      const KNOWN_CAREER_PAGES: Record<string, string> = {
+        amazon: 'https://www.amazon.jobs/',
+        microsoft: 'https://careers.microsoft.com/',
+        meta: 'https://www.metacareers.com/',
+        google: 'https://careers.google.com/',
+        apple: 'https://jobs.apple.com/',
+        nvidia: 'https://www.nvidia.com/en-us/about-nvidia/careers/',
+      };
+      for (const job of filteredJobs) {
+        const companyKey = job.company?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+        if (KNOWN_CAREER_PAGES[companyKey]) {
+          job.careerPageUrl = KNOWN_CAREER_PAGES[companyKey];
+        }
+      }
+
       // Tag jobs with detected profession
       const jobsWithProfession = filteredJobs.map(job => {
         const detectedProfession = detectProfession(job.title, job.description);
