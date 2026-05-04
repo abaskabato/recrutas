@@ -1182,22 +1182,26 @@ export class JobAggregator {
   }
 
   private transformMuseJobs(jobs: any[]): ExternalJob[] {
-    return jobs.map((job, index) => ({
-      id: `muse_${job.id || Date.now()}_${index}`,
-      title: job.name || 'Software Position',
-      company: job.company?.name || 'Company',
-      location: job.locations?.[0]?.name || 'Remote',
-      description: job.contents || job.name || '',
-      requirements: this.extractRequirements(job.contents || ''),
-      skills: this.extractSkills(job.name + ' ' + (job.contents || '')),
-      workType: job.locations?.[0]?.name?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
-      salaryMin: undefined,
-      salaryMax: undefined,
-      source: 'The Muse',
-      externalUrl: job.refs?.landing_page || 'https://themuse.com',
-      postedDate: job.publication_date || new Date().toISOString(),
-      trustScore: getSourceTrustScore('The Muse')
-    }));
+    // Drop entries without a per-job landing page rather than falling back to
+    // themuse.com (per ingestion URL contract).
+    return jobs
+      .filter(job => typeof job.refs?.landing_page === 'string' && job.refs.landing_page.length > 0)
+      .map((job, index) => ({
+        id: `muse_${job.id || Date.now()}_${index}`,
+        title: job.name || 'Software Position',
+        company: job.company?.name || 'Company',
+        location: job.locations?.[0]?.name || 'Remote',
+        description: job.contents || job.name || '',
+        requirements: this.extractRequirements(job.contents || ''),
+        skills: this.extractSkills(job.name + ' ' + (job.contents || '')),
+        workType: job.locations?.[0]?.name?.toLowerCase().includes('remote') ? 'remote' : 'onsite',
+        salaryMin: undefined,
+        salaryMax: undefined,
+        source: 'The Muse',
+        externalUrl: job.refs.landing_page,
+        postedDate: job.publication_date || new Date().toISOString(),
+        trustScore: getSourceTrustScore('The Muse')
+      }));
   }
 
 

@@ -452,39 +452,6 @@ export class UniversalJobScraper {
     });
   }
 
-  private getFallbackJobs(sourceUrl: string, companyName?: string): UniversalJob[] {
-    const company = companyName || new URL(sourceUrl).hostname.replace('www.', '');
-    
-    return [
-      {
-        id: `fallback_${Date.now()}_1`,
-        title: 'Senior Software Engineer',
-        company: company,
-        location: 'San Francisco, CA',
-        description: `Join ${company} as a Senior Software Engineer and work on cutting-edge technology solutions.`,
-        requirements: ['5+ years experience', 'Strong programming skills', 'Team collaboration'],
-        skills: ['JavaScript', 'React', 'Node.js', 'AWS'],
-        workType: 'hybrid',
-        source: company,
-        externalUrl: sourceUrl,
-        postedDate: new Date().toISOString(),
-      },
-      {
-        id: `fallback_${Date.now()}_2`,
-        title: 'Product Manager',
-        company: company,
-        location: 'Remote',
-        description: `Lead product development at ${company} and drive innovation in our core products.`,
-        requirements: ['Product management experience', 'Strategic thinking', 'Data-driven approach'],
-        skills: ['Product Strategy', 'Analytics', 'User Research', 'Agile'],
-        workType: 'remote',
-        source: company,
-        externalUrl: sourceUrl,
-        postedDate: new Date().toISOString(),
-      }
-    ];
-  }
-
   // Method to scrape multiple companies
   async scrapeMultipleCompanies(companyUrls: { url: string; name: string }[]): Promise<UniversalJob[]> {
     const allJobs: UniversalJob[] = [];
