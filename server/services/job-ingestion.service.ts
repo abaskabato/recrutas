@@ -87,9 +87,27 @@ function getSourceTrustScore(source: string): number {
   return trustScores[source.toLowerCase()] || trustScores.default;
 }
 
+/**
+ * Mirror of the SQL `jobPostUrlRequirement` in storage.ts. A URL is considered
+ * a real job-post page if it isn't a bare-domain root and contains a
+ * job-id-like marker (≥4 digits in the path/query, an ATS query param, a
+ * /job/ or /jobs/<long-slug> segment) or matches a known ATS host.
+ *
+ * Used by the ingestion chokepoint to reject homepage/careers-landing URLs
+ * before they ever reach the DB. Keep in sync with server/storage.ts.
+ */
+export function isJobPostUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  if (/^https?:\/\/[^/]+\/?$/.test(url)) return false;
+  if (/[/?][^/?#]*\d{4,}/.test(url)) return true;
+  if (/(gh_jid|jobid|requisition|posting|\/job\/|\/jobs\/[a-z0-9_-]{8,})/i.test(url)) return true;
+  if (/(boards\.greenhouse\.io|job-boards\.greenhouse\.io|jobs\.lever\.co|jobs\.ashbyhq\.com|\.recruitee\.com|\.workable\.com|\.bamboohr\.com|myworkdayjobs\.com|smartrecruiters\.com|icims\.com|taleo\.net)/i.test(url)) return true;
+  return false;
+}
+
 export class JobIngestionService {
-  async ingestExternalJobs(jobs: ExternalJobInput[]): Promise<{ inserted: number; duplicates: number; errors: number; skippedNonUS: number }> {
-    const stats = { inserted: 0, duplicates: 0, errors: 0, skippedNonUS: 0 };
+  async ingestExternalJobs(jobs: ExternalJobInput[]): Promise<{ inserted: number; duplicates: number; errors: number; skippedNonUS: number; skippedBadUrl: number }> {
+    const stats = { inserted: 0, duplicates: 0, errors: 0, skippedNonUS: 0, skippedBadUrl: 0 };
     console.log(`[JobIngestion] Processing ${jobs.length} external jobs...`);
 
     const systemUserId = await ensureSystemUserExists();
@@ -103,8 +121,23 @@ export class JobIngestionService {
       return true;
     });
 
+    // Ingestion URL contract: every job must have a real job-post URL.
+    // Homepage / careers-landing / bare-domain URLs are rejected here so the
+    // feed never has to filter them out downstream (see project_ingestion_url_contract).
+    const sampleBadUrls: string[] = [];
+    const validJobs = usJobs.filter(job => {
+      if (isJobPostUrl(job.externalUrl)) return true;
+      stats.skippedBadUrl++;
+      if (sampleBadUrls.length < 5) sampleBadUrls.push(`${job.source}: ${job.externalUrl ?? '(null)'}`);
+      return false;
+    });
+    if (stats.skippedBadUrl > 0) {
+      console.log(`[JobIngestion] Rejected ${stats.skippedBadUrl} jobs with non-job-post URL. Sample:`);
+      for (const s of sampleBadUrls) console.log(`  ${s}`);
+    }
+
     // Assign deterministic externalIds
-    const prepared = usJobs.map(job => ({
+    const prepared = validJobs.map(job => ({
       ...job,
       effectiveExternalId: job.externalId || createHash('sha1')
         .update(`${job.title ?? ''}:${job.company ?? ''}:${job.location ?? ''}`)
@@ -184,7 +217,7 @@ export class JobIngestionService {
       }
     }
 
-    console.log(`[JobIngestion] Complete. Inserted: ${stats.inserted}, Duplicates: ${stats.duplicates}, Errors: ${stats.errors}, Skipped non-US: ${stats.skippedNonUS}`);
+    console.log(`[JobIngestion] Complete. Inserted: ${stats.inserted}, Duplicates: ${stats.duplicates}, Errors: ${stats.errors}, Skipped non-US: ${stats.skippedNonUS}, Skipped bad URL: ${stats.skippedBadUrl}`);
     return stats;
   }
 
@@ -212,49 +245,79 @@ export class JobIngestionService {
     return result.count ?? 0;
   }
 
-  // Fix bad job URLs from aggregators (Adzuna, etc.) with known company career pages
-  async fixBadJobUrls(): Promise<{ fixed: number; errors: string[] }> {
+  // Resolve bad URLs for existing jobs (e.g., amazon.com → amazon.jobs)
+  async resolveJobUrls(): Promise<{ resolved: number; errors: string[] }> {
     const errors: string[] = [];
-    let fixed = 0;
+    let resolved = 0;
 
-    const COMPANY_URL_FIXES: Record<string, { badPattern: string; goodUrl: string }[]> = {
-      Amazon: [{ badPattern: 'amazon.com', goodUrl: 'https://www.amazon.jobs/' }],
-      Microsoft: [{ badPattern: 'microsoft.com', goodUrl: 'https://careers.microsoft.com/' }],
-      Meta: [{ badPattern: 'meta.com', goodUrl: 'https://www.metacareers.com/' }],
-      Google: [{ badPattern: 'google.com', goodUrl: 'https://careers.google.com/' }],
-      Apple: [{ badPattern: 'apple.com', goodUrl: 'https://jobs.apple.com/' }],
-    };
+    const { resolveAdzunaLink } = await import('../lib/adzuna-link-resolver');
 
-    for (const [company, fixes] of Object.entries(COMPANY_URL_FIXES)) {
-      for (const fix of fixes) {
-        try {
-          const result = await db.execute(sql`
-            UPDATE job_postings 
-            SET external_url = ${fix.goodUrl}, 
-                career_page_url = COALESCE(career_page_url, ${fix.goodUrl}),
-                source = 'career_page', 
-                trust_score = 70,
-                updated_at = NOW()
-            WHERE company = ${company}
-              AND (
-                LOWER(external_url) LIKE ${'%' + fix.badPattern + '%'} 
-                OR (external_url IS NOT NULL AND LOWER(external_url) NOT LIKE ${'%amazon.jobs%'} AND LOWER(external_url) NOT LIKE ${'%metacareers%'} AND LOWER(external_url) NOT LIKE ${'%careers.microsoft%'} AND LOWER(external_url) NOT LIKE ${'%careers.google.com%'} AND LOWER(external_url) NOT LIKE ${'%jobs.apple.com%'})
-              )
-              AND source != 'Amazon Jobs'
-              AND status = 'active'
-              AND created_at > NOW() - INTERVAL '90 days'
-          `);
-          if (result.count && result.count > 0) {
-            fixed += Number(result.count);
-            console.log(`[fixBadJobUrls] Fixed ${result.count} ${company} jobs`);
+    const BAD_URL_PATTERNS = ['amazon.com', 'microsoft.com', 'meta.com', 'google.com', 'apple.com'];
+    const jobs = await db.execute(sql`
+      SELECT id, title, company, location, description, external_url
+      FROM job_postings
+      WHERE status = 'active'
+        AND external_url IS NOT NULL
+        AND (
+          LOWER(external_url) LIKE '%amazon.com%'
+          OR LOWER(external_url) LIKE '%microsoft.com%'
+          OR LOWER(external_url) LIKE '%meta.com%'
+          OR LOWER(external_url) LIKE '%google.com%'
+          OR LOWER(external_url) LIKE '%apple.com%'
+        )
+        AND created_at > NOW() - INTERVAL '90 days'
+      LIMIT 500
+    `);
+
+    for (const job of jobs as any[]) {
+      try {
+        const result = await resolveAdzunaLink({
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          fallbackUrl: job.external_url,
+          description: job.description,
+        });
+
+        if (result.url && result.url !== job.external_url) {
+          // Enforce the ingestion URL contract on resolved URLs too — the
+          // resolver sometimes returns a careers landing instead of a real
+          // job-post page (e.g. resolvedVia === 'careers_page'). Write only
+          // the career_page_url in that case so the row is filtered from the
+          // feed but still has a useful link for future re-resolution.
+          const isRealPost = isJobPostUrl(result.url);
+          const newSource = result.resolvedVia === 'ats' || result.resolvedVia === 'existing'
+            ? result.atsType ?? 'career_page'
+            : 'career_page';
+
+          if (isRealPost) {
+            await db.execute(sql`
+              UPDATE job_postings
+              SET external_url = ${result.url},
+                  career_page_url = COALESCE(career_page_url, ${result.url}),
+                  source = ${newSource},
+                  trust_score = 70,
+                  updated_at = NOW()
+              WHERE id = ${job.id}
+            `);
+            resolved++;
+          } else {
+            // Don't overwrite external_url with a non-job-post URL; just stash it as career_page_url.
+            await db.execute(sql`
+              UPDATE job_postings
+              SET career_page_url = COALESCE(career_page_url, ${result.url}),
+                  updated_at = NOW()
+              WHERE id = ${job.id}
+            `);
           }
-        } catch (err) {
-          errors.push(`${company}: ${(err as Error).message}`);
         }
+      } catch (err) {
+        errors.push(`${job.id}: ${(err as Error).message}`);
       }
     }
 
-    return { fixed, errors };
+    console.log(`[resolveJobUrls] Resolved ${resolved}/${jobs.length} jobs`);
+    return { resolved, errors };
   }
 }
 
