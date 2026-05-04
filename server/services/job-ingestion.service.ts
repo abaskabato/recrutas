@@ -25,7 +25,6 @@ function extractSkillsFromText(text: string): string[] {
   }
   return Array.from(found).slice(0, 20);
 }
-import { isUSLocation } from '../location-filter';
 
 // System user UUID for external jobs (well-known constant)
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -115,11 +114,11 @@ export class JobIngestionService {
     const expiresAt = new Date(now);
     expiresAt.setDate(expiresAt.getDate() + 60);
 
-    // Filter non-US up front
-    const usJobs = jobs.filter(job => {
-      if (!isUSLocation(job.location)) { stats.skippedNonUS++; return false; }
-      return true;
-    });
+    // No location-based hard filter at ingest. Non-US jobs are ranked last
+    // by usPriorityOrder in storage.ts (US first, then unknown, then non-US),
+    // so they appear at the bottom of the feed instead of being dropped.
+    // Keep the stat field for backward compatibility but it stays at 0.
+    const usJobs = jobs;
 
     // Ingestion URL contract: every job must have a real job-post URL.
     // Homepage / careers-landing / bare-domain URLs are rejected here so the

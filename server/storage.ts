@@ -64,7 +64,6 @@ import { sql } from "drizzle-orm/sql";
 import { inArray } from "drizzle-orm/sql/expressions";
 import { supabaseAdmin } from "./lib/supabase-admin";
 import { normalizeSkills, parseSkillsInput } from "./skill-normalizer";
-import { isUSLocation } from "./location-filter";
 import { scoreJob, computeRecencyScore, getFreshnessLabel, inferJobLevel, getRoleTitleKeywords } from "./job-scorer";
 
 /**
@@ -238,6 +237,40 @@ const aggregatorUrlExclusion = sql`(
     sql` OR `
   )})
 )`;
+
+// JS mirror of usPriorityOrder. Keep in sync with the SQL CASE below — both
+// must agree so the post-scoring re-sort produces the same tier ordering as
+// the initial SQL retrieval.
+function jsUsLocationPriority(job: { source?: string | null; location?: string | null }): number {
+  if ((job.source ?? '') === 'platform') return 0;
+  const loc = (job.location ?? '').trim();
+  if (!loc) return 1;
+  const lower = loc.toLowerCase();
+  // Non-US keywords (must mirror NON_US_LOCATION_REGEX)
+  const NON_US_RE = /\b(europe|european|emea|apac|latam|united kingdom|england|scotland|wales|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|mexico city|brazil|s[aã]o paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|mumbai|hyderabad|delhi|pune|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\b/;
+  if (NON_US_RE.test(lower)) return 2;
+  if (/\b(usa|u\.s\.|united states)\b/.test(lower)) return 0;
+  if (/, ?[A-Z]{2}( |,|$)/.test(loc)) return 0;
+  if (['remote', 'remote, us', 'remote, usa', 'various', 'worldwide', 'global'].includes(lower)) return 1;
+  return 1;
+}
+
+// SQL ORDER BY helper: rank rows by US affinity (lower = higher in feed).
+//   0 → location explicitly looks US (state code suffix, "USA", "United States", "Remote, US")
+//   1 → unknown / ambiguous (empty location, plain "Remote")
+//   2 → location explicitly looks non-US (matches one of the country/keyword names below)
+// Used as a primary ORDER BY across the feed paths so US jobs surface first
+// without dropping non-US rows entirely.
+const NON_US_LOCATION_REGEX =
+  '\\m(europe|european|emea|apac|latam|united kingdom|england|scotland|wales|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|mexico city|brazil|são paulo|sao paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|mumbai|hyderabad|delhi|pune|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\\M';
+const usPriorityOrder = sql`CASE
+  WHEN ${jobPostings.source} = 'platform' THEN 0
+  WHEN ${jobPostings.location} ~* ${NON_US_LOCATION_REGEX} THEN 2
+  WHEN ${jobPostings.location} ~* '(\\m(usa|u\\.s\\.|united states)\\M|, ?[A-Z]{2}( |,|$))' THEN 0
+  WHEN ${jobPostings.location} IS NULL OR TRIM(${jobPostings.location}) = '' THEN 1
+  WHEN LOWER(${jobPostings.location}) IN ('remote','remote, us','remote, usa','various','worldwide','global') THEN 1
+  ELSE 1
+END`;
 
 // SQL fragment: require external_url to look like a real job post page.
 // Excludes bare-domain roots (e.g. https://rrmc.org — Adzuna fallback from
@@ -691,13 +724,14 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(jobPostings)
         .where(and(...conditions))
-        .orderBy(sql`${jobPostings.createdAt} DESC`)
+        .orderBy(usPriorityOrder, sql`${jobPostings.createdAt} DESC`)
         .limit(150);
 
       const jobs = await query;
 
-      // Filter by location (US only) and optionally by user-specified location
-      let filteredJobs = jobs.filter((job: any) => isUSLocation(job.location));
+      // Note: non-US jobs are ranked last via usPriorityOrder rather than dropped,
+      // so the user always sees a feed even when most rows are international.
+      let filteredJobs = jobs;
 
       // Additional location filter from user input
       if (filters.location?.trim()) {
@@ -840,8 +874,8 @@ export class DatabaseStorage implements IStorage {
             : [])
         ))
         .orderBy(
-          // Platform jobs always appear first
-          sql`CASE WHEN ${jobPostings.source} = 'platform' THEN 0 ELSE 1 END`,
+          // Rank: platform first, then US, then unknown, then non-US
+          usPriorityOrder,
           sql`${jobPostings.trustScore} DESC NULLS LAST`,
           sql`${jobPostings.createdAt} DESC`
         )
@@ -1220,8 +1254,11 @@ export class DatabaseStorage implements IStorage {
           return { ...job, prefBoost };
         })
         .sort((a, b) => {
-          // Sort primarily by match score, then trust, then recency
-          // Jobs with <30% match are filtered out, so remaining jobs sorted by relevance
+          // Primary: US affinity (US first, then unknown, then non-US).
+          // Secondary: existing weighted score (match × trust × recency × pref).
+          const usA = jsUsLocationPriority(a);
+          const usB = jsUsLocationPriority(b);
+          if (usA !== usB) return usA - usB;
           const recencyA = computeRecencyScore(a.createdAt);
           const recencyB = computeRecencyScore(b.createdAt);
           const scoreA = 0.70 * (a.matchScore / 100) + 0.15 * ((a.trustScore || 0) / 100) + 0.10 * recencyA + a.prefBoost;
