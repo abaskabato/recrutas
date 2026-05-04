@@ -241,34 +241,49 @@ const aggregatorUrlExclusion = sql`(
 // JS mirror of usPriorityOrder. Keep in sync with the SQL CASE below — both
 // must agree so the post-scoring re-sort produces the same tier ordering as
 // the initial SQL retrieval.
+// Full US state name list — used so "Remote - California", "Florida-Remote",
+// "Remote, Texas" and other state-named variants land in bucket 0.
+// "georgia" excluded because it ambiguously matches the country Georgia.
+const US_STATE_NAMES_RE_PART =
+  'alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia';
+
 function jsUsLocationPriority(job: { source?: string | null; location?: string | null }): number {
   if ((job.source ?? '') === 'platform') return 0;
   const loc = (job.location ?? '').trim();
   if (!loc) return 1;
   const lower = loc.toLowerCase();
-  // Non-US keywords (must mirror NON_US_LOCATION_REGEX)
-  const NON_US_RE = /\b(europe|european|emea|apac|latam|united kingdom|england|scotland|wales|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|mexico city|brazil|s[aã]o paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|mumbai|hyderabad|delhi|pune|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\b/;
+  // Non-US keywords (must mirror NON_US_LOCATION_REGEX). "latin america",
+  // "costa rica", "united arab emirates" added so common variants don't
+  // fall through to the US-remote check.
+  const NON_US_RE = /\b(europe|european|emea|apac|latam|latin america|united kingdom|england|scotland|wales|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|united arab emirates|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|costa rica|mexico city|brazil|s[aã]o paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|mumbai|hyderabad|delhi|pune|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\b/;
   if (NON_US_RE.test(lower)) return 2;
-  if (/\b(usa|u\.s\.|united states)\b/.test(lower)) return 0;
-  if (/, ?[A-Z]{2}( |,|$)/.test(loc)) return 0;
-  if (['remote', 'remote, us', 'remote, usa', 'various', 'worldwide', 'global'].includes(lower)) return 1;
+  // US-explicit: bare US tokens, NA shorthand, or any full state name.
+  // \bus\b is safe — it won't match inside Belarus/Houston/Russia (no word boundary).
+  if (/\b(us|usa|u\.s\.|united states|north america|americas)\b/.test(lower)) return 0;
+  if (new RegExp(`\\b(${US_STATE_NAMES_RE_PART})\\b`).test(lower)) return 0;
+  // City, ST suffix
+  if (/, ?[A-Z]{2}( |,|$)/i.test(loc)) return 0;
+  if (['remote', 'various', 'worldwide', 'global'].includes(lower)) return 1;
   return 1;
 }
 
 // SQL ORDER BY helper: rank rows by US affinity (lower = higher in feed).
-//   0 → location explicitly looks US (state code suffix, "USA", "United States", "Remote, US")
-//   1 → unknown / ambiguous (empty location, plain "Remote")
-//   2 → location explicitly looks non-US (matches one of the country/keyword names below)
+//   0 → location explicitly looks US (state code suffix, "USA", "US Remote",
+//        "Remote - US", "Remote, North America", etc.)
+//   1 → unknown / ambiguous (empty location, plain "Remote", "Various")
+//   2 → location explicitly looks non-US
 // Used as a primary ORDER BY across the feed paths so US jobs surface first
 // without dropping non-US rows entirely.
 const NON_US_LOCATION_REGEX =
-  '\\m(europe|european|emea|apac|latam|united kingdom|england|scotland|wales|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|mexico city|brazil|são paulo|sao paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|mumbai|hyderabad|delhi|pune|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\\M';
+  '\\m(europe|european|emea|apac|latam|latin america|united kingdom|england|scotland|wales|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|united arab emirates|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|costa rica|mexico city|brazil|são paulo|sao paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|mumbai|hyderabad|delhi|pune|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\\M';
 const usPriorityOrder = sql`CASE
   WHEN ${jobPostings.source} = 'platform' THEN 0
   WHEN ${jobPostings.location} ~* ${NON_US_LOCATION_REGEX} THEN 2
-  WHEN ${jobPostings.location} ~* '(\\m(usa|u\\.s\\.|united states)\\M|, ?[A-Z]{2}( |,|$))' THEN 0
+  WHEN ${jobPostings.location} ~* '\\m(us|usa|u\\.s\\.|united states|north america|americas)\\M' THEN 0
+  WHEN ${jobPostings.location} ~* ${'\\m(' + US_STATE_NAMES_RE_PART + ')\\M'} THEN 0
+  WHEN ${jobPostings.location} ~* '(, ?[A-Z]{2}( |,|$))' THEN 0
   WHEN ${jobPostings.location} IS NULL OR TRIM(${jobPostings.location}) = '' THEN 1
-  WHEN LOWER(${jobPostings.location}) IN ('remote','remote, us','remote, usa','various','worldwide','global') THEN 1
+  WHEN LOWER(${jobPostings.location}) IN ('remote','various','worldwide','global') THEN 1
   ELSE 1
 END`;
 
