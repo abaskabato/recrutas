@@ -239,6 +239,25 @@ const aggregatorUrlExclusion = sql`(
   )})
 )`;
 
+// SQL fragment: require external_url to look like a real job post page.
+// Excludes bare-domain roots (e.g. https://rrmc.org — Adzuna fallback from
+// migrate-adzuna-fallbacks.ts) and any URL that lacks a job-post marker:
+// a job id (≥4 digits in the path/query), a recognized ATS query param
+// (gh_jid, jobid, requisition, posting), a /job/ or /jobs/<long-slug>
+// segment, or a known ATS host. Generic careers landings like
+// https://example.com/careers fail the marker check and are dropped.
+// Internal (source = 'platform') jobs have no external_url and must be
+// allowed through separately at each call site.
+const jobPostUrlRequirement = sql`(
+  ${jobPostings.externalUrl} IS NOT NULL
+  AND NOT (${jobPostings.externalUrl} ~ '^https?://[^/]+/?$')
+  AND (
+    ${jobPostings.externalUrl} ~ '[/?][^/?#]*\\d{4,}'
+    OR ${jobPostings.externalUrl} ~* '(gh_jid|jobid|requisition|posting|/job/|/jobs/[a-z0-9_-]{8,})'
+    OR ${jobPostings.externalUrl} ~* '(boards\\.greenhouse\\.io|job-boards\\.greenhouse\\.io|jobs\\.lever\\.co|jobs\\.ashbyhq\\.com|\\.recruitee\\.com|\\.workable\\.com|\\.bamboohr\\.com|myworkdayjobs\\.com|smartrecruiters\\.com|icims\\.com|taleo\\.net)'
+  )
+)`;
+
 /**
  * Database Storage Implementation
  *
@@ -606,6 +625,11 @@ export class DatabaseStorage implements IStorage {
         )})`,
         // Exclude any external_url that still routes through an aggregator
         aggregatorUrlExclusion,
+        // Require URL to point to a real job post page (platform jobs exempt — no external_url)
+        or(
+          eq(jobPostings.source, 'platform'),
+          jobPostUrlRequirement
+        ),
         or(
           sql`${jobPostings.expiresAt} IS NULL`,
           sql`${jobPostings.expiresAt} > NOW()`
@@ -805,6 +829,11 @@ export class DatabaseStorage implements IStorage {
             [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
           )})`,
           aggregatorUrlExclusion,
+          // Require URL to point to a real job post page (platform jobs exempt — no external_url)
+          or(
+            eq(jobPostings.source, 'platform'),
+            jobPostUrlRequirement
+          ),
           // Exclude hidden and applied-to jobs
           ...(excludeIds.length > 0
             ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
@@ -934,6 +963,11 @@ export class DatabaseStorage implements IStorage {
         [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
       )})`,
       aggregatorUrlExclusion,
+      // Require URL to point to a real job post page (platform jobs exempt — no external_url)
+      or(
+        eq(jobPostings.source, 'platform'),
+        jobPostUrlRequirement
+      ),
       ...(excludeIds.length > 0
         ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
         : []),
@@ -964,6 +998,18 @@ export class DatabaseStorage implements IStorage {
       // Return cosine_dist so scoreJob can use pre-computed similarity (avoids JSON.parse of 8KB text per row)
       const aggregatorList = [...AGGREGATOR_SOURCES].map(s => `'${s}'`).join(', ');
       const aggregatorUrlList = AGGREGATOR_URL_PATTERNS.map(p => `external_url ILIKE '%${p}%'`).join(' OR ');
+      // Mirror of jobPostUrlRequirement — must stay in sync with the drizzle fragment above.
+      const jobPostUrlRequirementSql = `(
+        source = 'platform' OR (
+          external_url IS NOT NULL
+          AND NOT (external_url ~ '^https?://[^/]+/?$')
+          AND (
+            external_url ~ '[/?][^/?#]*\\d{4,}'
+            OR external_url ~* '(gh_jid|jobid|requisition|posting|/job/|/jobs/[a-z0-9_-]{8,})'
+            OR external_url ~* '(boards\\.greenhouse\\.io|job-boards\\.greenhouse\\.io|jobs\\.lever\\.co|jobs\\.ashbyhq\\.com|\\.recruitee\\.com|\\.workable\\.com|\\.bamboohr\\.com|myworkdayjobs\\.com|smartrecruiters\\.com|icims\\.com|taleo\\.net)'
+          )
+        )
+      )`;
       const vectorRows = await client`
         SELECT id, (embedding <=> ${vectorStr}::vector) as cosine_dist FROM job_postings
         WHERE status = 'active'
@@ -974,6 +1020,7 @@ export class DatabaseStorage implements IStorage {
           AND (source = 'platform' OR created_at > ${cutoffDateStr})
           AND source NOT IN (${sql.raw(aggregatorList)})
           AND (external_url IS NULL OR NOT (${sql.raw(aggregatorUrlList)}))
+          AND ${sql.raw(jobPostUrlRequirementSql)}
           ${excludeClause}
           ${titleFilter}
           ${locationFilter}
