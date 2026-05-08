@@ -105,6 +105,13 @@ async function main() {
     console.log(`  Duplicates: ${ingestStats?.duplicates || 0}`);
     console.log(`  Errors:     ${ingestStats?.errors || 0}`);
 
+    // Resolve bad URLs for existing jobs
+    if (ingestStats?.inserted > 0) {
+      console.log('[scrape-external] Resolving bad URLs for existing jobs...');
+      const resolveResult = await jobIngestionService.resolveJobUrls();
+      console.log(`[scrape-external] Resolved ${resolveResult.resolved} job URLs`);
+    }
+
     process.exit(0);
   } catch (error: any) {
     const elapsed = Date.now() - startTime;
