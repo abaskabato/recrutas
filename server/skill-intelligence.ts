@@ -264,9 +264,19 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
   for (const segment of segments) {
     const segText = segment.lines.join('\n');
     const segTextLower = segText.toLowerCase();
-    // Tokenise: split on whitespace and most punctuation, preserve hyphens
-    // We'll do n-gram matching (1 to 4 words)
-    const words = segText.split(/[\s,;|•·▪▫‣()[\]{}<>]+/).filter(w => w.length > 0);
+    // Tokenise: split on whitespace and most punctuation, preserve hyphens.
+    // We expand slash-joined tokens like "MacOS/Linux/Windows" into their
+    // parts as additional tokens (while keeping the original) so individual
+    // skills get extracted without losing compound aliases like HP/UX.
+    const baseWords = segText.split(/[\s,;|•·▪▫‣()[\]{}<>]+/).filter(w => w.length > 0);
+    const words: string[] = [];
+    for (const w of baseWords) {
+      words.push(w);
+      if (w.includes('/')) {
+        const parts = w.split('/').filter(p => p.length > 0);
+        if (parts.length > 1) words.push(...parts);
+      }
+    }
 
     for (let i = 0; i < words.length; i++) {
       for (let n = 1; n <= 4 && i + n <= words.length; n++) {
