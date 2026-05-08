@@ -360,13 +360,25 @@ English (Native), Spanish (Conversational)`;
 
     let winner: AIExtractedData;
 
-    // If AI succeeded, use it (better quality)
-    if (aiResult.status === 'fulfilled') {
+    const isMeaningful = (d: AIExtractedData | undefined): boolean => {
+      if (!d) return false;
+      const totalSkills = (d.skills?.technical?.length || 0) +
+        (d.skills?.tools?.length || 0) +
+        (d.skills?.soft?.length || 0);
+      return totalSkills > 0 || (d.experience?.positions?.length || 0) > 0;
+    };
+
+    if (aiResult.status === 'fulfilled' && isMeaningful(aiResult.value)) {
       console.log('[AIResumeParser] AI enrichment succeeded, using AI result');
       winner = aiResult.value;
+    } else if (ruleResult.status === 'fulfilled' && isMeaningful(ruleResult.value)) {
+      // AI failed or returned empty; rules have content — use rules.
+      console.log('[AIResumeParser] AI returned empty or failed, using rule-based result');
+      winner = ruleResult.value;
+    } else if (aiResult.status === 'fulfilled') {
+      // Both empty but AI structurally valid — fall back to it.
+      winner = aiResult.value;
     } else if (ruleResult.status === 'fulfilled') {
-      // AI failed, use rules
-      console.log('[AIResumeParser] AI failed, using rule-based result');
       winner = ruleResult.value;
     } else {
       // Both failed - return a minimal valid structure
@@ -751,7 +763,7 @@ ${truncatedText}`;
     console.log(`[AIResumeParser] Skill Intelligence Engine: ${result.technical.length} technical, ${result.tools.length} tools, ${result.soft.length} soft skills. Confidence: ${result.confidence}%`);
     console.log(`[AIResumeParser] Top skills:`, [...result.technical, ...result.tools].slice(0, 10));
 
-    const aiResult: any = {
+    const aiResult: AIExtractedData = {
       personalInfo: result.personalInfo,
       summary: this.extractSummary(text),
       skills: {
@@ -762,16 +774,14 @@ ${truncatedText}`;
       experience: {
         totalYears: result.totalYears,
         level:      result.experienceLevel,
-        positions:  result.positions,
+        positions:  result.positions.map(p => ({ ...p, responsibilities: p.responsibilities ?? [] })),
       },
       education:       result.education,
       certifications:  result.certifications,
       projects:        this.extractProjects(text),
       languages:       this.extractLanguages(text),
-      // Pass through for confidence threshold check in extractWithAI
-      _confidence:     result.confidence,
     };
-    return aiResult as AIExtractedData;
+    return aiResult;
   }
 
   private extractPersonalInfo(text: string): AIExtractedData['personalInfo'] {

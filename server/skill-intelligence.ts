@@ -77,11 +77,14 @@ const SECTION_WEIGHTS: Record<string, number> = {
 
 const STACK_CLUSTERS: Record<string, string[]> = {
   // ── Tech stacks ──────────────────────────────────────────────────────────
+  // NOTE: bare 'mean' and 'lamp' are common English words ("mean throughput",
+  // "lamp post") that incorrectly fire stack expansion via word-boundary
+  // matches. Require the explicit "<x> stack" form so the cluster only fires
+  // when the candidate genuinely refers to the stack. 'mern' / 'pern' are
+  // rare enough to keep as bare keys.
   'mern':                   ['MongoDB', 'Express.js', 'React', 'Node.js'],
   'mern stack':             ['MongoDB', 'Express.js', 'React', 'Node.js'],
-  'mean':                   ['MongoDB', 'Express.js', 'Angular', 'Node.js'],
   'mean stack':             ['MongoDB', 'Express.js', 'Angular', 'Node.js'],
-  'lamp':                   ['Linux', 'MySQL', 'PHP'],
   'lamp stack':             ['Linux', 'MySQL', 'PHP'],
   'jamstack':               ['JavaScript', 'REST'],
   'jam stack':              ['JavaScript', 'REST'],
@@ -180,10 +183,16 @@ const NEGATION_PATTERNS = [
   /\b(no|not|never|lack\s+of|without|excluding|except|unfamiliar\s+with|limited\s+experience\s+in|no\s+experience\s+in|currently\s+learning)\s+\w+(\s+\w+)?\s*$/i,
 ];
 
+// Negation must be within a few words of the skill, anchored to the end of
+// the lookback window. This catches "have not used <skill>" and
+// "no experience in <skill>" without flagging an unrelated "no" earlier in
+// the same line.
+const NEGATION_LOOKBACK_RE = /\b(not|no|never|lacks?(\s+of)?|without|excluding|unfamiliar\s+with|currently\s+learning|limited\s+experience(\s+(in|with))?|no\s+experience(\s+(in|with))?)\b(\s+\w+){0,3}\s*$/i;
+
 function isNegated(line: string, skillPos: number): boolean {
-  const before = line.slice(Math.max(0, skillPos - 60), skillPos).toLowerCase();
-  const negWords = ['not ', 'no ', 'never ', 'lack of ', 'without ', 'excluding ', 'unfamiliar with ', 'no experience in ', 'limited experience'];
-  return negWords.some(w => before.endsWith(w) || before.includes(w + ' '));
+  if (skillPos < 0) return false;
+  const before = line.slice(Math.max(0, skillPos - 60), skillPos);
+  return NEGATION_LOOKBACK_RE.test(before);
 }
 
 // ── Seniority detection ───────────────────────────────────────────────────────
@@ -369,13 +378,17 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
           if (!TECH_CONTEXT_SIGNALS.test(context)) {continue;}
         }
 
-        // Negation check — look at the line the phrase appears in
+        // Negation check — look at the line the phrase appears in.
+        // Pass the position of the skill *within* surroundingLine, not the
+        // skill's length (the previous code did the latter, so isNegated
+        // inspected the start of the line and almost never fired).
         const lineIdx = segTextLower.indexOf(phraseLower);
         if (lineIdx >= 0) {
           const lineStart = segTextLower.lastIndexOf('\n', lineIdx) + 1;
           const lineEnd = segTextLower.indexOf('\n', lineIdx);
           const surroundingLine = segTextLower.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
-          if (isNegated(surroundingLine, phraseLower.length)) {continue;}
+          const posInLine = lineIdx - lineStart;
+          if (isNegated(surroundingLine, posInLine)) {continue;}
         }
 
         const existing = candidates.get(canonical);
