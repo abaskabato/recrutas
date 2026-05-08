@@ -375,6 +375,14 @@ export function scoreJob(
     experienceScore = Math.round(multiplier * 100);
   }
 
+  // Gate experience credit on actual role alignment. Two senior-titled jobs
+  // in unrelated families (e.g. Senior UX Designer ↔ Senior Fund Accountant)
+  // shouldn't get full experience-level credit just because they share
+  // "senior" — the level alignment is meaningless without role overlap.
+  if (!hasRoleMatch) {
+    experienceScore = Math.min(experienceScore, 50);
+  }
+
   // ── 5. Context bonus: location + work type (up to +8 points) ──
   // Additive bonus, not a percentage weight — rewards good fit without
   // inflating scores for irrelevant jobs. Max +8 so it can't flip a
@@ -553,9 +561,14 @@ function scoreTitleRelevance(candidateTitles: string[], jobTitle: string): numbe
         }
         // else: 0 — completely different role families
       }
-    } else {
-      score += 15; // Can't determine role — slight neutral credit
+    } else if (!jobRole && !candRole) {
+      score += 5; // Both unclassified — minimal symmetric credit
     }
+    // else: one side known, the other unknown — 0 credit. Previously gave +15
+    // but that let junk candidate titles (parser-extracted sentence fragments,
+    // city names) inflate scores against well-classified job titles in
+    // unrelated families (e.g. Senior Fund Accountant ranking high for a
+    // UX Designer because junk titles couldn't be classified).
 
     // Signal 3: Seniority alignment — 20 points max
     if (jobSeniority === candSeniority) {
