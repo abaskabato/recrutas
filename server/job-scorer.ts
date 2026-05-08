@@ -131,13 +131,12 @@ const ROLE_FAMILIES: Array<[RegExp, string]> = [
   [/(?:marketing\s*(?:manager|director|specialist)|growth\s*(?:manager|lead)|brand\s*manager)/i, 'marketing'],
   [/(?:sales\s*(?:manager|director|rep|executive|engineer)|account\s*executive|bdr|sdr)/i, 'sales'],
   [/(?:operations\s*(?:manager|director)|office\s*manager|facilities)/i, 'operations'],
-  // Generic fallbacks — only if nothing else matched
-  [/analyst/i, 'analyst'],
-  [/designer/i, 'designer'],
-  [/engineer/i, 'engineer'],
-  [/developer/i, 'developer'],
-  [/manager/i, 'manager'],
-  [/architect/i, 'architect'],
+  // Note: previously had generic fallbacks (analyst/designer/engineer/developer/
+  // manager/architect) here. They matched any title containing those tokens —
+  // including parser-extracted junk like sentence fragments — and expanded to
+  // single broad keywords that polluted retrieval (e.g. "engineer" matching
+  // every Mechanical/Manufacturing/Structures Engineer for a UX candidate).
+  // Returning null for non-specific titles is safer than over-matching.
 ];
 
 function extractRoleFamily(title: string): string | null {
@@ -230,12 +229,7 @@ const ROLE_FAMILY_KEYWORDS: Record<string, string[]> = {
   marketing: ['marketing manager', 'growth manager', 'brand manager'],
   sales: ['sales manager', 'account executive', 'sales rep', 'bdr', 'sdr'],
   operations: ['operations manager', 'office manager'],
-  analyst: ['analyst'],
-  designer: ['designer'],
-  engineer: ['engineer'],
-  developer: ['developer'],
-  manager: ['manager'],
-  architect: ['architect'],
+  // Generic family keyword entries removed — see note in ROLE_FAMILIES above.
 };
 
 export function getRoleTitleKeywords(candidateTitles: string[]): string[] {
