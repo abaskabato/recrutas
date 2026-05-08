@@ -403,21 +403,68 @@ English (Native), Spanish (Conversational)`;
   }
 
   private applyDomainCoherenceFilter(result: AIExtractedData): AIExtractedData {
-    const CS_LANGUAGES = new Set([
+    // Broad tech-context detector — languages, cloud, DBs, DevOps, common tooling.
+    // The previous narrow "CS_LANGUAGES" set missed obvious tech resumes whose
+    // skills were mostly cloud/Azure/AWS/Git/Linux/SQL with only one language.
+    const TECH_SIGNALS = new Set([
+      // Languages
       'python','java','javascript','typescript','c++','c#','c','ruby',
       'go','rust','swift','kotlin','php','scala','r','.net',
+      // Frameworks
       'react','node.js','angular','vue.js','django','flask','spring boot',
+      'next.js','express.js','fastapi',
+      // Cloud
+      'aws','azure','gcp','google cloud',
+      // Databases
+      'sql','sql server','postgresql','mysql','mongodb','cassandra','redis',
+      'dynamodb','sqlite',
+      // DevOps / infra
+      'docker','kubernetes','terraform','jenkins','ci/cd','linux','bash','shell',
+      'git','github','gitlab','github actions',
+      // Data / BI
+      'power bi','tableau','snowflake','databricks','spark','pandas','numpy',
+      // Tooling
+      'jira','selenium','playwright','postman',
     ]);
-    const MEDICAL_SKILLS = new Set([
+
+    // Skills that are almost never genuinely held by someone with a tech resume.
+    // AI parsers and the rule fallback both pull these in via context bleed
+    // ("compliant with policies" → "Compliance/OSHA/Safety", "PC inventory" →
+    // "Inventory Management"). Strip them when the resume is clearly tech.
+    const NON_TECH_BLUECOLLAR_SKILLS = new Set([
+      // Trades & construction
+      'electrical','plumbing','carpentry','welding','hvac','roofing',
+      'masonry','painting','landscaping','general labor','construction',
+      'warehouse','forklift operation','blueprint reading',
+      // Transportation
+      'cdl','truck driver','delivery driver','rideshare driver','courier',
+      // Retail & front-of-house
+      'retail sales','cashier','sales','inventory management','stocking',
+      'merchandising','cash handling','pos systems',
+      // Food service & hospitality
+      'food safety','food preparation','culinary arts','barista','line cook',
+      'prep cook','housekeeping','janitorial','cleaning','handyman',
+      'maintenance',
+      // Security / safety / OSHA — only when resume is clearly tech
+      'safety compliance','osha compliance','security','compliance',
+      // Healthcare
       'patient care','bls certified','cpr certified',
       'hipaa compliance','electronic medical records','phlebotomy',
-      'certified nursing assistant','nursing',
+      'certified nursing assistant','nursing','medical assistant',
+      'home health aide',
+      // Finance/admin generic
+      'auditing','accounting','bookkeeping','payroll','data entry',
+      'clerical','receptionist',
     ]);
-    const allSkills = [...(result.skills?.technical || []), ...(result.skills?.tools || [])];
-    const csCount = allSkills.filter(s => CS_LANGUAGES.has(s.toLowerCase())).length;
-    if (csCount >= 2) {
-      result.skills.technical = result.skills.technical.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
-      result.skills.tools = result.skills.tools.filter(s => !MEDICAL_SKILLS.has(s.toLowerCase()));
+
+    const allSkills = [
+      ...(result.skills?.technical || []),
+      ...(result.skills?.tools || []),
+    ];
+    const techCount = allSkills.filter(s => TECH_SIGNALS.has(s.toLowerCase())).length;
+    if (techCount >= 2) {
+      result.skills.technical = result.skills.technical.filter(s => !NON_TECH_BLUECOLLAR_SKILLS.has(s.toLowerCase()));
+      result.skills.tools = result.skills.tools.filter(s => !NON_TECH_BLUECOLLAR_SKILLS.has(s.toLowerCase()));
     }
     return result;
   }

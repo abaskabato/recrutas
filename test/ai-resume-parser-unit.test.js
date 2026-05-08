@@ -54,8 +54,15 @@ async function testSkillsExtractionFromCompletePdf() {
 }
 
 async function testSkillsExtractionFromMinimalResume() {
-  const buffer = generateMinimalResumePdfBuffer();
-  const result = await parser.parseText(buffer.toString('utf8'));
+  // Pass real resume text instead of binary PDF bytes — the parser is purely
+  // extractive on the rule path, so the input must literally contain the
+  // skills we expect to extract.
+  const text = `Jane Smith
+jane@example.com
+
+SKILLS
+React, JavaScript, TypeScript, Node.js, Git`;
+  const result = await parser.parseText(text);
 
   assert(result.confidence > 0, 'Should have positive confidence');
   assert(
@@ -68,7 +75,7 @@ async function testSkillsExtractionFromMinimalResume() {
         s.toLowerCase().includes(t.toLowerCase())
       )
     ),
-    'Should extract React and JavaScript'
+    'Should extract React or JavaScript from the skills section'
   );
 }
 

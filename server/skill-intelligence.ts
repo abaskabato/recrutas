@@ -17,7 +17,7 @@
  * 10. Confidence scoring — ranked output, no hallucinated skills
  */
 
-import { SKILL_ALIASES, normalizeSkill, normalizeSkills } from './skill-normalizer';
+import { SKILL_ALIASES } from './skill-normalizer';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,6 @@ interface SkillCandidate {
   canonical: string;
   weight: number;      // cumulative section weight
   count: number;       // times found
-  inferred: boolean;   // true if inferred from parent skill, not explicit
 }
 
 // ── Section detection ─────────────────────────────────────────────────────────
@@ -69,92 +68,6 @@ const SECTION_WEIGHTS: Record<string, number> = {
   summary:        1.3,   // Highlighted as key skill
   education:      0.7,   // Studied (may be dated)
   unknown:        1.0,   // Body text
-};
-
-// ── Role/stack cluster expansion ─────────────────────────────────────────────
-// When a cluster keyword is found anywhere in the resume, its constituent
-// skills are inferred. Covers tech stacks AND trade/healthcare/hospitality roles.
-
-const STACK_CLUSTERS: Record<string, string[]> = {
-  // ── Tech stacks ──────────────────────────────────────────────────────────
-  // NOTE: bare 'mean' and 'lamp' are common English words ("mean throughput",
-  // "lamp post") that incorrectly fire stack expansion via word-boundary
-  // matches. Require the explicit "<x> stack" form so the cluster only fires
-  // when the candidate genuinely refers to the stack. 'mern' / 'pern' are
-  // rare enough to keep as bare keys.
-  'mern':                   ['MongoDB', 'Express.js', 'React', 'Node.js'],
-  'mern stack':             ['MongoDB', 'Express.js', 'React', 'Node.js'],
-  'mean stack':             ['MongoDB', 'Express.js', 'Angular', 'Node.js'],
-  'lamp stack':             ['Linux', 'MySQL', 'PHP'],
-  'jamstack':               ['JavaScript', 'REST'],
-  'jam stack':              ['JavaScript', 'REST'],
-  'devops':                 ['Docker', 'Kubernetes', 'CI/CD', 'Linux'],
-  'data science stack':     ['Python', 'Pandas', 'NumPy', 'Scikit-learn'],
-  'ml stack':               ['Python', 'Machine Learning', 'TensorFlow'],
-  'mlops':                  ['Python', 'Docker', 'Kubernetes', 'Machine Learning'],
-  'pern':                   ['PostgreSQL', 'Express.js', 'React', 'Node.js'],
-  'pern stack':             ['PostgreSQL', 'Express.js', 'React', 'Node.js'],
-  't3 stack':               ['TypeScript', 'Next.js', 'Tailwind CSS'],
-  'serverless stack':       ['AWS Lambda', 'Serverless', 'Node.js'],
-
-  // ── Healthcare roles ─────────────────────────────────────────────────────
-  'registered nurse':       ['Patient Care', 'Electronic Medical Records', 'BLS Certified', 'HIPAA Compliance'],
-  'rn':                     ['Patient Care', 'Electronic Medical Records', 'BLS Certified'],
-  'lpn':                    ['Patient Care', 'Electronic Medical Records', 'CPR Certified'],
-  'certified nursing assistant': ['Patient Care', 'CPR Certified', 'HIPAA Compliance'],
-  'medical assistant':      ['Patient Care', 'Electronic Medical Records', 'Phlebotomy', 'HIPAA Compliance'],
-  'emt':                    ['CPR Certified', 'BLS Certified', 'Patient Care'],
-  'paramedic':              ['CPR Certified', 'BLS Certified', 'Patient Care'],
-  'phlebotomist':           ['Phlebotomy', 'Patient Care', 'HIPAA Compliance'],
-  'home health aide':       ['Patient Care', 'CPR Certified', 'HIPAA Compliance'],
-
-  // ── Trades & construction ────────────────────────────────────────────────
-  'master electrician':     ['Electrical', 'OSHA Compliance', 'Blueprint Reading'],
-  'journeyman electrician': ['Electrical', 'OSHA Compliance'],
-  'master plumber':         ['Plumbing', 'OSHA Compliance', 'Blueprint Reading'],
-  'hvac technician':        ['HVAC', 'OSHA Compliance'],
-  'hvac tech':              ['HVAC', 'OSHA Compliance'],
-  'general contractor':     ['Construction', 'Blueprint Reading', 'OSHA Compliance', 'Project Management'],
-  'project superintendent': ['Construction', 'Blueprint Reading', 'OSHA Compliance', 'Project Management'],
-  'welder':                 ['Welding', 'OSHA Compliance'],
-  'pipe welder':            ['Welding', 'Plumbing', 'OSHA Compliance'],
-  'carpenter':              ['Carpentry', 'Blueprint Reading', 'OSHA Compliance'],
-  'forklift operator':      ['Forklift Operation', 'OSHA Compliance', 'Warehouse'],
-  'warehouse associate':    ['Warehouse', 'Inventory Management', 'Forklift Operation'],
-  'cdl driver':             ['CDL', 'Truck Driver'],
-  'cdl class a':            ['CDL', 'Truck Driver'],
-  'cdl class b':            ['CDL', 'Truck Driver'],
-
-  // ── Food service & hospitality ────────────────────────────────────────────
-  'executive chef':         ['Culinary Arts', 'Kitchen Staff', 'Food Safety', 'Inventory Management'],
-  'head chef':              ['Culinary Arts', 'Kitchen Staff', 'Food Safety'],
-  'sous chef':              ['Culinary Arts', 'Kitchen Staff', 'Food Safety'],
-  'line cook':              ['Line Cook', 'Food Safety', 'Food Preparation'],
-  'prep cook':              ['Prep Cook', 'Food Safety', 'Food Preparation'],
-  'restaurant manager':     ['Customer Service', 'POS Systems', 'Inventory Management', 'Food Safety'],
-  'food service manager':   ['Food Safety', 'Inventory Management', 'Customer Service'],
-  'barista':                ['Barista', 'Customer Service', 'Cash Handling', 'POS Systems'],
-  'hotel manager':          ['Housekeeping', 'Customer Service', 'Inventory Management'],
-  'front desk agent':       ['Receptionist', 'Customer Service', 'Cash Handling'],
-
-  // ── Retail & customer service ─────────────────────────────────────────────
-  'store manager':          ['Retail Sales', 'Inventory Management', 'Customer Service', 'Cash Handling'],
-  'assistant manager':      ['Retail Sales', 'Inventory Management', 'Customer Service'],
-  'sales associate':        ['Sales', 'Customer Service', 'Cash Handling', 'POS Systems'],
-  'cashier':                ['Cashier', 'Cash Handling', 'POS Systems', 'Customer Service'],
-  'customer service representative': ['Customer Service', 'Call Center', 'Data Entry'],
-  'call center agent':      ['Call Center', 'Customer Service', 'Data Entry'],
-  'receptionist':           ['Receptionist', 'Customer Service', 'Data Entry'],
-
-  // ── Security & safety ────────────────────────────────────────────────────
-  'security guard':         ['Security', 'Safety Compliance'],
-  'security officer':       ['Security', 'Safety Compliance', 'OSHA Compliance'],
-  'loss prevention':        ['Security', 'Safety Compliance', 'Retail Sales'],
-
-  // ── Transportation & logistics ────────────────────────────────────────────
-  'delivery driver':        ['Delivery Driver', 'Customer Service'],
-  'logistics coordinator':  ['Inventory Management', 'Warehouse'],
-  'supply chain':           ['Inventory Management', 'Logistics'],
 };
 
 // ── Soft skills (not in SKILL_ALIASES — captured separately) ──────────────────
@@ -253,32 +166,30 @@ export function parseResumeWithIntelligence(rawText: string): SkillIntelligenceR
   // Step 1: Segment text into sections
   const segments = segmentIntoSections(lines);
 
-  // Step 2: Extract skill candidates with section-aware weights
+  // Step 2: Extract skill candidates with section-aware weights.
+  // This stage is purely extractive — only canonical forms of skills literally
+  // present in the resume text. Skill-graph expansion (e.g. React → JavaScript)
+  // is handled at match time via getRelatedSkills(), so the saved profile
+  // reflects exactly what the candidate wrote.
   const candidates = extractSkillCandidates(segments);
 
-  // Step 3: Expand tech stack clusters
-  expandStackClusters(text.toLowerCase(), candidates);
-
-  // Step 4: Infer parent skills from known child skills
-  inferParentSkills(candidates);
-
-  // Step 5: Classify into technical / tools / soft
+  // Step 3: Classify into technical / tools / soft
   const { technical, tools } = classifySkills(candidates);
   const soft = extractSoftSkills(text);
 
-  // Step 6: Experience detection
+  // Step 4: Experience detection
   const { level, totalYears, positions } = extractExperience(text, segments);
 
-  // Step 7: Education
+  // Step 5: Education
   const education = extractEducation(segments);
 
-  // Step 8: Certifications
+  // Step 6: Certifications
   const certifications = extractCertifications(text);
 
-  // Step 9: Personal info
+  // Step 7: Personal info
   const personalInfo = extractPersonalInfo(text);
 
-  // Step 10: Confidence score
+  // Step 8: Confidence score
   const confidence = computeConfidence(technical, totalYears, personalInfo);
 
   return {
@@ -400,7 +311,6 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
             canonical,
             weight: segment.weight,
             count: 1,
-            inferred: false,
           });
         }
       }
@@ -408,113 +318,6 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
   }
 
   return candidates;
-}
-
-// ── Stack cluster expansion ───────────────────────────────────────────────────
-
-// Pre-compile word-boundary regexes for stack clusters (avoids substring false positives:
-// e.g. "rn" inside "learning", "emt" inside "development")
-const _clusterRegexCache = new Map<string, RegExp>();
-function getClusterRegex(cluster: string): RegExp {
-  let re = _clusterRegexCache.get(cluster);
-  if (!re) {
-    const escaped = cluster.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    re = new RegExp(`\\b${escaped}\\b`, 'i');
-    _clusterRegexCache.set(cluster, re);
-  }
-  return re;
-}
-
-function expandStackClusters(textLower: string, candidates: Map<string, SkillCandidate>): void {
-  for (const [cluster, skills] of Object.entries(STACK_CLUSTERS)) {
-    if (getClusterRegex(cluster).test(textLower)) {
-      for (const skill of skills) {
-        const canonical = normalizeSkill(skill);
-        if (!candidates.has(canonical)) {
-          candidates.set(canonical, { canonical, weight: 1.5, count: 1, inferred: true });
-        } else {
-          candidates.get(canonical)!.weight += 0.5;
-        }
-      }
-    }
-  }
-}
-
-// ── Skill graph inference ─────────────────────────────────────────────────────
-
-// Child skill → parent skills inferred when child is found
-const CHILD_TO_PARENTS: Record<string, string[]> = {
-  'React':          ['JavaScript'],
-  'Next.js':        ['React', 'JavaScript'],
-  'Vue.js':         ['JavaScript'],
-  'Angular':        ['TypeScript', 'JavaScript'],
-  'Svelte':         ['JavaScript'],
-  'Node.js':        ['JavaScript'],
-  'Express.js':     ['Node.js', 'JavaScript'],
-  'NestJS':         ['Node.js', 'TypeScript'],
-  'TypeScript':     ['JavaScript'],
-  'React Native':   ['React', 'JavaScript'],
-  'Django':         ['Python'],
-  'Flask':          ['Python'],
-  'FastAPI':        ['Python'],
-  'PyTorch':        ['Python', 'Machine Learning'],
-  'TensorFlow':     ['Python', 'Machine Learning'],
-  'Scikit-learn':   ['Python', 'Machine Learning'],
-  'Pandas':         ['Python'],
-  'NumPy':          ['Python'],
-  'Spring Boot':    ['Java', 'Spring'],
-  'Spring':         ['Java'],
-  'Ruby on Rails':  ['Ruby'],
-  'Laravel':        ['PHP'],
-  'Symfony':        ['PHP'],
-  'SwiftUI':        ['Swift', 'iOS'],
-  'Kubernetes':     ['Docker'],
-  'Terraform':      ['DevOps'],
-  'Redux':          ['React', 'JavaScript'],
-  'GraphQL':        ['REST'],
-  'PostgreSQL':     ['SQL'],
-  'MySQL':          ['SQL'],
-  'SQLite':         ['SQL'],
-  'MongoDB':        ['NoSQL'],
-
-  // ── Non-tech role inferences ──────────────────────────────────────────────
-  // Knowing a specialized skill implies foundational ones in the same domain
-  'Electronic Medical Records': ['HIPAA Compliance'],
-  'Phlebotomy':                 ['Patient Care'],
-  'BLS Certified':              ['CPR Certified'],
-  'HVAC':                       ['OSHA Compliance'],
-  'Electrical':                 ['OSHA Compliance'],
-  'Plumbing':                   ['OSHA Compliance'],
-  'Welding':                    ['OSHA Compliance'],
-  'Carpentry':                  ['OSHA Compliance'],
-  'Construction':               ['OSHA Compliance'],
-  'Forklift Operation':         ['Warehouse', 'OSHA Compliance'],
-  'CDL':                        ['Truck Driver'],
-  'Culinary Arts':              ['Food Safety'],
-  'Line Cook':                  ['Food Safety', 'Food Preparation'],
-  'Prep Cook':                  ['Food Safety', 'Food Preparation'],
-  'Retail Sales':               ['Customer Service'],
-  'Sales':                      ['Customer Service'],
-  'Call Center':                ['Customer Service'],
-  'Logistics':                  ['Inventory Management'],
-};
-
-function inferParentSkills(candidates: Map<string, SkillCandidate>): void {
-  const toAdd: Array<SkillCandidate> = [];
-
-  for (const [canonical] of candidates) {
-    const parents = CHILD_TO_PARENTS[canonical];
-    if (!parents) {continue;}
-    for (const parent of parents) {
-      if (!candidates.has(parent)) {
-        toAdd.push({ canonical: parent, weight: 0.8, count: 1, inferred: true });
-      }
-    }
-  }
-
-  for (const candidate of toAdd) {
-    candidates.set(candidate.canonical, candidate);
-  }
 }
 
 // ── Skill classification ──────────────────────────────────────────────────────
@@ -541,11 +344,10 @@ function classifySkills(candidates: Map<string, SkillCandidate>): {
   technical: string[];
   tools: string[];
 } {
-  // Sort by: explicit > inferred, then by weight × count
-  const sorted = Array.from(candidates.values()).sort((a, b) => {
-    if (a.inferred !== b.inferred) {return a.inferred ? 1 : -1;}
-    return (b.weight * b.count) - (a.weight * a.count);
-  });
+  // Sort by section-weighted frequency
+  const sorted = Array.from(candidates.values()).sort(
+    (a, b) => (b.weight * b.count) - (a.weight * a.count)
+  );
 
   const technical: string[] = [];
   const tools: string[] = [];
