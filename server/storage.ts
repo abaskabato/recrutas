@@ -1030,20 +1030,8 @@ export class DatabaseStorage implements IStorage {
       // ── Path A: pgvector semantic retrieval + keyword backup ──
       const vectorStr = `[${candidateEmbedding.join(',')}]`;
       console.time('pgvector-query');
-      const excludeClause = excludeIds.length > 0
-        ? client`AND id != ALL(${excludeIds}::int[])`
-        : client``;
-      const titleFilter = filters?.jobTitle
-        ? client`AND LOWER(title) LIKE ${'%' + filters.jobTitle.toLowerCase() + '%'}`
-        : client``;
-      const locationFilter = filters?.location
-        ? client`AND LOWER(location) LIKE ${'%' + filters.location.toLowerCase() + '%'}`
-        : client``;
-      const workTypeFilter = filters?.workType
-        ? client`AND LOWER(work_type) = ${filters.workType.toLowerCase()}`
-        : client``;
 
-      // pgvector ANN retrieval — top 200 by cosine distance
+      // pgvector ANN retrieval — top 100 by cosine distance
       // Return cosine_dist so scoreJob can use pre-computed similarity (avoids JSON.parse of 8KB text per row)
       const aggregatorList = [...AGGREGATOR_SOURCES].map(s => `'${s}'`).join(', ');
       const aggregatorUrlList = AGGREGATOR_URL_PATTERNS.map(p => `external_url ILIKE '%${p}%'`).join(' OR ');
@@ -1059,24 +1047,56 @@ export class DatabaseStorage implements IStorage {
           )
         )
       )`;
-      const vectorRows = await client`
-        SELECT id, (embedding <=> ${vectorStr}::vector) as cosine_dist FROM job_postings
+
+      // Build the query via client.unsafe() with explicit $-parameter binding.
+      // The previous implementation embedded drizzle's sql.raw() fragments into
+      // a postgres-js template tag; the two libraries don't share a protocol,
+      // so the fragments serialized to "[object Object]" and silently coerced
+      // every WHERE clause to FALSE — zeroing out the entire pgvector path.
+      const params: any[] = [vectorStr, cutoffDateStr];
+      let conditionals = '';
+      if (excludeIds.length > 0) {
+        params.push(excludeIds);
+        conditionals += ` AND id != ALL($${params.length}::int[])`;
+      }
+      if (filters?.jobTitle) {
+        params.push('%' + filters.jobTitle.toLowerCase() + '%');
+        conditionals += ` AND LOWER(title) LIKE $${params.length}`;
+      }
+      if (filters?.location) {
+        params.push('%' + filters.location.toLowerCase() + '%');
+        conditionals += ` AND LOWER(location) LIKE $${params.length}`;
+      }
+      if (filters?.workType) {
+        params.push(filters.workType.toLowerCase());
+        conditionals += ` AND LOWER(work_type) = $${params.length}`;
+      }
+
+      const rawQuery = `
+        SELECT id, (embedding <=> $1::vector) AS cosine_dist FROM job_postings
         WHERE status = 'active'
           AND embedding IS NOT NULL
           AND (expires_at IS NULL OR expires_at > NOW())
           AND (liveness_status IN ('active', 'unknown') OR source = 'platform')
           AND (ghost_job_score IS NULL OR ghost_job_score < 60 OR source = 'platform')
-          AND (source = 'platform' OR created_at > ${cutoffDateStr})
-          AND source NOT IN (${sql.raw(aggregatorList)})
-          AND (external_url IS NULL OR NOT (${sql.raw(aggregatorUrlList)}))
-          AND ${sql.raw(jobPostUrlRequirementSql)}
-          ${excludeClause}
-          ${titleFilter}
-          ${locationFilter}
-          ${workTypeFilter}
-        ORDER BY embedding <=> ${vectorStr}::vector
+          AND (source = 'platform' OR created_at > $2)
+          AND source NOT IN (${aggregatorList})
+          AND (external_url IS NULL OR NOT (${aggregatorUrlList}))
+          AND ${jobPostUrlRequirementSql}
+          ${conditionals}
+        ORDER BY embedding <=> $1::vector
         LIMIT 100
       `;
+
+      // SET LOCAL must run inside a transaction — wrap both statements so
+      // they share a single backend connection through pgBouncer's
+      // transaction pooler. Default hnsw.ef_search=40 returns only ~13-40
+      // candidates for embeddings in sparse regions of the HNSW graph;
+      // bumping to 200 reliably surfaces the top-100 nearest.
+      const vectorRows = await client.begin(async (tx: any) => {
+        await tx.unsafe('SET LOCAL hnsw.ef_search = 200');
+        return tx.unsafe(rawQuery, params);
+      });
       console.timeEnd('pgvector-query');
       // Map job id → pre-computed cosine distance (0=identical, 2=opposite)
       for (const r of vectorRows) vectorDistMap.set(r.id, parseFloat(r.cosine_dist));
