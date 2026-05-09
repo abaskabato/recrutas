@@ -449,12 +449,20 @@ export function scoreJob(
   // Apply context bonus (additive, capped at 100)
   matchScore = Math.min(100, matchScore + contextBonus);
 
-  // ── Hard cap: no skill overlap AND no role match ────
-  // A job with neither skill overlap nor role relevance is wrong-career noise.
-  // Semantic similarity alone shouldn't cross the 30% threshold — "infrastructure"
-  // in IT Support and ML Engineering does NOT make them the same career.
-  if (!hasSkillOverlap && !hasRoleMatch) {
-    matchScore = Math.min(matchScore, 25);
+  // ── Hard cap: no role-family match ────────────────────────────
+  // Role-family mismatch is the dominant signal that a job is wrong-career
+  // noise. A stray skill overlap (e.g. "Communication" or "Excel" matching
+  // across a Market Manager and an IT Support candidate) should NOT lift
+  // the score above the feed floor, which it does today: 1 generic skill
+  // match contributes ~7 keyword points and combined with seniority +
+  // semantic similarity cosmetics produces 30%+ scores for unrelated roles.
+  // Cap below the 30% feed floor when role family doesn't match, regardless
+  // of stray skill overlap. Skill-only matches still rank, just below the
+  // floor where they belong. hasRoleMatch is true by default when the
+  // candidate has no titles to compare (titleScore returns 50), so this
+  // gate only fires when we have evidence of a different career family.
+  if (!hasRoleMatch) {
+    matchScore = Math.min(matchScore, hasSkillOverlap ? 29 : 25);
   }
 
   // ── Explanation ────────────────────────────────────────────────
