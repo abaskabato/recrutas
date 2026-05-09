@@ -51,7 +51,7 @@ interface SkillCandidate {
 // ── Section detection ─────────────────────────────────────────────────────────
 
 const SECTION_PATTERNS: Record<string, RegExp> = {
-  skills:          /^(technical\s*)?skills?\s*:?\s*$|^(core\s+)?competencies\s*:?\s*$|^technologies(\s+used)?\s*:?\s*$|^tools?(\s+and\s+technologies?)?\s*:?\s*$|^tech(nical)?\s*(stack|expertise)\s*:?\s*$|^what\s+i\s+(know|use)\s*:?\s*$|^TECHNICALSKILLS\s*$/i,
+  skills:          /^(technical\s*|core\s+|relevant\s+|key\s+|hard\s+|soft\s+|professional\s+)?skills?\s*:?\s*$|^(core\s+)?competencies\s*:?\s*$|^technologies(\s+used)?\s*:?\s*$|^tools?(\s+and\s+technologies?)?\s*:?\s*$|^tech(nical)?\s*(stack|expertise)\s*:?\s*$|^what\s+i\s+(know|use)\s*:?\s*$|^TECHNICALSKILLS\s*$/i,
   experience:      /^(work\s+)?(experience|history|background|employment)\s*:?\s*$|^professional\s+(experience|background|history)\s*:?\s*$|^career\s+(history|background)\s*:?\s*$/i,
   projects:        /^(personal\s+|side\s+|open[\s-]?source\s+|key\s+)?projects?\s*:?\s*$|^portfolio\s*:?\s*$|^selected\s+work\s*:?\s*$|^(software\s*)?engineering\s*projects?\s*$/i,
   summary:         /^(professional\s+)?(summary|profile|objective|about(\s+me)?|overview|introduction|bio)\s*:?\s*$/i,
@@ -75,17 +75,25 @@ const SECTION_WEIGHTS: Record<string, number> = {
 const SOFT_SKILL_PATTERNS: Array<[RegExp, string]> = [
   [/\b(team\s*work|team\s*player|collaborative|collaboration)\b/gi, 'Teamwork'],
   [/\b(leadership|led\s+team|team\s+lead|mentoring|mentored)\b/gi, 'Leadership'],
-  [/\b(communication|communicat(ed|ion))\b/gi, 'Communication'],
-  [/\b(problem[\s-]?solving|troubleshoot|debugging|root\s+cause)\b/gi, 'Problem Solving'],
+  [/\b(team\s+management|managed?\s+(a\s+)?teams?|spearheaded?\s+a\s+team|directed\s+(the\s+)?oversight)\b/gi, 'Team Management'],
+  [/\b(customer\s+service|customer\s+support|client\s+service|client\s+support|customer\s+satisfaction)\b/gi, 'Customer Service'],
+  [/\b(communication|communicat(ed|ion)|verbal\s+communication|written\s+communication|bilingual)\b/gi, 'Communication'],
+  [/\b(problem[\s-]?solving|troubleshoot|debugging|root\s+cause)\b/gi, 'Problem-Solving'],
   [/\b(project\s+management|managed\s+projects?|end[\s-]to[\s-]end)\b/gi, 'Project Management'],
   [/\b(agile|scrum|kanban|sprint|stand[\s-]up)\b/gi, 'Agile'],
   [/\b(critical\s+thinking|analytical|analysis)\b/gi, 'Analytical Thinking'],
   [/\b(time\s+management|deadline|prioriti(ze|sation))\b/gi, 'Time Management'],
+  [/\b(adapta(ble|bility)|flexible|versatil(e|ity))\b/gi, 'Adaptability'],
 ];
 
 // ── Skills that need extra context validation (too short / ambiguous) ──────────
 
-const AMBIGUOUS_SKILLS = new Set(['r', 'c', 'go', 'ai', 'ml', 'dl', 'ui', 'ux']);
+// Tokens that mean a real skill in tech context but an English word elsewhere
+// ("swift resolution" ≠ Swift language, "go to market" ≠ Go language).
+const AMBIGUOUS_SKILLS = new Set([
+  'r', 'c', 'go', 'ai', 'ml', 'dl', 'ui', 'ux',
+  'swift', 'rust', 'shell', 'java', 'sass',
+]);
 
 // Technical context signals — nearby words that confirm a technical context
 const TECH_CONTEXT_SIGNALS = /\b(programm|develop|engineer|software|code|coding|stack|framework|library|language|tool|technolog|platform|system|app|api|database|backend|frontend|fullstack|devops|cloud|mobile|web|data|machine|neural|model|deploy|server|client|build|test|ci|cd)\b/i;
@@ -193,9 +201,9 @@ export function parseResumeWithIntelligence(rawText: string): SkillIntelligenceR
   const confidence = computeConfidence(technical, totalYears, personalInfo);
 
   return {
-    technical: technical.slice(0, 25),
+    technical: technical.slice(0, 30),
     tools: tools.slice(0, 15),
-    soft: soft.slice(0, 8),
+    soft: soft.slice(0, 10),
     experienceLevel: level,
     totalYears,
     positions,
@@ -236,9 +244,17 @@ function segmentIntoSections(lines: string[]): TextSegment[] {
       }
     }
 
-    // ALL-CAPS short lines are often section headers we don't recognise —
-    // treat them as section boundaries with default weight
-    if (!matched && /^[A-Z][A-Z\s&/]{2,30}$/.test(line) && line.length < 35) {
+    // ALL-CAPS short lines are sometimes section headers we don't recognise
+    // (e.g. AWARDS, PUBLICATIONS, ACHIEVEMENTS). But short ALL-CAPS tokens
+    // are usually tech acronyms appearing inside the body (SCCM, JIRA, AWS,
+    // SQL) — treating those as section boundaries truncates the experience
+    // segment and breaks position parsing. Require 6+ chars *and* either a
+    // space (multi-word header) or a known boundary keyword.
+    const looksLikeUnknownHeader =
+      /^[A-Z][A-Z\s&/]{5,30}$/.test(line) &&
+      line.length < 35 &&
+      (/\s/.test(line) || /^(AWARDS|PUBLICATIONS|ACHIEVEMENTS|HONORS|VOLUNTEER|LANGUAGES|INTERESTS|REFERENCES|ACTIVITIES|HOBBIES|TRAINING|COURSES|COURSEWORK|LEADERSHIP)$/.test(line));
+    if (!matched && looksLikeUnknownHeader) {
       if (current.lines.length > 0) {segments.push(current);}
       current = { section: 'unknown', lines: [], weight: SECTION_WEIGHTS.unknown };
     } else if (!matched) {
@@ -262,6 +278,11 @@ function extractSkillCandidates(segments: TextSegment[]): Map<string, SkillCandi
   const candidates: Map<string, SkillCandidate> = new Map();
 
   for (const segment of segments) {
+    // Skip degree/cert sections — degree subjects ("Electrical and Computer
+    // Engineering", "Data Science") are not the candidate's working skills.
+    // Real skills appear in skills/experience/projects/summary sections.
+    if (segment.section === 'education' || segment.section === 'certifications') continue;
+
     const segText = segment.lines.join('\n');
     const segTextLower = segText.toLowerCase();
     // Tokenise: split on whitespace and most punctuation, preserve hyphens.
@@ -500,48 +521,90 @@ function extractCompanyTitle(beforeText: string): { company: string; title: stri
   return { company, title };
 }
 
+// Words that strongly suggest a string is a job title (vs a bullet, skill,
+// or company name). Used to disambiguate when scanning for title candidates.
+const ROLE_WORDS_RE = /\b(engineer|developer|manager|analyst|designer|consultant|director|architect|intern|associate|lead|senior|junior|staff|specialist|coordinator|administrator|admin|technician|support|representative|officer|advisor|scientist|researcher|programmer|tester|product\s+(owner|manager)|principal|head|vp|vice\s+president|chief|cto|ceo|coo|cfo|cmo|cpo|founder|co[\s-]?founder|president|sde|sre|attorney|accountant|nurse|teacher|instructor|writer|editor|recruiter|operator|assistant|clerk|cashier|driver|chef|cook)\b/i;
+
+function looksLikeTitle(s: string): boolean {
+  if (!s || s.length < 3 || s.length > 100) return false;
+  if (/^[•●■▪\-*]/.test(s)) return false;
+  if (/[.;]\s*$/.test(s)) return false;
+  if (s.split(/\s+/).length > 12) return false;
+  if (/^[A-Z][A-Z/&]+$/.test(s) && s.length < 8) return false;
+  return ROLE_WORDS_RE.test(s);
+}
+
+// Strip trailing ", City, ST" / ", City, State" / ", Remote" from company.
+function stripLocation(s: string): string {
+  let cleaned = s.replace(/,\s*[A-Z][a-zA-Z .'-]+,\s*([A-Z]{2}|[A-Z][a-zA-Z]+)\s*$/, '');
+  cleaned = cleaned.replace(/,\s*(remote|onsite|hybrid|in[\s-]office)\s*$/i, '');
+  return cleaned.trim().replace(/[,;:\s]+$/, '');
+}
+
 function parsePositions(text: string): ExperienceResult['positions'] {
   const positions: ExperienceResult['positions'] = [];
-  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{4}\s*[–—\u2010-]\s*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{0,4}/gi;
+  const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{4}\s*[–—‐-]\s*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{0,4}/gi;
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
-  // Strategy 1: Line-by-line (works for well-formatted multi-line resumes)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const dateMatch = dateRe.exec(line);
     dateRe.lastIndex = 0;
     if (!dateMatch) continue;
 
-    // Text on the same line before the date
-    const beforeOnLine = line.substring(0, dateMatch.index).replace(/[|•·,]/g, ' ').trim();
+    // Text on the same line before the date — usually "Company, City, ST"
+    const beforeOnLine = line.substring(0, dateMatch.index).replace(/[|•·\t]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // Look back up to 2 lines for title/company context
-    // Common format: Title (line i-2) → Company, City (line i-1) → Date (line i)
-    // Or: Company, City, Title, Date (all on one line)
-    let contextLines: string[] = [];
+    // Look DOWN 1-4 non-blank lines for a title.
+    // Many resumes use "Company [TAB] Date \n Title \n bullets" layout.
+    let titleBelow = '';
+    for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+      const cand = lines[j];
+      if (!cand) continue;
+      if (dateRe.test(cand)) { dateRe.lastIndex = 0; break; }
+      dateRe.lastIndex = 0;
+      if (/^[•●■▪\-*]/.test(cand)) break;
+      if (cand.length > 100 && !looksLikeTitle(cand)) break;
+      if (looksLikeTitle(cand)) { titleBelow = cand; break; }
+    }
+
+    // Look UP 1-2 lines for legacy title-above-date layout
+    const contextLines: string[] = [];
     if (beforeOnLine) contextLines.push(beforeOnLine);
     for (let back = 1; back <= 2 && i - back >= 0; back++) {
       const prev = lines[i - back].trim();
       if (!prev) continue;
       if (dateRe.test(prev)) { dateRe.lastIndex = 0; break; }
       dateRe.lastIndex = 0;
-      // Stop if we hit a bullet point or responsibility text
-      if (/^[•\-*\uf0b7]/.test(prev)) break;
+      if (/^[•\-*]/.test(prev)) break;
       contextLines.unshift(prev);
     }
 
     let company = '';
     let title = 'Unknown Role';
 
-    if (contextLines.length >= 2 && !beforeOnLine) {
-      // Date on its own line, 2+ context lines above:
-      // Usually: line[-2]=Title, line[-1]=Company, Location
+    if (titleBelow && beforeOnLine) {
+      // Strongest signal: "Company [TAB] Date \n Title"
+      title = titleBelow;
+      company = stripLocation(beforeOnLine);
+    } else if (titleBelow) {
+      // Title found below; company should be the most recent non-bullet line above
+      title = titleBelow;
+      for (let back = 1; back <= 3 && i - back >= 0; back++) {
+        const prev = lines[i - back];
+        if (!prev || /^[•\-*]/.test(prev)) continue;
+        company = stripLocation(prev);
+        break;
+      }
+    } else if (contextLines.length >= 2 && !beforeOnLine) {
+      // "Title \n Company \n Date"
       title = contextLines[0];
-      company = contextLines.slice(1).join(', ');
+      company = stripLocation(contextLines.slice(1).join(', '));
     } else {
       const combined = contextLines.join('\n');
       ({ company, title } = extractCompanyTitle(combined));
+      company = stripLocation(company);
     }
 
     // Collect responsibilities
@@ -556,9 +619,12 @@ function parsePositions(text: string): ExperienceResult['positions'] {
       }
     }
 
-    if (title !== 'Unknown Role' || company) {
-      positions.push({ title, company, duration: dateMatch[0], responsibilities });
-    }
+    // Reject obvious junk: empty, sentence-like, or paragraph-length titles
+    if (title === 'Unknown Role' || title.length < 3) continue;
+    if (/[.;]\s*$/.test(title)) continue;
+    if (title.split(/\s+/).length > 12) continue;
+
+    positions.push({ title, company, duration: dateMatch[0], responsibilities });
   }
 
   // Strategy 2: Dateless resumes with "Company — Title" or "Company – Title" (em/en-dash)
@@ -586,7 +652,14 @@ function parsePositions(text: string): ExperienceResult['positions'] {
           responsibilities.push(next);
         }
       }
-      positions.push({ title: right, company: left, duration: '', responsibilities });
+      // "Title: description" — keep just the title before the colon
+      let title = right;
+      const colonIdx = title.indexOf(':');
+      if (colonIdx > 0 && colonIdx < title.length - 1) {
+        title = title.substring(0, colonIdx).trim();
+      }
+      if (title.split(/\s+/).length > 12) continue;
+      positions.push({ title, company: left, duration: '', responsibilities });
     }
   }
 
