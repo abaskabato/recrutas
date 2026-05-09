@@ -450,7 +450,28 @@ export function scoreJob(
   // ── 3. Title/role relevance (25%) ──────────────────────────────
 
   const titleScore = scoreTitleRelevance(candidateTitles || [], job.title || '');
-  const hasRoleMatch = titleScore >= 40; // meaningful role alignment
+
+  // hasRoleMatch must reflect actual role-family alignment, not just titleScore
+  // crossing 40. titleScore can hit 40 via jaccard + seniority alignment alone:
+  // extractSeniority defaults to 'mid' for unmarked titles, so a 'mid' nurse
+  // ↔ 'senior' SWE pair gets +12 seniority points (diff of 1), plus stray
+  // jaccard from connector words ("senior", "front", etc.) can push titleScore
+  // past 40 even when the role families clearly disagree. Require positive
+  // role-family compatibility when both sides classify; default to permissive
+  // when either side is unclassified (conservative, matches prior behavior).
+  const _jobRoleFamily = extractRoleFamily(job.title || '');
+  const _candRoleFamilies = (candidateTitles || [])
+    .map(t => extractRoleFamily(t))
+    .filter((r): r is string => r !== null);
+  const _familyCompatible =
+    !_jobRoleFamily ||
+    _candRoleFamilies.length === 0 ||
+    _candRoleFamilies.some(r => {
+      if (r === _jobRoleFamily) return true;
+      const related = RELATED_ROLE_FAMILIES[_jobRoleFamily] || [];
+      return related.includes(r);
+    });
+  const hasRoleMatch = titleScore >= 40 && _familyCompatible;
 
   // ── 4. Experience level (15%) ──────────────────────────────────
 
