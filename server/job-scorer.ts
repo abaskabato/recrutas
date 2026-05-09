@@ -131,6 +131,35 @@ const ROLE_FAMILIES: Array<[RegExp, string]> = [
   [/(?:marketing\s*(?:manager|director|specialist)|growth\s*(?:manager|lead)|brand\s*manager)/i, 'marketing'],
   [/(?:sales\s*(?:manager|director|rep|executive|engineer)|account\s*executive|bdr|sdr)/i, 'sales'],
   [/(?:operations\s*(?:manager|director)|office\s*manager|facilities)/i, 'operations'],
+  // Healthcare — kept distinct from tech so cross-domain mismatches get
+  // capped by the role-mismatch gate in scoreJob.
+  [/(?:(?:registered|charge|staff|travel|per\s*diem|critical\s*care|emergency|operating\s*room|pediatric|psychiatric|home\s*health|hospice|telemetry|icu|er|or)\s*nurse|nurse\s*(?:manager|practitioner|supervisor|coordinator|anesthetist|midwife|educator)|nursing\s*(?:assistant|aide|supervisor|director)|certified\s*nursing\s*assistant|\b(?:rn|lpn|lvn|cna|crna)\b|nurse\s*practitioner|\bnurse\b)/i, 'nursing'],
+  [/(?:\bphysician\b|\bsurgeon\b|medical\s*doctor|resident\s*physician|attending\s*physician|cardiologist|oncologist|radiologist|pediatrician|psychiatrist|anesthesiologist|dermatologist|neurologist|gynecologist|emergency\s*medicine\s*physician|family\s*medicine\s*physician|internal\s*medicine\s*physician)/i, 'physician'],
+  [/(?:physical\s*therapist|occupational\s*therapist|respiratory\s*therapist|speech(?:[\s-]language)?\s*pathologist|\bemt\b|paramedic|medical\s*(?:assistant|technician|technologist|laboratory\s*tech|lab\s*tech)|pharmacy\s*(?:technician|tech)|\bpharmacist\b|dental\s*(?:hygienist|assistant)|\bdentist\b|radiology\s*(?:technician|technologist)|surgical\s*(?:technician|technologist)|sonographer|phlebotomist|x[\s-]?ray\s*tech|\bdietitian\b|nutritionist|chiropractor|optometrist|podiatrist|audiologist)/i, 'allied_health'],
+  [/(?:psychologist|psychotherapist|\b(?:lcsw|lpc|lmft|msw)\b|licensed\s*(?:clinical|professional|marriage)\s*(?:counselor|therapist|social\s*worker)|mental\s*health\s*counselor|substance\s*abuse\s*counselor|behavioral\s*health\s*(?:counselor|specialist)|marriage\s*and\s*family\s*therapist|family\s*therapist|art\s*therapist|school\s*counselor|guidance\s*counselor|social\s*worker)/i, 'mental_health'],
+  // Education
+  [/(?:(?:elementary|middle\s*school|high\s*school|secondary|preschool|kindergarten|special\s*education|esl|substitute)\s*teacher|\bteacher\b|\bprofessor\b|adjunct(?:\s*professor)?|\blecturer\b|teaching\s*assistant|tutor|principal|vice\s*principal|dean\s*of|department\s*chair|education\s*(?:director|coordinator)|curriculum\s*(?:designer|developer|specialist))/i, 'education'],
+  // Food service / hospitality
+  [/(?:\bchef\b|sous\s*chef|line\s*cook|prep\s*cook|pastry\s*chef|executive\s*chef|head\s*cook|\bcook\b|kitchen\s*manager|barista|bartender|\bwaiter\b|waitress|food\s*service|fast\s*food\s*(?:worker|crew)|cocktail\s*server|cafeteria\s*worker|dishwasher|host(?:ess)?\s*(?:restaurant)?)/i, 'food_service'],
+  [/(?:hotel\s*manager|front\s*desk\s*(?:agent|clerk|associate)|\bconcierge\b|housekeeping|housekeeper|bellhop|bellman|guest\s*services|reservations\s*agent|hospitality\s*(?:manager|coordinator)|innkeeper|resort\s*manager|banquet\s*(?:manager|server)|event\s*coordinator)/i, 'hospitality'],
+  // Retail / customer service
+  [/(?:retail\s*(?:associate|sales|manager|supervisor)|sales\s*associate|store\s*(?:manager|associate|clerk|supervisor)|\bcashier\b|merchandiser|stock\s*(?:clerk|associate)|sales\s*floor|key\s*holder|assistant\s*store\s*manager|department\s*lead)/i, 'retail'],
+  [/(?:customer\s*service\s*(?:representative|rep|associate|specialist|manager)|\bcsr\b|call\s*center\s*(?:agent|representative|rep|operator)|customer\s*support\s*(?:representative|specialist|associate)|client\s*(?:services|relations)\s*(?:representative|associate|specialist)|service\s*advisor|claims\s*representative)/i, 'customer_service'],
+  // Skilled trades
+  [/(?:\belectrician\b|journeyman\s*electrician|master\s*electrician|\bplumber\b|hvac\s*(?:technician|tech|installer)|\bwelder\b|carpenter|machinist|millwright|pipefitter|sheet\s*metal|locksmith|glazier|roofer|drywaller|\bmason\b)/i, 'skilled_trades'],
+  [/(?:auto(?:motive)?\s*(?:mechanic|technician)|diesel\s*(?:mechanic|technician)|aircraft\s*mechanic|maintenance\s*(?:technician|mechanic)|small\s*engine\s*mechanic|industrial\s*mechanic|fleet\s*mechanic|\bmechanic\b)/i, 'mechanic'],
+  [/(?:(?:production|assembly|manufacturing|factory|plant)\s*(?:worker|operator|technician|associate|supervisor|lead)|machine\s*operator|cnc\s*operator|forklift\s*operator|quality\s*(?:control|inspector)\s*technician|production\s*line)/i, 'manufacturing'],
+  [/(?:construction\s*(?:worker|laborer|foreman|superintendent|manager|supervisor)|construction\s*project\s*manager|\bforeman\b|general\s*laborer|construction\s*estimator|building\s*inspector|site\s*superintendent|crane\s*operator|heavy\s*equipment\s*operator|concrete\s*finisher)/i, 'construction'],
+  // Transportation / logistics
+  [/(?:truck\s*driver|cdl\s*driver|delivery\s*driver|bus\s*driver|taxi\s*driver|rideshare\s*driver|courier|chauffeur|owner[\s-]?operator|shuttle\s*driver)/i, 'driver'],
+  [/(?:warehouse\s*(?:associate|worker|manager|supervisor|lead|clerk)|fulfillment\s*(?:associate|worker|specialist)|order\s*picker|\bpicker\b|\bpacker\b|shipping\s*(?:clerk|associate)|receiving\s*(?:clerk|associate)|inventory\s*(?:clerk|specialist|associate))/i, 'warehouse'],
+  [/(?:logistics\s*(?:coordinator|manager|specialist|analyst)|\bdispatcher\b|fleet\s*(?:manager|coordinator)|supply\s*chain\s*(?:coordinator|analyst|specialist|manager)|transportation\s*(?:coordinator|manager))/i, 'logistics'],
+  // Creative / media
+  [/(?:\bcopywriter\b|content\s*(?:writer|creator|specialist|strategist)|\bjournalist\b|\breporter\b|(?:content|copy|news|book|magazine|video|managing|associate)\s*editor|editor[\s-]?in[\s-]?chief|grant\s*writer|freelance\s*writer|staff\s*writer|\bauthor\b)/i, 'creative_writer'],
+  [/(?:photographer|videographer|video\s*editor|video\s*producer|cinematographer|director\s*of\s*photography|camera\s*operator|film\s*editor|motion\s*graphics(?:\s*designer)?|animator)/i, 'video_creative'],
+  [/(?:illustrator|fine\s*artist|art\s*director|creative\s*director|visual\s*artist)/i, 'artist'],
+  // Administrative
+  [/(?:executive\s*(?:assistant|admin)|administrative\s*(?:assistant|coordinator|specialist|aide)|admin\s*assistant|office\s*(?:assistant|coordinator|administrator)|\bsecretary\b|\breceptionist\b|data\s*entry\s*(?:clerk|specialist|operator)|file\s*clerk|virtual\s*assistant)/i, 'administrative'],
   // Note: previously had generic fallbacks (analyst/designer/engineer/developer/
   // manager/architect) here. They matched any title containing those tokens —
   // including parser-extracted junk like sentence fragments — and expanded to
@@ -179,10 +208,38 @@ const RELATED_ROLE_FAMILIES: Record<string, string[]> = {
   // Non-tech families — only relate to each other, never to tech roles
   legal: [],
   finance: [],
-  hr: ['recruiter'],
+  hr: ['recruiter', 'administrative'],
   marketing: ['sales'],
   sales: ['marketing'],
   operations: [],
+  // Healthcare cluster — clinical roles relate within healthcare only
+  nursing: ['allied_health'],
+  physician: ['allied_health'],
+  allied_health: ['nursing', 'physician'],
+  mental_health: [],
+  // Education
+  education: [],
+  // Hospitality cluster
+  food_service: ['hospitality'],
+  hospitality: ['food_service'],
+  // Retail / customer service
+  retail: ['customer_service'],
+  customer_service: ['retail', 'administrative'],
+  // Trades / industrial cluster
+  skilled_trades: ['mechanic', 'manufacturing', 'construction'],
+  mechanic: ['skilled_trades', 'manufacturing'],
+  manufacturing: ['skilled_trades', 'warehouse'],
+  construction: ['skilled_trades'],
+  // Transportation / logistics
+  driver: ['warehouse', 'logistics'],
+  warehouse: ['driver', 'manufacturing', 'logistics'],
+  logistics: ['driver', 'warehouse'],
+  // Creative / media
+  creative_writer: ['video_creative'],
+  video_creative: ['artist', 'creative_writer'],
+  artist: ['video_creative'],
+  // Administrative
+  administrative: ['hr', 'customer_service'],
 };
 
 /**
@@ -229,6 +286,34 @@ const ROLE_FAMILY_KEYWORDS: Record<string, string[]> = {
   marketing: ['marketing manager', 'growth manager', 'brand manager'],
   sales: ['sales manager', 'account executive', 'sales rep', 'bdr', 'sdr'],
   operations: ['operations manager', 'office manager'],
+  // Healthcare
+  nursing: ['nurse', 'nursing', 'rn', 'lpn', 'cna', 'nurse practitioner', 'registered nurse', 'charge nurse'],
+  physician: ['physician', 'doctor', 'surgeon', 'medical doctor', 'attending physician'],
+  allied_health: ['therapist', 'medical assistant', 'paramedic', 'pharmacy technician', 'pharmacist', 'dental hygienist', 'radiology technician'],
+  mental_health: ['counselor', 'therapist', 'psychologist', 'social worker', 'mental health counselor'],
+  // Education
+  education: ['teacher', 'professor', 'instructor', 'tutor', 'principal', 'lecturer'],
+  // Hospitality
+  food_service: ['cook', 'chef', 'bartender', 'barista', 'waiter', 'kitchen'],
+  hospitality: ['hotel', 'concierge', 'front desk', 'housekeeping', 'guest services'],
+  // Retail / customer service
+  retail: ['retail', 'cashier', 'sales associate', 'store manager', 'merchandiser'],
+  customer_service: ['customer service', 'csr', 'call center', 'customer support representative'],
+  // Trades
+  skilled_trades: ['electrician', 'plumber', 'hvac', 'welder', 'carpenter', 'machinist'],
+  mechanic: ['mechanic', 'auto technician', 'diesel mechanic', 'maintenance technician'],
+  manufacturing: ['production worker', 'machine operator', 'manufacturing', 'cnc operator', 'assembly'],
+  construction: ['construction', 'foreman', 'laborer', 'site superintendent', 'estimator'],
+  // Transportation
+  driver: ['truck driver', 'cdl driver', 'delivery driver', 'bus driver', 'courier'],
+  warehouse: ['warehouse', 'fulfillment', 'picker', 'packer', 'shipping clerk'],
+  logistics: ['logistics', 'dispatcher', 'supply chain'],
+  // Creative
+  creative_writer: ['writer', 'copywriter', 'editor', 'journalist', 'content writer'],
+  video_creative: ['videographer', 'video editor', 'photographer', 'cinematographer'],
+  artist: ['illustrator', 'art director', 'visual artist'],
+  // Administrative
+  administrative: ['administrative assistant', 'executive assistant', 'office manager', 'receptionist', 'secretary'],
   // Generic family keyword entries removed — see note in ROLE_FAMILIES above.
 };
 
