@@ -1286,24 +1286,35 @@ export class DatabaseStorage implements IStorage {
             }
           }
 
-          return { ...job, prefBoost };
+          // Trust acts as a tie-breaker among good fits, never as a way to
+          // lift a stretch role. Below TRUST_FIT_GATE the trust weight is
+          // redistributed onto match so a high-trust off-role (e.g. a 30%
+          // Stripe role for an IT-support candidate) can't out-rank a
+          // high-fit non-direct row.
+          const TRUST_FIT_GATE = 60;
+          const goodFit = job.matchScore >= TRUST_FIT_GATE;
+          const fit = job.matchScore / 100;
+          const trust = (job.trustScore || 0) / 100;
+          const recency = computeRecencyScore(job.createdAt);
+          const compositeScore =
+            (goodFit ? 0.70 : 0.85) * fit +
+            (goodFit ? 0.15 * trust : 0) +
+            0.10 * recency +
+            prefBoost;
+
+          return { ...job, prefBoost, compositeScore };
         })
         .sort((a, b) => {
           // Primary: US affinity (US first, then unknown, then non-US).
-          // Secondary: existing weighted score (match × trust × recency × pref).
           const usA = jsUsLocationPriority(a);
           const usB = jsUsLocationPriority(b);
           if (usA !== usB) return usA - usB;
-          const recencyA = computeRecencyScore(a.createdAt);
-          const recencyB = computeRecencyScore(b.createdAt);
-          const scoreA = 0.70 * (a.matchScore / 100) + 0.15 * ((a.trustScore || 0) / 100) + 0.10 * recencyA + a.prefBoost;
-          const scoreB = 0.70 * (b.matchScore / 100) + 0.15 * ((b.trustScore || 0) / 100) + 0.10 * recencyB + b.prefBoost;
-          return scoreB - scoreA;
+          return b.compositeScore - a.compositeScore;
         })
         .slice(0, 100); // Hard cap: never return more than 100 jobs
 
     console.log(`After filtering (30%+ match): ${finalJobs.length} recommendations`);
-    return finalJobs.map(({ prefBoost: _, ...job }) => job);
+    return finalJobs.map(({ prefBoost: _p, compositeScore: _c, ...job }) => job);
   }
 
   /**
