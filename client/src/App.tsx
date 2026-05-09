@@ -26,6 +26,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import MetricsDashboard from "@/pages/metrics-dashboard";
 import EarlyAccessPage from "@/pages/early-access";
 import PageMeta from '@/components/page-meta';
+import { IdleWatcher } from '@/components/idle-watcher';
 
 
 function App() {
@@ -72,6 +73,7 @@ function App() {
         </Switch>
         <TopRightButtons />
         <FeedbackButton />
+        <IdleWatcher />
       </SessionContextProvider>
     </AppProviders>
   );
