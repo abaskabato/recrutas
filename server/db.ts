@@ -44,9 +44,10 @@ if (connectionString) {
       idle_timeout: isServerless ? 20 : 30,
       // Recycle connections every 5 min in serverless to prevent stale socket errors.
       max_lifetime: isServerless ? 300 : 3600,
-      // Keep connect_timeout longer than our 8s app timeout so the app timeout fires first
-      // and returns a clean 503 instead of an opaque postgres connection error.
-      connect_timeout: 15,
+      // Serverless: keep connect_timeout longer than our 8s app timeout so the app timeout
+      // fires first and returns a clean 503 instead of an opaque postgres connection error.
+      // CLI/Actions: pooler can take >15s to accept a fresh socket under load, so allow more.
+      connect_timeout: isServerless ? 15 : 30,
       connection: {
         application_name: 'recrutas-app',
         statement_timeout: 20000,

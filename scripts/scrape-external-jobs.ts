@@ -46,6 +46,49 @@ function parseArgs(): { timeout: number } {
   };
 }
 
+function isTransientConnError(err: any): boolean {
+  const msg = String(err?.message ?? err ?? '').toLowerCase();
+  return msg.includes('connect_timeout') ||
+         msg.includes('connection terminated') ||
+         msg.includes('connection_closed') ||
+         msg.includes('connection_destroyed') ||
+         msg.includes('econnreset') ||
+         msg.includes('etimedout') ||
+         msg.includes('enetunreach');
+}
+
+// Re-probe the pool until we get a successful query. The Supabase pooler can
+// intermittently reject fresh sockets with CONNECT_TIMEOUT under load, especially
+// when opening a burst of new connections after a long idle scrape phase.
+async function waitForDbReady(maxAttempts = 5): Promise<void> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await dbClient`SELECT 1`;
+      if (attempt > 1) console.log(`[scrape-external] DB ready after ${attempt} attempts`);
+      return;
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      if (attempt === maxAttempts) {
+        throw new Error(`DB unreachable after ${maxAttempts} attempts: ${msg}`);
+      }
+      const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
+      console.warn(`[scrape-external] DB probe ${attempt}/${maxAttempts} failed (${msg}); retrying in ${backoffMs}ms`);
+      await new Promise(r => setTimeout(r, backoffMs));
+    }
+  }
+}
+
+async function withConnRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    if (!isTransientConnError(err)) throw err;
+    console.warn(`[scrape-external] ${label} hit transient connection error; re-probing and retrying once: ${err?.message}`);
+    await waitForDbReady();
+    return await fn();
+  }
+}
+
 async function main() {
   checkRequiredEnvVars();
   const { timeout } = parseArgs();
@@ -79,23 +122,28 @@ async function main() {
       process.exit(0);
     }
 
-    // Ingest into database
-    const ingestStats = await jobIngestionService.ingestExternalJobs(
-      jobs.map((job: any) => ({
-        title: job.title || '',
-        company: job.company || '',
-        location: job.location || '',
-        description: job.description || '',
-        requirements: job.requirements || [],
-        skills: job.skills || [],
-        workType: job.workType || 'hybrid',
-        salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax,
-        source: job.source || 'external',
-        externalId: job.externalId || job.id || `ext-${Date.now()}`,
-        externalUrl: job.externalUrl || '',
-        postedDate: job.postedDate || new Date().toISOString(),
-      }))
+    const normalizedJobs = jobs.map((job: any) => ({
+      title: job.title || '',
+      company: job.company || '',
+      location: job.location || '',
+      description: job.description || '',
+      requirements: job.requirements || [],
+      skills: job.skills || [],
+      workType: job.workType || 'hybrid',
+      salaryMin: job.salaryMin,
+      salaryMax: job.salaryMax,
+      source: job.source || 'external',
+      externalId: job.externalId || job.id || `ext-${Date.now()}`,
+      externalUrl: job.externalUrl || '',
+      postedDate: job.postedDate || new Date().toISOString(),
+    }));
+
+    // Probe the pool before the ingestion burst so a stale-socket failure surfaces here
+    // as a retry rather than killing the whole run partway through inserts.
+    await waitForDbReady();
+
+    const ingestStats = await withConnRetry('ingestExternalJobs',
+      () => jobIngestionService.ingestExternalJobs(normalizedJobs)
     );
 
     const totalTime = Date.now() - startTime;
@@ -108,7 +156,9 @@ async function main() {
     // Resolve bad URLs for existing jobs
     if (ingestStats?.inserted > 0) {
       console.log('[scrape-external] Resolving bad URLs for existing jobs...');
-      const resolveResult = await jobIngestionService.resolveJobUrls();
+      const resolveResult = await withConnRetry('resolveJobUrls',
+        () => jobIngestionService.resolveJobUrls()
+      );
       console.log(`[scrape-external] Resolved ${resolveResult.resolved} job URLs`);
     }
 
