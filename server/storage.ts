@@ -1138,6 +1138,7 @@ export class DatabaseStorage implements IStorage {
       if (mergedIds.length === 0) {
         allJobs = [];
       } else {
+        console.time('hydrate-query');
         allJobs = await db
           .select()
           .from(jobPostings)
@@ -1147,9 +1148,11 @@ export class DatabaseStorage implements IStorage {
             sql`${jobPostings.trustScore} DESC NULLS LAST`,
             sql`${jobPostings.createdAt} DESC`
           );
+        console.timeEnd('hydrate-query');
       }
     } else {
       // ── Path B: keyword-only fallback (no embedding) ──
+      console.time('keyword-only-query');
       allJobs = await db
         .select()
         .from(jobPostings)
@@ -1178,6 +1181,7 @@ export class DatabaseStorage implements IStorage {
           sql`${jobPostings.createdAt} DESC`
         )
         .limit(500);
+      console.timeEnd('keyword-only-query');
     }
 
     const jobsWithSource = allJobs
@@ -1189,6 +1193,7 @@ export class DatabaseStorage implements IStorage {
 
     console.log(`Found ${jobsWithSource.length} matching jobs (internal + external, US only)`);
 
+    console.time('score-jobs');
     const recommendations = jobsWithSource
       .map(job => {
         const score = scoreJob(candidateSkills, candidate.experienceLevel, job, candidateEmbedding, candidateTitles, {
@@ -1312,8 +1317,18 @@ export class DatabaseStorage implements IStorage {
           return b.compositeScore - a.compositeScore;
         })
         .slice(0, 100); // Hard cap: never return more than 100 jobs
+    console.timeEnd('score-jobs');
 
-    console.log(`After filtering (30%+ match): ${finalJobs.length} recommendations`);
+    // Score histogram so we can see whether the feed-floor filter is the cause
+    // of empty results vs. retrieval pulling 0 candidates upstream.
+    const scoreBuckets = { lt30: 0, b30_50: 0, b50_75: 0, gte75: 0 };
+    for (const r of recommendations) {
+      if (r.matchScore < 30) scoreBuckets.lt30++;
+      else if (r.matchScore < 50) scoreBuckets.b30_50++;
+      else if (r.matchScore < 75) scoreBuckets.b50_75++;
+      else scoreBuckets.gte75++;
+    }
+    console.log(`[fetchScoredJobs] scored=${recommendations.length} buckets=<30:${scoreBuckets.lt30} 30-50:${scoreBuckets.b30_50} 50-75:${scoreBuckets.b50_75} 75+:${scoreBuckets.gte75} → after 30%+ filter: ${finalJobs.length}`);
     return finalJobs.map(({ prefBoost: _p, compositeScore: _c, ...job }) => job);
   }
 

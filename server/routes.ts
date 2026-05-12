@@ -420,13 +420,16 @@ export async function registerRoutes(app: Express): Promise<Express> {
 
   // AI-powered job matching — single DB query, scored in application code
   app.get('/api/ai-matches', isAuthenticated, asyncHandler(async (req: any, res) => {
-    const TIMEOUT_MS = 20000;
+    // 45s timeout — under Vercel's 60s maxDuration but well above prod cold-start observations.
+    // Previously 20s, which prod was exceeding on cold start and swallowing into empty results.
+    const TIMEOUT_MS = 45000;
 
     let timeoutId: NodeJS.Timeout;
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(() => reject(new Error('Matching timeout')), TIMEOUT_MS);
     });
     const finish = () => clearTimeout(timeoutId);
+    const startedAt = Date.now();
 
     try {
       const userId = req.user.id;
@@ -446,6 +449,7 @@ export async function registerRoutes(app: Express): Promise<Express> {
       ]) as { jobs: any[]; total: number; page: number; hasMore: boolean };
 
       finish();
+      console.log(`[ai-matches] getJobRecommendations done in ${Date.now() - startedAt}ms (total=${result.total})`);
 
       // Track last feed visit on page 1 only (for "new" badges)
       if (page === 1) {
@@ -476,9 +480,11 @@ export async function registerRoutes(app: Express): Promise<Express> {
         hasMore: result.hasMore,
       });
     } catch (error: any) {
-      console.error('[ai-matches] Error:', error?.message);
+      const elapsed = Date.now() - startedAt;
+      console.error(`[ai-matches] Error after ${elapsed}ms:`, error?.message);
       finish();
       if (error?.message?.includes('timeout') || error?.message?.includes('cancel')) {
+        console.error(`[ai-matches][TIMEOUT] user=${req.user?.id} elapsed=${elapsed}ms limit=${TIMEOUT_MS}ms — returning empty result`);
         return res.json({ jobs: [], total: 0, page: 1, hasMore: false });
       }
       res.status(500).json({
