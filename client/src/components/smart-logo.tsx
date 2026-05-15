@@ -1,5 +1,4 @@
 import { useSession } from "@supabase/auth-helpers-react";
-import { useLocation } from "wouter";
 import RecrutasLogo, { RecrutasLogoCompact } from "./recrutas-logo";
 
 interface SmartLogoProps {
@@ -10,21 +9,17 @@ interface SmartLogoProps {
 
 export default function SmartLogo({ size = 32, className = "", showText = true }: SmartLogoProps) {
   const session = useSession();
-  const [, setLocation] = useLocation();
   const user = session?.user;
 
   const handleClick = () => {
-    if (!user) {
-      setLocation("/");
-    } else {
+    let target = "/";
+    if (user) {
       const role = (user as any)?.user_metadata?.role || (user as any)?.role;
-      
-      if (role === 'talent_owner' || role === 'recruiter') {
-        setLocation("/talent-dashboard");
-      } else {
-        setLocation("/candidate-dashboard");
-      }
+      target = role === "talent_owner" || role === "recruiter"
+        ? "/talent-dashboard"
+        : "/candidate-dashboard";
     }
+    window.location.href = target;
   };
 
   return (
