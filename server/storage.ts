@@ -912,6 +912,86 @@ export class DatabaseStorage implements IStorage {
   /**
    * Fetch and score jobs for a candidate. Shared logic for both flat and sectioned responses.
    */
+  // Discovery feed — fallback shown when we have no usable skill signal to score
+  // against. Returns recent, trusted, platform-first jobs with matchScore=0 and
+  // a 'discovery' tier so the UI can render them as "browse" rows rather than
+  // ranked matches. Called by fetchScoredJobs in two empty-signal cases.
+  private async getDiscoveryFeed(excludeIds: number[], explanation: string): Promise<any[]> {
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const cutoffDateStr = ninetyDaysAgo.toISOString();
+
+    const discoveryJobs = await db
+      .select()
+      .from(jobPostings)
+      .where(and(
+        eq(jobPostings.status, 'active'),
+        or(
+          sql`${jobPostings.expiresAt} IS NULL`,
+          sql`${jobPostings.expiresAt} > NOW()`
+        ),
+        // Platform jobs are verified by definition — skip liveness check
+        or(
+          eq(jobPostings.livenessStatus, 'active'),
+          eq(jobPostings.livenessStatus, 'unknown'),
+          eq(jobPostings.source, 'platform')
+        ),
+        // Platform jobs are never ghost jobs
+        or(
+          sql`${jobPostings.ghostJobScore} IS NULL`,
+          sql`${jobPostings.ghostJobScore} < 60`,
+          eq(jobPostings.source, 'platform')
+        ),
+        // Platform jobs are exempt from the 90-day cutoff
+        or(
+          eq(jobPostings.source, 'platform'),
+          sql`${jobPostings.createdAt} > ${cutoffDateStr}`
+        ),
+        // Exclude all aggregator sources
+        sql`${jobPostings.source} NOT IN (${sql.join(
+          [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
+        )})`,
+        aggregatorUrlExclusion,
+        // Require URL to point to a real job post page (platform jobs exempt — no external_url)
+        or(
+          eq(jobPostings.source, 'platform'),
+          jobPostUrlRequirement
+        ),
+        // Exclude hidden and applied-to jobs
+        ...(excludeIds.length > 0
+          ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
+          : [])
+      ))
+      .orderBy(
+        // Rank: platform first, then US, then unknown, then non-US
+        usPriorityOrder,
+        sql`${jobPostings.trustScore} DESC NULLS LAST`,
+        sql`${jobPostings.createdAt} DESC`
+      )
+      .limit(20);
+
+    return discoveryJobs.map((job: any) => {
+      const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
+      return {
+        ...job,
+        requirements: Array.isArray(job.requirements) ? job.requirements : [],
+        skills: Array.isArray(job.skills) ? job.skills : [],
+        matchScore: 0,
+        matchTier: 'discovery' as const,
+        skillMatches: [],
+        aiExplanation: explanation,
+        isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore || 0) >= 90,
+        isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
+        freshness,
+        daysOld,
+        ghostJobScore: job.ghostJobScore || 0,
+        ghostJobStatus: job.ghostJobStatus || 'clean',
+        ghostJobReasons: job.ghostJobReasons || [],
+        companyVerified: job.companyVerified || false,
+      };
+    });
+  }
+
   private async fetchScoredJobs(candidateId: string, filters?: { jobTitle?: string; location?: string; workType?: string }): Promise<any[] | null> {
     const candidate = await this.getCandidateUser(candidateId);
 
@@ -927,90 +1007,20 @@ export class DatabaseStorage implements IStorage {
 
     if (!candidate || !candidate.skills || candidate.skills.length === 0) {
       console.log(`Candidate ${candidateId} has no skills - returning discovery feed`);
-      // Only show jobs from last 90 days for fresh results
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      const cutoffDateStr = ninetyDaysAgo.toISOString();
-
-      const discoveryJobs = await db
-        .select()
-        .from(jobPostings)
-        .where(and(
-          eq(jobPostings.status, 'active'),
-          or(
-            sql`${jobPostings.expiresAt} IS NULL`,
-            sql`${jobPostings.expiresAt} > NOW()`
-          ),
-          // Platform jobs are verified by definition — skip liveness check
-          or(
-            eq(jobPostings.livenessStatus, 'active'),
-            eq(jobPostings.livenessStatus, 'unknown'),
-            eq(jobPostings.source, 'platform')
-          ),
-          // Platform jobs are never ghost jobs
-          or(
-            sql`${jobPostings.ghostJobScore} IS NULL`,
-            sql`${jobPostings.ghostJobScore} < 60`,
-            eq(jobPostings.source, 'platform')
-          ),
-          // Platform jobs are exempt from the 90-day cutoff
-          or(
-            eq(jobPostings.source, 'platform'),
-            sql`${jobPostings.createdAt} > ${cutoffDateStr}`
-          ),
-          // Exclude all aggregator sources
-          sql`${jobPostings.source} NOT IN (${sql.join(
-            [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
-          )})`,
-          aggregatorUrlExclusion,
-          // Require URL to point to a real job post page (platform jobs exempt — no external_url)
-          or(
-            eq(jobPostings.source, 'platform'),
-            jobPostUrlRequirement
-          ),
-          // Exclude hidden and applied-to jobs
-          ...(excludeIds.length > 0
-            ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
-            : [])
-        ))
-        .orderBy(
-          // Rank: platform first, then US, then unknown, then non-US
-          usPriorityOrder,
-          sql`${jobPostings.trustScore} DESC NULLS LAST`,
-          sql`${jobPostings.createdAt} DESC`
-        )
-        .limit(20);
-
-      return discoveryJobs.map((job: any) => {
-        const { freshness, daysOld } = getFreshnessLabel(job.createdAt);
-        return {
-          ...job,
-          requirements: Array.isArray(job.requirements) ? job.requirements : [],
-          skills: Array.isArray(job.skills) ? job.skills : [],
-          matchScore: 0,
-          matchTier: 'discovery' as const,
-          skillMatches: [],
-          aiExplanation: 'Upload your resume to get personalized matches',
-          isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore || 0) >= 90,
-          isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
-          freshness,
-          daysOld,
-          ghostJobScore: job.ghostJobScore || 0,
-          ghostJobStatus: job.ghostJobStatus || 'clean',
-          ghostJobReasons: job.ghostJobReasons || [],
-          companyVerified: job.companyVerified || false,
-        };
-      });
+      return this.getDiscoveryFeed(excludeIds, 'Upload your resume to get personalized matches');
     }
 
     const jobPreferences = (candidate as any)?.jobPreferences || {};
     const candidateSkills = parseSkillsInput(candidate.skills);
     console.log(`Candidate skills (normalized): ${candidateSkills.join(', ')}`);
 
-    // Safety guard: if skills array is empty after normalization, return null to trigger discovery feed
+    // Raw skills exist but none matched our skill catalog — fall through to the
+    // discovery feed rather than returning null (which the caller treats as no
+    // results). This prevents candidates whose resumes parsed to non-normalizable
+    // tokens from seeing "No matches yet" despite having uploaded a resume.
     if (candidateSkills.length === 0) {
-      console.log(`Candidate ${candidateId} has no usable skills after normalization - returning null for discovery feed`);
-      return null;
+      console.log(`Candidate ${candidateId} has skills but none normalized - returning discovery feed`);
+      return this.getDiscoveryFeed(excludeIds, "We couldn't recognize specific skills from your resume — here are recent roles to explore");
     }
 
     // Extract candidate's previous job titles from resume parsing data
