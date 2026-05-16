@@ -15,6 +15,7 @@
 import { db } from '../db.js';
 import { discoveredCompanies } from '../../shared/schema.js';
 import { eq, or } from 'drizzle-orm';
+import { sql } from 'drizzle-orm/sql';
 import { redis } from './redis.js';
 import { resolveHomepage, analyzeCareersPage } from './adzuna-link-resolver.js';
 
@@ -340,13 +341,22 @@ export async function probePendingCompanies(limit: number = 10): Promise<ProbeRe
     return [];
   }
 
-  // Fetch pending companies with no ATS detected yet
+  // Fetch pending companies with no ATS detected yet.
+  // Prioritize higher-yield sources: manual seeds > Apollo channels > job_mining.
+  // This keeps the 361+ queued Apollo seeds from getting buried behind the
+  // ~14% structural-yield job_mining backlog (see project_aggregator_to_ats_funnel).
   const pending = await db
     .select({ id: discoveredCompanies.id, normalizedName: discoveredCompanies.normalizedName })
     .from(discoveredCompanies)
     .where(
       eq(discoveredCompanies.status, 'pending')
     )
+    .orderBy(sql`CASE
+      WHEN ${discoveredCompanies.discoverySource} = 'seed' THEN 0
+      WHEN ${discoveredCompanies.discoverySource} LIKE 'apollo:%' THEN 1
+      WHEN ${discoveredCompanies.discoverySource} = 'job_mining' THEN 2
+      ELSE 3
+    END, ${discoveredCompanies.id}`)
     .limit(limit);
 
   if (pending.length === 0) {

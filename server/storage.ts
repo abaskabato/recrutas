@@ -771,6 +771,79 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Empty-state fallback: aggregator-sourced jobs (Adzuna, JSearch, Indeed, etc.)
+  // surfaced ONLY when the main feed returns zero matches. Caller must badge these
+  // clearly as leaving the platform — the URL points to the aggregator, not the employer.
+  async getAggregatorFallbackJobs(
+    skills: string[] = [],
+    filters: { jobTitle?: string; location?: string; workType?: string } = {},
+    limit: number = 10
+  ): Promise<JobPosting[]> {
+    try {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const cutoffDateStr = ninetyDaysAgo.toISOString();
+
+      const conditions: any[] = [
+        eq(jobPostings.status, 'active'),
+        // INVERTED: include aggregator sources for fallback only
+        sql`${jobPostings.source} IN (${sql.join(
+          [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
+        )})`,
+        sql`${jobPostings.externalUrl} IS NOT NULL`,
+        or(
+          sql`${jobPostings.expiresAt} IS NULL`,
+          sql`${jobPostings.expiresAt} > NOW()`
+        ),
+        sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
+      ];
+
+      if (filters.jobTitle?.trim()) {
+        const words = filters.jobTitle.trim().split(/\s+/).filter(w => w.length > 0);
+        const wordConditions = words.map(word =>
+          sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + word + '%'})`
+        );
+        conditions.push(words.length === 1 ? wordConditions[0] : and(...wordConditions)!);
+      }
+
+      if (filters.workType?.trim() && filters.workType !== 'any') {
+        conditions.push(eq(jobPostings.workType, filters.workType));
+      }
+
+      if (filters.location?.trim()) {
+        const locPattern = '%' + filters.location.trim() + '%';
+        conditions.push(
+          or(
+            sql`LOWER(${jobPostings.location}) LIKE LOWER(${locPattern})`,
+            sql`LOWER(${jobPostings.location}) LIKE '%remote%'`,
+          )
+        );
+      }
+
+      if (skills.length > 0) {
+        const skillConditions = skills.map(skill =>
+          or(
+            sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'})`,
+            sql`LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'})`
+          )
+        );
+        conditions.push(or(...skillConditions)!);
+      }
+
+      const jobs = await db
+        .select()
+        .from(jobPostings)
+        .where(and(...conditions))
+        .orderBy(sql`${jobPostings.createdAt} DESC`)
+        .limit(limit);
+
+      return jobs;
+    } catch (error) {
+      console.error('Error fetching aggregator fallback jobs:', error);
+      return [];
+    }
+  }
+
   async getJobStatistics(): Promise<any> {
     try {
       const { sql } = await import('drizzle-orm/sql');

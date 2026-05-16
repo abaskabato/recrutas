@@ -574,6 +574,31 @@ export async function registerRoutes(app: Express): Promise<Express> {
     }
   }));
 
+  // Aggregator fallback — shown ONLY in the candidate-feed empty state when
+  // /api/ai-matches returns zero rows. Caller must badge these as leaving the
+  // platform; URLs point to Adzuna/Jooble/etc., not the employer.
+  app.get('/api/aggregator-fallback', asyncHandler(async (req, res) => {
+    try {
+      const skills = req.query.skills
+        ? String(req.query.skills).split(',').filter(Boolean).slice(0, 20).map(s => s.slice(0, 100))
+        : [];
+      const jobTitle = req.query.jobTitle ? String(req.query.jobTitle).slice(0, 200) : undefined;
+      const location = req.query.location ? String(req.query.location).slice(0, 200) : undefined;
+      const rawWorkType = req.query.workType ? String(req.query.workType) : undefined;
+      const VALID_WORK_TYPES = ['remote', 'hybrid', 'onsite'] as const;
+      const workType = rawWorkType && (VALID_WORK_TYPES as readonly string[]).includes(rawWorkType)
+        ? rawWorkType
+        : undefined;
+
+      const jobs = await storage.getAggregatorFallbackJobs(skills, { jobTitle, location, workType }, 10);
+      res.set('Cache-Control', 'public, max-age=300');
+      res.json({ jobs });
+    } catch (error) {
+      console.error('Error fetching aggregator fallback:', error);
+      res.status(503).json({ jobs: [] });
+    }
+  }));
+
   // Platform stats
   app.get('/api/platform/stats', asyncHandler(async (req, res) => {
     if (!db) return res.status(503).json({ message: 'Database not available' });

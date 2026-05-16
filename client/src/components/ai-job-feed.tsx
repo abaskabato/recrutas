@@ -197,6 +197,26 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
     return data.pages.flatMap(page => page.jobs);
   }, [data]);
 
+  // Aggregator fallback — only fetched when the main feed has zero matches.
+  // These are external aggregator listings (Adzuna et al.); URLs leave the platform.
+  const hasZeroMatches = !isLoading && !isFetching && allMatches !== undefined && allMatches.length === 0;
+  const candidateSkills: string[] = useMemo(() => {
+    const skills = cachedProfile?.skills;
+    return Array.isArray(skills) ? skills.slice(0, 20) : [];
+  }, [cachedProfile?.skills]);
+  const { data: fallbackData } = useQuery<{ jobs: any[] }>({
+    queryKey: ['/api/aggregator-fallback', candidateSkills.join(',')],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (candidateSkills.length > 0) params.set('skills', candidateSkills.join(','));
+      const response = await apiRequest("GET", `/api/aggregator-fallback?${params.toString()}`);
+      return response.json();
+    },
+    enabled: hasZeroMatches,
+    staleTime: 5 * 60 * 1000,
+  });
+  const fallbackJobs = fallbackData?.jobs ?? [];
+
   // Intersection observer for infinite scroll
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -584,6 +604,45 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
               Try Again
             </Button>
           </div>
+
+          {fallbackJobs.length > 0 && (
+            <div className="mt-10 max-w-2xl mx-auto text-left">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Other roles you might explore
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  These are external listings — clicking will open the original job board, outside Recrutas.
+                </p>
+                <div className="space-y-2">
+                  {fallbackJobs.map((job: any) => (
+                    <a
+                      key={job.id}
+                      href={job.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => track('aggregator_fallback_click', { jobId: job.id, source: job.source })}
+                      className="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            via {job.source}
+                          </Badge>
+                          <span className="text-xs text-gray-400">External</span>
+                        </div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{job.title}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {job.company}{job.location ? ` · ${job.location}` : ''}
+                        </div>
+                      </div>
+                      <ExternalLink className="h-4 w-4 text-gray-400 mt-1 shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

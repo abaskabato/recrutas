@@ -6,7 +6,7 @@
  *
  * Usage:
  *   npx tsx scripts/discover-companies.ts --phase=discover
- *   npx tsx scripts/discover-companies.ts --phase=probe [--limit=300]
+ *   npx tsx scripts/discover-companies.ts --phase=probe [--limit=1500]
  *   npx tsx scripts/discover-companies.ts --phase=apollo
  */
 
@@ -15,12 +15,12 @@ import { eq } from 'drizzle-orm';
 
 function parseArgs(): { phase: string; limit: number } {
   let phase = 'discover';
-  let limit = 300;
+  let limit = 1500;
   for (const arg of process.argv.slice(2)) {
     const phaseMatch = arg.match(/^--phase=(\w+)$/);
     if (phaseMatch) phase = phaseMatch[1];
     const limitMatch = arg.match(/^--limit=(\d+)$/);
-    if (limitMatch) limit = Math.min(parseInt(limitMatch[1], 10), 300);
+    if (limitMatch) limit = Math.min(parseInt(limitMatch[1], 10), 2000);
   }
   return { phase, limit };
 }

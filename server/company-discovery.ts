@@ -225,10 +225,9 @@ class CompanyDiscoveryPipeline {
   }
 
   private shouldRunWikipediaDiscovery(): boolean {
-    // Run Wikipedia discovery once per week (every 7 days)
-    // Can track last run in database or use simple logic
-    const dayOfWeek = new Date().getDay();
-    return dayOfWeek === 0; // Run on Sundays
+    // Disabled: 0% probe yield in production (companies are already in our catalog
+    // or have no public ATS). Re-enable by returning a date-based gate if reviving.
+    return false;
   }
 
   private extractAtsId(url: string, atsType?: string): string | undefined {
