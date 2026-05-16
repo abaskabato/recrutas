@@ -570,85 +570,80 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
           <p className="text-sm text-gray-500 dark:text-gray-400">Finding your best job matches...</p>
         </div>
       ) : !filteredMatches || filteredMatches.length === 0 ? (
-        <div className="text-center py-12 px-4">
-          <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No matches yet
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
-            We couldn't find jobs matching your profile. This could be because:
-          </p>
-          <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 mb-6 max-w-sm mx-auto text-left bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
-            <li className="flex items-start gap-2">
-              <FileText className="h-4 w-4 mt-0.5 text-gray-400" />
-              Your profile needs more details
-            </li>
-            <li className="flex items-start gap-2">
-              <Briefcase className="h-4 w-4 mt-0.5 text-gray-400" />
-              Your skills don't match current openings
-            </li>
-            <li className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 mt-0.5 text-gray-400" />
-              Try adjusting your location preferences
-            </li>
-          </ul>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              variant="outline"
-              onClick={() => onUploadClick?.()}
-              className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Update Profile
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              className="flex items-center gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Try Again
-            </Button>
+        <div className="space-y-4">
+          {/* Encouraging hero strip — same width as cards, friendlier tone */}
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950/30 dark:to-blue-950/30 border border-emerald-200/60 dark:border-emerald-800/40">
+            <div className="h-10 w-10 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">
+                {fallbackJobs.length > 0
+                  ? "We're sharpening your matches"
+                  : "Hang tight — new matches arrive daily"}
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                {fallbackJobs.length > 0
+                  ? "While our top-tier matches catch up, here are roles aligned to your profile from across the web."
+                  : "Polish your profile to surface more matches, or check back soon — fresh opportunities are added every hour."}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => onUploadClick?.()} className="text-xs">
+                <Upload className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">Profile</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs" title="Refresh matches">
+                <RotateCcw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </div>
 
+          {/* Fallback jobs rendered as full feed cards — same visual weight as real matches */}
           {fallbackJobs.length > 0 && (
-            <div className="mt-10 max-w-2xl mx-auto text-left">
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  Other roles you might explore
-                </h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  These are external listings — clicking will open the original job board, outside Recrutas.
-                </p>
-                <div className="space-y-2">
-                  {fallbackJobs.map((job: any) => (
-                    <a
-                      key={job.id}
-                      href={job.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => track('aggregator_fallback_click', { jobId: job.id, source: job.source })}
-                      className="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+            <div className="space-y-4 max-h-[calc(100vh-350px)] overflow-y-auto">
+              {fallbackJobs.map((job: any) => (
+                <Card
+                  key={job.id}
+                  className="hover:shadow-md transition-all duration-150 hover:border-blue-200 dark:hover:border-blue-800 cursor-pointer"
+                  onClick={() => {
+                    track('aggregator_fallback_click', { jobId: job.id, source: job.source });
+                    window.open(job.externalUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <Badge variant="secondary" className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs">
+                            <ExternalLink className="h-3 w-3 mr-1" />
                             via {job.source}
                           </Badge>
-                          <span className="text-xs text-gray-400">External</span>
                         </div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{job.title}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {job.company}{job.location ? ` · ${job.location}` : ''}
+                        <h3 className="font-semibold text-base sm:text-lg leading-tight">
+                          <span className="line-clamp-2 sm:line-clamp-1">{job.title}</span>
+                        </h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-y-1 sm:gap-x-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          <div className="flex items-center">
+                            <Building className="h-3 w-3 sm:h-4 sm:w-4 mr-1 shrink-0" /> {job.company}
+                          </div>
+                          {job.location && (
+                            <div className="flex items-center">
+                              <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 shrink-0" /> {job.location}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <ExternalLink className="h-4 w-4 text-gray-400 mt-1 shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              </div>
+                      <div className="shrink-0 self-end sm:self-start">
+                        <Button variant="outline" size="sm" className="text-xs">
+                          Open
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </div>
