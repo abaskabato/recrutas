@@ -199,16 +199,24 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   // Aggregator fallback — only fetched when the main feed has zero matches.
   // These are external aggregator listings (Adzuna et al.); URLs leave the platform.
+  // Matched to the candidate using the same signals as the main feed: profile
+  // skills, the active search/title intent, location, and work-type filter.
   const hasZeroMatches = !isLoading && !isFetching && allMatches !== undefined && allMatches.length === 0;
   const candidateSkills: string[] = useMemo(() => {
     const skills = cachedProfile?.skills;
     return Array.isArray(skills) ? skills.slice(0, 20) : [];
   }, [cachedProfile?.skills]);
+  const fallbackLocation = locationFilter !== 'all' ? locationFilter : (cachedProfile?.location || '');
+  const fallbackWorkType = workTypeFilter !== 'all' ? workTypeFilter : '';
+  const fallbackJobTitle = searchTerm.trim();
   const { data: fallbackData } = useQuery<{ jobs: any[] }>({
-    queryKey: ['/api/aggregator-fallback', candidateSkills.join(',')],
+    queryKey: ['/api/aggregator-fallback', candidateSkills.join(','), fallbackJobTitle, fallbackLocation, fallbackWorkType],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (candidateSkills.length > 0) params.set('skills', candidateSkills.join(','));
+      if (fallbackJobTitle) params.set('jobTitle', fallbackJobTitle);
+      if (fallbackLocation) params.set('location', fallbackLocation);
+      if (fallbackWorkType) params.set('workType', fallbackWorkType);
       const response = await apiRequest("GET", `/api/aggregator-fallback?${params.toString()}`);
       return response.json();
     },

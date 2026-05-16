@@ -830,11 +830,23 @@ export class DatabaseStorage implements IStorage {
         conditions.push(or(...skillConditions)!);
       }
 
+      // Rank by how many of the candidate's skills actually match, then by recency.
+      // Pulls a wider pool (limit * 4) then re-orders so the highest-relevance
+      // rows surface first instead of just the newest noise.
+      const skillMatchExpr = skills.length > 0
+        ? sql`(${sql.join(
+            skills.map(skill =>
+              sql`(CASE WHEN LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'}) OR LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'}) THEN 1 ELSE 0 END)`
+            ),
+            sql` + `
+          )})`
+        : sql`0`;
+
       const jobs = await db
         .select()
         .from(jobPostings)
         .where(and(...conditions))
-        .orderBy(sql`${jobPostings.createdAt} DESC`)
+        .orderBy(sql`${skillMatchExpr} DESC, ${jobPostings.createdAt} DESC`)
         .limit(limit);
 
       return jobs;
