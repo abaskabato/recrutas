@@ -114,6 +114,67 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [userLocation, setUserLocation] = useState('');
   const [uploadElapsed, setUploadElapsed] = useState(0);
+  const [pendingSkill, setPendingSkill] = useState('');
+
+  // Mutate one field of parsedResumeData.experience.positions[idx].
+  const updatePosition = (idx: number, field: 'title' | 'company' | 'duration', value: string) => {
+    if (!parsedResumeData) return;
+    const positions = [...(parsedResumeData.experience?.positions || [])];
+    positions[idx] = { ...positions[idx], [field]: value };
+    setParsedResumeData({
+      ...parsedResumeData,
+      experience: { ...parsedResumeData.experience, positions },
+    });
+  };
+
+  const removePosition = (idx: number) => {
+    if (!parsedResumeData) return;
+    const positions = (parsedResumeData.experience?.positions || []).filter((_: any, i: number) => i !== idx);
+    setParsedResumeData({
+      ...parsedResumeData,
+      experience: { ...parsedResumeData.experience, positions },
+    });
+  };
+
+  const addPosition = () => {
+    if (!parsedResumeData) return;
+    const positions = [...(parsedResumeData.experience?.positions || []), { title: '', company: '', duration: '' }];
+    setParsedResumeData({
+      ...parsedResumeData,
+      experience: { ...parsedResumeData.experience, positions },
+    });
+  };
+
+  const setExperienceLevel = (level: string) => {
+    if (!parsedResumeData) return;
+    setParsedResumeData({
+      ...parsedResumeData,
+      experience: { ...parsedResumeData.experience, level },
+    });
+  };
+
+  const addSkill = () => {
+    const skill = pendingSkill.trim();
+    if (!skill || !parsedResumeData) return;
+    const existing = [
+      ...(parsedResumeData.skills?.technical || []),
+      ...(parsedResumeData.skills?.soft || []),
+      ...(parsedResumeData.skills?.tools || []),
+    ].map((s: string) => s.toLowerCase());
+    if (existing.includes(skill.toLowerCase())) {
+      setPendingSkill('');
+      return;
+    }
+    setParsedResumeData({
+      ...parsedResumeData,
+      skills: {
+        ...parsedResumeData.skills,
+        technical: [...(parsedResumeData.skills?.technical || []), skill],
+      },
+      skillsCount: (parsedResumeData.skillsCount || 0) + 1,
+    });
+    setPendingSkill('');
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -207,6 +268,14 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
         if (parsedResumeData.experience?.level) {
           profileDataToSave.experienceLevel = parsedResumeData.experience.level;
         }
+        // Persist edited positions so corrected titles drive matching. Backend
+        // reads candidate.resumeParsingData.positions[*].title in fetchScoredJobs.
+        const positions = (parsedResumeData.experience?.positions || [])
+          .filter((p: any) => (p.title || '').trim().length > 0);
+        profileDataToSave.resumeParsingData = {
+          ...((profile as any)?.resumeParsingData || {}),
+          positions,
+        };
       }
 
       await apiRequest('POST', '/api/candidate/profile', { ...profileDataToSave, location: userLocation });
@@ -488,12 +557,24 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
                           newSkills.technical = newSkills.technical.filter((s: string) => s !== skill);
                           newSkills.soft = newSkills.soft.filter((s: string) => s !== skill);
                           newSkills.tools = newSkills.tools.filter((s: string) => s !== skill);
-                          setParsedResumeData({ ...parsedResumeData, skills: newSkills });
+                          setParsedResumeData({ ...parsedResumeData, skills: newSkills, skillsCount: Math.max(0, (parsedResumeData.skillsCount || 1) - 1) });
                         }}>
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
                     ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add a skill (e.g. Python, AWS, React)"
+                      value={pendingSkill}
+                      onChange={(e) => setPendingSkill(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }}
+                      className="text-sm"
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={addSkill} disabled={!pendingSkill.trim()}>
+                      Add
+                    </Button>
                   </div>
                 </div>
 
@@ -504,27 +585,70 @@ export default function ProfileWizard({ onComplete }: ProfileWizardProps) {
                   <Label className="font-semibold flex items-center gap-2">
                     <Briefcase className="h-4 w-4" /> Experience Level
                   </Label>
-                  <Badge variant="outline" className="text-sm px-3 py-1">
-                    {parsedResumeData.experience?.level || 'Not detected'} 
-                    {parsedResumeData.experience?.years > 0 && ` (${parsedResumeData.experience.years} years)`}
-                  </Badge>
+                  <Select
+                    value={parsedResumeData.experience?.level || ''}
+                    onValueChange={setExperienceLevel}
+                  >
+                    <SelectTrigger className="w-full sm:w-64">
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="entry">Entry</SelectItem>
+                      <SelectItem value="mid">Mid</SelectItem>
+                      <SelectItem value="senior">Senior</SelectItem>
+                      <SelectItem value="lead">Lead</SelectItem>
+                      <SelectItem value="executive">Executive</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Work History */}
-                {parsedResumeData.experience?.positions?.length > 0 && (
-                  <div className="space-y-3">
-                    <Label className="font-semibold">Work History ({parsedResumeData.experience.positions.length})</Label>
-                    <div className="space-y-2">
-                      {parsedResumeData.experience.positions.map((pos: any, idx: number) => (
-                        <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                          <p className="font-medium">{pos.title}</p>
-                          <p className="text-sm text-gray-600">{pos.company}</p>
-                          {pos.duration && <p className="text-xs text-gray-500">{pos.duration}</p>}
-                        </div>
-                      ))}
-                    </div>
+                {/* Work History — editable */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-semibold">Work History ({parsedResumeData.experience?.positions?.length || 0})</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addPosition}>
+                      <Briefcase className="h-3 w-3 mr-1" /> Add Position
+                    </Button>
                   </div>
-                )}
+                  <p className="text-xs text-gray-500">
+                    Job titles are the strongest signal for matching. Fix anything that doesn't look like a real job title.
+                  </p>
+                  <div className="space-y-3">
+                    {(parsedResumeData.experience?.positions || []).map((pos: any, idx: number) => (
+                      <div key={idx} className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg space-y-2 relative">
+                        <button
+                          type="button"
+                          onClick={() => removePosition(idx)}
+                          className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                          title="Remove position"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        <Input
+                          value={pos.title || ''}
+                          onChange={(e) => updatePosition(idx, 'title', e.target.value)}
+                          placeholder="Job title (e.g. Senior Software Engineer)"
+                          className="font-medium text-sm bg-white dark:bg-gray-900 pr-8"
+                        />
+                        <Input
+                          value={pos.company || ''}
+                          onChange={(e) => updatePosition(idx, 'company', e.target.value)}
+                          placeholder="Company"
+                          className="text-sm bg-white dark:bg-gray-900"
+                        />
+                        <Input
+                          value={pos.duration || ''}
+                          onChange={(e) => updatePosition(idx, 'duration', e.target.value)}
+                          placeholder="Duration (e.g. 2021 - Present)"
+                          className="text-xs bg-white dark:bg-gray-900"
+                        />
+                      </div>
+                    ))}
+                    {(!parsedResumeData.experience?.positions || parsedResumeData.experience.positions.length === 0) && (
+                      <p className="text-sm text-gray-500 italic">No positions yet — click "Add Position" to add your most recent role.</p>
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="text-center py-8">
