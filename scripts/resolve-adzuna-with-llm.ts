@@ -33,9 +33,13 @@ const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'mistral';
 
 const CHUNK            = 50;
-const LLM_CONCURRENCY  = 3;   // local model — keep low to avoid OOM on small GPUs
+// Single-stream on CPU. Concurrent calls share one CPU and triple per-call
+// latency, blowing past the timeout. On GPU, raise this to 4-8 (the LLM is fast
+// enough that batching helps) and shrink LLM_TIMEOUT_MS to 30_000.
+const LLM_CONCURRENCY  = 1;
 const HTTP_CONCURRENCY = 8;
-const LLM_TIMEOUT_MS   = 30_000;
+// CPU mistral with a ~200-token prompt: ~60-80s per call. Headroom for outliers.
+const LLM_TIMEOUT_MS   = 180_000;
 const HTTP_TIMEOUT_MS  = 6_000;
 
 // ────────────────────────────────────────────────────────────────────────────
