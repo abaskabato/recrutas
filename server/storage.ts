@@ -784,9 +784,18 @@ export class DatabaseStorage implements IStorage {
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       const cutoffDateStr = ninetyDaysAgo.toISOString();
 
-      const conditions: any[] = [
+      // Rank by how many of the candidate's skills actually match, then by recency.
+      const skillMatchExpr = skills.length > 0
+        ? sql`(${sql.join(
+            skills.map(skill =>
+              sql`(CASE WHEN LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'}) OR LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'}) THEN 1 ELSE 0 END)`
+            ),
+            sql` + `
+          )})`
+        : sql`0`;
+
+      const baseConditions = (): any[] => [
         eq(jobPostings.status, 'active'),
-        // INVERTED: include aggregator sources for fallback only
         sql`${jobPostings.source} IN (${sql.join(
           [...AGGREGATOR_SOURCES].map(s => sql`${s}`), sql`, `
         )})`,
@@ -798,56 +807,60 @@ export class DatabaseStorage implements IStorage {
         sql`${jobPostings.createdAt} > ${cutoffDateStr}`,
       ];
 
-      if (filters.jobTitle?.trim()) {
+      const titleCondition = (() => {
+        if (!filters.jobTitle?.trim()) return null;
         const words = filters.jobTitle.trim().split(/\s+/).filter(w => w.length > 0);
         const wordConditions = words.map(word =>
           sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + word + '%'})`
         );
-        conditions.push(words.length === 1 ? wordConditions[0] : and(...wordConditions)!);
-      }
+        return words.length === 1 ? wordConditions[0] : and(...wordConditions)!;
+      })();
 
-      if (filters.workType?.trim() && filters.workType !== 'any') {
-        conditions.push(eq(jobPostings.workType, filters.workType));
-      }
+      const workTypeCondition = filters.workType?.trim() && filters.workType !== 'any'
+        ? eq(jobPostings.workType, filters.workType)
+        : null;
 
-      if (filters.location?.trim()) {
-        const locPattern = '%' + filters.location.trim() + '%';
-        conditions.push(
-          or(
-            sql`LOWER(${jobPostings.location}) LIKE LOWER(${locPattern})`,
-            sql`LOWER(${jobPostings.location}) LIKE '%remote%'`,
-          )
+      // Match on the city portion only ("Seattle, WA" → "%seattle%") so stored
+      // locations like "Seattle, WA, USA" or "Seattle Metro Area" still match.
+      // Falls back to remote roles regardless.
+      const locationCondition = (() => {
+        const raw = filters.location?.trim();
+        if (!raw) return null;
+        const city = raw.split(',')[0].trim();
+        const pattern = '%' + (city || raw) + '%';
+        return or(
+          sql`LOWER(${jobPostings.location}) LIKE LOWER(${pattern})`,
+          sql`LOWER(${jobPostings.location}) LIKE '%remote%'`,
         );
+      })();
+
+      const skillCondition = skills.length > 0
+        ? or(...skills.map(skill =>
+            or(
+              sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'})`,
+              sql`LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'})`
+            )
+          ))!
+        : null;
+
+      const runQuery = async (extras: (any | null)[]) => {
+        const conditions = [...baseConditions(), ...extras.filter(Boolean)];
+        return db
+          .select()
+          .from(jobPostings)
+          .where(and(...conditions))
+          .orderBy(sql`${skillMatchExpr} DESC, ${jobPostings.createdAt} DESC`)
+          .limit(limit);
+      };
+
+      // Strict pass: location + skill + title + workType.
+      let jobs = await runQuery([titleCondition, workTypeCondition, locationCondition, skillCondition]);
+
+      // If location starved the pool, retry without location so remote-anywhere
+      // candidates in low-coverage cities still see relevant aggregator results.
+      if (jobs.length === 0 && locationCondition) {
+        jobs = await runQuery([titleCondition, workTypeCondition, skillCondition]);
       }
-
-      if (skills.length > 0) {
-        const skillConditions = skills.map(skill =>
-          or(
-            sql`LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'})`,
-            sql`LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'})`
-          )
-        );
-        conditions.push(or(...skillConditions)!);
-      }
-
-      // Rank by how many of the candidate's skills actually match, then by recency.
-      // Pulls a wider pool (limit * 4) then re-orders so the highest-relevance
-      // rows surface first instead of just the newest noise.
-      const skillMatchExpr = skills.length > 0
-        ? sql`(${sql.join(
-            skills.map(skill =>
-              sql`(CASE WHEN LOWER(${jobPostings.title}) LIKE LOWER(${'%' + skill + '%'}) OR LOWER(${jobPostings.skills}::text) LIKE LOWER(${'%' + skill + '%'}) THEN 1 ELSE 0 END)`
-            ),
-            sql` + `
-          )})`
-        : sql`0`;
-
-      const jobs = await db
-        .select()
-        .from(jobPostings)
-        .where(and(...conditions))
-        .orderBy(sql`${skillMatchExpr} DESC, ${jobPostings.createdAt} DESC`)
-        .limit(limit);
 
       return jobs;
     } catch (error) {
