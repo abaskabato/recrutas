@@ -411,6 +411,8 @@ export async function registerRoutes(app: Express): Promise<Express> {
       matchTier: job.matchTier ?? (job.matchScore != null ? (job.matchScore >= 75 ? 'great' : job.matchScore >= 50 ? 'good' : 'worth-a-look') : null),
       confidenceLevel: job.confidenceLevel ?? (job.matchScore != null ? (job.matchScore > 80 ? 90 : job.matchScore > 60 ? 70 : 50) : null),
       skillMatches: job.skillMatches || [],
+      partialSkillMatches: job.partialSkillMatches || [],
+      scoreComponents: job.scoreComponents || undefined,
       matchReasons: job.skillMatches?.length > 0 ? job.skillMatches : undefined,
       aiExplanation: aiExplanation || job.aiExplanation,
       status: 'pending',

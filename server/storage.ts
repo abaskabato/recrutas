@@ -1317,6 +1317,8 @@ export class DatabaseStorage implements IStorage {
           skillMatches: score.skillMatches,
           partialSkillMatches: score.partialSkillMatches,
           aiExplanation: score.aiExplanation,
+          scoreComponents: score.components,
+          confidenceLevel: score.confidenceLevel,
           isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90,
           isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
           freshness,

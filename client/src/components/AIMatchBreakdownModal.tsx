@@ -16,6 +16,11 @@ import {
   Building2,
   Zap,
   Clock,
+  Brain,
+  Target,
+  GraduationCap,
+  Compass,
+  Sparkles,
 } from "lucide-react";
 import { AIJobMatch } from "./ai-job-feed";
 
@@ -66,6 +71,52 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+function ScoreBar({
+  label,
+  score,
+  icon: Icon,
+  hint,
+}: {
+  label: string;
+  score: number;
+  icon: React.ComponentType<{ className?: string }>;
+  hint?: string;
+}) {
+  const clamped = Math.max(0, Math.min(100, Math.round(score)));
+  const color =
+    clamped >= 75 ? "bg-green-500" : clamped >= 50 ? "bg-amber-500" : "bg-slate-400";
+  const textColor =
+    clamped >= 75
+      ? "text-green-700 dark:text-green-400"
+      : clamped >= 50
+        ? "text-amber-700 dark:text-amber-400"
+        : "text-slate-500 dark:text-slate-400";
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+          <Icon className="h-3.5 w-3.5" />
+          <span className="font-medium">{label}</span>
+          {hint && (
+            <span className="text-slate-400 dark:text-slate-500 font-normal">
+              · {hint}
+            </span>
+          )}
+        </div>
+        <span className={`text-xs font-semibold tabular-nums ${textColor}`}>
+          {clamped}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <div
+          className={`h-full ${color} rounded-full transition-all`}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function VerdictBadge({ score }: { score: number }) {
   if (score >= 75)
     {return (
@@ -103,7 +154,10 @@ export default function AIMatchBreakdownModal({
   const score = parseInt(match.matchScore) || 0;
   const jobSkills: string[] = match.job.skills || [];
   const matchedSkills: string[] = match.skillMatches || [];
-  const matchedSet = new Set(matchedSkills.map((s) => s.toLowerCase()));
+  const relatedSkills: string[] = match.partialSkillMatches || [];
+  const matchedSet = new Set(
+    [...matchedSkills, ...relatedSkills].map((s) => s.toLowerCase())
+  );
   const missingSkills = jobSkills.filter(
     (s) => !matchedSet.has(s.toLowerCase())
   );
@@ -112,6 +166,19 @@ export default function AIMatchBreakdownModal({
     .map(stripHtml)
     .filter(Boolean)
     .slice(0, 4);
+
+  // Split the server-side explanation ("part1. part2. part3") into bullets.
+  const explanationPoints = (match.aiExplanation || "")
+    .split(/\.\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Short description excerpt — strip HTML, collapse whitespace.
+  const descriptionExcerpt = match.job.description
+    ? stripHtml(match.job.description).replace(/\s+/g, " ").slice(0, 280)
+    : "";
+
+  const components = match.scoreComponents;
 
   const salary =
     match.job.salaryMin || match.job.salaryMax
@@ -196,10 +263,75 @@ export default function AIMatchBreakdownModal({
           {/* Divider */}
           <div className="border-t border-slate-100 dark:border-slate-800" />
 
+          {/* Score breakdown — only when scorer components are present */}
+          {components && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                Score breakdown
+              </h3>
+              <div className="space-y-3">
+                <ScoreBar
+                  label="Skills"
+                  hint="direct keyword overlap"
+                  icon={Target}
+                  score={components.keywordScore}
+                />
+                <ScoreBar
+                  label="Profile similarity"
+                  hint={components.hasSemanticSignal ? "AI embedding match" : "no embedding yet"}
+                  icon={Brain}
+                  score={components.semanticScore}
+                />
+                <ScoreBar
+                  label="Role relevance"
+                  hint="title & role family"
+                  icon={Sparkles}
+                  score={components.titleScore}
+                />
+                <ScoreBar
+                  label="Experience level"
+                  icon={GraduationCap}
+                  score={components.experienceScore}
+                />
+                {components.contextBonus > 0 && (
+                  <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pt-1">
+                    <div className="flex items-center gap-1.5">
+                      <Compass className="h-3.5 w-3.5" />
+                      <span className="font-medium">Location & work-type fit</span>
+                    </div>
+                    <span className="font-semibold text-green-700 dark:text-green-400 tabular-nums">
+                      +{components.contextBonus}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Why this match — split into bullets */}
+          {explanationPoints.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Why this match
+              </h3>
+              <ul className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-1.5">
+                {explanationPoints.map((point, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span className="leading-snug">{point.replace(/\.$/, '')}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Skills analysis */}
           <div>
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-              Skills Analysis
+              Skills analysis
             </h3>
             <div className="grid grid-cols-2 gap-3">
               {/* Matched */}
@@ -264,16 +396,44 @@ export default function AIMatchBreakdownModal({
                 )}
               </div>
             </div>
+
+            {/* Related skills row */}
+            {relatedSkills.length > 0 && (
+              <div className="mt-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    Related skills you have ({relatedSkills.length})
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {relatedSkills.slice(0, 10).map((skill) => (
+                    <span
+                      key={skill}
+                      className="inline-block text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-md px-2 py-0.5"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {relatedSkills.length > 10 && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400">
+                      +{relatedSkills.length - 10} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Why this match */}
-          {match.aiExplanation && (
+          {/* About the role */}
+          {descriptionExcerpt && (
             <div>
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Why this match
+                About the role
               </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
-                {match.aiExplanation}
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                {descriptionExcerpt}
+                {match.job.description && stripHtml(match.job.description).length > 280 ? "…" : ""}
               </p>
             </div>
           )}

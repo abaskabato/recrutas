@@ -129,6 +129,15 @@ export interface AIJobMatch {
   matchScore: string;
   confidenceLevel: number;
   skillMatches: string[];
+  partialSkillMatches?: string[];
+  scoreComponents?: {
+    keywordScore: number;
+    semanticScore: number;
+    titleScore: number;
+    experienceScore: number;
+    contextBonus: number;
+    hasSemanticSignal: boolean;
+  };
   aiExplanation: string;
   status: string;
   createdAt: string;
