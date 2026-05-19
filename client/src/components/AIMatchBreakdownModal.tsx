@@ -76,13 +76,11 @@ function ScoreBar({
   score,
   icon: Icon,
   hint,
-  notApplicable,
 }: {
   label: string;
   score: number;
   icon: React.ComponentType<{ className?: string }>;
   hint?: string;
-  notApplicable?: boolean;
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(score)));
   const color =
@@ -105,21 +103,15 @@ function ScoreBar({
             </span>
           )}
         </div>
-        <span
-          className={`text-xs font-semibold tabular-nums ${
-            notApplicable ? "text-slate-400 dark:text-slate-500" : textColor
-          }`}
-        >
-          {notApplicable ? "—" : clamped}
+        <span className={`text-xs font-semibold tabular-nums ${textColor}`}>
+          {clamped}
         </span>
       </div>
       <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-        {!notApplicable && (
-          <div
-            className={`h-full ${color} rounded-full transition-all`}
-            style={{ width: `${clamped}%` }}
-          />
-        )}
+        <div
+          className={`h-full ${color} rounded-full transition-all`}
+          style={{ width: `${clamped}%` }}
+        />
       </div>
     </div>
   );
@@ -280,25 +272,15 @@ export default function AIMatchBreakdownModal({
               <div className="space-y-3">
                 <ScoreBar
                   label="Skills"
-                  hint={
-                    jobSkills.length === 0
-                      ? "no skills listed on this posting"
-                      : "direct keyword overlap"
-                  }
+                  hint="direct keyword overlap"
                   icon={Target}
                   score={components.keywordScore}
-                  notApplicable={jobSkills.length === 0}
                 />
                 <ScoreBar
                   label="Profile similarity"
-                  hint={
-                    components.hasSemanticSignal
-                      ? "AI embedding match"
-                      : "embedding not yet generated"
-                  }
+                  hint={components.hasSemanticSignal ? "AI embedding match" : "no embedding yet"}
                   icon={Brain}
                   score={components.semanticScore}
-                  notApplicable={!components.hasSemanticSignal}
                 />
                 <ScoreBar
                   label="Role relevance"
@@ -316,12 +298,9 @@ export default function AIMatchBreakdownModal({
                     <div className="flex items-center gap-1.5">
                       <Compass className="h-3.5 w-3.5" />
                       <span className="font-medium">Location & work-type fit</span>
-                      <span className="text-slate-400 dark:text-slate-500 font-normal">
-                        · bonus added to total
-                      </span>
                     </div>
                     <span className="font-semibold text-green-700 dark:text-green-400 tabular-nums">
-                      +{components.contextBonus} / 8
+                      +{components.contextBonus}
                     </span>
                   </div>
                 )}
@@ -354,12 +333,6 @@ export default function AIMatchBreakdownModal({
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
               Skills analysis
             </h3>
-            {jobSkills.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl p-3">
-                This posting doesn't list specific skills — the match relies on
-                role relevance, experience, and profile similarity instead.
-              </p>
-            ) : (
             <div className="grid grid-cols-2 gap-3">
               {/* Matched */}
               <div className="rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 p-3">
@@ -423,7 +396,6 @@ export default function AIMatchBreakdownModal({
                 )}
               </div>
             </div>
-            )}
 
             {/* Related skills row */}
             {relatedSkills.length > 0 && (
