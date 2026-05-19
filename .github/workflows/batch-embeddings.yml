@@ -62,7 +62,8 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          # Embeddings now run locally via @xenova/transformers (BGE-small-en
+          # ONNX). HF_API_KEY is no longer required for this workflow.
 
       - name: Report results
         if: always()
