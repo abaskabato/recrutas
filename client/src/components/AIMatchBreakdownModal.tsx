@@ -311,17 +311,23 @@ export default function AIMatchBreakdownModal({
                   icon={GraduationCap}
                   score={components.experienceScore}
                 />
-                {components.contextBonus > 0 && (
+                {components.contextBonus !== 0 && (
                   <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pt-1">
                     <div className="flex items-center gap-1.5">
                       <Compass className="h-3.5 w-3.5" />
                       <span className="font-medium">Location & work-type fit</span>
                       <span className="text-slate-400 dark:text-slate-500 font-normal">
-                        · bonus added to total
+                        · {components.contextBonus > 0 ? "bonus added to total" : "penalty applied to total"}
                       </span>
                     </div>
-                    <span className="font-semibold text-green-700 dark:text-green-400 tabular-nums">
-                      +{components.contextBonus} / 8
+                    <span
+                      className={`font-semibold tabular-nums ${
+                        components.contextBonus > 0
+                          ? "text-green-700 dark:text-green-400"
+                          : "text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      {components.contextBonus > 0 ? `+${components.contextBonus} / 8` : `${components.contextBonus}`}
                     </span>
                   </div>
                 )}
