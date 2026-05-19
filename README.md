@@ -83,6 +83,10 @@ cp .env.example .env
 
 # Run both frontend + backend
 npm run dev:all
+
+# Or run separately:
+npm run dev              # Frontend only (Vite dev server)
+npm run dev:server       # Backend with watch mode (tsx)
 ```
 
 Frontend: `http://localhost:5173` · API: `http://localhost:5000`
@@ -143,7 +147,7 @@ Test accounts after seeding:
 ## Tech Stack
 
 | Layer | Technology | Purpose |
-|-------|-----------|---------|
+|-----|-----------|---------|
 | Frontend | React 18 + TypeScript | UI framework |
 | Build | Vite | Fast dev/build |
 | Routing | wouter | Lightweight client router |
@@ -157,9 +161,12 @@ Test accounts after seeding:
 | Cache | Upstash Redis | Rate limits, match cache |
 | AI — Parsing | Groq (Llama 3) | Resume → structured data |
 | AI — Embeddings | `@xenova/transformers` (all-MiniLM-L6-v2) | Semantic matching |
+| AI — Fallback | Gemini (Google) | PDF multimodal parsing |
+| Analytics | PostHog | Product analytics, session recording |
 | Payments | Stripe | Subscription billing |
 | Email | Resend | Transactional email |
 | Real-time | WebSocket (ws) | Notifications, chat |
+| Background Jobs | Inngest | Async job processing |
 | CI/CD | GitHub Actions + Vercel | Build, test, cron, deploy |
 
 ---
@@ -221,7 +228,9 @@ recrutas/
 │   │   ├── use-mobile.tsx              # Responsive breakpoint detection
 │   │   ├── use-websocket-notifications.ts  # WebSocket notification listener
 │   │   ├── useWebSocket.ts             # Raw WebSocket hook
-│   │   └── useRoleBasedAuth.ts         # Role check utility
+│   │   ├── useRoleBasedAuth.ts         # Role check utility
+│   │   ├── use-idle-timeout.ts         # Idle detection for auto-logout
+│   │   └── use-auth-redirect.ts        # Post-login redirect logic
 │   │
 │   ├── lib/
 │   │   ├── queryClient.ts             # TanStack Query client + apiRequest helper
@@ -243,9 +252,13 @@ recrutas/
 │   ├── routes.ts                       # ALL API routes (3063 lines) — the main file
 │   ├── chat-routes.ts                  # Chat-specific routes
 │   ├── storage.ts                      # IStorage interface + DatabaseStorage (2694 lines)
+│   ├── job-scorer.ts                   # Match scoring algorithm (weights, tiers, soft-rank boosts)
 │   ├── db.ts                           # Drizzle ORM instance
 │   ├── ai-service.ts                   # Legacy matching (skill cosine similarity)
-│   ├── ai-resume-parser.ts             # Groq-powered resume → JSON extraction
+│   ├── ai-resume-parser.ts             # Groq-powered resume → JSON extraction (with Gemini fallback + PDF corruption detection)
+│   ├── skill-intelligence.ts           # Deterministic zero-cost fallback parser (400+ skill aliases)
+│   ├── skill-normalizer.ts             # 400+ skill alias taxonomy for normalization
+│   ├── resume-parser.ts                # Basic PDF/DOCX parser (mammoth + pdf-parse)
 │   ├── advanced-matching-engine.ts     # ML semantic matching (all-MiniLM-L6-v2)
 │   ├── notification-service.ts         # Push notifications + WebSocket + email
 │   ├── career-page-scraper.ts          # Greenhouse/Lever/Ashby/Workday scrapers
@@ -270,12 +283,16 @@ recrutas/
 │   │   ├── greenhouse-submit.service.ts # Greenhouse Boards API submission
 │   │   ├── agent-apply.service.ts      # Agent Apply orchestration
 │   │   ├── batch-embedding.service.ts  # Bulk embedding generation
+│   │   ├── candidate-embedding.service.ts # Generate candidate vector embeddings
 │   │   ├── company-discovery.service.ts # Auto-discover companies with ATS
+│   │   ├── apollo-discovery.service.ts  # Apollo.io company discovery (10K/mo credits)
 │   │   ├── ats-detection.service.ts    # Detect which ATS a company uses
 │   │   ├── sota-scraper.service.ts     # State-of-the-art scraper patterns
 │   │   ├── job-refresh.service.ts      # Refresh stale job data
+│   │   ├── match-signals.service.ts    # Matching weight configuration
 │   │   ├── we-work-remotely.service.ts # WeWorkRemotely scraper
 │   │   ├── external-jobs-scheduler.ts  # Cron scheduling logic
+│   │   ├── job.service.ts              # Job CRUD operations wrapper
 │   │   └── index.ts                    # Service barrel export
 │   │
 │   ├── lib/
@@ -480,12 +497,18 @@ Defined in `client/src/App.tsx`:
 | `/` | Landing page | No |
 | `/auth` | Login/signup | No |
 | `/signup/candidate` | Candidate registration | No |
-| `/signup/talent` | Talent owner registration | No |
+| `/signup/talent-owner` | Talent owner registration | No |
+| `/forgot-password` | Password reset request | No |
+| `/reset-password` | New password entry | No |
+| `/early-access` | Early access signup | No |
+| `/role-selection` | Role picker after signup | Yes |
+| `/guided-setup` | Multi-step onboarding wizard | Yes |
 | `/candidate-dashboard` | Candidate main page | Yes (candidate) |
 | `/talent-dashboard` | Recruiter main page | Yes (talent_owner) |
 | `/exam/:jobId` | Exam taking | Yes (candidate) |
 | `/chat` | Messaging | Yes |
 | `/admin` | Unified admin panel (Overview, Metrics, Errors, Invites tabs) | Password-gated |
+| `/admin/metrics` | System metrics dashboard | Password-gated |
 | `/pricing` | Stripe tiers | No |
 | `/privacy` | Privacy policy | No |
 | `/terms` | Terms of service | No |
@@ -512,6 +535,15 @@ const { user, isLoading } = useAuth();
 - Fetches `/api/candidate/profile` and merges `profile_complete`, `skills`, etc. into the user object
 - `isLoading` reflects only session loading (not profile fetch) — so RoleGuard resolves in 1 roundtrip
 
+### Idle Session Management
+
+File: `client/src/components/idle-watcher.tsx`
+
+Automatically logs out users after 30 minutes of inactivity:
+- Triggers warning modal 60 seconds before logout
+- Uses `useIdleTimeout` hook for detection
+- Configurable timeout and warning period
+
 ### Job Feed (`ai-job-feed.tsx`)
 
 The core component. Fetches `/api/ai-matches`, applies client-side filters instantly, renders a virtualized list.
@@ -532,6 +564,25 @@ Multi-step onboarding:
 3. Set job preferences (location, work type, salary)
 
 "Clear all" button wipes skills and returns to step 1.
+
+### Guided Setup (`guided-setup.tsx`)
+
+Expanded onboarding flow with role-specific steps:
+
+**For Candidates:**
+- Role selection (candidate vs talent owner)
+- Basic info (name, location)
+- Resume upload with AI parsing
+- Skills review and confirmation
+- Job preferences (location, work type, salary)
+
+**For Talent Owners:**
+- Role selection
+- Company profile (name, website, size, industry)
+- Job posting wizard
+- Pricing plan selection
+
+Files: `client/src/components/guided-setup/`
 
 ---
 
@@ -901,6 +952,32 @@ The current feed quality is delivered by aggregator filtering + keyword retrieva
 
 ---
 
+## Resume Parsing
+
+### Multi-Layer Architecture
+
+The resume parser uses a 4-layer fallback chain:
+
+1. **unpdf** — Extracts text from PDF (fast, good for text-based PDFs)
+2. **Corruption Detection** — Detects broken ToUnicode CMap that strips first char from words ("Databricks" → "atabricks", "EXPERIENCE" → "XPERIENCE"). Uses section markers as fingerprint — counts clean vs dropped variants.
+3. **Tesseract OCR** — Falls back to OCR when corruption detected or thin content
+4. **Skill Intelligence Engine** — Rule-based fallback (400+ skill aliases, n-gram tokenization, negation detection, experience level inference)
+
+### AI Extraction
+
+File: `server/ai-resume-parser.ts`
+
+- Primary: Groq (Llama 3) for structured JSON extraction
+- Fallback: Gemini multimodal for PDF parsing
+- Rate-limited via `groq-limiter.ts` (priority: high)
+
+### Scripts
+
+- `scripts/retry-failed-parses.ts` — Retries up to 3 failed parses per run using Gemini multimodal
+- `scripts/check-corruption-detector.ts` — Validates corruption detection logic against live data
+
+---
+
 ## Exam System
 
 ### Auto-Generation
@@ -1009,6 +1086,8 @@ All workflows in `.github/workflows/`:
 | Workflow | Schedule | File | What it does |
 |----------|----------|------|-------------|
 | `scrape-tech-companies.yml` | 6AM/6PM UTC | `scripts/scrape-tier.ts` | Scrape 94+ companies across 4 ATS tiers |
+| `scrape-external-jobs.yml` | Twice daily | Cron endpoint | External job aggregation (Adzuna, JSearch, etc.) |
+| `scrape-ats-jobs.yml` | Daily | Cron endpoint | ATS-specific job scraping (Greenhouse, Lever, Ashby) |
 | `auto-hide-ghost-jobs.yml` | Every 6h | Cron endpoint | HTTP probe external job URLs, mark stale |
 | `purge-old-jobs.yml` | Daily | Cron endpoint | Delete external jobs > 60 days old |
 | `discover-companies.yml` | Daily 2AM | Cron endpoint | Discover + ATS-probe 10 new companies |
@@ -1017,6 +1096,9 @@ All workflows in `.github/workflows/`:
 | `warm-candidate-matches.yml` | Daily | Cron endpoint | Pre-compute matches for active users |
 | `retry-failed-parses.yml` | Daily | Cron endpoint | Re-parse resumes that failed AI extraction |
 | `cleanup-errors.yml` | Weekly Sun 6AM | Cron endpoint | Purge error_events > 30 days |
+| `resolve-adzuna-searxng.yml` | Weekly | Cron endpoint | Fix Adzuna broken search links |
+| `resolve-adzuna-links.yml` | Weekly | Cron endpoint | Resolve Adzuna redirect links |
+| `run-migration.yml` | On demand | Drizzle | Run database migrations |
 | `agent-apply.yml` | On demand | Agent apply tasks | Process queued agent apply jobs |
 | `ci.yml` | On push/PR | | Type check + lint + test |
 | `push-schema-dev.yml` | Manual | `drizzle-kit push` | Push schema changes to DB |
@@ -1242,6 +1324,9 @@ const { isConnected, lastMessage } = useWebSocketNotifications(userId);
 | `npm run dev` | Frontend only (Vite dev server) |
 | `npm run dev:all` | Frontend + backend concurrently |
 | `npm run dev:server` | Backend with watch mode (tsx) |
+| `npm run dev:server:start` | Start backend server (persistent) |
+| `npm run dev:server:stop` | Stop backend server |
+| `npm run dev:server-no-watch` | Run backend without watch (for testing) |
 | `npm run build` | Full production build (client + server + API handler) |
 | `npm run build:server` | esbuild server bundle |
 | `npm run build:api` | Generate Vercel serverless handler |
@@ -1249,11 +1334,18 @@ const { isConnected, lastMessage } = useWebSocketNotifications(userId);
 | `npm run lint` | ESLint (flat config, v9) |
 | `npm run type-check` | TypeScript noEmit check |
 | `npm run check` | type-check + lint |
-| `npm test` | Run all tests |
+| `npm test` | Run main test suite |
+| `npm run test:all` | Run all test suites (unit + integration + frontend + e2e) |
+| `npm run test:unit:backend` | Backend Jest unit tests |
+| `npm run test:integration:backend` | Backend integration tests |
+| `npm run test:frontend` | Frontend Vitest tests |
 | `npm run test:e2e` | E2E test runner |
 | `npm run test:playwright` | Playwright tests directly |
 | `npm run test:playwright:ui` | Playwright UI mode |
+| `npm run test:playwright:headed` | Playwright headed mode |
+| `npm run test:coverage` | Test coverage report |
 | `npm run db:push` | Push Drizzle schema to database |
+| `npm run weekly-numbers` | Generate weekly analytics report |
 
 ---
 
@@ -1391,6 +1483,7 @@ Recrutas consumes several external APIs. As the platform scales, startup credit 
 | **JSearch (RapidAPI)** | External job aggregation | `RAPIDAPI_KEY` | Free | $0 |
 | **Upstash Redis** | Distributed rate limiting, cache | `UPSTASH_REDIS_*` | Free | $0 |
 | **Inngest** | Background jobs (match warming, SLA) | `INNGEST_EVENT_KEY` | Free (50K exec/mo) | $0 |
+| **Apollo.io** | Company discovery (10K credits/mo) | `APOLLO_API_KEY` | Free | $0 |
 
 #### Job Sources (no API key needed)
 
@@ -1410,6 +1503,7 @@ Recrutas consumes several external APIs. As the platform scales, startup credit 
 | Service | Purpose | Env Var | Status |
 |---------|---------|---------|--------|
 | **Stripe** | Payments & subscriptions | `STRIPE_SECRET_KEY` | Wired but disabled |
+| **PostHog** | Product analytics | `POSTHOG_API_KEY` | Active |
 | **Pinecone** | Vector DB for embeddings at scale | `PINECONE_*` | Not active |
 | **Weaviate** | Alternative vector DB | `WEAVIATE_*` | Not active |
 | **Ollama** | Local LLM fallback | `OLLAMA_URL` | Dev only |
