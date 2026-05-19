@@ -6,30 +6,6 @@ import { parseResumeWithIntelligence } from './skill-intelligence';
 import { callGeminiWithPDF } from './lib/ai-client';
 import { throttledGroqRequest, type GroqPriority } from './lib/groq-limiter';
 
-/**
- * Detect PDFs whose text layer has a broken ToUnicode CMap that strips the
- * first character off many words (the failure mode where "Databricks" becomes
- * "atabricks" and "EXPERIENCE" becomes "XPERIENCE"). Uses uppercase section
- * markers as a fingerprint — they're nearly universal in resumes, and their
- * one-char-dropped versions (XPERIENCE, DUCATION, KILLS, etc.) almost never
- * appear in clean English text. If the dropped-prefix variants outnumber the
- * intact ones, the extraction is unsalvageable and the caller should OCR.
- */
-function looksFirstCharDropped(text: string): boolean {
-  const MARKERS = [
-    'EXPERIENCE', 'EDUCATION', 'SUMMARY', 'SKILLS', 'PROJECTS',
-    'CERTIFICATIONS', 'LANGUAGES', 'EMPLOYMENT', 'PUBLICATIONS',
-    'OBJECTIVE', 'INTERESTS', 'ACTIVITIES', 'ACHIEVEMENTS',
-  ];
-  let clean = 0;
-  let dropped = 0;
-  for (const m of MARKERS) {
-    if (new RegExp(`\\b${m}\\b`).test(text)) clean++;
-    if (new RegExp(`\\b${m.slice(1)}\\b`).test(text)) dropped++;
-  }
-  return dropped >= 2 && dropped > clean;
-}
-
 // Lazy-initialize Groq client to ensure env vars are loaded (ESM imports hoist before dotenv.config)
 let _groq: Groq | null = null;
 function getGroqClient(): Groq | null {
@@ -247,18 +223,9 @@ export class AIResumeParser {
         const pdf = await getDocumentProxy(new Uint8Array(fileBuffer));
         const { text } = await extractText(pdf, { mergePages: true });
         if (text && text.trim().length >= 50) {
-          if (looksFirstCharDropped(text)) {
-            // PDF has a broken ToUnicode CMap that strips the leading character
-            // off many words ("Databricks" → "atabricks", "EXPERIENCE" → "XPERIENCE").
-            // LLMs recover from this through context, but the rule-based
-            // fallback path produces garbage downstream. Force OCR instead.
-            console.log('[AIResumeParser] PDF text extraction looks first-char-dropped, falling through to OCR');
-          } else {
-            return text;
-          }
-        } else {
-          console.log('[AIResumeParser] PDF text extraction returned thin content, may be scanned');
+          return text;
         }
+        console.log('[AIResumeParser] PDF text extraction returned thin content, may be scanned');
       } catch (textErr) {
         console.warn('[AIResumeParser] PDF text extraction failed:', (textErr as Error).message);
       }
