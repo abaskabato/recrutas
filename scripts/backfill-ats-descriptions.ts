@@ -38,10 +38,7 @@ async function loadSkillExtractor() {
 }
 
 async function main() {
-  // max: 1 so the UPDATEs serialize on a single connection — concurrent writes
-  // to job_postings deadlock on the skills GIN index when unnest rows
-  // overlap in lock order across transactions.
-  const sql = postgres(process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '', { max: 1, prepare: false });
+  const sql = postgres(process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || '', { max: 3, prepare: false });
   const extractSkills = await loadSkillExtractor();
 
   // Find companies with empty-description ATS rows. We pull the ATS type from
@@ -93,12 +90,10 @@ async function main() {
       if (byUrl.size === 0) continue;
 
       if (!DRY_RUN) {
-        // Sort URLs so row locks are always acquired in the same order across
-        // batches; this is the cheap deadlock prophylactic on top of max: 1.
-        const urls = Array.from(byUrl.keys()).sort();
+        const urls = Array.from(byUrl.keys());
         const descs = urls.map(u => byUrl.get(u)!.description);
         const skillsArr = urls.map(u => JSON.stringify(byUrl.get(u)!.skills));
-        const updateOnce = () => sql`
+        const res = await sql`
           UPDATE job_postings AS jp
           SET description = v.description,
               skills = v.skills::jsonb,
@@ -112,18 +107,7 @@ async function main() {
             AND jp.source = ${'ATS:' + f.value.atsType}
             AND (jp.description IS NULL OR length(jp.description) < 100)
         `;
-        let res;
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try { res = await updateOnce(); break; }
-          catch (e: any) {
-            if (e?.code === '40P01' && attempt < 2) {
-              await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
-              continue;
-            }
-            throw e;
-          }
-        }
-        updated += res?.count ?? 0;
+        updated += res.count ?? 0;
       } else {
         skipped += byUrl.size;
       }
