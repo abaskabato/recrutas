@@ -21,10 +21,6 @@ interface AtsJob {
   title: string;
   location?: string;
   url: string;
-  // Optional fields populated only by the description-fetching path. Listing
-  // calls used purely for URL resolution skip these to keep the response light.
-  description?: string;
-  skills?: string[];
 }
 
 interface CompanyInfo {
@@ -249,102 +245,53 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
-function stripHtml(html: string | undefined | null): string {
-  if (!html) return '';
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * List jobs from an ATS API.
- *
- * When `includeDescription` is true, fetches an endpoint variant that returns
- * the full job body (Greenhouse needs `?content=true`; Lever and Ashby's
- * default already include descriptions). The extra payload roughly 5–10×s the
- * response size, so callers that only need title/url for resolution should
- * leave the flag off.
- */
-export async function listAtsJobs(
-  atsType: AtsType,
-  atsId: string,
-  options?: { includeDescription?: boolean },
-): Promise<AtsJob[]> {
-  const includeDesc = options?.includeDescription === true;
+export async function listAtsJobs(atsType: AtsType, atsId: string): Promise<AtsJob[]> {
   try {
     if (atsType === 'greenhouse') {
-      const url = includeDesc
-        ? `https://boards-api.greenhouse.io/v1/boards/${atsId}/jobs?content=true`
-        : `https://boards-api.greenhouse.io/v1/boards/${atsId}/jobs`;
-      const data = await fetchJson(url) as
-        | { jobs?: Array<{ title: string; location?: { name?: string }; absolute_url?: string; content?: string }> }
+      const data = await fetchJson(`https://boards-api.greenhouse.io/v1/boards/${atsId}/jobs`) as
+        | { jobs?: Array<{ title: string; location?: { name?: string }; absolute_url?: string }> }
         | null;
       return (data?.jobs ?? [])
-        .map(j => ({
-          title: j.title,
-          location: j.location?.name,
-          url: j.absolute_url ?? '',
-          ...(includeDesc ? { description: stripHtml(j.content) } : {}),
-        }))
+        .map(j => ({ title: j.title, location: j.location?.name, url: j.absolute_url ?? '' }))
         .filter(j => j.title && j.url);
     }
     if (atsType === 'lever') {
-      // Lever's mode=json response already includes descriptionPlain/description.
       const data = await fetchJson(`https://api.lever.co/v0/postings/${atsId}?mode=json`) as
-        | Array<{ text: string; categories?: { location?: string }; hostedUrl?: string; descriptionPlain?: string; description?: string }>
+        | Array<{ text: string; categories?: { location?: string }; hostedUrl?: string }>
         | null;
       return (Array.isArray(data) ? data : [])
-        .map(j => ({
-          title: j.text,
-          location: j.categories?.location,
-          url: j.hostedUrl ?? '',
-          ...(includeDesc ? { description: j.descriptionPlain || stripHtml(j.description) } : {}),
-        }))
+        .map(j => ({ title: j.text, location: j.categories?.location, url: j.hostedUrl ?? '' }))
         .filter(j => j.title && j.url);
     }
     if (atsType === 'ashby') {
       const data = await fetchJson(`https://api.ashbyhq.com/posting-api/job-board/${atsId}`) as
-        | { jobs?: Array<{ title: string; locationName?: string; jobUrl?: string; description?: string; descriptionPlain?: string }> }
+        | { jobs?: Array<{ title: string; locationName?: string; jobUrl?: string }> }
         | null;
       return (data?.jobs ?? [])
-        .map(j => ({
-          title: j.title,
-          location: j.locationName,
-          url: j.jobUrl ?? '',
-          ...(includeDesc ? { description: j.descriptionPlain || stripHtml(j.description) } : {}),
-        }))
+        .map(j => ({ title: j.title, location: j.locationName, url: j.jobUrl ?? '' }))
         .filter(j => j.title && j.url);
     }
     if (atsType === 'workable') {
       const data = await fetchJson(`https://apply.workable.com/api/v1/widget/accounts/${atsId}/vacancies/`) as
-        | { results?: Array<{ title?: string; location?: { city?: string; country?: string }; shortcode?: string; description?: string }> }
+        | { results?: Array<{ title?: string; location?: { city?: string; country?: string }; shortcode?: string }> }
         | null;
       return (data?.results ?? [])
         .map(j => ({
           title: j.title ?? '',
           location: j.location?.city ?? j.location?.country,
           url: j.shortcode ? `https://apply.workable.com/${atsId}/j/${j.shortcode}/` : '',
-          ...(includeDesc ? { description: stripHtml(j.description) } : {}),
         }))
         .filter(j => j.title && j.url);
     }
     if (atsType === 'recruitee') {
       const data = await fetchJson(`https://${atsId}.recruitee.com/api/offers`) as
-        | { offers?: Array<{ title: string; city?: string; country?: string; slug?: string; description?: string; requirements?: string }> }
+        | { offers?: Array<{ title: string; city?: string; country?: string; slug?: string }> }
         | null;
       return (data?.offers ?? [])
         .map(j => ({
           title: j.title,
           location: j.city ?? j.country,
           url: j.slug ? `https://${atsId}.recruitee.com/o/${j.slug}` : '',
-          ...(includeDesc ? { description: stripHtml(`${j.description ?? ''}\n${j.requirements ?? ''}`) } : {}),
         }))
         .filter(j => j.title && j.url);
     }

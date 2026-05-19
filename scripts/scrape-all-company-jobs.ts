@@ -96,7 +96,7 @@ async function main() {
     const results = await Promise.allSettled(
       slice.map(async (entry) => {
         try {
-          const jobs = await listAtsJobs(entry.detectedAts as any, entry.atsId, { includeDescription: true });
+          const jobs = await listAtsJobs(entry.detectedAts as any, entry.atsId);
           return jobs.length > 0 ? { company: entry.normalizedName, atsType: entry.detectedAts, jobs } : null;
         } catch { return null; }
       })
@@ -111,10 +111,7 @@ async function main() {
             title: j.title,
             company: r.value.company,
             location: j.location || '',
-            // Descriptions feed the skill extractor in job-ingestion.service.ts;
-            // without them, every ATS:* row lands with skills=[] and the
-            // matcher loses its primary signal for these companies.
-            description: j.description || '',
+            description: '',
             requirements: [],
             skills: [],
             workType: 'hybrid',

@@ -348,26 +348,6 @@ export function getRoleTitleKeywords(candidateTitles: string[]): string[] {
   return Array.from(keywords).slice(0, 20);
 }
 
-// ── Location classifiers ──────────────────────────────────────────
-// Kept narrow and case-insensitive. Mirrors the bigger NON_US_LOCATION_REGEX
-// in storage.ts but focused on the high-volume cities/countries that show up
-// in our ATS feed; the storage regex still owns retrieval-time prioritization.
-const NON_US_LOCATION_RE = /\b(europe|emea|apac|latam|latin america|united kingdom|england|scotland|wales|london|germany|berlin|munich|france|paris|netherlands|amsterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|poland|warsaw|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bulgaria|hungary|greece|turkey|israel|tel aviv|uae|dubai|qatar|saudi|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|costa rica|mexico|mexico city|brazil|s[aã]o paulo|argentina|buenos aires|chile|santiago|colombia|bogot[aá]|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|bengaluru|mumbai|hyderabad|delhi|pune|gurugram|gurgaon|noida|chennai|kolkata|kochi|ahmedabad|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|hanoi|philippines|manila)\b/i;
-const US_STATE_RE = /\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia)\b/i;
-const US_TOKEN_RE = /\b(us|usa|u\.s\.|united states|north america|americas)\b/i;
-
-export function isNonUsLocation(loc: string): boolean {
-  return NON_US_LOCATION_RE.test(loc);
-}
-
-export function isUsLocation(loc: string): boolean {
-  if (US_TOKEN_RE.test(loc)) return true;
-  if (US_STATE_RE.test(loc)) return true;
-  // "City, ST" suffix (Seattle, WA / Austin, TX)
-  if (/, ?[a-z]{2}( |,|$)/i.test(loc)) return true;
-  return false;
-}
-
 const SENIORITY_LEVELS = ['intern', 'junior', 'mid', 'senior', 'staff', 'principal', 'lead', 'manager', 'director', 'vp', 'executive'];
 
 function extractSeniority(title: string): string {
@@ -513,15 +493,6 @@ export function scoreJob(
   // Additive bonus, not a percentage weight — rewards good fit without
   // inflating scores for irrelevant jobs. Max +8 so it can't flip a
   // bad match into a good one (30% threshold is still the gatekeeper).
-  //
-  // Negative case: when a candidate has a US location and the job is in a
-  // recognizably non-US location with no remote signal, apply a small
-  // penalty. The retrieval-side US priority sort puts non-US rows lower
-  // but doesn't affect the *score*, so a 65% Bengaluru match could still
-  // sit above a 60% Seattle match. The penalty offsets that without
-  // dropping the row entirely (a senior IT support candidate in Seattle
-  // can still see "Remote – India" — they just get docked when the role
-  // is on-site Bengaluru).
 
   let contextBonus = 0;
 
@@ -531,8 +502,7 @@ export function scoreJob(
     const jobWork = (job.workType || '').toLowerCase();
     const candWork = (candidateContext.workType || '').toLowerCase();
 
-    // Location: +4 for match or remote job, +2 for same state/region,
-    // -10 when candidate is US-based and job is explicitly non-US on-site.
+    // Location: +4 for match or remote job, +2 for same state/region
     if (jobLoc && candLoc) {
       const isRemoteJob = jobWork.includes('remote') || jobLoc.includes('remote');
       if (isRemoteJob) {
@@ -545,11 +515,6 @@ export function scoreJob(
         const jobState = jobLoc.split(',').pop()?.trim();
         if (candState && jobState && candState.length <= 3 && candState === jobState) {
           contextBonus += 2;
-        } else if (isUsLocation(candLoc) && isNonUsLocation(jobLoc)) {
-          // Country mismatch on a non-remote role — apply a real penalty.
-          // Capped at -10 so a strong role/skill match can still surface
-          // above the 30% feed floor but won't outrank a comparable US role.
-          contextBonus -= 10;
         }
       }
     }
@@ -587,9 +552,8 @@ export function scoreJob(
     );
   }
 
-  // Apply context bonus (additive; clamp 0..100 since the penalty path can
-  // push a low-tier match below zero on a country mismatch).
-  matchScore = Math.max(0, Math.min(100, matchScore + contextBonus));
+  // Apply context bonus (additive, capped at 100)
+  matchScore = Math.min(100, matchScore + contextBonus);
 
   // ── Hard cap: no role-family match ────────────────────────────
   // Role-family mismatch is the dominant signal that a job is wrong-career
