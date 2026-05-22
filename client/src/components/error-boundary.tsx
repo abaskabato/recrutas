@@ -83,6 +83,21 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                   Reference: {this.state.errorId}
                 </p>
               )}
+              {this.state.error && (
+                <details className="text-left text-xs bg-gray-50 dark:bg-gray-900 rounded p-3 border border-gray-200 dark:border-gray-800">
+                  <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-300">
+                    Error details
+                  </summary>
+                  <p className="mt-2 font-mono text-red-600 dark:text-red-400 break-all">
+                    {this.state.error.message}
+                  </p>
+                  {this.state.error.stack && (
+                    <pre className="mt-2 text-[10px] text-gray-500 dark:text-gray-400 overflow-x-auto whitespace-pre-wrap break-all">
+                      {this.state.error.stack.split('\n').slice(0, 8).join('\n')}
+                    </pre>
+                  )}
+                </details>
+              )}
               <div className="flex flex-col gap-2">
                 <Button
                   onClick={() => this.setState({ hasError: false, error: undefined, errorId: undefined })}
