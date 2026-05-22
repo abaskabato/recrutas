@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, MapPin, Building, Filter, ExternalLink, Briefcase, Bookmark, EyeOff, Check, Sparkles, Shield, BadgeCheck, RotateCcw, Clock, FileText, Upload, Loader2, Layers, Calendar, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import AIMatchBreakdownModal from "./AIMatchBreakdownModal";
+import { LoadingHype } from "./loading-hype";
 import { useToast } from "@/hooks/use-toast";
 import { track } from "@/lib/analytics";
 
@@ -574,10 +575,7 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
       {/* Job Feed */}
       {isLoading || (isFetching && !isFetchingNextPage && (!filteredMatches || filteredMatches.length === 0)) ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Finding your best job matches...</p>
-        </div>
+        <LoadingHype />
       ) : !filteredMatches || filteredMatches.length === 0 ? (
         <div className="space-y-4">
           {/* Encouraging hero strip — same width as cards, friendlier tone */}
