@@ -10,7 +10,8 @@
 
 <p align="center">
   <a href="https://recrutas.ai">recrutas.ai</a> ·
-  Built with React + Express + Supabase + Groq
+  Built with React 18 · Express · Supabase (PostgreSQL) · Groq (Llama 3) ·
+  TanStack Query · Tailwind CSS · shadcn/ui · Drizzle ORM · Redis · Stripe
 </p>
 
 ---
@@ -35,6 +36,7 @@ Recrutas is a candidate-first hiring platform built around one hard promise: **i
 ## Table of Contents
 
 - [Quick Start](#quick-start)
+- [Technical Deep Dive (Deck-Ready)](#technical-deep-dive-deck-ready)
 - [Architecture Overview](#architecture-overview)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
@@ -105,6 +107,580 @@ Test accounts after seeding:
 
 ---
 
+## Technical Deep Dive (Deck-Ready)
+
+This section is structured as presentation content — each subsection is a slide covering one
+technical area of Recrutas. Use this to explain the architecture to engineers, investors,
+and technical stakeholders.
+
+---
+
+### Slide 1: System Architecture
+
+```
+                    ┌─────────────────────────────┐
+                    │      GitHub Actions          │
+                    │  (12 cron workflows)         │
+                    │  Scrape 6AM/6PM UTC          │
+                    │  Ghost check every 6h        │
+                    │  SLA enforcement daily       │
+                    │  Embedding warmup daily       │
+                    └──────────┬──────────────────┘
+                               │ HTTP POST + CRON_SECRET
+                               ▼
+┌──────────────┐    ┌──────────────────────────────────────┐    ┌──────────────┐
+│   Vercel     │    │         Express API Server            │    │   Supabase   │
+│  CDN/Edge    │◄──►│  standalone-server.js / api/index.js  │◄──►│  PostgreSQL  │
+│  (Static)    │    │                                      │    │  + Auth      │
+└──────────────┘    │  Middleware stack:                     │    │  + Storage   │
+                    │    helmet → cors → rate-limit         │    └──────────────┘
+                    │    → request-tracing → metrics        │         ▲
+                    │    → auth (JWT HS256) → routes        │         │
+                    │                                      │    ┌──────────────┐
+                    │  Services layer:                       │    │   Upstash    │
+                    │    exam · resume · stripe · agent     │◄──►│    Redis     │
+                    │    job-ingestion · embedding · ats    │    │  (Rate lim,  │
+                    │                                      │    │   cache)     │
+                    │  AI layer:                             │    └──────────────┘
+                    │    Groq (Llama 3) · Gemini fallback    │
+                    │    @xenova/transformers (embeddings)   │
+                    │    Tesseract OCR · Skill Intelligence  │
+                    └──────────────────────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+          ┌──────────────────┐  ┌──────────────────┐
+          │   WebSocket      │  │   External APIs   │
+          │   (ws://host/ws)  │  │   Greenhouse      │
+          │   Notifications  │  │   Lever · Ashby   │
+          │   Chat messages  │  │   Workday · JSearch│
+          └──────────────────┘  └──────────────────┘
+```
+
+**Key design decisions:**
+- **Monorepo, single Express process** — simplifies deployment, keeps latency low
+- **Serverless-ready** — `api/index.js` wraps Express for Vercel; background services auto-disable on serverless
+- **No external LLM on hot path** — all job scoring is synchronous application code (no API calls during page load)
+- **Multi-layered AI fallback** — every AI feature degrades gracefully (Groq → Gemini → rule-based)
+
+---
+
+### Slide 2: Frontend Architecture
+
+**Stack:** React 18 + TypeScript + Vite 5 + Tailwind CSS 3 + shadcn/ui + wouter + TanStack Query v5
+
+**Routing (wouter — 2KB alternative to React Router):**
+| Path | Component | Guard |
+|------|-----------|-------|
+| `/` | Landing (YC-style) | None |
+| `/candidate-dashboard` | Tabs: Jobs / Saved / Applications / Profile | `role=candidate` |
+| `/talent-dashboard` | Sub-modules: Overview / Jobs / Candidates / Analytics | `role=talent_owner` |
+| `/exam/:jobId` | Exam taking with timer | Candidate only |
+| `/admin` | Unified panel: Overview / Metrics / Errors / Invites | Password-gated |
+| `/chat` | Real-time messaging | Authenticated |
+
+**State management pattern — no Redux/Zustand:**
+- **Server state:** TanStack Query v5 — all server data cached, auto-refetched
+- **UI state:** React `useState` / `useReducer` — form state, UI toggles
+- **Auth state:** `useSessionContext()` from Supabase (not `useSession()` — avoids false loading redirects)
+- **Cache discipline:** `removeQueries` for destructive operations (skill clear, logout), `invalidateQueries` for normal sync
+
+**Key client-side optimization:**
+- Job feed fetches all matches once, filters in `useMemo` — zero network calls on filter change
+- Auto-retry with exponential backoff when matches return empty (backend still computing embeddings)
+- 5-minute background refetch interval (staleTime: 0, refetchInterval: 300000)
+- Metrics tab lazy-loaded via `React.lazy()` + `Suspense`
+- Idle watcher auto-logs out after 30 min inactivity with 60s warning modal
+
+**Profile wizard flow (multi-step controlled by step state):**
+1. Upload resume → server parses with Groq → returns extracted data
+2. Review extracted skills → confirm or edit inline
+3. Set job preferences (location, work type, salary range)
+4. "Clear all" button wipes skills and returns to step 1
+
+---
+
+### Slide 3: Backend Architecture
+
+**Entry points:**
+- **Dev:** `standalone-server.js` → `server/index.ts` → Express + WebSocket on port 5000
+- **Production:** `api/index.js` → Vercel serverless handler wrapping same Express app
+- **Docker:** Multi-stage build (`node:22-alpine`), health check on `/api/health`
+
+**Request lifecycle:**
+```
+Incoming request
+  → Helmet security headers
+  → CORS check (FRONTEND_URL, *.vercel.app, chrome-extension://)
+  → express-rate-limit (100 req/15min global, 10 req/15min auth)
+  → Stripe webhook raw body parser (conditional on path)
+  → JSON/URL-encoded body parsers (1MB limit)
+  → Cookie parser
+  → Sentry request tracing
+  → Metrics sampling (20% → request_metrics table)
+  → Auth middleware (JWT HS256 verification)
+  → Route handler → storage layer → response
+  → Error handler (fingerprint → error_events table)
+```
+
+**The routes file** (`server/routes.ts`, 3034 lines) registers all API routes. Every route delegates to the storage layer (`server/storage.ts`, 3048 lines) which implements the `IStorage` interface — a repository pattern with 80+ methods for all database operations. Routes never use Drizzle directly.
+
+**Storage layer pattern:**
+```typescript
+interface IStorage {
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  getJobRecommendations(userId: string): Promise<JobMatch[]>;
+  // ... 80+ methods
+}
+class DatabaseStorage implements IStorage { /* Drizzle queries */ }
+export const storage = new DatabaseStorage();
+```
+
+---
+
+### Slide 4: Database Schema (35 Tables)
+
+**Source of truth:** `shared/schema.ts` (1004 lines)
+
+**Core entities and their relationships:**
+```
+users (1) ──→ (1) candidate_users         # Extended candidate profile
+users (1) ──→ (1) talent_owner_profiles   # Company profile
+users (1) ──→ (*) job_applications        # Applications with status lifecycle
+users (1) ──→ (*) job_matches              # AI match records with scores
+users (1) ──→ (*) exam_attempts            # Exam results with rankings
+users (1) ──→ (*) notifications            # In-app + email notifications
+users (1) ──→ (*) saved_jobs / hidden_jobs # Bookmarks and dismissals
+users (1) ──→ (*) agent_tasks             # Agent Apply job queue
+
+job_postings (1) ──→ (1) job_exams         # Auto-generated exams
+job_postings (1) ──→ (*) job_applications
+job_postings (1) ──→ (*) job_matches
+job_postings (1) ──→ (*) chat_rooms        # Exam-gated messaging
+```
+
+**Key schema features:**
+- **pgvector extension** — native 384-dim vector column for ANN retrieval on both `candidate_users` and `job_postings`
+- **Composite unique constraints** — deduplicates external jobs (`externalId + source`) and prevents duplicate applications
+- **Partial indexes** — `idx_job_active_feed` on `(status, source, createdAt)` for the most frequent query
+- **Liveness + ghost job fields** — `livenessStatus`, `ghostJobScore`, `ghostJobStatus`, `ghostJobReasons`
+
+**Platform operations tables:**
+- `subscription_tiers` / `user_subscriptions` — Stripe billing integration
+- `daily_usage_limits` — per-user rate caps (3 resume uploads, 5 job posts, 20 apps/day)
+- `error_events` — in-house Sentry replacement with MD5 fingerprint dedup
+- `request_metrics` — 20% sampled request performance data
+- `match_signals` — candidate×job interaction data for ML feedback loop
+- `scoring_weights` — persisted learned weights from the weight tuner
+- `invite_codes` / `invite_code_redemptions` — invite-only signup gate
+- `discovered_companies` — auto-discovered ATS companies
+- `connection_status` — WebSocket connection tracking
+
+---
+
+### Slide 5: AI Pipeline — Resume Parsing
+
+**Goal:** Extract structured data (name, skills, experience, education) from uploaded resumes
+
+**4-layer fallback chain** (`server/ai-resume-parser.ts`, 1320 lines):
+```
+1. unpdf ──→ Fast text extraction (text-based PDFs)
+       ⬇ (if text too thin or corruption detected)
+2. Corruption Detection ──→ Detects broken ToUnicode CMap (first char stripping)
+     Uses section markers as fingerprint → counts clean vs dropped variants
+       ⬇ (if corruption confirmed)
+3. Tesseract OCR ──→ Image-based extraction via tesseract.js
+       ⬇ (if Groq available)
+4. Groq (Llama 3) ──→ Structured JSON extraction with prompt-engineered schema
+       ⬇ (if Groq fails)
+5. Gemini multimodal ──→ PDF/image analysis fallback
+       ⬇ (if all AI fails)
+6. Skill Intelligence Engine ──→ Rule-based regex fallback (400+ skill aliases)
+```
+
+**Extraction schema:**
+```typescript
+interface AIExtractedData {
+  personalInfo: { name, email, phone, location, linkedin, github, portfolio };
+  summary: string;
+  skills: { technical: string[], soft: string[], tools: string[] };
+  experience: { totalYears, level, positions: [{ title, company, duration }] };
+  education: [{ degree, institution, year, gpa }];
+  certifications: string[];
+  projects: [{ name, description, technologies }];
+  languages: string[];
+}
+```
+
+**Rate limiting:** Groq calls go through `groq-limiter.ts` — priority queue (critical=exam gen, high=resume parse, medium=matching, low=scraping), token bucket (5000 tokens/min), circuit breaker (60s on 429, 5min on 3 consecutive).
+
+**Vector embeddings:** Generated via `@xenova/transformers` (all-MiniLM-L6-v2 → 384-dim) and stored in both JSON text and native pgvector columns. `batch-embedding.service.ts` handles bulk generation.
+
+---
+
+### Slide 6: Matching Engine — How Job Recommendations Work
+
+**Goal:** Return personalized job recommendations for every candidate without calling external APIs
+
+**The pipeline** (implemented in `server/storage.ts:751-1182` and `server/job-scorer.ts:760 lines`):
+
+```
+Step 1: RETRIEVE (two parallel lanes, deduped)
+  ┌─ Lane A: pgvector ANN ── Top 100 by cosine distance
+  │   ORDER BY embedding <=> candidate_embedding
+  │   **Note:** Job embeddings not yet backfilled — this lane returns 0 currently
+  │
+  └─ Lane B: Keyword union ── Top 200 by:
+       skills JSONB overlap  OR  title ILIKE skill  OR  title ILIKE role-keyword
+     Shared filters (both lanes):
+       • status = 'active' AND not expired
+       • liveness_status IN ('active', 'unknown')
+       • ghost_job_score < 60 OR NULL
+       • created_at > now() - 90 days (or source = platform)
+       • source NOT IN aggregator list (9 known aggregators)
+       • external_url NOT ILIKE aggregator URL patterns
+
+Step 2: SCORE — scoreJob() weights
+  ┌──────────────────────┬───────┬──────────────────────────────┐
+  │ Component            │ Weight│ Calculation                  │
+  ├──────────────────────┼───────┼──────────────────────────────┤
+  │ Keyword skill match  │ 25%   │ exact + 0.5 × partial match  │
+  │ Semantic embedding   │ 35%   │ 1 − cosine_dist (pgvector)   │
+  │ Title/role relevance │ 25%   │ title keyword match density  │
+  │ Experience level     │ 15%   │ asymmetric level multiplier  │
+  │ Context bonus        │ +0-8  │ location + work type match   │
+  └──────────────────────┴───────┴──────────────────────────────┘
+  Weights auto-refresh from DB every 10 minutes (match_signals_weights).
+
+Step 3: FILTER — drop matches < 30
+
+Step 4: SOFT-RANK BOOSTS (never hard-filter)
+  Salary in range:   +0.10    out: −0.05
+  Work type match:   +0.10    out: −0.05
+  Experience level:  +0.08    out: −0.03
+  Industry match:    +0.05    no penalty
+
+Step 5: FINAL SORT
+  0.70 · matchScore/100 + 0.15 · trustScore/100 + 0.10 · recencyScore + prefBoost
+
+Step 6: CAP at 100, paginate 20/page
+```
+
+**Match tiers:**
+| Tier | Score | What it means |
+|------|-------|---------------|
+| `great` | ≥75 | Strong skill + role alignment |
+| `good` | ≥50 | Decent match, worth applying |
+| `worth-a-look` | <50 | Some relevance, may develop |
+| `discovery` | N/A | No skills profile — shows top 20 non-personalized |
+
+**Hard caps (failure-mode guards):**
+- No skill overlap AND no role match → cap at 25
+- With semantic signal → cap at 45 (lets strong semantic matches through)
+
+**Feedback loop:** Every apply/save/hide action records a `match_signal` with the full feature snapshot. When exam scores arrive, they join back to the signal → labeled training data → weight tuner runs grid search to minimize MAE vs exam outcomes → updates `scoring_weights` table.
+
+---
+
+### Slide 7: Job Pipeline — Scraping & Ghost Detection
+
+**Tiered scraping architecture (94+ companies):**
+
+| Tier | ATS | Count | Method |
+|------|-----|-------|--------|
+| 1 | Greenhouse | 29 companies | `boards-api.greenhouse.io/v1/boards/{slug}/jobs` |
+| 2 | Lever | 12 | `api.lever.co/v0/postings/{slug}` |
+| 2 | Ashby | 3 | `api.ashbyhq.com/posting-api/job-board/{slug}` |
+| 2 | Workday | 7 | `{company}.wd5.myworkdayjobs.com/wday/cxs/{path}/jobs` |
+| 3 | Custom/scraped | 21+ | Direct career page scraping + schema.org JSON-LD |
+
+**Dynamic company discovery** (`company-discovery.service.ts`):
+- Probes unknown companies against Greenhouse/Lever/Ashby APIs
+- `ats-probe.ts`: 5 concurrent probes, 200ms batch delay, Redis circuit breaker (10×429→60s pause)
+- Discovered companies stored in `discovered_companies` table (pending → admin approved → runtime merge)
+
+**Ingestion pipeline:**
+```
+Scraper → job-ingestion.service.ts → normalize + validate + dedupe → Drizzle insert
+  • Deduplication key: (externalId, source) unique constraint
+  • Trust scoring: platform=100, career_page=90, ATS=85, aggregator=50-80
+  • Source filtering: 9 known aggregators excluded + 9 URL patterns
+```
+
+**Ghost job detection** (two independent signals):
+1. **livenessStatus** — HTTP HEAD/GET probe every 6h; flips to `stale` on 404/410; auto-hides after 3 consecutive stale checks
+2. **ghostJobScore** — Content-based detector (dormant — 0/20,704 jobs scored ≥30)
+
+**Production feed metrics (current state):**
+- 83,519 jobs in DB → 35,811 active → **20,704 pass feed filters**
+- 100% direct ATS, zero aggregator residue
+- Source mix: Greenhouse 13,095, Lever 3,605, Ashby 3,284
+- 75% of jobs < 1 day old, 98% < 3 days old
+
+---
+
+### Slide 8: Exam System
+
+**Auto-generation** (`server/services/exam.service.ts`, 281 lines):
+1. Talent owner posts job with `hasExam: true`
+2. Job description + requirements → Groq (Llama 3) with priority: `critical`
+3. AI generates 5-10 multiple-choice questions stored in `job_exams.questions` (JSON)
+4. Questions served to candidates **without** `correctAnswer` (IDOR-safe — answers never reach client)
+
+**Submission & auto-ranking:**
+```
+Candidate submits → server-side score calc (compare vs stored correct answers)
+  → exam_attempts record (score, passedExam, ranking)
+  → auto-rankCandidatesByExamScore() for this job:
+       - Sorts all attempts by score descending
+       - Top N (maxChatCandidates, default 5) → qualifiedForChat = true
+       - Chat rooms auto-created for qualified candidates
+  → AI feedback generated for failed candidates (best-effort, 8s timeout)
+  → Response deadline set: passed? → completedAt + 24h (SLA enforcement)
+  → All candidates notified with their status
+```
+
+**24-hour response SLA:** `enforce-response-sla.yml` cron runs daily — auto-rejects applications where `responseDeadlineAt < now()` and status is still `submitted`/`viewed`.
+
+---
+
+### Slide 9: Real-Time Communication
+
+**WebSocket server** (attached to HTTP server via upgrade):
+- Connection: `ws://host/ws?token=<JWT>`
+- JWT verification at upgrade time (prevents unauthenticated connections)
+- Heartbeat: 30-second ping/pong with stale connection cleanup (60s timeout)
+- Max 5 connections per user
+
+**Notification delivery:**
+- Instant push via WebSocket when notification created
+- Long-polling fallback (30s timeout) for Vercel serverless compatibility
+- Channels: application updates, exam results, chat messages, interview scheduling
+
+**Chat system** (`server/chat-routes.ts`, 182 lines):
+- Exam-gated: only top-N exam scorers get chat access
+- Talent owners verify role via DB lookup (not JWT claim — unreliable)
+- Server-side message sanitization: HTML stripped, `javascript:` URLs removed, event handlers stripped, 5000 char limit
+- Raw SQL for joins (Drizzle 0.39 nested join bug — `chat_messages` + `users` join returns garbled data with Drizzle ORM)
+
+---
+
+### Slide 10: Agent Apply
+
+**Goal:** Auto-submit candidate applications to external ATS (Greenhouse) without manual form filling
+
+**Technology:** Pure HTTP + Playwright hybrid — uses Greenhouse Boards API for question fetching + Playwright for form submission
+
+**Flow** (`greenhouse-submit.service.ts`, 789 lines):
+```
+1. Parse Greenhouse URL → extract boardToken + jobId
+2. GET /v1/boards/{board}/jobs/{id}?questions=true → fetch custom questions
+3. Classify each question by label pattern matching:
+   work_auth, sponsorship, source, linkedin, github, website,
+   location, relocate, age_confirm, etc.
+4. Auto-answer classified questions from candidate profile
+   (Skip: salary expectations, pronouns, free-text "tell us more")
+5. Download resume from Supabase Storage
+6. POST /v1/boards/{board}/jobs/{id}/applications (multipart/form-data)
+7. Record application in DB + send email + in-app notification
+```
+
+**Question coverage:** 44-86% auto-answer rate across 7 tested companies
+
+**Chrome extension** (MV3, 109 `host_permissions`):
+- Injected on Greenhouse, Lever, Ashby, Workday, BambooHR, and 15+ other ATS domains
+- Gemini 2.0 Flash vision analyzes form screenshots → returns structured fill actions
+- Type, select, click_then_type, upload_resume, check — native value setters compatible with React/Angular/Vue
+- Keyboard shortcut: `Alt+Shift+R`
+- Cross-browser: Chrome and Firefox builds
+
+---
+
+### Slide 11: Rate Limiting & Abuse Prevention
+
+**Three-layer rate limiting:**
+
+| Layer | Implementation | Limits | Scope |
+|-------|---------------|--------|-------|
+| Global | `express-rate-limit` | 100 req/15min per IP | All endpoints |
+| Auth | `express-rate-limit` | 10 req/15min per IP | `/api/auth/*` |
+| Admin | `express-rate-limit` | 5 req/15min per IP | Admin endpoints |
+
+**Groq API limiter** (`server/lib/groq-limiter.ts`, 214 lines):
+- Priority queue: critical (exam) > high (resume) > medium (matching) > low (scraping)
+- Token bucket: 5,000 tokens/min (conservative below Groq free tier's 6K)
+- Request bucket: 25 req/min (conservative below 30 req/min)
+- Circuit breaker: 60s on 429, 5min on 3 consecutive 429s
+- LRU cache: 500 entries for summary dedup
+- Redis-backed variant (`groq-limiter-redis.ts`) for multi-instance
+
+**Per-user daily limits** (`daily_usage_limits` table):
+- 3 resume uploads / day
+- 5 job postings / day
+- 20 applications / day
+- Admin emails bypass all limits
+
+**Security middleware chain:**
+- Helmet: CSP, HSTS (production), X-Frame-Options: DENY
+- CORS: FRONTEND_URL + *.vercel.app + chrome-extension://
+- Timing-safe secret comparison (`crypto.timingSafeEqual`) for admin/cron auth
+- Input sanitization: HTML stripped from string inputs
+
+---
+
+### Slide 12: Authentication & Authorization
+
+**Auth flow:**
+```
+Browser → Supabase Auth (signUp/signIn) → JWT (HS256)
+  → Express middleware verifies token via SUPABASE_JWT_SECRET
+  → User attached to req.user { id, email, user_metadata }
+```
+
+**Middleware** (`server/middleware/auth.ts`, 68 lines):
+1. Extract JWT from `Authorization: Bearer` header or `sb-access-token` cookie
+2. Verify with `jsonwebtoken.verify(token, SECRET, { algorithms: ['HS256'] })`
+3. Extract `sub` (user ID) from payload
+4. Return 401 if missing/invalid, 500 if JWT_SECRET not configured
+
+**Invite-only gate:**
+- `POST /api/auth/sync` validates invite code against `invite_codes` table
+- Enforces `max_uses`, records redemption in `invite_code_redemptions`
+- Waitlist (`waitlist_entries`) collects emails for later invitation
+
+**Role-based access:**
+- Client: `<RoleGuard allowedRoles={['candidate']}>` wrapping protected pages
+- Server: Role verified via DB lookup (not JWT claim — Supabase `user_metadata.role` is unreliable)
+- Admin: Password-gated via `x-admin-secret` header + timing-safe comparison
+
+---
+
+### Slide 13: Observability & Monitoring
+
+**Error tracking** (in-house — replaced Sentry):
+```typescript
+// server/middleware/error-handler.ts
+fingerprint = MD5(message + first 3 stack frames)
+→ Upsert into error_events:
+    New fingerprint → insert with count=1
+    Existing → increment count, update last_seen
+```
+- Levels: error, warning, fatal
+- Weekly cleanup cron purges events > 30 days
+- Admin UI: grouped by fingerprint, filterable by level, expandable stack traces
+
+**Request metrics** (20% sampling):
+- Records: method, path, status code, response time, user agent
+- Stored in `request_metrics` table
+- Admin dashboard shows p50/p95/p99 per endpoint, error rates, growth trends
+
+**Analytics:** PostHog for product analytics (both client + server-side tracking)
+
+**Database connection management:** Background services auto-disable on Vercel serverless to prevent pool exhaustion. `ENABLE_BACKGROUND_SERVICES=true` to override.
+
+---
+
+### Slide 14: Background Jobs (GitHub Actions)
+
+**12 cron workflows — all authenticate via `CRON_SECRET` header:**
+
+| Workflow | Schedule | What it does |
+|----------|----------|-------------|
+| `scrape-tech-companies.yml` | 6AM/6PM UTC | Scrape 94+ ATS companies (4 tiers) |
+| `scrape-external-jobs.yml` | Twice daily | Adzuna, JSearch, etc. aggregation |
+| `scrape-ats-jobs.yml` | Daily | ATS-specific scraping |
+| `auto-hide-ghost-jobs.yml` | Every 6h | HTTP liveness probe → mark stale |
+| `purge-old-jobs.yml` | Daily | Delete external jobs > 60 days |
+| `discover-companies.yml` | Daily 2AM | Discover + probe 10 new companies |
+| `batch-embeddings.yml` | Daily | Generate embeddings for new jobs |
+| `enforce-response-sla.yml` | Daily | Auto-reject 24h+ unreviewed apps |
+| `warm-candidate-matches.yml` | Daily | Pre-compute matches for active users |
+| `retry-failed-parses.yml` | Daily | Re-parse failed resume extractions |
+| `cleanup-errors.yml` | Weekly Sun | Purge error_events > 30 days |
+| `resolve-adzuna-links.yml` | Weekly | Resolve Adzuna redirect chains |
+
+**CI pipeline** (`.github/workflows/ci.yml`): On every push/PR: type-check → lint → test → integration tests
+
+---
+
+### Slide 15: Deployment Architecture
+
+**Production (Vercel):**
+```
+vercel.json builds:
+  api/index.js → @vercel/node (serverless, 60s maxDuration)
+  package.json → @vercel/static-build (dist/public)
+
+Rewrites:
+  /api/* → api/index.js
+  /*     → index.html (SPA catch-all)
+```
+
+**Build artifacts:**
+```
+dist/
+├── public/          # Vite-built frontend (hashed JS/CSS bundles)
+└── server/
+    └── index.js     # esbuild-bundled server (ESM, --packages=external)
+```
+
+**Docker (multi-stage, 3 stages):**
+```
+base (node:22-alpine)
+  → deps (npm ci --only=production)
+  → builder (npm run build)
+  → runner (dist + node_modules + standalone-server.js)
+    USER recrutas (non-root)
+    HEALTHCHECK /api/health every 30s
+    EXPOSE 3000
+```
+
+**Environment switching:**
+- `NODE_ENV=production` → Stripe webhook active, CSP enforced, HSTS enabled, no Vite middleware
+- `NODE_ENV=test` → Server on port 5001, background services disabled, rate limiting relaxed for localhost
+- Vercel detection: `process.env.VERCEL || AWS_LAMBDA_FUNCTION_NAME` → background services skip
+
+---
+
+### Slide 16: Payments & Subscription (Stripe)
+
+**Integration** (`server/services/stripe.service.ts`):
+- `POST /api/stripe/create-checkout` → Stripe Checkout Session → `success_url` redirect
+- `POST /api/stripe/webhook` (raw body before JSON parser) → handles `checkout.session.completed`, `customer.subscription.*`
+- `POST /api/stripe/portal` → Customer Portal for self-service management
+- `GET /api/subscription/can-access/:feature` → Feature gate check
+
+**Tiers:**
+| Tier | Price | Limits |
+|------|-------|--------|
+| Starter | $49/mo | 3 active jobs |
+| Growth | $149/mo | 10 active jobs + candidate discovery |
+| Enterprise | $299/mo | Unlimited + priority support |
+
+---
+
+### Slide 17: Cost Profile & Scaling Plan
+
+**Phase 1 (Current — all free tiers): $0/mo**
+
+| Service | Tier | Purpose |
+|---------|------|---------|
+| Supabase | Free | PostgreSQL, Auth, Storage |
+| Groq | Free | Llama 3 inference (rate-limited) |
+| HuggingFace | Free Inference | BGE-M3 embeddings |
+| Resend | Free (3K/mo) | Transactional email |
+| Vercel | Hobby | Hosting + serverless |
+| Upstash Redis | Free | Rate limiting, cache |
+| Gemini | Free | PDF multimodal fallback |
+| Firecrawl | Free (6 RPM) | JS-rendered scraping |
+
+**Phase 2 (100-1K users): ~$65/mo** — Supabase Pro ($25) + Vercel Pro ($20) + Resend Pro ($20). Apply for Google for Startups ($350K) and Supabase for Startups ($25K).
+
+**Phase 3 (1K-10K users):** Dedicated vector DB (Pinecone/Weaviate), Redis Pro, paid Groq tier.
+
+---
+
 ## Architecture Overview
 
 ```
@@ -119,7 +695,7 @@ Test accounts after seeding:
           ▼                              ▼
 ┌──────────────────────────────────────────────────────┐
 │                 Express API Server                    │
-│  server/index.ts → server/routes.ts (3063 lines)     │
+│  server/index.ts → server/routes.ts (3034 lines)     │
 │                                                      │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐ │
 │  │ Middleware   │  │  Services    │  │    Lib       │ │
@@ -154,19 +730,27 @@ Test accounts after seeding:
 | Server State | TanStack Query v5 | Cache, fetch, sync |
 | Styling | Tailwind CSS + shadcn/ui | Design system |
 | Backend | Express + TypeScript | API server |
-| ORM | Drizzle ORM | Type-safe SQL |
+| ORM | Drizzle ORM (v0.39) | Type-safe SQL queries |
+| Vector DB | pgvector (PostgreSQL extension) | Native 384-dim ANN similarity search |
 | Database | PostgreSQL (Supabase) | Primary data store |
 | Auth | Supabase Auth + JWT | Session management |
 | File Storage | Supabase Storage | Resume PDFs |
 | Cache | Upstash Redis | Rate limits, match cache |
 | AI — Parsing | Groq (Llama 3) | Resume → structured data |
 | AI — Embeddings | `@xenova/transformers` (all-MiniLM-L6-v2) | Semantic matching |
-| AI — Fallback | Gemini (Google) | PDF multimodal parsing |
+| AI — Fallback | Gemini 2.0 Flash (Google) | PDF multimodal parsing + extension vision-based form fill |
+| AI — Local | Ollama | Local LLM fallback (dev only) |
+| PDF Extraction | unpdf + mammoth | Text extraction from PDF and DOCX files |
 | Analytics | PostHog | Product analytics, session recording |
-| Payments | Stripe | Subscription billing |
+| Payments | Stripe (v20) | Subscription billing, Checkout, webhooks |
+| Browser Extension | Chrome MV3 + Firefox | Auto-fill job applications across 20+ ATS platforms |
+| Browser Automation | rebrowser-playwright | Greenhouse embed form submission (Agent Apply) |
+| OCR | Tesseract.js | Resume image text extraction fallback |
 | Email | Resend | Transactional email |
 | Real-time | WebSocket (ws) | Notifications, chat |
-| Background Jobs | Inngest | Async job processing |
+| Background Jobs | Inngest + GitHub Actions | Async job processing + 12 cron workflows |
+| Dev Environment | Docker Compose | PostgreSQL + Redis + App containers |
+| Testing | Jest + Vitest + Playwright + Supertest | Unit, integration, E2E + API testing |
 | CI/CD | GitHub Actions + Vercel | Build, test, cron, deploy |
 
 ---
@@ -249,9 +833,9 @@ recrutas/
 │
 ├── server/
 │   ├── index.ts                        # Express app setup, middleware registration, Vite/static
-│   ├── routes.ts                       # ALL API routes (3063 lines) — the main file
+│   ├── routes.ts                       # ALL API routes (3034 lines) — the main file
 │   ├── chat-routes.ts                  # Chat-specific routes
-│   ├── storage.ts                      # IStorage interface + DatabaseStorage (2694 lines)
+│   ├── storage.ts                      # IStorage interface + DatabaseStorage (3048 lines)
 │   ├── job-scorer.ts                   # Match scoring algorithm (weights, tiers, soft-rank boosts)
 │   ├── db.ts                           # Drizzle ORM instance
 │   ├── ai-service.ts                   # Legacy matching (skill cosine similarity)
@@ -259,7 +843,7 @@ recrutas/
 │   ├── skill-intelligence.ts           # Deterministic zero-cost fallback parser (400+ skill aliases)
 │   ├── skill-normalizer.ts             # 400+ skill alias taxonomy for normalization
 │   ├── resume-parser.ts                # Basic PDF/DOCX parser (mammoth + pdf-parse)
-│   ├── advanced-matching-engine.ts     # ML semantic matching (all-MiniLM-L6-v2)
+│   ├── ml-matching.ts                  # ML semantic matching (all-MiniLM-L6-v2, cosine similarity)
 │   ├── notification-service.ts         # Push notifications + WebSocket + email
 │   ├── career-page-scraper.ts          # Greenhouse/Lever/Ashby/Workday scrapers
 │   ├── job-aggregator.ts               # RemoteOK + WeWorkRemotely + JSearch
@@ -449,7 +1033,7 @@ Sets up Express with:
 9. WebSocket upgrade handler on the HTTP server
 10. Global error handler → `error_events` table
 
-### `server/routes.ts` — All API Routes (3063 lines)
+### `server/routes.ts` — All API Routes (3034 lines)
 
 This is the largest file. Every API endpoint is registered here. It handles:
 - Auth sync (Supabase → local DB user creation)
@@ -462,7 +1046,7 @@ This is the largest file. Every API endpoint is registered here. It handles:
 - Admin endpoints (authenticated with `ADMIN_SECRET`)
 - Agent Apply orchestration
 
-### `server/storage.ts` — Data Access Layer (2694 lines)
+### `server/storage.ts` — Data Access Layer (3048 lines)
 
 Implements `IStorage` interface with `DatabaseStorage` class. All database operations go through this layer. Pattern:
 
@@ -863,7 +1447,7 @@ Candidate embeddings live in `candidate_users.vector_embedding` (computed at res
 
 ### Legacy Path
 
-`server/advanced-matching-engine.ts` (semantic 45 / recency 25 / liveness 20 / personalization 10 with `all-MiniLM-L6-v2` in-process) was the previous implementation. It still exists in the tree but is **no longer** what serves `/api/ai-matches`. Don't change behavior there — change `storage.fetchScoredJobs` and `job-scorer.scoreJob`.
+`server/ml-matching.ts` (semantic 45 / recency 25 / liveness 20 / personalization 10 with `all-MiniLM-L6-v2` in-process) was a previous implementation approach. The current `/api/ai-matches` endpoint is served entirely by `storage.fetchScoredJobs` + `job-scorer.scoreJob`. Make changes there, not in the legacy matcher.
 
 ---
 
