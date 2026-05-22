@@ -201,10 +201,14 @@ export default function AIJobFeed({ onUploadClick }: AIJobFeedProps) {
 
   const totalMatches = data?.pages?.[0]?.total ?? 0;
 
-  // Flatten all fetched pages into a single list
+  // Flatten all fetched pages into a single list. Defensively filter:
+  // a page with undefined/null `jobs` would otherwise produce `[undefined]`
+  // entries via flatMap, and any downstream `.job.X` access would crash.
   const allMatches = useMemo(() => {
     if (!data?.pages) return undefined;
-    return data.pages.flatMap(page => page.jobs);
+    return data.pages
+      .flatMap(page => (page?.jobs ?? []))
+      .filter((m: any) => m && m.job);
   }, [data]);
 
   // Aggregator fallback — only fetched when the main feed has zero matches.
