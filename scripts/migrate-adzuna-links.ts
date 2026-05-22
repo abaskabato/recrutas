@@ -171,12 +171,13 @@ async function main() {
 
   // Retroactive pass: jobs already resolved (no adzuna URL) but source still 'Adzuna'
   console.log('\nRetroactive source fix...');
+  // Emit ATS:<type> to match scrape-all-company-jobs.ts (the canonical writer).
   const ATS_URL_PATTERNS: Array<{ source: string; re: RegExp }> = [
-    { source: 'greenhouse', re: /https?:\/\/(?:boards\.)?[\w-]+\.greenhouse\.io\//i },
-    { source: 'lever',      re: /https?:\/\/jobs\.(?:eu\.)?lever\.co\//i },
-    { source: 'ashby',      re: /https?:\/\/(?:jobs\.ashbyhq\.com|[\w-]+\.ashbyhq\.com)\//i },
-    { source: 'workable',   re: /https?:\/\/apply\.workable\.com\//i },
-    { source: 'recruitee',  re: /https?:\/\/[\w-]+\.recruitee\.com\//i },
+    { source: 'ATS:greenhouse', re: /https?:\/\/(?:boards\.)?[\w-]+\.greenhouse\.io\//i },
+    { source: 'ATS:lever',      re: /https?:\/\/jobs\.(?:eu\.)?lever\.co\//i },
+    { source: 'ATS:ashby',      re: /https?:\/\/(?:jobs\.ashbyhq\.com|[\w-]+\.ashbyhq\.com)\//i },
+    { source: 'ATS:workable',   re: /https?:\/\/apply\.workable\.com\//i },
+    { source: 'ATS:recruitee',  re: /https?:\/\/[\w-]+\.recruitee\.com\//i },
   ];
 
   const stale = await sql<Array<{ id: number; external_url: string }>>`

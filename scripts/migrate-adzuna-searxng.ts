@@ -51,14 +51,16 @@ const ATS_DOMAINS = [
   'workable.com', 'breezy.hr', 'pinpointhq.com', 'dover.com',
 ];
 
+// Emit ATS:<type> to match scrape-all-company-jobs.ts. The unprefixed labels
+// were used by an older revision and now live as legacy rows in the DB.
 const ATS_SOURCE_MAP: Array<{ domain: string; source: string }> = [
-  { domain: 'greenhouse.io',      source: 'greenhouse' },
-  { domain: 'lever.co',           source: 'lever' },
-  { domain: 'ashbyhq.com',        source: 'ashby' },
-  { domain: 'workable.com',       source: 'workable' },
-  { domain: 'recruitee.com',      source: 'recruitee' },
-  { domain: 'myworkdayjobs.com',  source: 'workday' },
-  { domain: 'smartrecruiters.com',source: 'smartrecruiters' },
+  { domain: 'greenhouse.io',      source: 'ATS:greenhouse' },
+  { domain: 'lever.co',           source: 'ATS:lever' },
+  { domain: 'ashbyhq.com',        source: 'ATS:ashby' },
+  { domain: 'workable.com',       source: 'ATS:workable' },
+  { domain: 'recruitee.com',      source: 'ATS:recruitee' },
+  { domain: 'myworkdayjobs.com',  source: 'ATS:workday' },
+  { domain: 'smartrecruiters.com',source: 'ATS:smartrecruiters' },
 ];
 
 function sourceFromUrl(url: string): string {

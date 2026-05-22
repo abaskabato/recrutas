@@ -272,14 +272,18 @@ export async function listAtsJobs(atsType: AtsType, atsId: string): Promise<AtsJ
         .filter(j => j.title && j.url);
     }
     if (atsType === 'workable') {
-      const data = await fetchJson(`https://apply.workable.com/api/v1/widget/accounts/${atsId}/vacancies/`) as
-        | { results?: Array<{ title?: string; location?: { city?: string; country?: string }; shortcode?: string }> }
+      // Workable's public widget endpoint returns the account doc with a
+      // `jobs` array. The previously-used `/vacancies/` path 404s. The job
+      // `url` field already points to apply.workable.com/j/<shortcode>; no
+      // reconstruction needed.
+      const data = await fetchJson(`https://apply.workable.com/api/v1/widget/accounts/${atsId}`) as
+        | { jobs?: Array<{ title?: string; city?: string; state?: string; country?: string; url?: string }> }
         | null;
-      return (data?.results ?? [])
+      return (data?.jobs ?? [])
         .map(j => ({
           title: j.title ?? '',
-          location: j.location?.city ?? j.location?.country,
-          url: j.shortcode ? `https://apply.workable.com/${atsId}/j/${j.shortcode}/` : '',
+          location: [j.city, j.state, j.country].filter(Boolean).join(', ') || undefined,
+          url: j.url ?? '',
         }))
         .filter(j => j.title && j.url);
     }

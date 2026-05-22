@@ -217,7 +217,19 @@ export interface IStorage {
 }
 
 // Sources that publish directly from company ATSs (not aggregators)
-const ATS_SOURCES = new Set(['greenhouse', 'lever', 'workday', 'company-api', 'platform']);
+// Sources that represent a direct-from-company scrape (deep link to the
+// company's actual ATS posting). The scrape-all-company-jobs script emits
+// `ATS:<atsType>` while the older adzuna-migration scripts emit the bare
+// `<atsType>` — both forms accepted here. `isFromAts()` does the matching.
+const ATS_SOURCES = new Set([
+  'greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'workday',
+  'ATS:greenhouse', 'ATS:lever', 'ATS:ashby', 'ATS:workable', 'ATS:recruitee',
+  'company-api', 'platform',
+]);
+function isFromAts(source: string | null | undefined): boolean {
+  if (!source) return false;
+  return ATS_SOURCES.has(source) || ATS_SOURCES.has(source.toLowerCase());
+}
 
 // Escape regex metacharacters so a user-supplied skill (e.g. ".NET", "C++") can be
 // safely embedded inside a Postgres POSIX regex pattern.
@@ -1020,7 +1032,7 @@ export class DatabaseStorage implements IStorage {
         skillMatches: [],
         aiExplanation: explanation,
         isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore || 0) >= 90,
-        isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
+        isDirectFromCompany: isFromAts(job.source),
         freshness,
         daysOld,
         ghostJobScore: job.ghostJobScore || 0,
@@ -1371,7 +1383,7 @@ export class DatabaseStorage implements IStorage {
           scoreComponents: score.components,
           confidenceLevel: score.confidenceLevel,
           isVerifiedActive: job.livenessStatus === 'active' && (job.trustScore ?? 0) >= 90,
-          isDirectFromCompany: ATS_SOURCES.has((job.source || '').toLowerCase()),
+          isDirectFromCompany: isFromAts(job.source),
           freshness,
           daysOld,
           ghostJobScore: job.ghostJobScore || 0,
