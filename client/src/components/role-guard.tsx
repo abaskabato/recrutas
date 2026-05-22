@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { LoadingHype, SIGN_IN_MESSAGES } from '@/components/loading-hype';
 
 interface RoleGuardProps {
   allowedRoles: ('candidate' | 'talent_owner' | 'recruiter')[];
@@ -40,18 +41,10 @@ export function RoleGuard({ allowedRoles, children, fallbackPath = '/' }: RoleGu
     }
   }, [isAuthenticated, userRole, allowedRoles, setLocation, toast, isLoading, fallbackPath]);
 
-  if (isLoading) {
+  if (isLoading || !isAuthenticated || !userRole || !allowedRoles.includes(userRole as any)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !userRole || !allowedRoles.includes(userRole as any)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <LoadingHype messages={SIGN_IN_MESSAGES} />
       </div>
     );
   }

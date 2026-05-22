@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import SmartLogo from "@/components/smart-logo";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { LoadingHype, SIGN_IN_MESSAGES } from "@/components/loading-hype";
 
 export default function AuthPage() {
   const supabase = useSupabaseClient();
@@ -57,13 +58,11 @@ export default function AuthPage() {
 
 
   if (session) {
-    // Show loading state while redirecting
+    // Show creative loading state while redirecting — same component as the
+    // role-guard so the sign-in → dashboard transition feels continuous.
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Redirecting...</p>
-        </div>
+        <LoadingHype messages={SIGN_IN_MESSAGES} />
       </div>
     );
   }
