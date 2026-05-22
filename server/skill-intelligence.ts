@@ -510,7 +510,22 @@ function extractCompanyTitle(beforeText: string): { company: string; title: stri
       title = commaChunks[0];
       company = commaChunks.slice(1).join(', ');
     } else {
-      title = parts[0];
+      // Single token, no commas, no separators. Try last-role-word heuristic:
+      // walk word-by-word; everything up to and including the last word that
+      // contains a role keyword is the title, the rest is company + location.
+      // Catches "Data Scientist Crypto-Express Thailand".
+      const words = parts[0].split(/\s+/);
+      let lastRoleIdx = -1;
+      for (let wi = 0; wi < words.length; wi++) {
+        if (ROLE_WORDS_RE.test(words[wi])) lastRoleIdx = wi;
+      }
+      if (lastRoleIdx >= 0 && lastRoleIdx < words.length - 1) {
+        title = words.slice(0, lastRoleIdx + 1).join(' ');
+        company = words.slice(lastRoleIdx + 1).join(' ');
+        company = stripLocation(company);
+      } else {
+        title = parts[0];
+      }
     }
   }
 
@@ -521,31 +536,173 @@ function extractCompanyTitle(beforeText: string): { company: string; title: stri
   return { company, title };
 }
 
+// Sentences beginning with a past-tense action verb are responsibility
+// bullets, not titles. Catches "Drove innovation by...", "Built X..." etc.
+const ACTION_VERB_START_RE = /^(drove|built|designed|created|developed|led|managed|implemented|improved|launched|delivered|optimized|owned|oversaw|coordinated|collaborated|integrated|migrated|deployed|maintained|configured|automated|reduced|increased|saved|grew|spearheaded|architected|engineered|programmed|prototyped|tested|analyzed|researched|wrote|drafted|partnered|negotiated|trained|mentored|supervised|presented|conducted|established|founded|scaled|streamlined|refactored|debugged|investigated|resolved|monitored|tracked|measured|evaluated|recommended|responsible|drives|builds|designs|creates|develops|leads|manages)\b/i;
+
+// Country tokens — reject "country-only" company assignments and strip from
+// location-laden lines.
+const COUNTRY_NAMES_RE = /\b(united states|usa|u\.s\.a?\.?|america|canada|mexico|brazil|argentina|chile|colombia|peru|united kingdom|england|scotland|wales|ireland|france|germany|spain|italy|portugal|netherlands|belgium|sweden|norway|denmark|finland|poland|czech|austria|switzerland|romania|hungary|greece|turkey|russia|ukraine|israel|uae|qatar|saudi|egypt|south africa|nigeria|kenya|guatemala|honduras|panama|costa rica|australia|new zealand|india|china|hong kong|taiwan|japan|south korea|singapore|malaysia|indonesia|thailand|vietnam|philippines|pakistan|bangladesh)\b/i;
+
+const MAJOR_US_CITIES_RE = /\b(new york|los angeles|san francisco|san jose|san diego|san antonio|chicago|houston|phoenix|philadelphia|dallas|austin|fort worth|columbus|charlotte|indianapolis|seattle|denver|boston|nashville|el paso|detroit|memphis|portland|oklahoma city|las vegas|louisville|baltimore|milwaukee|albuquerque|tucson|fresno|sacramento|kansas city|long beach|mesa|atlanta|colorado springs|virginia beach|raleigh|omaha|miami|oakland|minneapolis|tulsa|wichita|new orleans|arlington|cleveland|bakersfield|tampa|aurora|honolulu|anaheim|santa ana|corpus christi|riverside|lexington|stockton|henderson|saint paul|st\.? louis|cincinnati|pittsburgh|anchorage|greensboro|plano|newark|lincoln|toledo|orlando|jersey city|chandler|fort wayne|buffalo|durham|st\.? petersburg|irvine|laredo|lubbock|madison|gilbert|norfolk|reno|winston-salem|glendale|hialeah|garland|scottsdale|irving|chesapeake|north las vegas|fremont|baton rouge|richmond|boise|san bernardino|silicon valley)\b/i;
+
+const US_STATE_NAME_TOKEN_RE = /\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming)\b/i;
+
+// True if a string is just a country (or several) — used to reject obviously
+// broken company assignments like "United States".
+function isCountryOnly(s: string): boolean {
+  const trimmed = s.trim().replace(/[,.\s]+$/, '');
+  if (!trimmed) return false;
+  const stripped = trimmed.replace(COUNTRY_NAMES_RE, '').replace(/[,\s]+/g, '').trim();
+  return stripped.length === 0;
+}
+
+// "PURELOGICS New York" → { company: "PURELOGICS", rest: "New York" }.
+// Pulls an ALL-CAPS company prefix off a string. Returns null if absent.
+function splitAllCapsCompany(s: string): { company: string; rest: string } | null {
+  const m = s.match(/^([A-Z][A-Z0-9&'.\-]{2,}(?:\s+[A-Z][A-Z0-9&'.\-]+)*)\s+([A-Za-z].+)$/);
+  if (!m) return null;
+  const company = m[1].trim();
+  const rest = m[2].trim();
+  if (company.length < 3) return null;
+  const firstRestTok = rest.split(/\s+/)[0] || '';
+  if (/^[A-Z][A-Z0-9&'.\-]+$/.test(firstRestTok)) return null;
+  return { company, rest };
+}
+
 // Words that strongly suggest a string is a job title (vs a bullet, skill,
 // or company name). Used to disambiguate when scanning for title candidates.
 const ROLE_WORDS_RE = /\b(engineer|developer|manager|analyst|designer|consultant|director|architect|intern|associate|lead|senior|junior|staff|specialist|coordinator|administrator|admin|technician|support|representative|officer|advisor|scientist|researcher|programmer|tester|product\s+(owner|manager)|principal|head|vp|vice\s+president|chief|cto|ceo|coo|cfo|cmo|cpo|founder|co[\s-]?founder|president|sde|sre|attorney|accountant|nurse|teacher|instructor|writer|editor|recruiter|operator|assistant|clerk|cashier|driver|chef|cook)\b/i;
 
 function looksLikeTitle(s: string): boolean {
   if (!s || s.length < 3 || s.length > 100) return false;
-  if (/^[•●■▪\-*]/.test(s)) return false;
+  if (/^[•●■▪\-*]/.test(s)) return false;
   if (/[.;]\s*$/.test(s)) return false;
   if (s.split(/\s+/).length > 12) return false;
   if (/^[A-Z][A-Z/&]+$/.test(s) && s.length < 8) return false;
+  // Past-tense action verb starts indicate a responsibility bullet, not a title.
+  if (ACTION_VERB_START_RE.test(s)) return false;
+  // Mid-string colon followed by a multi-word sentence is a description.
+  if (/:.+\s\w+\s\w+/.test(s) && s.length > 50) return false;
   return ROLE_WORDS_RE.test(s);
 }
 
-// Strip trailing ", City, ST" / ", City, State" / ", Remote" from company.
+// Strip trailing location segments from a company string. Peels at most 5
+// comma-separated tail tokens that look like country / US state / state-code
+// / single capitalized city / work-type modifier. Handles "NVIDIA California,
+// United States" → "NVIDIA" and "Acme Inc, San Francisco, CA" → "Acme Inc".
 function stripLocation(s: string): string {
-  let cleaned = s.replace(/,\s*[A-Z][a-zA-Z .'-]+,\s*([A-Z]{2}|[A-Z][a-zA-Z]+)\s*$/, '');
-  cleaned = cleaned.replace(/,\s*(remote|onsite|hybrid|in[\s-]office)\s*$/i, '');
-  return cleaned.trim().replace(/[,;:\s]+$/, '');
+  let cleaned = s.trim();
+  for (let i = 0; i < 5; i++) {
+    const m = cleaned.match(/^(.+?),\s*([^,]+)$/);
+    if (!m) break;
+    const tail = m[2].trim();
+    const isCountry = COUNTRY_NAMES_RE.test(tail);
+    const isUsState = US_STATE_NAME_TOKEN_RE.test(tail);
+    const isStateCode = /^[A-Z]{2}$/.test(tail);
+    const isWorkType = /^(remote|onsite|hybrid|in[\s-]office)$/i.test(tail);
+    const isCityish = /^[A-Z][a-zA-Z .'-]+$/.test(tail) && tail.split(/\s+/).length <= 3 && !/\b(inc|llc|corp|ltd|co|group|holdings|systems|labs|technologies|solutions)\b/i.test(tail);
+    if (isCountry || isUsState || isStateCode || isWorkType || isCityish) {
+      cleaned = m[1].trim();
+    } else {
+      break;
+    }
+  }
+  // Also peel a space-separated trailing country/state (PDF artifact, no comma).
+  for (let i = 0; i < 3; i++) {
+    const m = cleaned.match(/^(.+?)\s+([A-Z][a-zA-Z]+(?:[\s-][A-Z][a-zA-Z]+){0,2})$/);
+    if (!m) break;
+    const tail = m[2].trim();
+    if (COUNTRY_NAMES_RE.test(tail) || US_STATE_NAME_TOKEN_RE.test(tail) || MAJOR_US_CITIES_RE.test(tail)) {
+      cleaned = m[1].trim();
+    } else {
+      break;
+    }
+  }
+  return cleaned.replace(/[,;:\s]+$/, '');
+}
+
+// Re-introduce logical line breaks into a flattened resume blob. PDF text
+// extraction frequently strips newlines, producing a single 10K+ char line.
+// Without breaks, parsePositions can't see "title \n company \n date" layouts.
+// Two-pass: first find all date ranges as complete tokens; THEN walk the text
+// applying insertions in reverse so earlier replacements don't shift indices
+// of later ones. Single-pass regex with \S anchors mis-fires inside dates
+// (matches "r" of "Mar" then breaks "Mar | 2024 – Present").
+const DATE_RANGE_RE = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[ \t]+|\d{1,2}\/)?\d{4}[ \t]*[–—‐-][ \t]*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[ \t]+(?:\d{4})?|\d{1,2}\/\d{4}|\d{4})/gi;
+
+export function reflowResumeText(text: string): string {
+  let s = text;
+
+  // 1. Newline before bullets.
+  s = s.replace(/[ \t]+(?=[•●■▪])/g, '\n');
+
+  // 2. Newline before every date range. Find all dates first, then insert \n
+  //    in reverse so earlier inserts don't shift later positions. Skip dates
+  //    already at the start of a line.
+  const insertions: number[] = [];
+  DATE_RANGE_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = DATE_RANGE_RE.exec(s)) !== null) {
+    if (m[0].length === 0) { DATE_RANGE_RE.lastIndex++; continue; }
+    if (m.index === 0) continue;
+    // Walk back over leading whitespace; if we hit a newline, already broken.
+    let i = m.index;
+    while (i > 0 && (s[i - 1] === ' ' || s[i - 1] === '\t')) i--;
+    if (i === 0 || s[i - 1] === '\n') continue;
+    insertions.push(i);
+  }
+  for (let idx = insertions.length - 1; idx >= 0; idx--) {
+    const at = insertions[idx];
+    s = s.slice(0, at) + '\n' + s.slice(at).replace(/^[ \t]+/, '');
+  }
+
+  // 3. Newline between mixed-case title text and an ALL-CAPS company token
+  //    followed by a capitalized location word.
+  s = s.replace(
+    /([a-z\)])[ \t]+(?=[A-Z][A-Z0-9&'.\-]{2,}(?:[ \t]+[A-Z][A-Z0-9&'.\-]+)*[ \t]+[A-Z][a-z])/g,
+    '$1\n'
+  );
+
+  // 4. Newline before known section headers when preceded by an underscore
+  //    separator chunk (common PDF-extracted artifact).
+  s = s.replace(
+    /_{3,}\s*(?=(experience|work experience|employment|professional experience|education|skills|certifications|projects|summary|profile)\b)/gi,
+    '_____\n'
+  );
+
+  // 4b. Newline AFTER a section header's trailing underscores. PDFs commonly
+  //     emit "Experience _____ <Title>" all on one line.
+  s = s.replace(
+    /(experience|work experience|employment|professional experience|education|skills|certifications|projects|summary|profile)([ \t]+_{3,})[ \t]+(?=[A-Z])/gi,
+    '$1$2\n'
+  );
+
+  // 4c. Newline at the END of a previous bullet's sentence when followed by a
+  //     title-case phrase (multi-word, contains role words). This catches the
+  //     PDF artifact where the last bullet of one job runs into the next job's
+  //     title: "...delivered. Senior Data Scientist Machine Learning Engineer".
+  //     Run AFTER rule 3 so titles aren't already broken out.
+  const TITLE_CASE_RUN = /[A-Z][A-Za-z]*(?:[ \t]+(?:[A-Z][A-Za-z&'.\-]*|&|and|of|the|to|for|\([A-Za-z0-9, /\-]+\)))+/;
+  s = s.split('\n').map(line => {
+    const m = line.match(new RegExp('^(.+?\\.\\s+)(' + TITLE_CASE_RUN.source + ')[ \\t]*$'));
+    if (m && /\b(engineer|developer|manager|analyst|designer|consultant|director|architect|scientist|specialist|coordinator|administrator|technician|associate|lead|principal|head|chief|founder|president|intern|advisor)\b/i.test(m[2])) {
+      return m[1] + '\n' + m[2];
+    }
+    return line;
+  }).join('\n');
+
+  // 5. Collapse runs of more than one newline into one.
+  s = s.replace(/\n{2,}/g, '\n');
+  return s;
 }
 
 function parsePositions(text: string): ExperienceResult['positions'] {
   const positions: ExperienceResult['positions'] = [];
   const dateRe = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{4}\s*[–—‐-]\s*(?:present|currently?|now|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+|\d{1,2}\/)?\d{0,4}/gi;
 
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const reflowed = reflowResumeText(text);
+  const lines = reflowed.split('\n').map(l => l.trim()).filter(Boolean);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -554,7 +711,10 @@ function parsePositions(text: string): ExperienceResult['positions'] {
     if (!dateMatch) continue;
 
     // Text on the same line before the date — usually "Company, City, ST"
-    const beforeOnLine = line.substring(0, dateMatch.index).replace(/[|•·\t]/g, ' ').replace(/\s+/g, ' ').trim();
+    // Preserve `|` so extractCompanyTitle can use it as a separator;
+    // bullets/tabs collapse to spaces.
+    const beforeOnLineRaw = line.substring(0, dateMatch.index).replace(/[•·]/g, ' ').replace(/\t/g, '  ').replace(/\s+/g, ' ').trim();
+    const beforeOnLine = beforeOnLineRaw.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
 
     // Look DOWN 1-4 non-blank lines for a title.
     // Many resumes use "Company [TAB] Date \n Title \n bullets" layout.
@@ -567,6 +727,26 @@ function parsePositions(text: string): ExperienceResult['positions'] {
       if (/^[•●■▪\-*]/.test(cand)) break;
       if (cand.length > 100 && !looksLikeTitle(cand)) break;
       if (looksLikeTitle(cand)) { titleBelow = cand; break; }
+    }
+
+    // If we have a title on the date line (Title + Date inline) and no title
+    // was found above us, look DOWN 1-2 non-bullet lines for a company.
+    // Catches "Software Engineer  2021 – Present \n Acme Corp \n • bullet".
+    let companyBelow = '';
+    if (beforeOnLine && !titleBelow && looksLikeTitle(beforeOnLine)) {
+      for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
+        const cand = lines[j];
+        if (!cand) continue;
+        if (dateRe.test(cand)) { dateRe.lastIndex = 0; break; }
+        dateRe.lastIndex = 0;
+        if (/^[•●■▪\-*]/.test(cand)) break;
+        // Company candidate: short, no period, no role words, not a section header.
+        const words = cand.split(/\s+/).length;
+        if (words >= 1 && words <= 6 && !/[.;]$/.test(cand) && !ROLE_WORDS_RE.test(cand) && !ACTION_VERB_START_RE.test(cand)) {
+          companyBelow = stripLocation(cand);
+          break;
+        }
+      }
     }
 
     // Look UP 1-2 lines for legacy title-above-date layout
@@ -584,7 +764,11 @@ function parsePositions(text: string): ExperienceResult['positions'] {
     let company = '';
     let title = 'Unknown Role';
 
-    if (titleBelow && beforeOnLine) {
+    if (beforeOnLine && companyBelow && looksLikeTitle(beforeOnLine)) {
+      // Title + Date inline, Company on next line.
+      title = beforeOnLine;
+      company = companyBelow;
+    } else if (titleBelow && beforeOnLine) {
       // Strongest signal: "Company [TAB] Date \n Title"
       title = titleBelow;
       company = stripLocation(beforeOnLine);
@@ -602,7 +786,12 @@ function parsePositions(text: string): ExperienceResult['positions'] {
       title = contextLines[0];
       company = stripLocation(contextLines.slice(1).join(', '));
     } else {
-      const combined = contextLines.join('\n');
+      // Use the pipe-preserving form for the single-line case so a
+      // "Title | Company | Date" layout splits cleanly.
+      const combinedSource = (contextLines.length === 1 && contextLines[0] === beforeOnLine)
+        ? [beforeOnLineRaw]
+        : contextLines;
+      const combined = combinedSource.join('\n');
       ({ company, title } = extractCompanyTitle(combined));
       company = stripLocation(company);
     }
@@ -663,7 +852,46 @@ function parsePositions(text: string): ExperienceResult['positions'] {
     }
   }
 
-  return positions.slice(0, 8);
+  // Sanity pass: rescue obvious title/company mix-ups before returning.
+  for (const pos of positions) {
+    // ALL-CAPS prefix in title → that's the company. "PURELOGICS New York" /
+    // "BLOCBELT Maryland" → company: PURELOGICS, rest goes to location.
+    const splitCaps = splitAllCapsCompany(pos.title);
+    if (splitCaps) {
+      const companyLooksLikeTitle = !!pos.company && ROLE_WORDS_RE.test(pos.company) && !ACTION_VERB_START_RE.test(pos.company);
+      const companyIsEmpty = !pos.company || isCountryOnly(pos.company);
+      if (companyIsEmpty) {
+        // Title was "COMPANY City, Country" with no real company — peel the
+        // ALL-CAPS prefix as the company, drop the location.
+        pos.title = splitCaps.rest;
+        pos.company = splitCaps.company;
+      } else if (companyLooksLikeTitle) {
+        // Title was "COMPANY City, Country" and company field is the real
+        // role title — fields are inverted, swap them.
+        pos.title = pos.company;
+        pos.company = splitCaps.company;
+      }
+    }
+    // Company is just a country / location — clear it.
+    if (pos.company && isCountryOnly(pos.company)) {
+      pos.company = '';
+    }
+    // Title empty/Unknown but company carries role words — swap.
+    if ((!pos.title || pos.title === 'Unknown Role') && pos.company && ROLE_WORDS_RE.test(pos.company)) {
+      const tmp = pos.company;
+      pos.company = pos.title || '';
+      pos.title = tmp;
+    }
+    // Strip residual location from company.
+    if (pos.company) pos.company = stripLocation(pos.company);
+  }
+
+  // Drop positions whose title still looks like a responsibility bullet.
+  const cleaned = positions.filter(p =>
+    p.title && p.title !== 'Unknown Role' && !ACTION_VERB_START_RE.test(p.title)
+  );
+
+  return cleaned.slice(0, 8);
 }
 
 // ── Education extraction ──────────────────────────────────────────────────────
