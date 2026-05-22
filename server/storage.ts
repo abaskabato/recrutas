@@ -247,6 +247,17 @@ const aggregatorUrlExclusion = sql`(
 const US_STATE_NAMES_RE_PART =
   'alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia';
 
+// US state code alternation — used so the ", XX" suffix check only matches actual
+// US states. Without this, foreign codes like "NL" (Nuevo León), "ON" (Ontario),
+// "QC" (Québec) trip the City/State regex and bucket as US.
+const US_STATE_CODES_RE_PART =
+  'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC';
+
+// Canadian province codes — none overlap with US state codes. Used to drop
+// "City, ST" rows like "Markham, ON" / "Vancouver, BC" that otherwise read
+// as ambiguous-US.
+const CA_PROVINCE_CODES_RE_PART = 'ON|QC|BC|AB|MB|SK|NB|PE|YT|NU|NS|NL|NT';
+
 function jsUsLocationPriority(job: { source?: string | null; location?: string | null }): number {
   if ((job.source ?? '') === 'platform') return 0;
   const loc = (job.location ?? '').trim();
@@ -255,14 +266,21 @@ function jsUsLocationPriority(job: { source?: string | null; location?: string |
   // Non-US keywords (must mirror NON_US_LOCATION_REGEX). "latin america",
   // "costa rica", "united arab emirates" added so common variants don't
   // fall through to the US-remote check.
-  const NON_US_RE = /\b(europe|european|emea|apac|latam|latin america|united kingdom|england|scotland|wales|london|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|united arab emirates|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|costa rica|mexico city|brazil|s[aã]o paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|bengaluru|mumbai|hyderabad|delhi|pune|gurugram|gurgaon|noida|chennai|kolkata|kochi|ahmedabad|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\b/;
+  const NON_US_RE = /\b(europe|european|emea|apac|latam|latin america|united kingdom|\buk\b|england|scotland|wales|london|manchester|edinburgh|birmingham|glasgow|bristol|leeds|cambridge|oxford|germany|berlin|munich|münchen|muenchen|frankfurt|hamburg|cologne|köln|koeln|dresden|stuttgart|düsseldorf|dusseldorf|france|paris|lyon|marseille|toulouse|nantes|lille|netherlands|amsterdam|rotterdam|eindhoven|utrecht|the hague|den haag|tilburg|breda|nijmegen|groningen|zwolle|goes|almere|den bosch|s-hertogenbosch|spain|madrid|barcelona|valencia|seville|sevilla|bilbao|italy|milan|milano|rome|roma|turin|torino|florence|firenze|naples|napoli|portugal|lisbon|lisboa|porto|ireland|dublin|cork|galway|sweden|stockholm|gothenburg|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|wroclaw|czech|prague|austria|vienna|switzerland|zurich|geneva|belgium|brussels|antwerp|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|united arab emirates|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|calgary|edmonton|winnipeg|halifax|quebec city|costa rica|guatemala|honduras|nicaragua|el salvador|panama|mexico city|monterrey|guadalajara|tijuana|juarez|puebla|queretaro|brazil|s[aã]o paulo|argentina|buenos aires|chile|santiago|colombia|bogota|peru|lima|australia|sydney|melbourne|brisbane|perth|new zealand|auckland|india|bangalore|bengaluru|mumbai|hyderabad|delhi|pune|gurugram|gurgaon|noida|chennai|kolkata|kochi|ahmedabad|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\b/;
   if (NON_US_RE.test(lower)) return 2;
+  // Country-suffix detection for "mexico" — collides with the US state "New
+  // Mexico", so strip "new mexico" first, then test for the country name.
+  // Catches "Foo, Mexico", "Remote - Mexico", "Mexico - Remote", etc.
+  if (/\bmexico\b/.test(lower.replace(/new mexico/g, ''))) return 2;
+  // Canadian province code suffix — "Markham, ON", "Vancouver, BC".
+  if (new RegExp(`, ?(${CA_PROVINCE_CODES_RE_PART})( |,|$)`).test(loc)) return 2;
   // US-explicit: bare US tokens, NA shorthand, or any full state name.
   // \bus\b is safe — it won't match inside Belarus/Houston/Russia (no word boundary).
   if (/\b(us|usa|u\.s\.|united states|north america|americas)\b/.test(lower)) return 0;
   if (new RegExp(`\\b(${US_STATE_NAMES_RE_PART})\\b`).test(lower)) return 0;
-  // City, ST suffix
-  if (/, ?[A-Z]{2}( |,|$)/i.test(loc)) return 0;
+  // City, US-state-code suffix — validate the 2-letter code against the
+  // actual US state codes (so "Monterrey, NL" / "Markham, ON" don't pass).
+  if (new RegExp(`, ?(${US_STATE_CODES_RE_PART})( |,|$)`).test(loc)) return 0;
   if (['remote', 'various', 'worldwide', 'global'].includes(lower)) return 1;
   return 1;
 }
@@ -275,13 +293,21 @@ function jsUsLocationPriority(job: { source?: string | null; location?: string |
 // Used as a primary ORDER BY across the feed paths so US jobs surface first
 // without dropping non-US rows entirely.
 const NON_US_LOCATION_REGEX =
-  '\\m(europe|european|emea|apac|latam|latin america|united kingdom|england|scotland|wales|london|germany|berlin|munich|frankfurt|hamburg|france|paris|lyon|netherlands|amsterdam|rotterdam|spain|madrid|barcelona|italy|milan|rome|portugal|lisbon|ireland|dublin|sweden|stockholm|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|czech|prague|austria|vienna|switzerland|zurich|belgium|brussels|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|united arab emirates|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|costa rica|mexico city|brazil|são paulo|sao paulo|argentina|buenos aires|chile|santiago|colombia|bogota|bogotá|peru|lima|australia|sydney|melbourne|new zealand|auckland|india|bangalore|bengaluru|mumbai|hyderabad|delhi|pune|gurugram|gurgaon|noida|chennai|kolkata|kochi|ahmedabad|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\\M';
+  '\\m(europe|european|emea|apac|latam|latin america|united kingdom|uk|england|scotland|wales|london|manchester|edinburgh|birmingham|glasgow|bristol|leeds|cambridge|oxford|germany|berlin|munich|münchen|muenchen|frankfurt|hamburg|cologne|köln|koeln|dresden|stuttgart|düsseldorf|dusseldorf|france|paris|lyon|marseille|toulouse|nantes|lille|netherlands|amsterdam|rotterdam|eindhoven|utrecht|the hague|den haag|tilburg|breda|nijmegen|groningen|zwolle|goes|almere|den bosch|s-hertogenbosch|spain|madrid|barcelona|valencia|seville|sevilla|bilbao|italy|milan|milano|rome|roma|turin|torino|florence|firenze|naples|napoli|portugal|lisbon|lisboa|porto|ireland|dublin|cork|galway|sweden|stockholm|gothenburg|norway|oslo|denmark|copenhagen|finland|helsinki|poland|warsaw|krakow|wroclaw|czech|prague|austria|vienna|switzerland|zurich|geneva|belgium|brussels|antwerp|romania|bucharest|sofia|bulgaria|hungary|budapest|greece|athens|turkey|istanbul|ukraine|russia|moscow|israel|tel aviv|uae|united arab emirates|dubai|abu dhabi|qatar|saudi|jordan|lebanon|cairo|egypt|south africa|nigeria|kenya|canada|toronto|vancouver|montreal|ottawa|calgary|edmonton|winnipeg|halifax|quebec city|costa rica|guatemala|honduras|nicaragua|el salvador|panama|mexico city|monterrey|guadalajara|tijuana|juarez|puebla|queretaro|brazil|são paulo|sao paulo|argentina|buenos aires|chile|santiago|colombia|bogota|bogotá|peru|lima|australia|sydney|melbourne|brisbane|perth|new zealand|auckland|india|bangalore|bengaluru|mumbai|hyderabad|delhi|pune|gurugram|gurgaon|noida|chennai|kolkata|kochi|ahmedabad|pakistan|karachi|bangladesh|china|beijing|shanghai|hong kong|taiwan|taipei|japan|tokyo|south korea|seoul|singapore|malaysia|kuala lumpur|indonesia|jakarta|thailand|bangkok|vietnam|ho chi minh|hanoi|philippines|manila)\\M';
+// "Mexico" detection — collides with the US state "New Mexico". The filter
+// path uses regexp_replace to strip "new mexico" before matching, so this
+// catches "Foo, Mexico" / "Remote - Mexico" without flagging "New Mexico".
+// (Cannot live in NON_US_LOCATION_REGEX because alternation matches "mexico"
+// inside "new mexico" via word boundaries.)
+const MEXICO_COUNTRY_REGEX = '\\mmexico\\M';
 const usPriorityOrder = sql`CASE
   WHEN ${jobPostings.source} = 'platform' THEN 0
   WHEN ${jobPostings.location} ~* ${NON_US_LOCATION_REGEX} THEN 2
+  WHEN regexp_replace(LOWER(${jobPostings.location}), 'new mexico', '', 'g') ~* ${MEXICO_COUNTRY_REGEX} THEN 2
+  WHEN ${jobPostings.location} ~* ${', ?(' + CA_PROVINCE_CODES_RE_PART + ')( |,|$)'} THEN 2
   WHEN ${jobPostings.location} ~* '\\m(us|usa|u\\.s\\.|united states|north america|americas)\\M' THEN 0
   WHEN ${jobPostings.location} ~* ${'\\m(' + US_STATE_NAMES_RE_PART + ')\\M'} THEN 0
-  WHEN ${jobPostings.location} ~* '(, ?[A-Z]{2}( |,|$))' THEN 0
+  WHEN ${jobPostings.location} ~* ${', ?(' + US_STATE_CODES_RE_PART + ')( |,|$)'} THEN 0
   WHEN ${jobPostings.location} IS NULL OR TRIM(${jobPostings.location}) = '' THEN 1
   WHEN LOWER(${jobPostings.location}) IN ('remote','various','worldwide','global') THEN 1
   ELSE 1
@@ -1125,6 +1151,20 @@ export class DatabaseStorage implements IStorage {
         eq(jobPostings.source, 'platform'),
         jobPostUrlRequirement
       ),
+      // Hard non-US exclusion. Empty/null/Remote stay in (they could be US);
+      // only rows whose location explicitly matches the non-US regex are dropped.
+      // The "new mexico" replace prevents the bare-"mexico" check from flagging
+      // the US state.
+      or(
+        eq(jobPostings.source, 'platform'),
+        sql`${jobPostings.location} IS NULL`,
+        sql`TRIM(${jobPostings.location}) = ''`,
+        and(
+          sql`NOT (${jobPostings.location} ~* ${NON_US_LOCATION_REGEX})`,
+          sql`NOT (regexp_replace(LOWER(${jobPostings.location}), 'new mexico', '', 'g') ~* ${MEXICO_COUNTRY_REGEX})`,
+          sql`NOT (${jobPostings.location} ~* ${', ?(' + CA_PROVINCE_CODES_RE_PART + ')( |,|$)'})`,
+        ),
+      ),
       ...(excludeIds.length > 0
         ? [sql`${jobPostings.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`]
         : []),
@@ -1161,7 +1201,8 @@ export class DatabaseStorage implements IStorage {
       // a postgres-js template tag; the two libraries don't share a protocol,
       // so the fragments serialized to "[object Object]" and silently coerced
       // every WHERE clause to FALSE — zeroing out the entire pgvector path.
-      const params: any[] = [vectorStr, cutoffDateStr];
+      const caProvinceSuffix = `, ?(${CA_PROVINCE_CODES_RE_PART})( |,|$)`;
+      const params: any[] = [vectorStr, cutoffDateStr, NON_US_LOCATION_REGEX, MEXICO_COUNTRY_REGEX, caProvinceSuffix];
       let conditionals = '';
       if (excludeIds.length > 0) {
         params.push(excludeIds);
@@ -1191,6 +1232,16 @@ export class DatabaseStorage implements IStorage {
           AND source NOT IN (${aggregatorList})
           AND (external_url IS NULL OR NOT (${aggregatorUrlList}))
           AND ${jobPostUrlRequirementSql}
+          AND (
+            source = 'platform'
+            OR location IS NULL
+            OR TRIM(location) = ''
+            OR (
+              NOT (location ~* $3)
+              AND NOT (regexp_replace(LOWER(location), 'new mexico', '', 'g') ~* $4)
+              AND NOT (location ~* $5)
+            )
+          )
           ${conditionals}
         ORDER BY embedding <=> $1::vector
         LIMIT 100
@@ -1235,7 +1286,7 @@ export class DatabaseStorage implements IStorage {
             ...((titleMatchSkills.length === 0 && roleTitleKeywords.length === 0) ? [sql`FALSE`] : []),
           ),
         ))
-        .limit(200);
+        .limit(1000);
       const keywordIds = keywordJobs.map((r: any) => r.id);
       console.log(`[keyword] Retrieved ${keywordIds.length} jobs by keyword match`);
 
@@ -1299,7 +1350,7 @@ export class DatabaseStorage implements IStorage {
         skills: Array.isArray(job.skills) ? job.skills : []
       }));
 
-    console.log(`Found ${jobsWithSource.length} matching jobs (internal + external, US only)`);
+    console.log(`Found ${jobsWithSource.length} matching jobs (internal + external, non-US filtered)`);
 
     console.time('score-jobs');
     const recommendations = jobsWithSource
