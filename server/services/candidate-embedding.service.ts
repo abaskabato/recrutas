@@ -1,6 +1,7 @@
 /**
- * Compute and store candidate embedding (BGE-M3, 1024-dim).
- * Called after resume parsing and during batch backfill.
+ * Compute and store candidate embedding (Gemini gemini-embedding-001, 384-dim).
+ * Called after resume parsing and during batch backfill. Must share the same
+ * provider/space as job embeddings (see server/ml-matching.ts).
  */
 
 import { db, client } from '../db';
@@ -19,7 +20,7 @@ export async function updateCandidateEmbedding(
   previousJobTitles?: string[],
 ): Promise<void> {
   if (!skills || skills.length === 0) return;
-  if (!process.env.HF_API_KEY) return;
+  if (!process.env.GEMINI_API_KEY) return;
 
   try {
     const embedding = await generateCandidateEmbedding(skills, experience, previousJobTitles);

@@ -15,7 +15,10 @@ import { db, client } from '../db.js';
 import { jobPostings } from '../../shared/schema.js';
 import { eq } from 'drizzle-orm';
 
-const BATCH_SIZE = 50;
+// Concurrency per batch. Kept low because Node's fetch (undici) starts dropping
+// simultaneous TLS connections to the Gemini endpoint past ~10 concurrent
+// (UND_ERR_CONNECT_TIMEOUT). 10 tested 100% clean; 50 failed ~60% of calls.
+const BATCH_SIZE = 10;
 
 async function computeJobEmbedding(job: {
   id: number;
@@ -46,8 +49,11 @@ export async function updateJobEmbedding(jobId: number): Promise<void> {
 
   const embedding = await computeJobEmbedding(job);
   if (!embedding || embedding.length === 0) {
-    console.warn(`[BatchEmbed] Empty embedding for job ${jobId} — skipping`);
-    return;
+    // Loud failure: an empty vector means the embedding provider returned
+    // nothing (e.g. depleted API credits / bad key). Throw instead of skipping
+    // so callers — and the cron — surface it rather than silently no-op'ing.
+    // A silent skip here is exactly what hid the HF 402 outage for 18 days.
+    throw new Error(`Empty embedding for job ${jobId} — embedding provider returned no vector`);
   }
   const vectorStr = `[${embedding.join(',')}]`;
 
@@ -113,7 +119,18 @@ export async function batchComputeEmbeddings(
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[BatchEmbed] Completed in ${duration}s. Processed: ${processed}, Errors: ${errors}`);
-    
+
+    // Loud failure: if we attempted embeddings but every one (or most) failed,
+    // the provider is down/out of credits. Throw so the run exits non-zero and
+    // the GitHub Action goes RED instead of reporting green while writing nothing.
+    const attempted = processed + errors;
+    if (attempted > 0 && (processed === 0 || errors / attempted > 0.5)) {
+      throw new Error(
+        `[BatchEmbed] Embedding generation failing: ${errors}/${attempted} attempts failed ` +
+        `(only ${processed} written). Likely a provider outage or depleted API credits.`
+      );
+    }
+
     return { processed, errors };
   } catch (err) {
     console.error('[BatchEmbed] Fatal error:', err);
@@ -161,6 +178,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const { backfillCandidateEmbeddings } = await import('./candidate-embedding.service.js');
     const candidateResult = await backfillCandidateEmbeddings(100);
     console.log('[BatchEmbed] Candidates done:', candidateResult);
+
+    // Loud failure: a candidate-side wipeout (tried some, wrote none) means the
+    // provider is down even if the job phase had nothing new to do. Exit red.
+    const candAttempted = candidateResult.processed + candidateResult.errors;
+    if (candAttempted > 0 && candidateResult.processed === 0) {
+      console.error('[BatchEmbed] FAILED: all candidate embeddings failed — provider down or out of credits.');
+      process.exit(1);
+    }
 
     process.exit(0);
   })().catch((err) => {

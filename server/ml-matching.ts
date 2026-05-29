@@ -1,68 +1,78 @@
 /**
  * ML-Based Job Matching Service
- * Uses HuggingFace Inference API (BAAI/bge-small-en-v1.5) for semantic embeddings
- * — 384-dim English model, fast and reliable via HF Inference API.
- * No local ONNX/WASM model, no cold-start delays.
+ * Uses Google Gemini embeddings (gemini-embedding-001) for semantic embeddings.
+ * Output dimensionality is pinned to 384 (via Matryoshka truncation) to match the
+ * existing pgvector(384) column and HNSW index — no schema migration needed when
+ * switching providers. Both job and candidate embeddings share this single path,
+ * so they stay in the same vector space.
+ *
+ * Previously used the HuggingFace Inference API; switched after HF free-tier
+ * credits were depleted (HTTP 402), which silently zeroed out all new embeddings.
  */
 
-const HF_MODEL_URL =
-  'https://router.huggingface.co/hf-inference/models/BAAI/bge-small-en-v1.5';
+const GEMINI_EMBED_MODEL = 'gemini-embedding-001';
+const GEMINI_EMBED_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:embedContent`;
+const EMBED_DIM = 384;
 
 interface EmbeddingResult {
   embedding: number[];
   tokens: number;
 }
 
-// ── HuggingFace API call with retry ──────────────────────────────────────────
+// Gemini returns non-normalized vectors when outputDimensionality < 3072.
+// L2-normalize so the stored TEXT vector and JS cosineSimilarity stay consistent
+// (pgvector's cosine ops normalize internally, but the legacy path does not).
+function l2normalize(vec: number[]): number[] {
+  let norm = 0;
+  for (const v of vec) norm += v * v;
+  norm = Math.sqrt(norm);
+  if (norm === 0) return vec;
+  return vec.map(v => v / norm);
+}
 
-async function callHFAPI(text: string, attempt = 0): Promise<number[]> {
-  const apiKey = process.env.HF_API_KEY;
+// ── Gemini embeddings API call with retry ─────────────────────────────────────
+
+async function callGeminiAPI(text: string, attempt = 0): Promise<number[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn('[ML Matching] HF_API_KEY not set — returning empty embedding');
+    console.warn('[ML Matching] GEMINI_API_KEY not set — returning empty embedding');
     return [];
   }
 
   try {
-    const response = await fetch(HF_MODEL_URL, {
+    const response = await fetch(`${GEMINI_EMBED_URL}?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'x-hf-task': 'feature-extraction',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        inputs: text,
-        options: { wait_for_model: true },
+        model: `models/${GEMINI_EMBED_MODEL}`,
+        content: { parts: [{ text }] },
+        taskType: 'SEMANTIC_SIMILARITY',
+        outputDimensionality: EMBED_DIM,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => response.statusText);
-      throw new Error(`HF API error ${response.status}: ${errorText}`);
+      throw new Error(`Gemini API error ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
-
-    // sentence-transformers feature-extraction returns a number[] (flat embedding)
-    // or occasionally a nested array — flatten if needed.
-    if (Array.isArray(data)) {
-      if (data.length > 0 && Array.isArray(data[0])) {
-        // 2-D array (batch of 1): take first row
-        return (data[0] as number[]).map(Number);
-      }
-      return (data as number[]).map(Number);
+    const values = data?.embedding?.values;
+    if (Array.isArray(values) && values.length > 0) {
+      return l2normalize(values.map(Number));
     }
 
-    console.warn('[ML Matching] Unexpected HF API response shape:', typeof data);
+    console.warn('[ML Matching] Unexpected Gemini API response shape:', typeof data);
     return [];
   } catch (error) {
     if (attempt < 2) {
       const delay = (attempt + 1) * 1000;
-      console.warn(`[ML Matching] HF API attempt ${attempt + 1} failed, retrying in ${delay}ms:`, (error as Error).message);
+      console.warn(`[ML Matching] Gemini API attempt ${attempt + 1} failed, retrying in ${delay}ms:`, (error as Error).message);
       await new Promise(r => setTimeout(r, delay));
-      return callHFAPI(text, attempt + 1);
+      return callGeminiAPI(text, attempt + 1);
     }
-    console.warn('[ML Matching] HF API failed after 3 attempts — returning empty embedding:', (error as Error).message);
+    console.warn('[ML Matching] Gemini API failed after 3 attempts — returning empty embedding:', (error as Error).message);
     return [];
   }
 }
@@ -76,7 +86,7 @@ async function callHFAPI(text: string, attempt = 0): Promise<number[]> {
 export async function generateEmbedding(text: string): Promise<EmbeddingResult> {
   // Truncate to ~512 tokens (approx 2048 chars)
   const truncatedText = text.slice(0, 2048);
-  const embedding = await callHFAPI(truncatedText);
+  const embedding = await callGeminiAPI(truncatedText);
   return { embedding, tokens: embedding.length };
 }
 
@@ -148,11 +158,11 @@ export async function generateCandidateEmbedding(
  */
 export function getModelInfo() {
   return {
-    model: 'BAAI/bge-small-en-v1.5',
-    description: 'BGE-small-en-v1.5 via HuggingFace Inference API — 384-dim, English, fast retrieval',
-    dimensions: 384,
-    maxTokens: 8192,
-    type: 'HuggingFace Inference API',
-    endpoint: HF_MODEL_URL,
+    model: GEMINI_EMBED_MODEL,
+    description: 'Gemini gemini-embedding-001 — 384-dim (Matryoshka-truncated), L2-normalized, semantic similarity',
+    dimensions: EMBED_DIM,
+    maxTokens: 2048,
+    type: 'Google Gemini Embeddings API',
+    endpoint: GEMINI_EMBED_URL,
   };
 }
