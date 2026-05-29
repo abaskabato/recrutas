@@ -1282,9 +1282,12 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           baseFilters,
           or(
-            ...candidateSkills.map(skill =>
-              sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
-            ),
+            // GIN-indexed skill match (idx_job_postings_skills_gin via the ?|
+            // operator). candidateSkills and stored job skills both pass through
+            // normalizeSkill(), so they share canonical case — no LOWER() needed,
+            // which is what lets ?| use the index. Replaces a per-row
+            // jsonb_array_elements_text subplan per skill (~7.7s → ~50ms).
+            sql`${jobPostings.skills} ?| ARRAY[${sql.join(candidateSkills.map(s => sql`${s}`), sql`, `)}]::text[]`,
             ...(titleMatchSkills.length > 0
               ? titleMatchSkills.map(skill =>
                   sql`${jobPostings.title} ~* ${'\\y' + escapePgRegex(skill) + '\\y'}`
@@ -1330,9 +1333,12 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           baseFilters,
           or(
-            ...candidateSkills.map(skill =>
-              sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${jobPostings.skills}) AS js WHERE LOWER(js) = LOWER(${skill}))`
-            ),
+            // GIN-indexed skill match (idx_job_postings_skills_gin via the ?|
+            // operator). candidateSkills and stored job skills both pass through
+            // normalizeSkill(), so they share canonical case — no LOWER() needed,
+            // which is what lets ?| use the index. Replaces a per-row
+            // jsonb_array_elements_text subplan per skill (~7.7s → ~50ms).
+            sql`${jobPostings.skills} ?| ARRAY[${sql.join(candidateSkills.map(s => sql`${s}`), sql`, `)}]::text[]`,
             ...(titleMatchSkills.length > 0
               ? titleMatchSkills.map(skill =>
                   sql`${jobPostings.title} ~* ${'\\y' + escapePgRegex(skill) + '\\y'}`
