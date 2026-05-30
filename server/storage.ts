@@ -1591,7 +1591,7 @@ export class DatabaseStorage implements IStorage {
       // 2. Score using the same scoreJob used in the candidate feed — single source of truth
       const matches = [];
 
-      for (const { candidate_profiles: profile, users: user } of candidates as any[]) {
+      for (const { candidate_users: profile, users: user } of candidates as any[]) {
         const candSkills = parseSkillsInput(profile.skills);
         // Extract previous titles from parsing data
         const titles: string[] = [];
